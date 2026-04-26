@@ -1,3 +1,49 @@
+# Fixes the "Could not find Chrome" error on Railway by:
+# 1. Installing Chromium via apt-get during nixpacks build phase
+# 2. Telling Puppeteer to use system Chromium via PUPPETEER_EXECUTABLE_PATH
+# 3. Updating wwebjs-client to honor PUPPETEER_EXECUTABLE_PATH from env
+#
+# Run: powershell -ExecutionPolicy Bypass -File C:\Users\Nitesh\projects\NitsyClaw\fix-railway-chrome.ps1
+
+$ErrorActionPreference = "Stop"
+$root = "C:\Users\Nitesh\projects\NitsyClaw"
+$enc = New-Object System.Text.UTF8Encoding $false
+
+if (-not (Test-Path $root)) {
+    Write-Host "ERROR: NitsyClaw not found at $root" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Fixing Railway Chrome issue..." -ForegroundColor Cyan
+Write-Host ""
+
+# 1. Update nixpacks.toml — install chromium + needed libs
+$nixpacks = @'
+# Railway/Nixpacks config for NitsyClaw bot
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm", "chromium"]
+aptPkgs = ["chromium", "ca-certificates", "fonts-liberation", "libnss3", "libxss1", "libgbm1", "libgtk-3-0", "libasound2", "libcups2", "libxkbcommon0", "libxshmfence1", "libdrm2"]
+
+[phases.install]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["echo no build needed"]
+
+[start]
+cmd = "pnpm --filter @nitsyclaw/bot start"
+
+[variables]
+PUPPETEER_SKIP_DOWNLOAD = "true"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+'@
+[System.IO.File]::WriteAllText("$root\nixpacks.toml", $nixpacks, $enc)
+Write-Host "  [1/3] Updated nixpacks.toml to install chromium" -ForegroundColor Green
+
+# 2. Update wwebjs-client.ts to honor PUPPETEER_EXECUTABLE_PATH if set
+$wwebjsPath = "$root\apps\bot\src\wwebjs-client.ts"
+$wwebjs = @'
 // Concrete WhatsAppClient backed by whatsapp-web.js.
 // This is the ONLY file that imports whatsapp-web.js (Constitution R16).
 
@@ -147,3 +193,29 @@ export class WwebjsClient implements WhatsAppClient {
     await this.client.destroy();
   }
 }
+'@
+[System.IO.File]::WriteAllText($wwebjsPath, $wwebjs, $enc)
+Write-Host "  [2/3] Updated wwebjs-client.ts to honor PUPPETEER_EXECUTABLE_PATH" -ForegroundColor Green
+
+# 3. Stage and commit
+Write-Host "  [3/3] Pushing to GitHub..." -ForegroundColor Yellow
+Push-Location $root
+try {
+    git add nixpacks.toml apps/bot/src/wwebjs-client.ts 2>&1 | Out-String | Write-Host
+    git commit -m "fix: install chromium for railway, use PUPPETEER_EXECUTABLE_PATH" 2>&1 | Out-String | Write-Host
+    git push 2>&1 | Out-String | Write-Host
+} finally {
+    Pop-Location
+}
+Write-Host "  Pushed. Railway will auto-redeploy in ~30 seconds." -ForegroundColor Green
+
+Write-Host ""
+Write-Host "===================================" -ForegroundColor Cyan
+Write-Host " Fix pushed. Now in Railway:" -ForegroundColor Cyan
+Write-Host "===================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " 1. Watch Deploy Logs - new build will start automatically." -ForegroundColor White
+Write-Host " 2. Wait ~3-5 min for Chromium to install during build." -ForegroundColor White
+Write-Host " 3. Then look for QR code in logs." -ForegroundColor White
+Write-Host " 4. Scan with phone (Settings - Linked Devices - Link a Device)." -ForegroundColor White
+Write-Host ""
