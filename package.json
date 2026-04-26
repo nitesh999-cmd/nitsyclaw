@@ -16,7 +16,9 @@
     "db:migrate": "pnpm --filter @nitsyclaw/shared db:migrate",
     "db:studio": "pnpm --filter @nitsyclaw/shared db:studio",
     "bot": "pnpm --filter @nitsyclaw/bot dev",
+    "bot:loop": "pnpm --filter @nitsyclaw/bot start:loop",
     "dashboard": "pnpm --filter @nitsyclaw/dashboard dev",
+    "google:auth": "pnpm --filter @nitsyclaw/bot google:auth",
     "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
   },
   "devDependencies": {

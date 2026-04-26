@@ -1,3 +1,80 @@
+# NitsyClaw NUCLEAR fix-and-go script
+# Run: powershell -ExecutionPolicy Bypass -File C:\Users\Nitesh\projects\NitsyClaw\nuke-and-go.ps1
+#
+# What it does:
+#   1. Kills zombie node + chromium processes
+#   2. Strips BOM from every package.json + tsconfig.json
+#   3. Validates every package.json is parseable JSON
+#   4. Overwrites apps/bot/src/adapters.ts with the known-good version (so OpenAI imports never go missing again)
+#   5. Clears stale build caches + wa-session locks
+#   6. Launches dashboard + bot in two new windows
+#
+# Idempotent. Safe to run anytime things break.
+
+$ErrorActionPreference = "Stop"
+$root = "C:\Users\Nitesh\projects\NitsyClaw"
+
+if (-not (Test-Path $root)) {
+    Write-Host "ERROR: Project not found at $root" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host " NitsyClaw nuke-and-go" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+$enc = New-Object System.Text.UTF8Encoding $false
+
+# 1. Kill zombie processes
+Write-Host "[1/6] Killing zombie node + chromium..." -ForegroundColor Yellow
+Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*Puppeteer*" -or $_.Path -like "*wa-session*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+Write-Host "  done" -ForegroundColor Green
+
+# 2. Strip BOM from every JSON config file
+Write-Host "[2/6] Stripping BOM from package.json + tsconfig.json files..." -ForegroundColor Yellow
+$jsonFiles = Get-ChildItem -Path $root -Recurse -Include "package.json","tsconfig.json","tsconfig.base.json" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notlike "*node_modules*" }
+
+$fixed = 0
+foreach ($f in $jsonFiles) {
+    $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) {
+        $content = [System.IO.File]::ReadAllText($f.FullName).TrimStart([char]0xFEFF)
+        [System.IO.File]::WriteAllText($f.FullName, $content, $enc)
+        Write-Host "  fixed: $($f.FullName.Substring($root.Length+1))" -ForegroundColor Green
+        $fixed++
+    }
+}
+Write-Host "  $fixed file(s) had BOM, now clean" -ForegroundColor Green
+
+# 3. Validate every package.json
+Write-Host "[3/6] Validating package.json JSON..." -ForegroundColor Yellow
+$packageJsons = $jsonFiles | Where-Object { $_.Name -eq "package.json" }
+$bad = @()
+foreach ($f in $packageJsons) {
+    try {
+        Get-Content $f.FullName -Raw | ConvertFrom-Json | Out-Null
+    } catch {
+        $bad += $f.FullName
+        Write-Host "  INVALID: $($f.FullName.Substring($root.Length+1))" -ForegroundColor Red
+        Write-Host "    $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+if ($bad.Count -gt 0) {
+    Write-Host ""
+    Write-Host "ERROR: $($bad.Count) package.json file(s) are invalid JSON. Cannot continue." -ForegroundColor Red
+    exit 1
+}
+Write-Host "  $($packageJsons.Count) file(s) all valid" -ForegroundColor Green
+
+# 4. Overwrite adapters.ts with the known-good version
+Write-Host "[4/6] Restoring known-good adapters.ts..." -ForegroundColor Yellow
+$adaptersPath = "$root\apps\bot\src\adapters.ts"
+$adaptersContent = @'
 // Concrete adapters for AgentDeps (LLM, transcriber, web, calendar, image, embedder).
 // Real-world integrations live here. In tests these are replaced with fakes.
 
@@ -251,3 +328,31 @@ export function buildAgentDeps(args: {
     timezone: args.env.TIMEZONE,
   };
 }
+'@
+
+[System.IO.File]::WriteAllText($adaptersPath, $adaptersContent, $enc)
+Write-Host "  adapters.ts restored ($([System.IO.File]::ReadAllText($adaptersPath).Length) chars)" -ForegroundColor Green
+
+# 5. Clear caches + wa-session locks
+Write-Host "[5/6] Clearing stale caches + locks..." -ForegroundColor Yellow
+Remove-Item -Recurse -Force "$root\apps\dashboard\.next" -ErrorAction SilentlyContinue
+Remove-Item -Force "$root\apps\bot\.wa-session\session\SingletonLock" -ErrorAction SilentlyContinue
+Remove-Item -Force "$root\apps\bot\.wa-session\session\SingletonCookie" -ErrorAction SilentlyContinue
+Remove-Item -Force "$root\apps\bot\.wa-session\session\SingletonSocket" -ErrorAction SilentlyContinue
+Write-Host "  done" -ForegroundColor Green
+
+# 6. Launch
+Write-Host "[6/6] Launching dashboard + bot..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit","-Command","cd $root; Write-Host '== DASHBOARD ==' -ForegroundColor Cyan; pnpm dashboard"
+Start-Sleep -Seconds 3
+Start-Process powershell -ArgumentList "-NoExit","-Command","cd $root; Write-Host '== BOT ==' -ForegroundColor Cyan; pnpm bot:loop"
+Write-Host "  two windows opened" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host " Done." -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " Watch the BOT window for [boot] WhatsApp ready" -ForegroundColor White
+Write-Host " Then on WhatsApp: send 'brief me'" -ForegroundColor White
+Write-Host ""

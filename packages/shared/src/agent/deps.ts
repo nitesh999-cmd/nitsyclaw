@@ -56,8 +56,8 @@ export interface CalendarClient {
     participants: string[];
     description?: string;
   }): Promise<{ id: string; htmlLink?: string }>;
+  listEventsToday?(timezone: string): Promise<Array<{ title: string; start: Date }>>;
 }
-
 export interface ImageAnalyzer {
   /** Returns structured fields extracted from a receipt image. */
   extractReceipt(image: Buffer, mimetype: string): Promise<{

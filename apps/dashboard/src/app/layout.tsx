@@ -5,13 +5,14 @@ export const metadata = { title: "NitsyClaw", description: "Personal AI control 
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
- <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
         <div className="min-h-screen flex">
           <aside className="w-56 border-r border-neutral-800 p-4">
             <h1 className="text-lg font-semibold mb-6">NitsyClaw</h1>
             <nav className="flex flex-col gap-2 text-sm">
               <a className="hover:underline" href="/">Today</a>
+              <a className="hover:underline" href="/chat">Chat</a>
               <a className="hover:underline" href="/conversations">Conversations</a>
               <a className="hover:underline" href="/memory">Memory</a>
               <a className="hover:underline" href="/reminders">Reminders</a>

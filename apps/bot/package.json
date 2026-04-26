@@ -6,17 +6,21 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "start:loop": "node --experimental-vm-modules -e \"const{spawn}=require('child_process');function run(){const p=spawn('npx',['tsx','src/index.ts'],{stdio:'inherit',shell:true});p.on('exit',c=>{console.log(`[loop] bot exited with ${c}, restarting in 5s...`);setTimeout(run,5000);});}run();\"",
     "build": "tsc -p .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "google:auth": "tsx src/google-auth.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
     "@nitsyclaw/shared": "workspace:*",
-    "dotenv": "^17.4.2",
+    "google-auth-library": "^9.14.0",
+    "googleapis": "^144.0.0",
     "node-cron": "^3.0.3",
     "openai": "^4.68.0",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.26.0"
+    "whatsapp-web.js": "^1.26.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node-cron": "^3.0.11",

@@ -18,10 +18,9 @@ export async function summarizeToday(args: {
 }): Promise<PlateSummary> {
   const start = startOfDay(args.now);
   const end = addDays(start, 1);
-  const events = await args.deps.calendar
-    .suggestSlots({ durationMin: 0, participants: [], window: { start, end } })
-    .catch(() => [] as Date[])
-    .then(() => [] as Array<{ title: string; start: Date }>); // suggestSlots is for finding free slots; events come from listEvents (out of v1 scope).
+  const events = args.deps.calendar.listEventsToday
+    ? await args.deps.calendar.listEventsToday(args.deps.timezone).catch(() => [])
+    : [];
   // For v1 we surface reminders + a placeholder for events; calendar event list is added in P1.
   const reminders = (await dueReminders(args.deps.db, end)).map((r) => ({ text: r.text, fireAt: r.fireAt }));
 

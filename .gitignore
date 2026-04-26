@@ -40,3 +40,6 @@ apps/dashboard/.env
 
 # Drizzle migrations are committed; build artifacts are not
 packages/shared/dist/
+
+google-credentials.json
+google-token.json

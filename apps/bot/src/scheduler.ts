@@ -34,11 +34,14 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       try {
         const now = opts.deps.now();
         if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+       const events = opts.deps.calendar.listEventsToday
+          ? await opts.deps.calendar.listEventsToday(opts.deps.timezone).catch(() => [])
+          : [];
         await runMorningBrief({
           now,
           ownerPhone: opts.ownerPhone,
           deps: opts.deps,
-          inputs: { events: [], reminders: [] },
+          inputs: { events, reminders: [] },
         });
       } catch (e) {
         console.error("[cron:brief] error", e);
