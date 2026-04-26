@@ -1,3 +1,24 @@
+# Prep NitsyClaw bot for Railway deploy.
+# - Updates google-auth.ts to load creds from env vars (with file fallback)
+# - Adds NixPacks config for Railway
+# - Adds a Procfile so Railway auto-detects the start command
+# Run: powershell -ExecutionPolicy Bypass -File C:\Users\Nitesh\projects\NitsyClaw\prep-for-railway.ps1
+
+$ErrorActionPreference = "Stop"
+$root = "C:\Users\Nitesh\projects\NitsyClaw"
+$enc = New-Object System.Text.UTF8Encoding $false
+
+if (-not (Test-Path $root)) {
+    Write-Host "ERROR: NitsyClaw not found at $root" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Prepping for Railway deploy..." -ForegroundColor Cyan
+Write-Host ""
+
+# 1. Rewrite google-auth.ts to support env-var creds
+$googleAuthContent = @'
 import { OAuth2Client } from "google-auth-library";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -105,3 +126,60 @@ if (process.argv[1]?.endsWith("google-auth.ts") || process.argv[1]?.endsWith("go
     process.exit(1);
   });
 }
+'@
+[System.IO.File]::WriteAllText("$root\apps\bot\src\google-auth.ts", $googleAuthContent, $enc)
+Write-Host "  [1/4] Updated google-auth.ts to support env-var creds" -ForegroundColor Green
+
+# 2. Add a Procfile for Railway
+$procfileContent = "web: pnpm --filter @nitsyclaw/bot start`n"
+[System.IO.File]::WriteAllText("$root\Procfile", $procfileContent, $enc)
+Write-Host "  [2/4] Created Procfile for Railway" -ForegroundColor Green
+
+# 3. Add a nixpacks.toml so Railway picks Node 20 and pnpm
+$nixpacksContent = @'
+# Railway/Nixpacks config for NitsyClaw bot
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm"]
+
+[phases.install]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["echo no build needed"]
+
+[start]
+cmd = "pnpm --filter @nitsyclaw/bot start"
+'@
+[System.IO.File]::WriteAllText("$root\nixpacks.toml", $nixpacksContent, $enc)
+Write-Host "  [3/4] Created nixpacks.toml" -ForegroundColor Green
+
+# 4. Add a railway.json for explicit Railway config
+$railwayContent = @'
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "pnpm --filter @nitsyclaw/bot start",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+'@
+[System.IO.File]::WriteAllText("$root\railway.json", $railwayContent, $enc)
+Write-Host "  [4/4] Created railway.json" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "===================================" -ForegroundColor Cyan
+Write-Host " Prep done. Now:" -ForegroundColor Cyan
+Write-Host "===================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " 1. Push to GitHub:" -ForegroundColor White
+Write-Host "    cd C:\Users\Nitesh\projects\NitsyClaw" -ForegroundColor Yellow
+Write-Host "    git add ." -ForegroundColor Yellow
+Write-Host "    git commit -m `"chore: railway prep`"" -ForegroundColor Yellow
+Write-Host "    git push" -ForegroundColor Yellow
+Write-Host ""
+Write-Host " 2. Then sign up at railway.com and continue per chat instructions." -ForegroundColor White
+Write-Host ""

@@ -1,0 +1,12 @@
+# Railway/Nixpacks config for NitsyClaw bot
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm"]
+
+[phases.install]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["echo no build needed"]
+
+[start]
+cmd = "pnpm --filter @nitsyclaw/bot start"
