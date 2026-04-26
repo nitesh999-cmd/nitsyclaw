@@ -37,7 +37,6 @@ export class WwebjsClient implements WhatsAppClient {
       args: PUPPETEER_ARGS,
       handleSIGINT: false,
     };
-    // If PUPPETEER_EXECUTABLE_PATH is set (Railway/Docker), use it
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
       puppeteerOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
@@ -68,11 +67,9 @@ export class WwebjsClient implements WhatsAppClient {
   private wireEvents(): void {
     this.client.on("qr", (qr) => {
       console.log("[wwebjs] QR code received - scan with your phone");
-qrcode.generate(qr, { small: true });
-const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(qr);
-console.log("[wwebjs] QR also available at: " + qrUrl);
-const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(qr);
-console.log("[wwebjs] QR also available at: " + qrUrl);
+      qrcode.generate(qr, { small: true });
+      const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" + encodeURIComponent(qr);
+      console.log("[wwebjs] QR also available at: " + qrUrl);
     });
     this.client.on("ready", () => {
       console.log("[wwebjs] client ready");
