@@ -68,7 +68,9 @@ export class WwebjsClient implements WhatsAppClient {
   private wireEvents(): void {
     this.client.on("qr", (qr) => {
       console.log("[wwebjs] QR code received - scan with your phone");
-      qrcode.generate(qr, { small: true });
+qrcode.generate(qr, { small: true });
+const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(qr);
+console.log("[wwebjs] QR also available at: " + qrUrl);
     });
     this.client.on("ready", () => {
       console.log("[wwebjs] client ready");
