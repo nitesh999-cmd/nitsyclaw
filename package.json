@@ -1,0 +1,34 @@
+{
+  "name": "nitsyclaw",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @nitsyclaw/shared db:generate",
+    "db:migrate": "pnpm --filter @nitsyclaw/shared db:migrate",
+    "db:studio": "pnpm --filter @nitsyclaw/shared db:studio",
+    "bot": "pnpm --filter @nitsyclaw/bot dev",
+    "dashboard": "pnpm --filter @nitsyclaw/dashboard dev",
+    "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "@playwright/test": "^1.48.0",
+    "eslint": "^9.12.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

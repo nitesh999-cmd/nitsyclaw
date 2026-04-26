@@ -1,0 +1,42 @@
+﻿# Secrets
+.env
+.env.local
+.env.*.local
+!.env.local.example
+
+# Sessions / state
+.wa-session/
+*.sqlite
+*.db
+logs/
+*.log
+
+# Node
+node_modules/
+.pnpm-store/
+.next/
+dist/
+build/
+.cache/
+.turbo/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Tests
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# OS
+Thumbs.db
+
+# Dashboard env copy (never commit secrets even if duplicated)
+apps/dashboard/.env.local
+apps/dashboard/.env
+
+# Drizzle migrations are committed; build artifacts are not
+packages/shared/dist/
