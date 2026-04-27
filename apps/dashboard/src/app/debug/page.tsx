@@ -1,73 +1,56 @@
-// Diagnostic page - shows which environment variables are actually visible
-// at SSR runtime. Hit /debug to see the truth.
+// Diagnostic page — shows DATABASE_URL boundary characters and shape.
+// Visit /debug after deploy to see exactly what the env contains at runtime.
 
 export const dynamic = "force-dynamic";
 
-export default function DebugPage() {
-  const keys = [
-    "DATABASE_URL",
-    "DATABASE_URL_DIRECT",
-    "ANTHROPIC_API_KEY",
-    "OPENAI_API_KEY",
-    "ENCRYPTION_KEY",
-    "WHATSAPP_OWNER_NUMBER",
-    "TIMEZONE",
-    "MS_CLIENT_ID",
-    "MS_TENANT_ID",
-    "MS_TOKEN_JSON",
-    "GOOGLE_TOKEN_JSON",
-    "GOOGLE_TOKEN_SOLARHARBOUR_JSON",
-    "GOOGLE_CREDENTIALS_JSON",
-    "NODE_ENV",
-    "VERCEL",
-    "VERCEL_ENV",
+interface DiagnosticRow {
+  label: string;
+  value: string;
+}
+
+export default function DebugPage(): JSX.Element {
+  const v: string | undefined = process.env.DATABASE_URL;
+  const head: string = v ? v.slice(0, 20) : "<undef>";
+  const tail: string = v ? v.slice(-20) : "<undef>";
+  const hasLeadingDouble: boolean = v?.startsWith('"') ?? false;
+  const hasTrailingDouble: boolean = v?.endsWith('"') ?? false;
+  const hasLeadingSingle: boolean = v?.startsWith("'") ?? false;
+  const hasTrailingSingle: boolean = v?.endsWith("'") ?? false;
+  const hasNewline: boolean = v ? /\r|\n/.test(v) : false;
+  const hasLeadingSpace: boolean = v ? /^\s/.test(v) : false;
+  const startsWithProto: boolean =
+    (v?.startsWith("postgresql://") ?? false) ||
+    (v?.startsWith("postgres://") ?? false);
+
+  const rows: DiagnosticRow[] = [
+    { label: "length", value: String(v?.length ?? "<undef>") },
+    { label: "head (first 20)", value: JSON.stringify(head) },
+    { label: "tail (last 20)", value: JSON.stringify(tail) },
+    { label: "starts postgresql:// or postgres://", value: String(startsWithProto) },
+    { label: "leading double-quote", value: String(hasLeadingDouble) },
+    { label: "trailing double-quote", value: String(hasTrailingDouble) },
+    { label: "leading single-quote", value: String(hasLeadingSingle) },
+    { label: "trailing single-quote", value: String(hasTrailingSingle) },
+    { label: "CR/LF inside", value: String(hasNewline) },
+    { label: "leading whitespace", value: String(hasLeadingSpace) },
+    { label: "NODE_ENV", value: String(process.env.NODE_ENV ?? "<undef>") },
+    { label: "VERCEL_ENV", value: String(process.env.VERCEL_ENV ?? "<undef>") },
   ];
 
-  const rows = keys.map((k) => {
-    const v = process.env[k];
-    let display = "<undefined>";
-    if (v !== undefined) {
-      if (v.length > 80) display = `${v.slice(0, 40)}... [${v.length} chars]`;
-      else display = v;
-      // Mask secrets
-      if (k.includes("KEY") || k.includes("PASSWORD") || k.includes("SECRET") || k.includes("TOKEN")) {
-        display = `<set, ${v.length} chars>`;
-      }
-      if (k === "DATABASE_URL" || k === "DATABASE_URL_DIRECT") {
-        // Show shape but redact password
-        display = v.replace(/:[^:@]+@/, ":<redacted>@");
-      }
-    }
-    return { k, display, present: v !== undefined };
-  });
-
   return (
-    <div style={{ fontFamily: "monospace", padding: "2rem" }}>
-      <h1>NitsyClaw Runtime Env Probe</h1>
-      <p>This page shows which environment variables are actually accessible at SSR time.</p>
-      <table style={{ borderCollapse: "collapse", marginTop: "1rem" }}>
-        <thead>
-          <tr style={{ borderBottom: "2px solid black" }}>
-            <th style={{ textAlign: "left", padding: "0.5rem 1rem" }}>Key</th>
-            <th style={{ textAlign: "left", padding: "0.5rem 1rem" }}>Value</th>
-            <th style={{ textAlign: "left", padding: "0.5rem 1rem" }}>Present</th>
-          </tr>
-        </thead>
+    <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13 }}>
+      <h1>NitsyClaw Runtime Env Diagnostics</h1>
+      <p>What process.env.DATABASE_URL actually looks like at SSR time.</p>
+      <table style={{ borderCollapse: "collapse", marginTop: 16 }}>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.k} style={{ borderBottom: "1px solid #ddd" }}>
-              <td style={{ padding: "0.5rem 1rem" }}>{r.k}</td>
-              <td style={{ padding: "0.5rem 1rem" }}>{r.display}</td>
-              <td style={{ padding: "0.5rem 1rem", color: r.present ? "green" : "red" }}>
-                {r.present ? "YES" : "NO"}
-              </td>
+            <tr key={r.label} style={{ borderBottom: "1px solid #ddd" }}>
+              <td style={{ padding: "4px 16px 4px 0", color: "#555" }}>{r.label}</td>
+              <td style={{ padding: "4px 0" }}>{r.value}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p style={{ marginTop: "2rem", fontSize: "0.875rem", color: "#666" }}>
-        If DATABASE_URL shows NO, the env is not reaching SSR. Check next.config.js env whitelist + Vercel env vars.
-      </p>
     </div>
   );
 }
