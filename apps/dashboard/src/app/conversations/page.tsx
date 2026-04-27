@@ -3,52 +3,68 @@ import { desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+interface MessageMetadata {
+  masked?: string;
+}
+
 export default async function ConversationsPage() {
   let rows: Awaited<ReturnType<typeof load>> = [];
+  let errorMsg: string | null = null;
   try {
     rows = await load();
-  } catch (e: any) {
-    console.error("[Conversations] DB error:", e);
+  } catch (e: unknown) {
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+
+  if (errorMsg) {
     return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-4">Conversations</h1>
-        <div className="p-4 bg-red-50 border border-red-200 rounded">
-          <p className="text-sm font-medium text-red-900">Database error</p>
-          <pre className="text-xs text-red-700 mt-2 whitespace-pre-wrap">{e?.message ?? String(e)}</pre>
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">Conversations</h2>
+        <div className="p-4 bg-red-950/40 border border-red-900 rounded text-sm">
+          <p className="font-medium text-red-300">Database error</p>
+          <pre className="text-xs text-red-400 mt-2 whitespace-pre-wrap">{errorMsg}</pre>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Conversations</h1>
-      <p className="text-xs text-neutral-500 mb-4">
-        Body fields are encrypted at rest. Last 100 messages with intent detection.
+    <div className="space-y-4">
+      <h2 className="text-2xl font-semibold">Conversations</h2>
+      <p className="text-xs text-neutral-500">
+        Last {rows.length} messages. Body content is encrypted at rest and not displayed here.
       </p>
       {rows.length === 0 ? (
         <p className="text-sm text-neutral-500">No messages yet.</p>
       ) : (
         <table className="w-full text-sm" data-testid="conversations-table">
           <thead>
-            <tr className="text-left text-neutral-500">
-              <th className="py-1">Time</th>
-              <th>Dir</th>
-              <th>From</th>
-              <th>Intent</th>
-              <th>Body</th>
+            <tr className="text-left text-neutral-400 border-b border-neutral-800">
+              <th className="py-2 pr-4">Time</th>
+              <th className="pr-4">Direction</th>
+              <th className="pr-4">From</th>
+              <th className="pr-4">Intent</th>
+              <th>Media</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((m) => (
-              <tr key={m.id} className="border-t border-neutral-800">
-                <td className="py-1">{new Date(m.createdAt).toLocaleString()}</td>
-                <td>{m.direction}</td>
-                <td className="text-xs">{(m.metadata as { masked?: string })?.masked ?? "—"}</td>
-                <td>{m.intent ?? "—"}</td>
-                <td className="truncate max-w-md">{m.body.slice(0, 80)}</td>
-              </tr>
-            ))}
+            {rows.map((m) => {
+              const meta = (m.metadata ?? {}) as MessageMetadata;
+              const fromMasked = meta.masked ?? m.fromNumber.replace(/(\d{4})\d+(\d{4})/, "$1****$2");
+              return (
+                <tr key={m.id} className="border-b border-neutral-900">
+                  <td className="py-2 pr-4 whitespace-nowrap">{new Date(m.createdAt).toLocaleString()}</td>
+                  <td className="pr-4">
+                    <span className={m.direction === "in" ? "text-blue-400" : "text-green-400"}>
+                      {m.direction}
+                    </span>
+                  </td>
+                  <td className="pr-4 text-xs text-neutral-300">{fromMasked}</td>
+                  <td className="pr-4 text-xs">{m.intent ?? "—"}</td>
+                  <td className="text-xs text-neutral-400">{m.mediaType ?? "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

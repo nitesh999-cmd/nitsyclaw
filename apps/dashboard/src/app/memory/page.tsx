@@ -5,32 +5,58 @@ export const dynamic = "force-dynamic";
 
 export default async function MemoryPage() {
   let rows: Awaited<ReturnType<typeof load>> = [];
+  let errorMsg: string | null = null;
   try {
     rows = await load();
-  } catch (e: any) {
-    console.error("[Memory] DB error:", e);
+  } catch (e: unknown) {
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+
+  if (errorMsg) {
     return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-4">Memory</h1>
-        <div className="p-4 bg-red-50 border border-red-200 rounded">
-          <p className="text-sm font-medium text-red-900">Database error</p>
-          <pre className="text-xs text-red-700 mt-2 whitespace-pre-wrap">{e?.message ?? String(e)}</pre>
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">Memory</h2>
+        <div className="p-4 bg-red-950/40 border border-red-900 rounded text-sm">
+          <p className="font-medium text-red-300">Database error</p>
+          <pre className="text-xs text-red-400 mt-2 whitespace-pre-wrap">{errorMsg}</pre>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Memory</h1>
+    <div className="space-y-4">
+      <h2 className="text-2xl font-semibold">Memory</h2>
+      <p className="text-xs text-neutral-500">
+        {rows.length} entries. Long-term notes, facts, and pinned info.
+      </p>
       {rows.length === 0 ? (
         <p className="text-sm text-neutral-500">No memories yet.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="p-3 bg-white border rounded">
-              <div className="text-xs text-neutral-500 mb-1">{r.kind}</div>
-              <div className="text-sm">{r.content}</div>
+            <li
+              key={r.id}
+              className="p-4 bg-neutral-900 border border-neutral-800 rounded"
+            >
+              <div className="flex items-center gap-2 mb-2 text-xs">
+                <span className="px-2 py-0.5 bg-neutral-800 rounded text-neutral-300 uppercase tracking-wide">
+                  {r.kind}
+                </span>
+                <span className="text-neutral-500">{new Date(r.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="text-sm text-neutral-100 whitespace-pre-wrap">
+                {r.content && r.content.trim().length > 0 ? r.content : <span className="text-neutral-500 italic">(empty)</span>}
+              </div>
+              {r.tags && r.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {r.tags.map((t) => (
+                    <span key={t} className="text-xs px-1.5 py-0.5 bg-neutral-800 text-neutral-400 rounded">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </li>
           ))}
         </ul>
