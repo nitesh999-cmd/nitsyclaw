@@ -8,7 +8,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   TRANSCRIPTION_MODEL: z.string().default("whisper-1"),
   DATABASE_URL: z.string().min(1),
-  DATABASE_URL_DIRECT: z.string().optional(),
+  DATABASE_URL_DIRECT: z.string().optional().optional(),
   WHATSAPP_SESSION_DIR: z.string().default(".wa-session"),
   WHATSAPP_OWNER_NUMBER: z.string().min(1),
   ENCRYPTION_KEY: z.string().optional(),
