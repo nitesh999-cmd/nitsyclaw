@@ -251,3 +251,85 @@ export function buildAgentDeps(args: {
     timezone: args.env.TIMEZONE,
   };
 }
+// ====================================================================
+// Multi-account email + calendar aggregation
+// ====================================================================
+import { google as googleApiAgg } from "googleapis";
+import { listGoogleAccounts, loadOAuthClient as loadGoogleOAuthClientAgg } from "./google-auth.js";
+import { fetchMsEventsToday, fetchMsUnread } from "./microsoft-graph.js";
+import { fetchYahooUnread } from "./yahoo-imap.js";
+
+export interface AggregatedEmail {
+  source: string;
+  from: string;
+  subject: string;
+  date: Date;
+  snippet?: string;
+}
+
+export interface AggregatedEvent {
+  source: string;
+  title: string;
+  start: Date;
+}
+
+export async function fetchAllUnreadEmails(perAccountLimit = 5): Promise<AggregatedEmail[]> {
+  const out: AggregatedEmail[] = [];
+  for (const label of listGoogleAccounts()) {
+    try {
+      const auth = loadGoogleOAuthClientAgg(label);
+      const gmail = googleApiAgg.gmail({ version: "v1", auth });
+      const list = await gmail.users.messages.list({ userId: "me", q: "is:unread in:inbox", maxResults: perAccountLimit });
+      for (const msg of list.data.messages ?? []) {
+        const detail = await gmail.users.messages.get({ userId: "me", id: msg.id!, format: "metadata", metadataHeaders: ["From", "Subject", "Date"] });
+        const headers = detail.data.payload?.headers ?? [];
+        const get = (n: string) => headers.find((h) => h.name === n)?.value ?? "";
+        out.push({
+          source: `Gmail (${label})`,
+          from: get("From"),
+          subject: get("Subject") || "(no subject)",
+          date: new Date(get("Date") || Date.now()),
+          snippet: detail.data.snippet ?? undefined,
+        });
+      }
+    } catch (err) { console.error(`[email] Gmail/${label} failed:`, err); }
+  }
+  try { out.push(...(await fetchMsUnread(perAccountLimit))); } catch (err) { console.error("[email] M365 failed:", err); }
+  try { out.push(...(await fetchYahooUnread(perAccountLimit))); } catch (err) { console.error("[email] Yahoo failed:", err); }
+  out.sort((a, b) => b.date.getTime() - a.date.getTime());
+  return out;
+}
+
+export async function fetchAllEventsToday(timezone: string): Promise<AggregatedEvent[]> {
+  const out: AggregatedEvent[] = [];
+  for (const label of listGoogleAccounts()) {
+    try {
+      const auth = loadGoogleOAuthClientAgg(label);
+      const cal = googleApiAgg.calendar({ version: "v3", auth });
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      const list = await cal.events.list({
+        calendarId: "primary",
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        singleEvents: true,
+        orderBy: "startTime",
+        timeZone: timezone,
+      });
+      for (const e of list.data.items ?? []) {
+        out.push({
+          source: `Google (${label})`,
+          title: e.summary ?? "(no title)",
+          start: new Date(e.start?.dateTime ?? e.start?.date ?? Date.now()),
+        });
+      }
+    } catch (err) { console.error(`[cal] Google/${label} failed:`, err); }
+  }
+  try {
+    const ms = await fetchMsEventsToday(timezone);
+    for (const e of ms) out.push({ source: "Outlook", title: e.title, start: e.start });
+  } catch (err) { console.error("[cal] M365 failed:", err); }
+  out.sort((a, b) => a.start.getTime() - b.start.getTime());
+  return out;
+}

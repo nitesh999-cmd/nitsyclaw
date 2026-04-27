@@ -1,10 +1,11 @@
-// node-cron schedules for: morning brief, due reminders, memory pruner, backups.
-// Quiet hours respected per env.
+// node-cron schedules for: morning brief (with multi-account email + calendar),
+// due reminders, memory pruner.
 
 import cron from "node-cron";
 import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
+import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 
 export interface SchedulerOpts {
   deps: AgentDeps;
@@ -16,8 +17,7 @@ export interface SchedulerOpts {
 export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
   const tasks: cron.ScheduledTask[] = [];
 
-  // Every minute — fire any due reminders. Reminders ignore quiet hours; user
-  // explicitly asked for them.
+  // Every minute â€” fire any due reminders.
   tasks.push(
     cron.schedule("* * * * *", async () => {
       try {
@@ -28,20 +28,25 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
     }),
   );
 
-  // 7am daily morning brief.
+  // 7am daily morning brief â€” multi-account aggregation.
   tasks.push(
     cron.schedule("0 7 * * *", async () => {
       try {
         const now = opts.deps.now();
         if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
-       const events = opts.deps.calendar.listEventsToday
-          ? await opts.deps.calendar.listEventsToday(opts.deps.timezone).catch(() => [])
-          : [];
+
+        const events = await fetchAllEventsToday(opts.deps.timezone).catch(() => []);
+        const unreadEmails = await fetchAllUnreadEmails(3).catch(() => []);
+
         await runMorningBrief({
           now,
           ownerPhone: opts.ownerPhone,
           deps: opts.deps,
-          inputs: { events, reminders: [] },
+          inputs: {
+            events: events.map((e) => ({ title: e.title, start: e.start, source: e.source })),
+            reminders: [],
+            unreadEmails: unreadEmails.map((m) => ({ source: m.source, from: m.from, subject: m.subject })),
+          },
         });
       } catch (e) {
         console.error("[cron:brief] error", e);
@@ -49,10 +54,9 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
     }),
   );
 
-  // 3am daily — memory pruner stub (R6 — purge raw logs >30 days).
+  // 3am daily â€” memory pruner stub.
   tasks.push(
     cron.schedule("0 3 * * *", async () => {
-      // TODO v1.1: implement pruning. For v1 it's a noop logged for visibility.
       console.log("[cron:prune] noop placeholder");
     }),
   );

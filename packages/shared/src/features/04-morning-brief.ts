@@ -1,4 +1,5 @@
-// Feature 4: Morning brief — daily 7am cron.
+// Feature 4: Morning brief â€” daily 7am cron, also on-demand via "brief me".
+// Aggregates events + unread emails from ALL configured email accounts.
 
 import { z } from "zod";
 import { upsertBrief } from "../db/repo.js";
@@ -12,46 +13,53 @@ export interface BriefSections {
 }
 
 export interface BriefInputs {
-  events: Array<{ title: string; start: Date }>;
+  events: Array<{ title: string; start: Date; source?: string }>;
   reminders: Array<{ text: string; fireAt: Date }>;
+  unreadEmails?: Array<{ source: string; from: string; subject: string }>;
   topPriority?: string;
   weatherSummary?: string;
 }
 
-/**
- * Pure builder — turn structured inputs into the brief string.
- */
 export function buildBrief(args: { now: Date; timezone: string; inputs: BriefInputs }): BriefSections {
   const date = formatBriefDate(args.now, args.timezone);
   const lines: string[] = [`Good morning. Brief for ${date}:`];
 
-  if (args.inputs.topPriority) lines.push(`\n⭐ Top priority: ${args.inputs.topPriority}`);
+  if (args.inputs.topPriority) lines.push(`\nâ­ Top priority: ${args.inputs.topPriority}`);
 
+  // Events from all calendars
   if (args.inputs.events.length) {
-    lines.push("\n📅 Calendar:");
-    for (const ev of args.inputs.events.slice(0, 6)) {
-      const t = ev.start.toISOString().slice(11, 16);
-      lines.push(`  • ${t} — ${ev.title}`);
+    lines.push("\nðŸ“… Calendar:");
+    for (const ev of args.inputs.events.slice(0, 8)) {
+      const t = ev.start.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: args.timezone });
+      const src = ev.source ? ` [${ev.source}]` : "";
+      lines.push(`  â€¢ ${t} â€” ${ev.title}${src}`);
     }
   } else {
-    lines.push("\n📅 Calendar: nothing scheduled");
+    lines.push("\nðŸ“… Calendar: nothing scheduled");
   }
 
+  // Reminders today
   if (args.inputs.reminders.length) {
-    lines.push("\n⏰ Reminders today:");
-    for (const r of args.inputs.reminders.slice(0, 5)) {
-      lines.push(`  • ${r.text}`);
+    lines.push("\nâ° Reminders today:");
+    for (const r of args.inputs.reminders.slice(0, 6)) {
+      lines.push(`  â€¢ ${r.text}`);
     }
   }
 
-  if (args.inputs.weatherSummary) lines.push(`\n☁️ Weather: ${args.inputs.weatherSummary}`);
+  // Top unread email digest
+  if (args.inputs.unreadEmails && args.inputs.unreadEmails.length) {
+    lines.push(`\nðŸ“§ Top unread (${args.inputs.unreadEmails.length} across accounts):`);
+    for (const e of args.inputs.unreadEmails.slice(0, 8)) {
+      const fromName = e.from.match(/"?([^"<]+?)"?\s*</)?.[1] ?? e.from.split("@")[0];
+      lines.push(`  â€¢ [${e.source}] ${fromName.trim()} â€” ${e.subject}`);
+    }
+  }
+
+  if (args.inputs.weatherSummary) lines.push(`\nâ˜ï¸ Weather: ${args.inputs.weatherSummary}`);
 
   return { date, body: lines.join("\n") };
 }
 
-/**
- * Compose + send + persist. Used by the cron job.
- */
 export async function runMorningBrief(args: {
   now: Date;
   ownerPhone: string;
@@ -67,17 +75,30 @@ export async function runMorningBrief(args: {
 export function registerMorningBrief(registry: ToolRegistry): void {
   registry.register({
     name: "send_morning_brief_now",
-    description: "Compose and send today's morning brief immediately.",
+    description: "Compose and send today's morning brief immediately. Pulls events + unread emails from all configured accounts (Google + Outlook).",
     inputSchema: z.object({
       topPriority: z.string().optional(),
     }),
     handler: async (input: { topPriority?: string }, ctx: ToolContext) => {
-      // For on-demand invocation we have minimal inputs; cron path supplies real ones.
+      // Lazy-load aggregator to avoid pulling googleapis in tests
+      const { fetchAllEventsToday, fetchAllUnreadEmails } = await import("../../../../apps/bot/src/adapters.js").catch(() => ({
+        fetchAllEventsToday: async () => [] as any[],
+        fetchAllUnreadEmails: async () => [] as any[],
+      }));
+
+      const events = await fetchAllEventsToday(ctx.timezone).catch(() => [] as any[]);
+      const unreadEmails = await fetchAllUnreadEmails(3).catch(() => [] as any[]);
+
       return runMorningBrief({
         now: ctx.now,
         ownerPhone: ctx.userPhone,
         deps: ctx.deps,
-        inputs: { events: [], reminders: [], topPriority: input.topPriority },
+        inputs: {
+          events: events.map((e: any) => ({ title: e.title, start: e.start, source: e.source })),
+          reminders: [],
+          unreadEmails: unreadEmails.map((m: any) => ({ source: m.source, from: m.from, subject: m.subject })),
+          topPriority: input.topPriority,
+        },
       });
     },
   });
