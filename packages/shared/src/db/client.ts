@@ -14,7 +14,7 @@ export function getDb(url?: string): DB {
   if (cached && !url) return cached;
   const connectionString = url ?? process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error("DATABASE_URL is required to construct DB client");
+    throw new Error(`DATABASE_URL is required to construct DB client. process.env.DATABASE_URL=${process.env.DATABASE_URL ? "set(" + process.env.DATABASE_URL.length + ")" : "undefined"} provided=${url ? "yes" : "no"}`);
   }
   const client = postgres(connectionString, {
     max: 1,
