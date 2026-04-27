@@ -1,4 +1,4 @@
-﻿# Secrets
+# Secrets
 .env
 .env.local
 .env.*.local
@@ -43,3 +43,6 @@ packages/shared/dist/
 
 google-credentials.json
 google-token.json
+
+apps/dashboard/.env.production.local
+apps/dashboard/.env.vercel.current
