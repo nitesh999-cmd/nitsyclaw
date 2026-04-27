@@ -8,7 +8,7 @@ interface DiagnosticRow {
   value: string;
 }
 
-export default function DebugPage(): JSX.Element {
+export default function DebugPage() {
   const v: string | undefined = process.env.DATABASE_URL;
   const head: string = v ? v.slice(0, 20) : "<undef>";
   const tail: string = v ? v.slice(-20) : "<undef>";
