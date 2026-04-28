@@ -32,14 +32,18 @@ export default function ChatPage() {
     setSelectedVoice(localStorage.getItem("nitsyclaw-voice") || "");
   }, []);
 
+  /** Queue an utterance. Does NOT cancel in-progress utterances —
+   *  callers responsible for cancelling at start of new reply (so streamed
+   *  sentences can queue up naturally without each one cutting off the prior). */
   function speak(text: string) {
     if (!voiceOut || typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel(); // stop any in-progress utterance
-    // Strip markdown, emoji-heavy decoration so TTS doesn't read "asterisk asterisk"
+    // Strip markdown / decoration so TTS doesn't read "asterisk asterisk"
     const clean = text
       .replace(/\*\*([^*]+)\*\*/g, "$1")
       .replace(/`([^`]+)`/g, "$1")
-      .replace(/^#+\s+/gm, "");
+      .replace(/^#+\s+/gm, "")
+      .trim();
+    if (!clean) return;
     const u = new SpeechSynthesisUtterance(clean.slice(0, 1500));
     if (selectedVoice) {
       const match = voices.find((v) => v.name === selectedVoice);
@@ -138,22 +142,98 @@ export default function ChatPage() {
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
-    const next: Msg[] = [...messages, { role: "user", content: text }];
+    const userMsg: Msg = { role: "user", content: text };
+    const next: Msg[] = [...messages, userMsg];
     setMessages(next);
     setInput("");
     setBusy(true);
+
+    // Cancel any in-progress speech from a prior reply before this new one.
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Append empty assistant message that we'll fill via streaming.
+    setMessages((cur) => [...cur, { role: "assistant", content: "" }]);
+
+    let spokenSoFar = 0; // index in finalText we've already passed to TTS
+    let finalText = "";
+
     try {
-      const r = await fetch("/api/chat", {
+      const r = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: next }),
       });
-      const data = await r.json();
-      const reply = data.reply ?? "(no reply)";
-      setMessages((cur) => [...cur, { role: "assistant", content: reply }]);
-      speak(reply); // voice out (best-effort, no-op if disabled or unsupported)
+      if (!r.body) throw new Error("No response body");
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      const handleSpeakBoundary = () => {
+        if (!voiceOut) return;
+        // Find sentence terminator (. ! ? \n) past spokenSoFar
+        const tail = finalText.slice(spokenSoFar);
+        const m = tail.match(/.+?[.!?\n](?:\s|$)/);
+        if (m) {
+          const sentence = m[0].trim();
+          if (sentence) speak(sentence);
+          spokenSoFar += m[0].length;
+        }
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let event: { type: string; [k: string]: unknown };
+          try { event = JSON.parse(line); } catch { continue; }
+          if (event.type === "text" && typeof event.delta === "string") {
+            finalText += event.delta;
+            setMessages((cur) => {
+              const copy = [...cur];
+              const last = copy[copy.length - 1];
+              if (last && last.role === "assistant") {
+                copy[copy.length - 1] = { role: "assistant", content: finalText };
+              }
+              return copy;
+            });
+            handleSpeakBoundary();
+          } else if (event.type === "done") {
+            // Speak any remaining unspoken text (final fragment without terminator)
+            const remaining = finalText.slice(spokenSoFar).trim();
+            if (remaining && voiceOut) speak(remaining);
+            // /addfeature path returns reply directly under "reply"
+            if (typeof event.reply === "string" && !finalText) {
+              finalText = event.reply;
+              setMessages((cur) => {
+                const copy = [...cur];
+                copy[copy.length - 1] = { role: "assistant", content: finalText };
+                return copy;
+              });
+              if (voiceOut) speak(finalText);
+            }
+          } else if (event.type === "error" && typeof event.message === "string") {
+            setMessages((cur) => {
+              const copy = [...cur];
+              copy[copy.length - 1] = { role: "assistant", content: "Error: " + event.message };
+              return copy;
+            });
+          }
+          // tool / tool_result events ignored visually for now (could show indicator later)
+        }
+      }
     } catch (e) {
-      setMessages((cur) => [...cur, { role: "assistant", content: "Error: " + (e instanceof Error ? e.message : String(e)) }]);
+      setMessages((cur) => {
+        const copy = [...cur];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant") {
+          copy[copy.length - 1] = { role: "assistant", content: "Error: " + (e instanceof Error ? e.message : String(e)) };
+        }
+        return copy;
+      });
     } finally {
       setBusy(false);
     }
