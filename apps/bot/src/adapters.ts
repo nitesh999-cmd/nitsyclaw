@@ -257,7 +257,7 @@ export function buildAgentDeps(args: {
 import { google as googleApiAgg } from "googleapis";
 import { listGoogleAccounts, loadOAuthClient as loadGoogleOAuthClientAgg } from "./google-auth.js";
 import { fetchMsEventsToday, fetchMsUnread } from "./microsoft-graph.js";
-import { fetchYahooUnread } from "./yahoo-imap.js";
+// Yahoo IMAP parked (no app password without paid Yahoo Plus). Skipped intentionally.
 
 export interface AggregatedEmail {
   source: string;
@@ -295,7 +295,7 @@ export async function fetchAllUnreadEmails(perAccountLimit = 5): Promise<Aggrega
     } catch (err) { console.error(`[email] Gmail/${label} failed:`, err); }
   }
   try { out.push(...(await fetchMsUnread(perAccountLimit))); } catch (err) { console.error("[email] M365 failed:", err); }
-  try { out.push(...(await fetchYahooUnread(perAccountLimit))); } catch (err) { console.error("[email] Yahoo failed:", err); }
+  // Yahoo skipped (parked, see session 2 / mind.md §6).
   out.sort((a, b) => b.date.getTime() - a.date.getTime());
   return out;
 }
