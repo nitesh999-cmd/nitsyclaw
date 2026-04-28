@@ -73,14 +73,48 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
           start: string;
           durationMin: number;
           participants: string[];
+          calendar?: "google" | "outlook";
         };
-        const ev = await ctx.deps.calendar.createEvent({
-          title: p.title,
-          start: new Date(p.start),
-          durationMin: p.durationMin,
-          participants: p.participants,
-        });
-        return { resolved: true, decision: out.decision, eventId: ev.id, link: ev.htmlLink };
+        const wantsOutlook = p.calendar === "outlook";
+        const outlookFn = ctx.deps.calendar.createOutlookEvent;
+        if (wantsOutlook && !outlookFn) {
+          // Surface unavailable on this surface (e.g. dashboard route on Vercel can't reach ms-token.json).
+          // Fall back to Google + flag so caller knows.
+          const ev = await ctx.deps.calendar.createEvent({
+            title: p.title,
+            start: new Date(p.start),
+            durationMin: p.durationMin,
+            participants: p.participants,
+          });
+          return {
+            resolved: true,
+            decision: out.decision,
+            eventId: ev.id,
+            link: ev.htmlLink,
+            calendar: "google",
+            fallback: "outlook unavailable on this surface; created on Google instead",
+          };
+        }
+        const ev = wantsOutlook
+          ? await outlookFn!({
+              title: p.title,
+              start: new Date(p.start),
+              durationMin: p.durationMin,
+              participants: p.participants,
+            })
+          : await ctx.deps.calendar.createEvent({
+              title: p.title,
+              start: new Date(p.start),
+              durationMin: p.durationMin,
+              participants: p.participants,
+            });
+        return {
+          resolved: true,
+          decision: out.decision,
+          eventId: ev.id,
+          link: ev.htmlLink,
+          calendar: wantsOutlook ? "outlook" : "google",
+        };
       }
       return { resolved: true, decision: out.decision, action: out.action };
     },

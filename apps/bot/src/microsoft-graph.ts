@@ -24,6 +24,54 @@ async function graphGet(path: string): Promise<unknown> {
   return resp.json();
 }
 
+async function graphPost(path: string, body: unknown): Promise<unknown> {
+  const token = await getMsAccessToken();
+  const resp = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`Graph POST ${path} failed: ${resp.status} ${await resp.text()}`);
+  return resp.json();
+}
+
+export interface CreateMsEventArgs {
+  title: string;
+  start: Date;
+  durationMin: number;
+  participants: string[];
+  description?: string;
+  timezone?: string;
+}
+
+export interface CreateMsEventResult {
+  id: string;
+  webLink?: string;
+}
+
+export async function createMsEvent(args: CreateMsEventArgs): Promise<CreateMsEventResult> {
+  if (!hasMsToken()) {
+    throw new Error("Outlook not authenticated. Run 'pnpm ms:auth' to connect.");
+  }
+  const end = new Date(args.start.getTime() + args.durationMin * 60 * 1000);
+  const tz = args.timezone ?? "UTC";
+  const body = {
+    subject: args.title,
+    body: args.description ? { contentType: "Text", content: args.description } : undefined,
+    start: { dateTime: args.start.toISOString().replace("Z", ""), timeZone: tz },
+    end: { dateTime: end.toISOString().replace("Z", ""), timeZone: tz },
+    attendees: args.participants.map((email) => ({
+      emailAddress: { address: email },
+      type: "required",
+    })),
+  };
+  const data = (await graphPost("/me/events", body)) as { id?: string; webLink?: string };
+  return { id: data.id ?? "", webLink: data.webLink ?? undefined };
+}
+
 export async function fetchMsEventsToday(timezone: string): Promise<MsEvent[]> {
   if (!hasMsToken()) return [];
   const now = new Date();

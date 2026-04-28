@@ -95,8 +95,8 @@ Per `PARKED-TASKS.md` Task 2 step 2. Settings page lists `speechSynthesis.getVoi
 
 ## Priority 3 — High-value features
 
-### 3.1 Outlook calendar write (~30 min)
-Bot can read Outlook events but can't create them. Extend `schedule_call` feature in `packages/shared/src/features/07-schedule-call.ts` to accept `calendar: 'personal' | 'solarharbour' | 'outlook'` param. When `outlook`, call `createMsEvent` (already implemented in earlier draft at `apps/bot/src/microsoft-graph.ts`). Default to `personal`. Update tool description to route based on user's mention ("wattage" / "work" → outlook, "solar harbour" → SH, else personal).
+### 3.1 Outlook calendar write (~30 min) — ✅ DONE 2026-04-29 (session 5m)
+Shipped: `schedule_call` tool now accepts `calendar: "google" | "outlook"` (default `google`). `createMsEvent` added to `apps/bot/src/microsoft-graph.ts` (was missing, despite this backlog claiming it existed). `resolve_confirmation` routes per `payload.calendar`; dashboard surface falls back to Google with a `fallback` note since Vercel can't reach `ms-token.json`. R38 codified the contract. 3 new routing tests pass. Solar Harbour Workspace as a third destination is still pending — would just be a third provider on `CalendarClient` (`createSolarHarbourEvent?`) wired through the existing Google client with the SH OAuth token instead of personal. Defer to future session unless asked.
 
 ### 3.2 Telegram bot backup channel (~45 min)
 Per `PARKED-TASKS.md` Task 8. New `TelegramClient` adapter implementing `WhatsAppClient` interface. Same agent loop, same DB, same tools. User asks: needs Bot Token from BotFather. Don't start until user provides it.

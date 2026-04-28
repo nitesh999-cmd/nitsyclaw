@@ -10,13 +10,16 @@ export function registerScheduleCall(registry: ToolRegistry): void {
   registry.register({
     name: "schedule_call",
     description:
-      "Propose a calendar event with a participant. Returns a pending confirmation id; the user must reply 'y' before it is created.",
+      "Propose a calendar event with a participant. Returns a pending confirmation id; the user must reply 'y' before it is created. " +
+      "Use 'calendar' to choose the destination: 'google' (default, personal Gmail) or 'outlook' (Wattage M365). " +
+      "Pick 'outlook' when the user mentions wattage / work / outlook; otherwise default to 'google'.",
     inputSchema: z.object({
       title: z.string().min(1),
       participantEmail: z.string().email(),
       durationMin: z.number().int().min(15).max(240).default(30),
       windowStartIso: z.string().describe("ISO timestamp; earliest acceptable start"),
       windowEndIso: z.string().describe("ISO timestamp; latest acceptable start"),
+      calendar: z.enum(["google", "outlook"]).default("google").describe("Destination calendar"),
     }),
     handler: async (
       input: {
@@ -25,6 +28,7 @@ export function registerScheduleCall(registry: ToolRegistry): void {
         durationMin: number;
         windowStartIso: string;
         windowEndIso: string;
+        calendar: "google" | "outlook";
       },
       ctx: ToolContext,
     ) => {
@@ -49,21 +53,24 @@ export function registerScheduleCall(registry: ToolRegistry): void {
           start: chosen.toISOString(),
           durationMin: input.durationMin,
           participants: [input.participantEmail],
+          calendar: input.calendar,
         },
         addMinutes(ctx.now, 30),
       );
 
+      const where = input.calendar === "outlook" ? "Outlook (Wattage)" : "Google (personal)";
       // Inform the user — confirmation is closed by Feature 9 when they reply.
       await ctx.deps.whatsapp.send({
         to: ctx.userPhone,
         body:
           `Found: ${input.title} with ${input.participantEmail}\n` +
+          `Calendar: ${where}\n` +
           `Slot: ${chosen.toISOString()}\n` +
           `Reply 'y' (within 30 min) to create or 'n' to cancel.\n` +
           `Confirmation id: ${conf.id}`,
       });
 
-      return { confirmationId: conf.id, proposedStart: chosen.toISOString() };
+      return { confirmationId: conf.id, proposedStart: chosen.toISOString(), calendar: input.calendar };
     },
   });
 }

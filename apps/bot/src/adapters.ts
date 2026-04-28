@@ -5,6 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
+import { createMsEvent } from "./microsoft-graph.js";
 import type {
   AgentDeps,
   CalendarClient,
@@ -198,6 +199,18 @@ export const realCalendar: CalendarClient = {
       sendUpdates: "all",
     });
     return { id: ev.data.id ?? "", htmlLink: ev.data.htmlLink ?? undefined };
+  },
+
+  async createOutlookEvent({ title, start, durationMin, participants, description }) {
+    const ev = await createMsEvent({
+      title,
+      start,
+      durationMin,
+      participants,
+      description,
+      timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
+    });
+    return { id: ev.id, htmlLink: ev.webLink };
   },
 
   async listEventsToday(timezone: string) {

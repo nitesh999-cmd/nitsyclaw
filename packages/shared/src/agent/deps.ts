@@ -56,6 +56,18 @@ export interface CalendarClient {
     participants: string[];
     description?: string;
   }): Promise<{ id: string; htmlLink?: string }>;
+  /**
+   * Optional Outlook (Microsoft 365) calendar write path.
+   * Only wired on the bot surface (token lives at apps/bot/ms-token.json on the always-on laptop).
+   * Dashboard surface (Vercel) leaves this undefined; resolve_confirmation falls back to Google.
+   */
+  createOutlookEvent?(args: {
+    title: string;
+    start: Date;
+    durationMin: number;
+    participants: string[];
+    description?: string;
+  }): Promise<{ id: string; htmlLink?: string }>;
   listEventsToday?(timezone: string): Promise<Array<{ title: string; start: Date }>>;
 }
 export interface ImageAnalyzer {

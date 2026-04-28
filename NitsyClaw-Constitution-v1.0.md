@@ -210,6 +210,13 @@ WhatsApp's self-chat notifications are unreliable (often silent, especially afte
 - *Source:* Session 5f — Nitesh missed bot replies because WhatsApp notifications didn't fire / he'd switched apps before the agent finished
 - *Added:* 2026-04-28
 
+### R38 — Calendar provider is selected per-request, persisted into the confirmation payload (extends R5 + R16)
+The `schedule_call` tool accepts `calendar: "google" | "outlook"` (default `"google"`). The chosen provider is stored in the confirmation payload, NOT in the deps or environment. `resolve_confirmation` reads `payload.calendar` and routes through `ctx.deps.calendar.createOutlookEvent` when outlook is requested AND the optional method exists on the surface's `CalendarClient`; otherwise it falls back to `createEvent` (Google) and surfaces `fallback: "outlook unavailable on this surface; created on Google instead"` so the agent can tell the user. Reasoning: the dashboard surface (Vercel route) cannot reach the laptop's `ms-token.json`, so it MUST be allowed to silently degrade rather than hard-fail. The optional method on `CalendarClient` (rather than a separate `OutlookClient` dep) keeps the interface back-compat with all existing fakes/noop impls — adding a new provider becomes a one-method addition, not a breaking change.
+Concrete bot wiring: `apps/bot/src/adapters.ts` provides `realCalendar.createOutlookEvent` which delegates to `createMsEvent` in `apps/bot/src/microsoft-graph.ts` (POST `/me/events` via Microsoft Graph, attendees mapped to `emailAddress.address`, timezone defaults to `process.env.TIMEZONE ?? "Australia/Melbourne"`). `microsoft-graph.ts` is imported only by `apps/bot/*` — `packages/shared/*` never imports it (R26 clean).
+- *Source:* Session 5m — backlog Priority 3.1; Wattage M365 was auth'd in session 2 with `Calendars.ReadWrite` but write path was never wired
+- *Added:* 2026-04-29
+- *Extends:* R5 (single Postgres source — confirmation payload is the SoT for the chosen provider), R16 (CalendarClient stays an interface; concrete provider chosen at deps-build time)
+
 ### R36 — Daily build agent contract: NWP-bound, surgical, safety-gated
 A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes every `feature_requests` row where `status='pending'`. For each row: marks `in_progress`, runs the full 7-step NWP loop (skipping step 2 since no user is online), implements via Edit/Write, runs tsc, commits with `feat(<surface>): ...`, pushes to `origin/main`, polls Vercel deploy if dashboard files changed, inserts a notification row in `messages` (matching surface, direction='out') so user sees the result on next chat open, then marks `done` with `implementation_notes` and `pr_url`. SAFETY: any request that touches secrets / drops tables / requires paid external service / disables tests must be marked `rejected` with a clear `rejection_reason` rather than implemented. The agent never runs destructive operations beyond what NitsyClaw itself does. Schedule managed via claude.ai/code/routines.
 - *Source:* Session 5e — auto-implementation contract for the daily build agent
@@ -249,6 +256,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-04-28 | Feature requests scattered across PARKED + chat history + ad-hoc | R35 | `feature_requests` Postgres table; `request_feature` tool on both surfaces |
 | 2026-04-28 | No automation: feature requests required manual session to implement | R36 | Daily build agent (CCR routine) processes queue with NWP + safety guardrails |
 | 2026-04-28 | Bot replies invisible — WhatsApp self-chat notifications silent / user moved on | R37 | Every outbound also POSTs to ntfy.sh; phone + PC + browser all push-notified |
+| 2026-04-29 | `schedule_call` only wrote to Google; Wattage M365 had read but no write path | R38 | `calendar` enum on tool input, persisted to confirmation payload; `resolve_confirmation` routes per provider; dashboard falls back to Google when outlook is unreachable from Vercel |
 
 ---
 
