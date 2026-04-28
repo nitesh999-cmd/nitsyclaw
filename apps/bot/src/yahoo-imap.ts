@@ -35,11 +35,13 @@ export async function fetchYahooUnread(limit = 5): Promise<UnreadEmail[]> {
         const env = msg.envelope;
         if (!env) continue;
         const from = env.from?.[0]?.address ?? "(unknown)";
+        const dateValue: string | Date = msg.internalDate ?? env.date ?? new Date();
+        const dateAsDate: Date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
         out.push({
           source: `Yahoo (${email})`,
           from,
           subject: env.subject ?? "(no subject)",
-          date: msg.internalDate ?? env.date ?? new Date(),
+          date: dateAsDate,
         });
       }
     } finally {
