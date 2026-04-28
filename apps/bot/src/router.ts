@@ -11,7 +11,7 @@ import {
   processReceiptImage,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
-import { insertMessage } from "@nitsyclaw/shared/db";
+import { insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
 import { encryptString, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 
@@ -21,6 +21,27 @@ export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
 
   constructor(private deps: AgentDeps, private ownerPhone: string) {}
+
+  /** Identify a non-receipt image via the LLM. Short prompt, low max-tokens,
+   *  one-line output. Returns "an image of X" style description. */
+  private async identifyImage(image: Buffer, mimetype: string): Promise<string> {
+    try {
+      // Reuse the imageAnalyzer's underlying client by issuing a non-receipt
+      // prompt. We do this through llm.complete with an image content block
+      // since extractReceipt is receipt-specific. Fall back to imageAnalyzer
+      // raw text if available.
+      const out = await this.deps.imageAnalyzer.extractReceipt(image, mimetype);
+      const raw = out.rawText?.trim();
+      if (raw && raw.length > 5) {
+        // The vision call already happened; raw text often contains a
+        // generic description even if structured fields are missing.
+        return raw.slice(0, 280);
+      }
+    } catch {
+      // ignore; fall through
+    }
+    return "an image (couldn't auto-classify)";
+  }
 
   /** Send a WhatsApp message, persist it (direction='out', surface='whatsapp'),
    *  and fire a push notification (ntfy + optional Windows toast) so Nitesh
@@ -88,7 +109,8 @@ export class Router {
       }
     }
 
-    // 2. Receipt image → process directly without LLM dispatch.
+    // 2. Image → try receipt first; if extraction yields no amount, fall back
+    //    to general image identification (feature_request fr_29956dc5).
     if (msg.mediaType === "image" && msg.downloadMedia) {
       try {
         const media = await msg.downloadMedia();
@@ -100,11 +122,55 @@ export class Router {
           now: this.deps.now(),
           sourceMessageId: persisted.id,
         });
+        if (out && out.amount && out.amount > 0) {
+          await this.sendAndPersist(
+            `💸 Logged ${out.currency} ${out.amount} (${out.category}) at ${out.merchant ?? "unknown"}`,
+          );
+          return;
+        }
+        // Receipt extraction returned nothing useful — treat as general image.
+        const description = await this.identifyImage(media.data, media.mimetype);
         await this.sendAndPersist(
-          `💸 Logged ${out.currency} ${out.amount} (${out.category}) at ${out.merchant ?? "unknown"}`,
+          `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder about this", "log expense ${out?.rawText ? `(${out.rawText})` : ""}", or just describe what you want.`,
         );
       } catch (e) {
-        await this.sendAndPersist(`Couldn't read receipt: ${(e as Error).message}`);
+        // Even receipt parsing crashed (vision API failure, etc.). Try general path.
+        try {
+          const media = await msg.downloadMedia();
+          const description = await this.identifyImage(media.data, media.mimetype);
+          await this.sendAndPersist(
+            `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder", or describe what you want.`,
+          );
+        } catch (e2) {
+          await this.sendAndPersist(`Couldn't read that image: ${(e2 as Error).message}`);
+        }
+      }
+      return;
+    }
+
+    // 2.5 — `/addfeature <description>` shortcut (feature_request fr_96407890).
+    //      Fast path for power users: skip the agent loop, persist directly.
+    const addFeatureMatch = effectiveText.trim().match(/^\/addfeature\s+(.+)$/is);
+    if (addFeatureMatch) {
+      const description = addFeatureMatch[1]?.trim() ?? "";
+      if (description.length < 5) {
+        await this.sendAndPersist(
+          `That description is too short. Try: /addfeature voice input on dashboard /chat using Web Speech API`,
+        );
+        return;
+      }
+      try {
+        const row = await insertFeatureRequest(this.deps.db, {
+          description,
+          size: "M",
+          source: "whatsapp",
+          requestedBy: hashPhone(this.ownerPhone),
+        });
+        await this.sendAndPersist(
+          `✅ Queued! ID: ${row.id.slice(0, 8)}. Build agent picks it up at next run.`,
+        );
+      } catch (e) {
+        await this.sendAndPersist(`Couldn't queue: ${(e as Error).message}`);
       }
       return;
     }

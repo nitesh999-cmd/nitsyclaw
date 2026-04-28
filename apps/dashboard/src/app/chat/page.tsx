@@ -8,9 +8,56 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [recording, setRecording] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<unknown>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Web Speech API setup (feature_request fr_ff3ca79f). Chrome/Edge/Safari only.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SR) return;
+    setVoiceSupported(true);
+    const r = new SR();
+    r.continuous = false;
+    r.interimResults = true;
+    r.lang = "en-AU";
+    r.onresult = (e: SpeechRecognitionEventLike) => {
+      const t = Array.from(e.results)
+        .map((res) => res[0]?.transcript ?? "")
+        .join("");
+      setInput(t);
+    };
+    r.onend = () => setRecording(false);
+    r.onerror = () => setRecording(false);
+    recognitionRef.current = r;
+  }, []);
+
+  function toggleVoice() {
+    const r = recognitionRef.current as SpeechRecognitionLike | null;
+    if (!r) {
+      alert("Speech recognition isn't supported in this browser. Try Chrome, Edge, or Safari.");
+      return;
+    }
+    if (recording) {
+      try { r.stop(); } catch {}
+    } else {
+      setInput("");
+      try {
+        r.start();
+        setRecording(true);
+      } catch {
+        // Already started or permission denied.
+      }
+    }
+  }
 
   // Hydrate from cross-surface history on mount (WhatsApp + dashboard combined).
   useEffect(() => {
@@ -91,10 +138,26 @@ export default function ChatPage() {
         onSubmit={(e) => { e.preventDefault(); send(); }}
         className="flex gap-2 border-t border-neutral-800 pt-4"
       >
+        {voiceSupported && (
+          <button
+            type="button"
+            onClick={toggleVoice}
+            disabled={busy}
+            aria-label={recording ? "Stop recording" : "Start voice input"}
+            className={
+              "rounded-xl px-4 py-2 text-sm transition disabled:opacity-50 " +
+              (recording
+                ? "bg-red-600 hover:bg-red-500 text-white animate-pulse"
+                : "bg-neutral-800 hover:bg-neutral-700 text-neutral-200")
+            }
+          >
+            {recording ? "● Stop" : "🎤"}
+          </button>
+        )}
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={recording ? "Listening..." : "Type a message..."}
           className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-neutral-500"
           disabled={busy}
         />
@@ -108,4 +171,19 @@ export default function ChatPage() {
       </form>
     </div>
   );
+}
+
+// Minimal types for the Web Speech API (browser-vendor specific, not in lib.dom).
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<{ [index: number]: { transcript: string } }>;
 }

@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage } from "@nitsyclaw/shared/db";
+import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
 import type {
@@ -185,6 +185,46 @@ export async function POST(req: Request) {
     const registry = registerAllFeatures({ surface: "dashboard" });
     const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
     const ownerHash = hashPhone(ownerPhone);
+
+    // /addfeature <description> shortcut (feature_request fr_96407890).
+    // Skip the agent loop for instant feedback.
+    const addFeatureMatch = last.content.trim().match(/^\/addfeature\s+(.+)$/is);
+    if (addFeatureMatch) {
+      const description = addFeatureMatch[1]?.trim() ?? "";
+      if (description.length < 5) {
+        return NextResponse.json({
+          reply: 'Description too short. Try: /addfeature voice input on /chat',
+          meta: { rounds: 0, tools: [] },
+        });
+      }
+      const row = await insertFeatureRequest(deps.db, {
+        description,
+        size: "M",
+        source: "dashboard",
+        requestedBy: ownerHash,
+      });
+      const enc = (text: string) =>
+        process.env.ENCRYPTION_KEY ? encryptString(text) : text;
+      const reply = `Queued! Feature ID: ${row.id.slice(0, 8)}. Build agent will pick it up at next run.`;
+      try {
+        await insertMessage(deps.db, {
+          direction: "in",
+          surface: "dashboard",
+          fromNumber: ownerHash,
+          body: enc(last.content),
+        });
+        await insertMessage(deps.db, {
+          direction: "out",
+          surface: "dashboard",
+          fromNumber: ownerHash,
+          body: enc(reply),
+        });
+      } catch {}
+      return NextResponse.json({
+        reply,
+        meta: { rounds: 0, tools: [{ name: "request_feature", success: true }], featureId: row.id },
+      });
+    }
 
     // Cross-surface history pulled from DB — beats client-supplied history because
     // it spans WhatsApp + dashboard and survives browser refresh.
