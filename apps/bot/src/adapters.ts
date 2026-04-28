@@ -63,7 +63,7 @@ export function makeOpenAiTranscriber(apiKey: string, model: string): Transcribe
   return {
     async transcribe(audio: Buffer, mimetype: string) {
       const { toFile } = await import("openai/uploads");
-      const subtype = (mimetype.split("/")[1] ?? "ogg").split(";")[0];
+      const subtype = (mimetype.split("/")[1] ?? "ogg").split(";")[0] ?? "ogg";
       const extMap: Record<string, string> = {
         ogg: "ogg", oga: "oga", opus: "ogg", mpeg: "mp3", mp3: "mp3",
         wav: "wav", webm: "webm", m4a: "m4a", mp4: "mp4", flac: "flac",
