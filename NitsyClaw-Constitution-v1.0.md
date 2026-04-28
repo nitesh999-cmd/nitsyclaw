@@ -174,6 +174,21 @@ R4 says "code and docs change in the same commit." R29 reaffirms cadence: after 
 - *Added:* 2026-04-28
 - *Extends:* R4
 
+### R30 — Watchdogs are surgical, never restart-everything
+A watchdog (broom, supervisor, healthcheck loop) restarts ONLY the process that's actually dead. It NEVER calls a launcher that kills-and-respawns sibling processes. Concrete violation: pre-2026-04-28 broom called `silent-launcher.ps1` every 2 min when EITHER bot OR dashboard was dead — and silent-launcher does `Get-Process node | Stop-Process -Force` (kills ALL node), so the bot died mid-WhatsApp-handler every cycle. Pattern: per-process idempotent launchers (e.g. `launch-bot.ps1`) that exit early when the target process is alive, called only for the specific dead process.
+- *Source:* Session 5c — user's "hello" message never got a reply because handler was killed mid-flight
+- *Added:* 2026-04-28
+
+### R31 — Local dashboard is NOT a watchdog responsibility
+Vercel hosts the production dashboard at `https://nitsyclaw.vercel.app`. Local `pnpm dashboard` is optional dev convenience. Watchdogs guard production-critical processes only (the WhatsApp bot, since that's the only thing that MUST run on-laptop). Restarting the local dashboard if it dies has zero user impact.
+- *Source:* Session 5c — broom was thrashing trying to keep local dashboard alive
+- *Added:* 2026-04-28
+
+### R32 — `*add <description>` is the canonical Claude Code feature-request trigger
+When Nitesh types `*add <description>` to Claude Code, Claude evaluates: if small (< ~30 min, self-contained), implements immediately + commits + pushes + R29 doc update. If larger, appends to `CLAUDE-CODE-BACKLOG.md` "User-added feature requests" table with timestamp, description, size estimate, status. Single-line confirmation either way. Codified in NWP-CONSTITUTION-v1.2.md triggers and project-root `CLAUDE.md`.
+- *Source:* Session 5c — Nitesh asked for "one command to give Claude Code to add a feature"
+- *Added:* 2026-04-28
+
 ---
 
 ## Fixes log
@@ -200,6 +215,9 @@ R4 says "code and docs change in the same commit." R29 reaffirms cadence: after 
 | 2026-04-28 | Whack-a-mole on noUncheckedIndexedAccess (4 deploys) | R27 | Grep full build path before pushing fix |
 | 2026-04-28 | Broom flashed console window every 2 min despite -WindowStyle Hidden | R28 | wscript+VBS launcher with WshShell.Run vbHide |
 | 2026-04-28 | Doc updates were lagging behind code commits | R29 | Mind.md + Constitution updated in same push as every fix, not batched |
+| 2026-04-28 | WhatsApp "hello" never got a reply — bot killed mid-handler | R30 | Surgical watchdog: per-process idempotent launchers; broom only restarts what's dead |
+| 2026-04-28 | Broom thrashing trying to keep local dashboard alive | R31 | Removed dashboard check from broom; Vercel handles production |
+| 2026-04-28 | Needed one-command pattern for user feature requests | R32 | `*add <description>` trigger codified in NWP-v1.2 + CLAUDE.md |
 
 ---
 

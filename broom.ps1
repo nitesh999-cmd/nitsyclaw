@@ -10,16 +10,21 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 # without tailing the log. Just check Get-Item "$logDir\broom-last-tick.txt"
 (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | Out-File -Force "$logDir\broom-last-tick.txt"
 
-# Check bot + dashboard alive
+# Check bot only. Dashboard runs on Vercel (production); local dashboard is
+# optional and NOT a broom responsibility - restarting both via silent-launcher
+# was killing the bot mid-message every 2 min (silent-launcher kills all node).
 $bot = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*tsx*src/index.ts*' }
-$dash = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*next*dev*' }
 
-if (-not $bot -or -not $dash) {
-    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot=$([bool]$bot) dash=$([bool]$dash) -> relaunching" |
+if (-not $bot) {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot dead -> launch-bot.ps1" |
         Out-File -Append "$logDir\broom.log"
-    Start-Process powershell -WindowStyle Hidden -ArgumentList @('-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-NoProfile','-File',"$root\silent-launcher.ps1")
+    # launch-bot.ps1 is idempotent and only touches the bot process (not dashboard,
+    # not other node processes). Safe to call repeatedly.
+    Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+        '-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-NoProfile',
+        '-File',"$root\launch-bot.ps1"
+    )
 }
 
 # Kill stray powershell.exe windows running NitsyClaw scripts that ARE NOT hidden

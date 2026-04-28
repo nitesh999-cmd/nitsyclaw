@@ -2,6 +2,14 @@
 
 > Read NWP-CONSTITUTION-v1.2.md first. Acknowledge NWP. Then work through this list in priority order. Don't ask user to paste anything (Rule 15). Auto-execute everything reachable via tools. Update mind.md after each completed task.
 
+## User-added feature requests (via `*add` trigger)
+
+> Items here arrive via Nitesh typing `*add <description>` to Claude Code. Each row: timestamp, description, estimated size (S<30min / M<2hr / L>2hr), status (pending|in-progress|done with commit hash). Claude evaluates immediately on `*add`: if S, implements right then. If M/L, files here. Promote to a numbered priority above when prioritized.
+
+| Date | Request | Size | Status |
+|---|---|---|---|
+| _(empty — first `*add` lands here)_ | | | |
+
 ## Priority 0 — Finish what's in flight
 
 ### 0.1 Verify session 3 is closed
