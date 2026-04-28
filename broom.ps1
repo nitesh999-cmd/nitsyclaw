@@ -6,6 +6,10 @@ $root = 'C:\Users\Nitesh\projects\NitsyClaw'
 $logDir = 'C:\Users\Nitesh\projects\NitsyClaw\logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
+# Heartbeat - touch this file every tick so user can verify broom is alive
+# without tailing the log. Just check Get-Item "$logDir\broom-last-tick.txt"
+(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | Out-File -Force "$logDir\broom-last-tick.txt"
+
 # Check bot + dashboard alive
 $bot = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*tsx*src/index.ts*' }
