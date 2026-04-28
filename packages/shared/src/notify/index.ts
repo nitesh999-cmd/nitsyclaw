@@ -7,11 +7,17 @@
 //   ANYONE who knows the topic name can publish/subscribe — pick something
 //   non-guessable. There is no auth on the free tier.
 //
+// EMAIL: ntfy.sh email forwarding (free tier, ~16/day/IP).
+//   Set NOTIFY_EMAIL in .env.local to e.g. nitesh999@gmail.com.
+//   Each ntfy POST also asks ntfy to forward as email to that address.
+//   Lands in inbox → Outlook PC app's normal new-mail notification fires.
+//   If you hit the daily limit, the email silently drops (push still works).
+//
 // SECONDARY (Windows local only): native toast via PowerShell.
 //   Set WINDOWS_TOAST=true in .env.local. Pops a notification on the laptop.
 //   Useful when you're at the desk but not in WhatsApp Web.
 //
-// Both are independent. If neither env is set, this is a no-op.
+// All channels are independent. If no env is set, this is a no-op.
 
 export interface NotifyOpts {
   title?: string;
@@ -35,6 +41,12 @@ async function sendNtfy(text: string, opts: NotifyOpts): Promise<void> {
       Tags: (opts.tags ?? ["robot"]).join(","),
     };
     if (opts.click) headers.Click = opts.click;
+    // Note: ntfy.sh email forwarding (Email header) was tested and rejected
+    // by the free tier with HTTP 400 "anonymous email sending is not allowed".
+    // To re-enable: get an ntfy paid account, add NTFY_AUTH_TOKEN env, send
+    // Authorization: Bearer ${NTFY_AUTH_TOKEN} + Email: NOTIFY_EMAIL headers.
+    // For now, email channel goes via direct SMTP / Graph (see TODO in
+    // CLAUDE-CODE-BACKLOG.md). Push channels: ntfy app + Windows toast.
     await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
       method: "POST",
       headers,
@@ -52,15 +64,22 @@ async function sendWindowsToast(text: string, opts: NotifyOpts): Promise<void> {
     const { spawn } = await import("node:child_process");
     const title = (opts.title ?? "NitsyClaw").replace(/'/g, "''");
     const body = text.slice(0, 200).replace(/'/g, "''");
-    // Uses Windows Runtime API via PowerShell. No third-party module needed.
+    // Two PowerShell-7-compatibility fixes vs the original:
+    //   1. @() array cast around GetElementsByTagName('text') to force eager
+    //      enumeration before indexing (PS7 returned a lazy iterator that
+    //      threw "Collection was modified" when indexed).
+    //   2. AppID 'Microsoft.Windows.Computer' is a registered system AppID,
+    //      so toasts actually surface in Action Center on Win10/11. Custom
+    //      AppIDs require Start Menu shortcut registration which we skip.
     const ps = `
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null
 $tpl = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-$tpl.GetElementsByTagName('text')[0].AppendChild($tpl.CreateTextNode('${title}')) | Out-Null
-$tpl.GetElementsByTagName('text')[1].AppendChild($tpl.CreateTextNode('${body}')) | Out-Null
+$texts = @($tpl.GetElementsByTagName('text'))
+$texts[0].AppendChild($tpl.CreateTextNode('${title}')) | Out-Null
+$texts[1].AppendChild($tpl.CreateTextNode('${body}')) | Out-Null
 $toast = [Windows.UI.Notifications.ToastNotification]::new($tpl)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('NitsyClaw').Show($toast)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Microsoft.Windows.Computer').Show($toast)
 `.trim();
     const child = spawn("powershell.exe", ["-NoProfile", "-Command", ps], {
       detached: true,

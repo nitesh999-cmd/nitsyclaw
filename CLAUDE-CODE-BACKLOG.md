@@ -2,6 +2,22 @@
 
 > Read NWP-CONSTITUTION-v1.2.md first. Acknowledge NWP. Then work through this list in priority order. Don't ask user to paste anything (Rule 15). Auto-execute everything reachable via tools. Update mind.md after each completed task.
 
+## TODO — Email notification channel (followup from session 5g)
+
+**Why:** Phone notifications via ntfy require the ntfy app installed; user wanted Outlook PC notifications for redundancy. Current state: Windows toast works on the always-on PC; email path incomplete.
+
+**Constraints discovered (session 5g):**
+- ntfy.sh free tier blocks anonymous email forwarding (HTTP 400)
+- New Outlook for Windows (`olk.exe`) has no COM/OLE automation API
+- Classic `OUTLOOK.EXE` is not running on this machine
+
+**Options to wire email send:**
+1. **Microsoft Graph sendMail** (best fit — Wattage M365 already wired). Requires: re-run `pnpm ms:auth` after adding `Mail.Send` scope to `apps/bot/src/microsoft-auth.ts`. ~3 min user effort. Sends FROM Wattage to user's primary email.
+2. **Gmail SMTP via App Password.** Requires user to generate an app password at myaccount.google.com → Security → App passwords (~2 min). Add `SMTP_USER` + `SMTP_PASS` env, use nodemailer. Sends FROM personal Gmail to user's primary.
+3. **ntfy.sh paid tier.** $5/mo. Adds `Email:` header support + SMS, no other code change.
+
+Default recommendation: Option 1 (M365 sendMail). Already half-wired.
+
 ## User-added feature requests (via `*add` trigger)
 
 > Items here arrive via Nitesh typing `*add <description>` to Claude Code. Each row: timestamp, description, estimated size (S<30min / M<2hr / L>2hr), status (pending|in-progress|done with commit hash). Claude evaluates immediately on `*add`: if S, implements right then. If M/L, files here. Promote to a numbered priority above when prioritized.
