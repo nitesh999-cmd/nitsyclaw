@@ -22,7 +22,10 @@ export function registerAllFeatures(): ToolRegistry {
   registerWhatsOnMyPlate(r);
   registerMemoryRecall(r);
   registerScheduleCall(r);
-  registerWebResearch(r);
+  // registerWebResearch disabled — replaced by Anthropic server-side web_search_20250305
+  // tool injected directly in LLM client (see apps/bot/src/adapters.ts and
+  // apps/dashboard/src/app/api/chat/route.ts). The stub here returned empty results.
+  // registerWebResearch(r);
   registerConfirmationRail(r);
   registerReceiptExpense(r);
   return r;

@@ -7,9 +7,29 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Hydrate from cross-surface history on mount (WhatsApp + dashboard combined).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/chat/history?limit=20", { cache: "no-store" });
+        const data = await r.json();
+        if (!cancelled && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+        }
+      } catch {
+        // Non-fatal — show empty state.
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function send() {
     const text = input.trim();
@@ -41,7 +61,10 @@ export default function ChatPage() {
       </p>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4" data-testid="chat-messages">
-        {messages.length === 0 && (
+        {loadingHistory && (
+          <p className="text-sm text-neutral-500">Loading conversation history...</p>
+        )}
+        {!loadingHistory && messages.length === 0 && (
           <p className="text-sm text-neutral-500">Start typing below. Try: <code>what's on my plate today</code></p>
         )}
         {messages.map((m, i) => (

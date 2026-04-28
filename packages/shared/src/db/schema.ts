@@ -20,6 +20,7 @@ export const messages = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
+    surface: text("surface", { enum: ["whatsapp", "dashboard"] }).notNull().default("whatsapp"),
     waMessageId: text("wa_message_id"),
     fromNumber: text("from_number").notNull(),
     body: text("body").notNull().default(""), // encrypted at rest (R6)
@@ -33,6 +34,7 @@ export const messages = pgTable(
   (t) => ({
     fromIdx: index("messages_from_idx").on(t.fromNumber),
     createdIdx: index("messages_created_idx").on(t.createdAt),
+    surfaceCreatedIdx: index("messages_surface_created_idx").on(t.surface, t.createdAt),
   }),
 );
 

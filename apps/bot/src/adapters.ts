@@ -32,11 +32,19 @@ export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
       return { text };
     },
     async toolStep({ system, messages, tools }) {
+      // Append Anthropic server-side web_search so the model can fetch current
+      // info without us running our own search infra. Free local registry tools
+      // continue to be dispatched in our agent loop; web_search runs server-side
+      // and its results come back inline as part of the assistant message.
+      const allTools = [
+        ...(tools as Anthropic.Tool[]),
+        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+      ] as Anthropic.Tool[];
       const resp = await client.messages.create({
         model,
         system,
         max_tokens: 1024,
-        tools: tools as Anthropic.Tool[],
+        tools: allTools,
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
       });
       const toolCalls = resp.content

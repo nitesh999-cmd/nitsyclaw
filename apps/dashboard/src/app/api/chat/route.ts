@@ -10,8 +10,8 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb } from "@nitsyclaw/shared/db";
-import { runAgent } from "@nitsyclaw/shared/agent";
+import { getDb, insertMessage } from "@nitsyclaw/shared/db";
+import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
 import type {
   AgentDeps,
@@ -23,6 +23,7 @@ import type {
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import type { WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
+import { encryptString, hashPhone } from "@nitsyclaw/shared/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,19 +33,7 @@ interface ChatBody {
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
-const SYSTEM_PROMPT = `You are NitsyClaw, Nitesh's personal assistant, running on the dashboard chat surface.
-
-You have the same tool access as the WhatsApp surface: reminders, morning brief, what's-on-my-plate, memory recall, web research, schedule a call, log expenses, and confirmation rail. USE THEM. Do not tell the user to switch to WhatsApp — answer here.
-
-Tool routing:
-- Questions about today/tomorrow's schedule → whats_on_my_plate
-- Reminder questions → list_reminders or relevant memory tool
-- "Remember X" / "What do I know about Y" → memory tools
-- Birthdays, contacts → memory + reminders (no native contacts tool yet — search memory first)
-- Web/research/news → web_research
-- Schedule a call → schedule_call (note: dashboard cannot send WhatsApp confirmations; use the tool, then summarize the result)
-
-Be concise. Plain text. No markdown headers. If a tool returns no results, say so plainly. If a question genuinely cannot be answered with available tools, say what's missing instead of redirecting elsewhere.`;
+const SYSTEM_PROMPT = buildSystemPrompt({ surface: "dashboard" });
 
 class NoopWhatsApp implements WhatsAppClient {
   async ready(): Promise<void> { /* noop */ }
@@ -97,11 +86,16 @@ function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
     },
 
     async toolStep(args) {
+      // Append Anthropic server-side web_search so the model can fetch current info.
+      const allTools = [
+        ...(args.tools as Anthropic.Tool[]),
+        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+      ] as Anthropic.Tool[];
       const resp = await client.messages.create({
         model,
         max_tokens: 1500,
         system: args.system,
-        tools: args.tools as Anthropic.Tool[],
+        tools: allTools,
         messages: args.messages.map((m) => ({ role: m.role, content: m.content })),
       });
       const text = resp.content
@@ -185,28 +179,57 @@ export async function POST(req: Request) {
   if (!last || last.role !== "user") {
     return NextResponse.json({ reply: "Last message must be from user" }, { status: 400 });
   }
-  const prior = body.history.slice(0, -1);
 
   try {
     const deps = buildDashboardDeps();
     const registry = registerAllFeatures();
     const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
+    const ownerHash = hashPhone(ownerPhone);
+
+    // Cross-surface history pulled from DB — beats client-supplied history because
+    // it spans WhatsApp + dashboard and survives browser refresh.
+    const history = await loadCrossSurfaceHistory(deps.db, ownerHash, 20).catch(
+      () => [],
+    );
 
     const result = await runAgent({
       userPhone: ownerPhone,
       userMessage: last.content,
-      history: prior,
+      history,
       systemPrompt: SYSTEM_PROMPT,
       registry,
       deps,
       maxRounds: 6,
     });
 
+    // Persist the user turn + assistant reply so cross-surface history sees them.
+    const enc = (text: string) =>
+      process.env.ENCRYPTION_KEY ? encryptString(text) : text;
+    try {
+      await insertMessage(deps.db, {
+        direction: "in",
+        surface: "dashboard",
+        fromNumber: ownerHash,
+        body: enc(last.content),
+      });
+      const replyText = result.finalText?.trim() || "(empty reply)";
+      await insertMessage(deps.db, {
+        direction: "out",
+        surface: "dashboard",
+        fromNumber: ownerHash,
+        body: enc(replyText),
+      });
+    } catch (persistErr) {
+      console.error("[chat] persist failed", persistErr);
+      // Non-fatal — still return the reply.
+    }
+
     return NextResponse.json({
       reply: result.finalText || "(empty reply)",
       meta: {
         rounds: result.rounds,
         tools: result.toolCalls.map((c) => ({ name: c.name, success: c.success })),
+        historyLoaded: history.length,
       },
     });
   } catch (e: unknown) {
