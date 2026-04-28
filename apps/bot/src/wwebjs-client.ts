@@ -85,15 +85,17 @@ export class WwebjsClient implements WhatsAppClient {
 
         if (fromMe && this.isOurEcho(body)) return;
 
-       // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
-// not when you're typing in conversations with other contacts.
-const toRaw = (m as any).to ?? "";
-const to = toRaw.replace(/@c\.us$/, "");
-const isSelfChat = (from === this.opts.ownerNumber && to === this.opts.ownerNumber);
-if (!isSelfChat) {
-  console.log(`[wwebjs] dropped: not self-chat (from=${from} to=${to})`);
-  return;
-}
+        // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
+        // not when you're typing in conversations with other contacts.
+        const fromRaw = (m as any).from ?? "";
+        const from = fromRaw.replace(/@c\.us$/, "");
+        const toRaw = (m as any).to ?? "";
+        const to = toRaw.replace(/@c\.us$/, "");
+        const isSelfChat = (from === this.opts.ownerNumber && to === this.opts.ownerNumber);
+        if (!isSelfChat) {
+          console.log(`[wwebjs] dropped: not self-chat (from=${from} to=${to})`);
+          return;
+        }
 
         console.log(`[wwebjs] inbound: from=${from} fromMe=${fromMe} body="${body.slice(0, 50)}"`);
 
