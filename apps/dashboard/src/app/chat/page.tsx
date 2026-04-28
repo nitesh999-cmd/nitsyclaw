@@ -23,20 +23,43 @@ export default function ChatPage() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   // Voice OUT — load voices + saved preferences from localStorage.
+  // Chrome/Safari load voices asynchronously; getVoices() may return [] on
+  // first call. Listen for voiceschanged AND poll once after a short delay.
   useEffect(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const update = () => setVoices(window.speechSynthesis.getVoices());
+    const update = () => {
+      const v = window.speechSynthesis.getVoices();
+      setVoices(v);
+      // Auto-pick best English voice if user hasn't chosen one yet.
+      const saved = localStorage.getItem("nitsyclaw-voice");
+      if (!saved && v.length > 0) {
+        const pick =
+          v.find((x) => x.lang === "en-AU" && x.default) ||
+          v.find((x) => x.lang === "en-AU") ||
+          v.find((x) => x.lang === "en-US" && x.default) ||
+          v.find((x) => x.lang === "en-US") ||
+          v.find((x) => x.lang.startsWith("en")) ||
+          v.find((x) => x.default) ||
+          v[0];
+        if (pick) setSelectedVoice(pick.name);
+      }
+    };
     update();
     window.speechSynthesis.onvoiceschanged = update;
+    setTimeout(update, 250); // Chrome lazy-loads voices
     setVoiceOut(localStorage.getItem("nitsyclaw-voice-out") !== "false");
-    setSelectedVoice(localStorage.getItem("nitsyclaw-voice") || "");
+    const saved = localStorage.getItem("nitsyclaw-voice") || "";
+    if (saved) setSelectedVoice(saved);
   }, []);
 
   /** Queue an utterance. Does NOT cancel in-progress utterances —
    *  callers responsible for cancelling at start of new reply (so streamed
    *  sentences can queue up naturally without each one cutting off the prior). */
   function speak(text: string) {
-    if (!voiceOut || typeof window === "undefined" || !window.speechSynthesis) return;
+    if (!voiceOut || typeof window === "undefined" || !window.speechSynthesis) {
+      console.log("[tts] skipped: voiceOut=" + voiceOut + " supported=" + !!window?.speechSynthesis);
+      return;
+    }
     // Strip markdown / decoration so TTS doesn't read "asterisk asterisk"
     const clean = text
       .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -51,6 +74,9 @@ export default function ChatPage() {
     }
     u.rate = 1.05;
     u.pitch = 1.0;
+    u.onerror = (e) => console.warn("[tts] error", e);
+    u.onstart = () => console.log("[tts] speaking:", clean.slice(0, 60));
+    console.log("[tts] queue:", clean.slice(0, 60), "voice=" + (u.voice?.name || "default"));
     window.speechSynthesis.speak(u);
   }
 
@@ -149,8 +175,19 @@ export default function ChatPage() {
     setBusy(true);
 
     // Cancel any in-progress speech from a prior reply before this new one.
-    if (typeof window !== "undefined" && window.speechSynthesis) {
+    // Also: prime the audio context with a synchronous empty utterance INSIDE
+    // the click handler. iOS Safari (and some Android browsers) only allow
+    // speechSynthesis after the FIRST speak() in a session is triggered by
+    // a user gesture. The streaming reader fires speak() in async callbacks
+    // that have lost the gesture context — without this primer, subsequent
+    // speak() calls are silently dropped on iOS.
+    if (typeof window !== "undefined" && window.speechSynthesis && voiceOut) {
       window.speechSynthesis.cancel();
+      try {
+        const primer = new SpeechSynthesisUtterance(" ");
+        primer.volume = 0;
+        window.speechSynthesis.speak(primer);
+      } catch {}
     }
 
     // Append empty assistant message that we'll fill via streaming.
