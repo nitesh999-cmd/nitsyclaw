@@ -181,20 +181,41 @@ export default function ChatPage() {
     // a user gesture. The streaming reader fires speak() in async callbacks
     // that have lost the gesture context — without this primer, subsequent
     // speak() calls are silently dropped on iOS.
-    if (typeof window !== "undefined" && window.speechSynthesis && voiceOut) {
-      window.speechSynthesis.cancel();
-      try {
+    try {
+      if (typeof window !== "undefined" && window.speechSynthesis && voiceOut) {
+        window.speechSynthesis.cancel();
         const primer = new SpeechSynthesisUtterance(" ");
         primer.volume = 0;
         window.speechSynthesis.speak(primer);
-      } catch {}
+      }
+    } catch (primerErr) {
+      console.warn("[tts] primer failed (non-fatal):", primerErr);
     }
 
     // Append empty assistant message that we'll fill via streaming.
     setMessages((cur) => [...cur, { role: "assistant", content: "" }]);
 
+    // Defensive helper: find the LAST assistant message in the array and
+    // replace its content. Doesn't assume it's at index length-1 (state
+    // ordering edge cases can put user message there in some races).
+    // If no assistant exists, appends a new one. Either way the reply lands.
+    const setAssistantContent = (content: string) => {
+      setMessages((cur) => {
+        const copy = [...cur];
+        for (let i = copy.length - 1; i >= 0; i--) {
+          if (copy[i]?.role === "assistant") {
+            copy[i] = { role: "assistant", content };
+            return copy;
+          }
+        }
+        copy.push({ role: "assistant", content });
+        return copy;
+      });
+    };
+
     let spokenSoFar = 0; // index in finalText we've already passed to TTS
     let finalText = "";
+    let sawError = false;
 
     try {
       const r = await fetch("/api/chat/stream", {
@@ -202,10 +223,13 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: next }),
       });
+      console.log("[chat] stream response status:", r.status, "ok:", r.ok);
+      if (!r.ok) throw new Error("HTTP " + r.status);
       if (!r.body) throw new Error("No response body");
       const reader = r.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      let eventCount = 0;
       const handleSpeakBoundary = () => {
         if (!voiceOut) return;
         // Find sentence terminator (. ! ? \n) past spokenSoFar
@@ -226,17 +250,15 @@ export default function ChatPage() {
         for (const line of lines) {
           if (!line.trim()) continue;
           let event: { type: string; [k: string]: unknown };
-          try { event = JSON.parse(line); } catch { continue; }
+          try { event = JSON.parse(line); } catch (parseErr) {
+            console.warn("[chat] skipped unparseable line:", line.slice(0, 100), parseErr);
+            continue;
+          }
+          eventCount++;
+          console.log("[chat] event:", event.type, eventCount);
           if (event.type === "text" && typeof event.delta === "string") {
             finalText += event.delta;
-            setMessages((cur) => {
-              const copy = [...cur];
-              const last = copy[copy.length - 1];
-              if (last && last.role === "assistant") {
-                copy[copy.length - 1] = { role: "assistant", content: finalText };
-              }
-              return copy;
-            });
+            setAssistantContent(finalText);
             handleSpeakBoundary();
           } else if (event.type === "done") {
             // Speak any remaining unspoken text (final fragment without terminator)
@@ -245,32 +267,45 @@ export default function ChatPage() {
             // /addfeature path returns reply directly under "reply"
             if (typeof event.reply === "string" && !finalText) {
               finalText = event.reply;
-              setMessages((cur) => {
-                const copy = [...cur];
-                copy[copy.length - 1] = { role: "assistant", content: finalText };
-                return copy;
-              });
+              setAssistantContent(finalText);
               if (voiceOut) speak(finalText);
             }
           } else if (event.type === "error" && typeof event.message === "string") {
-            setMessages((cur) => {
-              const copy = [...cur];
-              copy[copy.length - 1] = { role: "assistant", content: "Error: " + event.message };
-              return copy;
-            });
+            sawError = true;
+            setAssistantContent("Error: " + event.message);
           }
           // tool / tool_result events ignored visually for now (could show indicator later)
         }
       }
-    } catch (e) {
-      setMessages((cur) => {
-        const copy = [...cur];
-        const last = copy[copy.length - 1];
-        if (last && last.role === "assistant") {
-          copy[copy.length - 1] = { role: "assistant", content: "Error: " + (e instanceof Error ? e.message : String(e)) };
+      console.log("[chat] stream done. finalText length:", finalText.length, "events:", eventCount);
+
+      // Fallback: if stream finished with no text AND no error event was shown,
+      // hit the non-streaming /api/chat endpoint to get *something* visible.
+      // This catches edge cases where chunked streaming silently fails (proxy,
+      // browser quirk, malformed response) — both endpoints run the same agent.
+      if (!finalText && !sawError) {
+        console.warn("[chat] empty stream — falling back to /api/chat");
+        try {
+          const fb = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ history: next }),
+          });
+          const data = (await fb.json()) as { reply?: string };
+          const reply = data.reply ?? "(empty reply)";
+          finalText = reply;
+          setAssistantContent(reply);
+          if (voiceOut) speak(reply);
+        } catch (fbErr) {
+          setAssistantContent(
+            "No reply — stream produced no text and fallback failed: " +
+              (fbErr instanceof Error ? fbErr.message : String(fbErr)),
+          );
         }
-        return copy;
-      });
+      }
+    } catch (e) {
+      console.error("[chat] stream error:", e);
+      setAssistantContent("Error: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
