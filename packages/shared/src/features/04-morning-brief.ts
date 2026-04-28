@@ -50,7 +50,7 @@ export function buildBrief(args: { now: Date; timezone: string; inputs: BriefInp
   if (args.inputs.unreadEmails && args.inputs.unreadEmails.length) {
     lines.push(`\nðŸ“§ Top unread (${args.inputs.unreadEmails.length} across accounts):`);
     for (const e of args.inputs.unreadEmails.slice(0, 8)) {
-      const fromName = e.from.match(/"?([^"<]+?)"?\s*</)?.[1] ?? e.from.split("@")[0];
+      const fromName = e.from.match(/"?([^"<]+?)"?\s*</)?.[1] ?? e.from.split("@")[0] ?? e.from;
       lines.push(`  â€¢ [${e.source}] ${fromName.trim()} â€” ${e.subject}`);
     }
   }
