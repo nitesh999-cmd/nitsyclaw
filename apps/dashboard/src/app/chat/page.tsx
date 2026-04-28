@@ -10,10 +10,67 @@ export default function ChatPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [recording, setRecording] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  // Voice OUT (text-to-speech) state — uses native browser Web Speech API,
+  // zero latency, zero API key. iOS Apple voices are best; desktop Chrome
+  // gets ~200 Google voices; Firefox uses OS voices.
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceOut, setVoiceOut] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState("");
+  const [showVoicePicker, setShowVoicePicker] = useState(false);
   const recognitionRef = useRef<unknown>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Voice OUT — load voices + saved preferences from localStorage.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const update = () => setVoices(window.speechSynthesis.getVoices());
+    update();
+    window.speechSynthesis.onvoiceschanged = update;
+    setVoiceOut(localStorage.getItem("nitsyclaw-voice-out") !== "false");
+    setSelectedVoice(localStorage.getItem("nitsyclaw-voice") || "");
+  }, []);
+
+  function speak(text: string) {
+    if (!voiceOut || typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel(); // stop any in-progress utterance
+    // Strip markdown, emoji-heavy decoration so TTS doesn't read "asterisk asterisk"
+    const clean = text
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/^#+\s+/gm, "");
+    const u = new SpeechSynthesisUtterance(clean.slice(0, 1500));
+    if (selectedVoice) {
+      const match = voices.find((v) => v.name === selectedVoice);
+      if (match) u.voice = match;
+    }
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    window.speechSynthesis.speak(u);
+  }
+
+  function toggleVoiceOut() {
+    const next = !voiceOut;
+    setVoiceOut(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nitsyclaw-voice-out", String(next));
+      if (!next && window.speechSynthesis) window.speechSynthesis.cancel();
+    }
+  }
+
+  function pickVoice(name: string) {
+    setSelectedVoice(name);
+    if (typeof window !== "undefined") localStorage.setItem("nitsyclaw-voice", name);
+    // Preview
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance("Hi Nitesh. This is how I'll sound.");
+      const v = voices.find((x) => x.name === name);
+      if (v) u.voice = v;
+      window.speechSynthesis.speak(u);
+    }
+  }
 
   // Web Speech API setup (feature_request fr_ff3ca79f). Chrome/Edge/Safari only.
   useEffect(() => {
@@ -92,7 +149,9 @@ export default function ChatPage() {
         body: JSON.stringify({ history: next }),
       });
       const data = await r.json();
-      setMessages((cur) => [...cur, { role: "assistant", content: data.reply ?? "(no reply)" }]);
+      const reply = data.reply ?? "(no reply)";
+      setMessages((cur) => [...cur, { role: "assistant", content: reply }]);
+      speak(reply); // voice out (best-effort, no-op if disabled or unsupported)
     } catch (e) {
       setMessages((cur) => [...cur, { role: "assistant", content: "Error: " + (e instanceof Error ? e.message : String(e)) }]);
     } finally {
@@ -102,9 +161,58 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto">
-      <h2 className="text-2xl font-semibold mb-4">Chat with NitsyClaw</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-semibold">Chat with NitsyClaw</h2>
+        {voices.length > 0 && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleVoiceOut}
+              aria-label={voiceOut ? "Mute voice output" : "Unmute voice output"}
+              className={
+                "rounded-xl px-3 py-1.5 text-xs transition " +
+                (voiceOut
+                  ? "bg-blue-600 hover:bg-blue-500 text-white"
+                  : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300")
+              }
+            >
+              {voiceOut ? "🔊 On" : "🔇 Off"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowVoicePicker((v) => !v)}
+              className="rounded-xl px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+            >
+              Voice
+            </button>
+          </div>
+        )}
+      </div>
+      {showVoicePicker && voices.length > 0 && (
+        <div className="mb-4 max-h-64 overflow-auto rounded-xl border border-neutral-800 bg-neutral-950 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
+          {voices
+            .slice()
+            .sort((a, b) => (a.lang.startsWith("en") === b.lang.startsWith("en") ? a.name.localeCompare(b.name) : a.lang.startsWith("en") ? -1 : 1))
+            .map((v) => (
+              <button
+                key={`${v.name}-${v.lang}`}
+                type="button"
+                onClick={() => pickVoice(v.name)}
+                className={
+                  "text-left text-xs rounded-lg px-3 py-2 border transition " +
+                  (selectedVoice === v.name
+                    ? "border-blue-500 bg-blue-950/40"
+                    : "border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900")
+                }
+              >
+                <div className="font-medium text-neutral-100">{v.name}</div>
+                <div className="text-[10px] text-neutral-500">{v.lang} {v.localService ? "• system" : "• remote"}</div>
+              </button>
+            ))}
+        </div>
+      )}
       <p className="text-xs text-neutral-500 mb-4">
-        Same brain as WhatsApp. Anything you say or ask here is logged in your Conversations and Memory.
+        Same brain as WhatsApp. Voice in (mic) + voice out (Web Speech). Conversations and Memory persisted.
       </p>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4" data-testid="chat-messages">
