@@ -189,6 +189,16 @@ When Nitesh types `*add <description>` to Claude Code, Claude evaluates: if smal
 - *Source:* Session 5c — Nitesh asked for "one command to give Claude Code to add a feature"
 - *Added:* 2026-04-28
 
+### R33 — Process-killer scripts must self-exclude (watchdog suicide pattern)
+Any script that enumerates `Get-Process` / `Get-CimInstance` and kills matches MUST `-notmatch` its own script filename, the launcher that spawned it (e.g. `broom-silent.vbs`), and any sibling launcher in the family. Concrete violation: broom.ps1's regex matched substring `nitsyclaw` (which appears in its own commandline path), killing itself every 2 min for ~17 min straight. Better pattern: narrow the positive match to specific launcher signatures (`pnpm bot|next dev|tsx watch`) instead of catch-all path tokens.
+- *Source:* Session 5d — broom suicide loop discovered via broom.log "killing visible PID" entries
+- *Added:* 2026-04-28
+
+### R34 — WhatsApp bot health includes wa-session websocket, not just process
+The bot can be "alive" in PID terms AND log "[wwebjs] client ready" while the puppeteer-controlled WhatsApp websocket has silently dropped. No `disconnected` event fires; inbound stops arriving. Currently the only fix is operator-triggered restart. TODO (high priority): add a periodic wa-session probe (e.g. every 10 min, list 1 chat via wweb client; if it throws, trigger self-restart) so operator intervention isn't needed.
+- *Source:* Session 5d — bot up 17 min but received zero real messages, restart fixed it
+- *Added:* 2026-04-28
+
 ---
 
 ## Fixes log
@@ -218,6 +228,8 @@ When Nitesh types `*add <description>` to Claude Code, Claude evaluates: if smal
 | 2026-04-28 | WhatsApp "hello" never got a reply — bot killed mid-handler | R30 | Surgical watchdog: per-process idempotent launchers; broom only restarts what's dead |
 | 2026-04-28 | Broom thrashing trying to keep local dashboard alive | R31 | Removed dashboard check from broom; Vercel handles production |
 | 2026-04-28 | Needed one-command pattern for user feature requests | R32 | `*add <description>` trigger codified in NWP-v1.2 + CLAUDE.md |
+| 2026-04-28 | Broom committed suicide every 2 min (regex matched its own path) | R33 | Narrowed regex; explicit self-exclusion (broom.ps1, broom-silent.vbs, launch-bot.ps1, silent-launcher.ps1) |
+| 2026-04-28 | Bot "alive" but silent — wa-session websocket dropped without event | R34 | Operator restart for now; periodic wa-session probe pending |
 
 ---
 
