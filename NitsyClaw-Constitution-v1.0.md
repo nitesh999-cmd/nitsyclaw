@@ -163,6 +163,17 @@ When a TS error like "Object is possibly 'undefined'" or "Type 'undefined' canno
 - *Source:* Session 4 — four sequential failed deploys, one error each
 - *Added:* 2026-04-28
 
+### R28 — Hidden Windows scheduled tasks use VBS launcher, not `-WindowStyle Hidden`
+Scheduled tasks with `Logon Mode: Interactive only` will flash a console window on the user's monitor every trigger, regardless of `-WindowStyle Hidden` on the spawned `powershell.exe`. The reliable hidden pattern: invoke a tiny `.vbs` via `wscript.exe` that uses `WshShell.Run cmd, 0, False` (vbHide). VBS-driven launches are truly invisible. No Windows password storage required (unlike "Run whether logged on or not"). See `broom-silent.vbs` as the reference impl.
+- *Source:* Session 5b — every-2-min black-screen flash on Nitesh's main monitor from `NitsyClaw Broom`
+- *Added:* 2026-04-28
+
+### R29 — Backend files updated after EVERY fix, not just session-end (extends R4)
+R4 says "code and docs change in the same commit." R29 reaffirms cadence: after every fix (not every session), the same push includes mind.md (lessons, session log, debt) AND the Constitution if a rule was touched, AND CLAUDE.md/CLAUDE-CODE-BACKLOG.md/PARKED-TASKS.md if scope or status moved. Never let "I'll batch the doc updates at session end" become a backlog item. Source-of-truth files stay live.
+- *Source:* Session 5b — Nitesh asked for this discipline explicitly after I shipped the broom fix without touching mind.md
+- *Added:* 2026-04-28
+- *Extends:* R4
+
 ---
 
 ## Fixes log
@@ -187,6 +198,8 @@ When a TS error like "Object is possibly 'undefined'" or "Type 'undefined' canno
 | 2026-04-28 | Vercel served stale "ok" deploy while new build failed | R25 | Redeploy without cache to surface real errors |
 | 2026-04-28 | Shared dynamic-imports apps/bot, poisoning dashboard build | R26 | Reaffirmed; cleanup agent scheduled 2026-05-12 |
 | 2026-04-28 | Whack-a-mole on noUncheckedIndexedAccess (4 deploys) | R27 | Grep full build path before pushing fix |
+| 2026-04-28 | Broom flashed console window every 2 min despite -WindowStyle Hidden | R28 | wscript+VBS launcher with WshShell.Run vbHide |
+| 2026-04-28 | Doc updates were lagging behind code commits | R29 | Mind.md + Constitution updated in same push as every fix, not batched |
 
 ---
 

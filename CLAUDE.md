@@ -23,6 +23,18 @@ Emit `NWP acknowledged` as the first line. Then proceed.
 - `*stepN` — dump step N evidence
 - `commit` `push` `check` `sync` `mind` `const` `memory` `todo` `priority` `review` `agent` — global keywords from `~/.claude/CLAUDE.md`
 
+## After every fix (R29 — non-negotiable)
+
+Every code commit pairs with doc updates IN THE SAME PUSH. Never "I'll catch up the docs later." Specifically:
+- `mind.md` — append session-log row + any new lesson L<n> + update tech-debt list
+- `NitsyClaw-Constitution-v1.0.md` — add new R<n> if behavior, infra, or invariant changed; append fixes-log row
+- `CLAUDE-CODE-BACKLOG.md` — mark item done / add follow-ups
+- `PARKED-TASKS.md` — promote/retire items if scope shifted
+- `CLAUDE.md` (this file) — only if boot-order or default-posture changed
+- Push everything in a single git push, not separate commits across hours
+
+If mind.md isn't touched by your last commit, the fix isn't done.
+
 ## Default operating posture
 
 - Bot runs hidden in background via `silent-launcher.ps1`. Do NOT open visible PowerShell windows for it.

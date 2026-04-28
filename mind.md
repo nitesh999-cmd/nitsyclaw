@@ -296,6 +296,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-04-28 | 3 | DB-not-configured fix (Vercel env corruption). Dashboard pages dark-themed. `/debug` page. Bot strict-mode fixes (subtype, regex, M365 auth). R20 added (Vercel runtime/maxDuration). Yahoo unwired. |
 | 2026-04-28 | 4 | **Dashboard agent loop LIVE.** `/api/chat` runs full 10-tool agent. 4 strict-mode fixes for noUncheckedIndexedAccess (adapters, google-auth, route.ts, morning-brief). Smoke tests pass: plate, birthdays, reminders all hit tools. Final commit `7575aac`. |
 | 2026-04-28 | 5 | **Same-page WhatsApp+dashboard.** `surface` column on messages, both surfaces persist + pull cross-surface history (last 20). Unified system prompt (`buildSystemPrompt`) so smart = answer general-knowledge Qs directly + use Anthropic server-side `web_search_20250305` for current info. New `GET /api/chat/history`. `/chat` page hydrates on mount. WhatsApp bot persists outbound (was inbound-only gap). NWP-Constitution-v1.2 codified to repo + project-root `CLAUDE.md` autoloader. Final commit `e54a971`. |
+| 2026-04-28 | 5b | **Broom silent.** `NitsyClaw Broom` scheduled task no longer flashes a console window every 2 min. Now invokes `broom-silent.vbs` via `wscript.exe` (WshShell.Run vbHide). Heartbeat at `logs/broom-last-tick.txt`. Commit `0938425`. |
 
 ---
 
@@ -359,6 +360,8 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - **L23:** Always use the pooled `DATABASE_URL` (not `DATABASE_URL_DIRECT`) for migration scripts run from local laptop — direct host frequently DNS-unreachable on Supabase free tier.
 - **L24:** Schema additive migrations with default values (`ADD COLUMN IF NOT EXISTS x text NOT NULL DEFAULT 'foo'`) backfill existing rows in milliseconds and don't break running services.
 - **L25:** Run NWP Step 6 (pre-mortem) BEFORE coding — mitigations baked into design saved this session from another whack-a-mole. Pre-pushed gracefully-degraded paths (`safeDecrypt`, `loadCrossSurfaceHistory.catch(() => [])`, persist-failure-non-fatal) prevented runtime crashes.
+- **L26:** Scheduled-task `-WindowStyle Hidden` is INSUFFICIENT when task `Logon Mode: Interactive only`. Windows renders the spawned window in the user session anyway. Two real fixes: (a) task config "Run whether logged on or not" (needs Windows password); (b) wrap script in `wscript.exe broom-silent.vbs` calling `WshShell.Run cmd, 0, False` — truly invisible, no password. Used (b) for `NitsyClaw Broom` task. Heartbeat at `logs/broom-last-tick.txt` for verification.
+- **L27:** "Ensure backend files are up-to-date after every fix" is now standard discipline (not just session-end). Every code commit pairs with mind.md update in same push when behavior or infra changes. Constitution R4 already required this — L27 reaffirms cadence (every fix, not every session).
 
 **Remaining tech debt (carry to next session):**
 - Two `makeAnthropicLlm` impls (one in `apps/bot/src/adapters.ts`, one in dashboard route) — duplicated. Move to `packages/shared/` so server-tool injection is one-place.
