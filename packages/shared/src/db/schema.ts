@@ -138,6 +138,33 @@ export const auditLog = pgTable(
   }),
 );
 
+/**
+ * Feature requests captured from WhatsApp/dashboard via the `request_feature` tool.
+ * Processed by a scheduled CCR routine that runs NWP and implements them.
+ * Single source of truth for "what does Nitesh want next?" (R5 + R32).
+ */
+export const featureRequests = pgTable(
+  "feature_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    description: text("description").notNull(),
+    size: text("size", { enum: ["S", "M", "L"] }).notNull().default("M"),
+    status: text("status", { enum: ["pending", "in_progress", "done", "rejected"] })
+      .notNull()
+      .default("pending"),
+    source: text("source", { enum: ["whatsapp", "dashboard"] }).notNull(),
+    requestedBy: text("requested_by"), // hashed phone or "owner"
+    implementationNotes: text("implementation_notes"),
+    prUrl: text("pr_url"),
+    rejectionReason: text("rejection_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    statusIdx: index("feature_requests_status_idx").on(t.status, t.createdAt),
+  }),
+);
+
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Memory = typeof memories.$inferSelect;
@@ -149,3 +176,5 @@ export type NewExpense = typeof expenses.$inferInsert;
 export type Brief = typeof briefs.$inferSelect;
 export type Confirmation = typeof confirmations.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
+export type FeatureRequest = typeof featureRequests.$inferSelect;
+export type NewFeatureRequest = typeof featureRequests.$inferInsert;

@@ -17,7 +17,7 @@ import { encryptString, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 const SYSTEM_PROMPT = buildSystemPrompt({ surface: "whatsapp" });
 
 export class Router {
-  private registry = registerAllFeatures();
+  private registry = registerAllFeatures({ surface: "whatsapp" });
 
   constructor(private deps: AgentDeps, private ownerPhone: string) {}
 

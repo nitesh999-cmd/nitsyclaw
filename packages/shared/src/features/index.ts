@@ -1,7 +1,10 @@
 // Each P0 feature exports a `register(registry)` that wires its tools.
-// The bot worker calls registerAllFeatures() once at startup.
+// The bot worker calls registerAllFeatures({surface}) once at startup.
+// Surface is needed by surface-aware tools (e.g. request_feature tags
+// the originating surface for the build agent).
 
 import { ToolRegistry } from "../agent/tools.js";
+import type { Surface } from "../agent/system-prompt.js";
 import { registerTextCommand } from "./01-text-command.js";
 import { registerVoiceCapture } from "./02-voice-capture.js";
 import { registerReminders } from "./03-reminders.js";
@@ -12,8 +15,13 @@ import { registerScheduleCall } from "./07-schedule-call.js";
 import { registerWebResearch } from "./08-web-research.js";
 import { registerConfirmationRail } from "./09-confirmation-rail.js";
 import { registerReceiptExpense } from "./10-receipt-expense.js";
+import { registerFeatureRequest } from "./11-feature-request.js";
 
-export function registerAllFeatures(): ToolRegistry {
+export interface RegisterOpts {
+  surface: Surface;
+}
+
+export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }): ToolRegistry {
   const r = new ToolRegistry();
   registerTextCommand(r);
   registerVoiceCapture(r);
@@ -28,6 +36,7 @@ export function registerAllFeatures(): ToolRegistry {
   // registerWebResearch(r);
   registerConfirmationRail(r);
   registerReceiptExpense(r);
+  registerFeatureRequest(r, { surface: opts.surface });
   return r;
 }
 
@@ -41,3 +50,4 @@ export * from "./07-schedule-call.js";
 export * from "./08-web-research.js";
 export * from "./09-confirmation-rail.js";
 export * from "./10-receipt-expense.js";
+export * from "./11-feature-request.js";

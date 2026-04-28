@@ -182,7 +182,7 @@ export async function POST(req: Request) {
 
   try {
     const deps = buildDashboardDeps();
-    const registry = registerAllFeatures();
+    const registry = registerAllFeatures({ surface: "dashboard" });
     const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
     const ownerHash = hashPhone(ownerPhone);
 

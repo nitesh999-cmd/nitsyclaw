@@ -1,6 +1,6 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -10,12 +10,15 @@ import {
   briefs,
   confirmations,
   auditLog,
+  featureRequests,
   type NewMessage,
   type NewMemory,
   type NewReminder,
   type NewExpense,
   type Reminder,
   type Memory,
+  type NewFeatureRequest,
+  type FeatureRequest,
 } from "./schema.js";
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -110,6 +113,36 @@ export async function setConfirmationStatus(
   status: "approved" | "rejected" | "expired",
 ) {
   await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
+}
+
+export async function insertFeatureRequest(
+  db: DB,
+  req: NewFeatureRequest,
+): Promise<FeatureRequest> {
+  const [row] = await db.insert(featureRequests).values(req).returning();
+  return row!;
+}
+
+export async function listPendingFeatureRequests(db: DB): Promise<FeatureRequest[]> {
+  return db
+    .select()
+    .from(featureRequests)
+    .where(eq(featureRequests.status, "pending"))
+    .orderBy(asc(featureRequests.createdAt));
+}
+
+export async function setFeatureRequestStatus(
+  db: DB,
+  id: string,
+  patch: {
+    status: "pending" | "in_progress" | "done" | "rejected";
+    implementationNotes?: string;
+    prUrl?: string;
+    rejectionReason?: string;
+    completedAt?: Date;
+  },
+): Promise<void> {
+  await db.update(featureRequests).set(patch).where(eq(featureRequests.id, id));
 }
 
 export async function logAudit(

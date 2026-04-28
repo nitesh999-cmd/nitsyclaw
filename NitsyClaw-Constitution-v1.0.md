@@ -199,6 +199,17 @@ The bot can be "alive" in PID terms AND log "[wwebjs] client ready" while the pu
 - *Source:* Session 5d — bot up 17 min but received zero real messages, restart fixed it
 - *Added:* 2026-04-28
 
+### R35 — `feature_requests` Postgres table is the canonical pending-features queue (extends R5 + R32)
+All net-new feature asks captured from WhatsApp / dashboard via `request_feature` tool land in the `feature_requests` Postgres table (single source of truth per R5). The `*add` Claude Code trigger (R32) ALSO writes to this table when used in-session, in addition to (or instead of) the `CLAUDE-CODE-BACKLOG.md` markdown table. Markdown lives for human-readable snapshots and curated long-running priorities (P0–P7); the live queue is in DB. PARKED-TASKS.md is deprecated as of 2026-04-28 — its open items moved to BACKLOG.
+- *Source:* Session 5e — Nitesh asked for end-to-end "request anywhere → implemented automatically"
+- *Added:* 2026-04-28
+- *Extends:* R5, R32
+
+### R36 — Daily build agent contract: NWP-bound, surgical, safety-gated
+A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes every `feature_requests` row where `status='pending'`. For each row: marks `in_progress`, runs the full 7-step NWP loop (skipping step 2 since no user is online), implements via Edit/Write, runs tsc, commits with `feat(<surface>): ...`, pushes to `origin/main`, polls Vercel deploy if dashboard files changed, inserts a notification row in `messages` (matching surface, direction='out') so user sees the result on next chat open, then marks `done` with `implementation_notes` and `pr_url`. SAFETY: any request that touches secrets / drops tables / requires paid external service / disables tests must be marked `rejected` with a clear `rejection_reason` rather than implemented. The agent never runs destructive operations beyond what NitsyClaw itself does. Schedule managed via claude.ai/code/routines.
+- *Source:* Session 5e — auto-implementation contract for the daily build agent
+- *Added:* 2026-04-28
+
 ---
 
 ## Fixes log
@@ -230,6 +241,8 @@ The bot can be "alive" in PID terms AND log "[wwebjs] client ready" while the pu
 | 2026-04-28 | Needed one-command pattern for user feature requests | R32 | `*add <description>` trigger codified in NWP-v1.2 + CLAUDE.md |
 | 2026-04-28 | Broom committed suicide every 2 min (regex matched its own path) | R33 | Narrowed regex; explicit self-exclusion (broom.ps1, broom-silent.vbs, launch-bot.ps1, silent-launcher.ps1) |
 | 2026-04-28 | Bot "alive" but silent — wa-session websocket dropped without event | R34 | Operator restart for now; periodic wa-session probe pending |
+| 2026-04-28 | Feature requests scattered across PARKED + chat history + ad-hoc | R35 | `feature_requests` Postgres table; `request_feature` tool on both surfaces |
+| 2026-04-28 | No automation: feature requests required manual session to implement | R36 | Daily build agent (CCR routine) processes queue with NWP + safety guardrails |
 
 ---
 
