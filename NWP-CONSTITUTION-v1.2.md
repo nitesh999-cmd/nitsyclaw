@@ -43,7 +43,7 @@ Only pleasantries with zero tool calls / file changes / external state.
 - `*audit` — dump evidence for every step
 - `*stepN` — dump step N evidence
 - `*nwp` — run full protocol explicitly
-- `*add <description>` — capture a feature request. If it's small (< ~30 min and self-contained), implement immediately, then commit + push + R29 doc update. If larger, append to `CLAUDE-CODE-BACKLOG.md` under "User-added feature requests" with timestamp + size estimate, and confirm what was queued. Either way, confirm in one line what happened. Example: `*add voice input on /chat page using Web Speech API` or `*add weekly summary email of expenses`.
+- `*add <description>` — capture a feature request. ALWAYS write to the `feature_requests` Postgres table first (canonical queue per NitsyClaw R35) tagged `source='dashboard'`. Then: if small (< ~30 min, self-contained) and the user is online, implement immediately, commit + push + R29 doc update, and UPDATE the row to `status='done'` with `pr_url`. If larger or the user is stepping away, leave the row `pending` for the daily build agent (`trig_01XiN9ZowcHufrXkcNzMkJbe`, fires 12:00 UTC) to pick up via NWP. Confirm in one line including the row id. Example: `*add voice input on /chat page using Web Speech API` or `*add weekly summary email of expenses`.
 
 ## TodoList requirement
 

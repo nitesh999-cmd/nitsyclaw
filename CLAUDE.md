@@ -21,7 +21,7 @@ Emit `NWP acknowledged` as the first line. Then proceed.
 - `*clarify` — take NO action, click-questions only via AskUserQuestion
 - `*audit` — dump evidence for every step
 - `*stepN` — dump step N evidence
-- **`*add <description>`** — request a new feature. If small (< ~30 min, self-contained), Claude implements + commits + pushes + updates docs (R29) immediately. If larger, Claude appends it to `CLAUDE-CODE-BACKLOG.md` under "User-added feature requests" with timestamp + estimated size, and confirms what was queued. One-line confirmation either way. Example: `*add voice input on /chat page` or `*add weekly summary email of my expenses every Sunday`.
+- **`*add <description>`** — request a new feature. Claude (a) inserts a row into the `feature_requests` Postgres table tagged `source='dashboard'` (since Claude Code runs on your laptop, treat it as the dashboard surface for traceability), THEN (b) decides: if small (< ~30 min, self-contained) and you're online, implements + commits + pushes + updates docs (R29) immediately and marks the row `done` with the commit hash. If larger or you're stepping away, leaves it `pending` for the daily build agent (`trig_01XiN9ZowcHufrXkcNzMkJbe`, fires 12:00 UTC) to pick up. One-line confirmation either way includes the `feature_requests.id`. Example: `*add voice input on /chat page using Web Speech API` or `*add weekly summary email of my expenses every Sunday`.
 - `commit` `push` `check` `sync` `mind` `const` `memory` `todo` `priority` `review` `agent` — global keywords from `~/.claude/CLAUDE.md`
 
 ## After every fix (R29 — non-negotiable)
