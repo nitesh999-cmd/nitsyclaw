@@ -182,7 +182,7 @@ export async function POST(req: Request) {
   }
 
   const last = body.history[body.history.length - 1];
-  if (last.role !== "user") {
+  if (!last || last.role !== "user") {
     return NextResponse.json({ reply: "Last message must be from user" }, { status: 400 });
   }
   const prior = body.history.slice(0, -1);
