@@ -42,7 +42,7 @@ export function listGoogleAccounts(): string[] {
   if (existsSync(ROOT)) {
     for (const f of readdirSync(ROOT)) {
       const m = f.match(/^google-token-([a-z0-9_-]+)\.json$/i);
-      if (m) labels.push(m[1].toLowerCase());
+      if (m && m[1]) labels.push(m[1].toLowerCase());
     }
     // Legacy single-account file = "personal"
     if (existsSync(resolve(ROOT, "google-token.json")) && !labels.includes("personal")) {
