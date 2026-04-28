@@ -1,7 +1,7 @@
 # Session log — 2026-04-28 → 2026-04-29 (overnight Melbourne)
 
 > Layman-friendly summary of what got built. Readable on phone, plain English.
-> For the technical detail, see `mind.md` rows 5–5l and `NitsyClaw-Constitution-v1.0.md` R17–R37.
+> For the technical detail, see `mind.md` rows 5–5m and `NitsyClaw-Constitution-v1.0.md` R17–R38.
 
 ## What you can do now (capabilities)
 
@@ -22,7 +22,7 @@
 - Recurring reminders ("every Monday 9am")
 - Log expenses from receipt photos (auto-categorised)
 - Identify any non-receipt photo and ask what to do
-- Schedule calendar events (Google calendars only — Outlook write is open)
+- Schedule calendar events on Google (personal) OR Outlook/Wattage M365 — say "schedule on outlook" / "wattage calendar" and it routes there
 - Search the web and summarise
 - Save random thoughts to long-term memory
 - Recall things from memory ("what did I save about X?")
@@ -74,11 +74,12 @@
 13. **Streaming responses** — words appear as the model writes them, voice starts on first sentence.
 14. **iOS Safari voice fix** — was silently blocked by audio-context rules; primer utterance unlocks it.
 15. **Daily build agent** scheduled to auto-process queued features (currently blocked by CCR firewall — see below).
+16. **Outlook calendar WRITE** (early morning 2026-04-29) — `schedule_call` now accepts `calendar: google | outlook`. Says "schedule with Sarah on outlook for tomorrow 3pm" → confirmation rail → reply 'y' → event created in Wattage M365. Dashboard surface (Vercel) silently falls back to Google when outlook is requested, since it can't reach the laptop's `ms-token.json`. R38 codified.
 
 ## What's NOT yet working (open items)
 
 - **Auto-build agent** — Anthropic's cloud sandbox firewalls the database AND ntfy. So queued `/addfeature` requests can't auto-implement themselves yet. Workaround: when you're online with Claude Code on the laptop, I process the queue. Real fix: migrate the build agent to the laptop's always-on cron (~1–2 hr next session).
-- **Outlook calendar WRITE** — can READ events from Wattage M365 but can't yet schedule new ones there. Google calendars work for writes.
+- ~~**Outlook calendar WRITE**~~ — ✅ DONE 2026-04-29 (commit `6334c73`). Bot can now create events in Wattage M365 via `schedule_call` with `calendar: outlook`. Solar Harbour Workspace as a third destination is still pending (would slot in via the same pattern with the SH OAuth token).
 - **Email channel** — ntfy works for push; actual emails to your Outlook inbox aren't wired yet. Three viable paths documented (Microsoft Graph sendMail recommended).
 - **WhatsApp voice replies** — bot replies in text, not audio messages. Not started.
 - **Yahoo email** — intentionally skipped (paywall).
@@ -111,11 +112,11 @@
 
 ## Counts
 
-- **Commits this session:** ~25 (from `89056d1` "fix WhatsApp self-chat bug" through `7c58200` "voice OUT robustness")
-- **Constitution rules added:** R17 → R37 (21 new rules)
-- **mind.md sub-rows added:** 5 → 5l (12 sub-sessions)
-- **Lessons added:** L21 → L35 (15 lessons)
-- **Features implemented:** 4 (voice in, /addfeature, non-receipt image ID, voice out + streaming)
+- **Commits this session:** ~26 (from `89056d1` "fix WhatsApp self-chat bug" through `6334c73` "outlook calendar write")
+- **Constitution rules added:** R17 → R38 (22 new rules)
+- **mind.md sub-rows added:** 5 → 5m (13 sub-sessions)
+- **Lessons added:** L21 → L36 (16 lessons)
+- **Features implemented:** 5 (voice in, /addfeature, non-receipt image ID, voice out + streaming, Outlook calendar write)
 - **Daily ntfy pushes confirmed working:** ~10
 - **Scheduled cloud agents:** 2 (May 12 refactor + daily build agent currently firewalled)
 
@@ -123,6 +124,6 @@
 
 1. **Use it for a real day** — morning brief at 7am, ask it stuff via WhatsApp + dashboard, dictate notes via mic, send a receipt photo. Real usage surfaces real gaps.
 2. **Then migrate the build agent to the laptop** (1–2 hr) so queued features auto-implement going forward.
-3. **Then everything else** — Outlook write, email channel, tool indicators, tests, key rotation. All in the backlog file.
+3. **Then everything else** — email channel, tool indicators, tests, key rotation. (Outlook write is done as of `6334c73`.) All in the backlog file.
 
 Sleep well.
