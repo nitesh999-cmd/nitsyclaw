@@ -108,6 +108,61 @@ Feature code never imports whatsapp-web.js directly. Features depend on the `Wha
 - *Source:* Pre-mortem #3 — test flakiness; R2 path-swap requirement
 - *Added:* 2026-04-25
 
+### R17 — System prompt is a single source of truth across surfaces
+All NitsyClaw surfaces (WhatsApp, dashboard chat, future Telegram, etc.) build their system prompt via `packages/shared/src/agent/system-prompt.ts` `buildSystemPrompt({surface})`. Surface-specific tone/length differences are encoded in the helper, not in scattered string literals. Violations create the "different versions" deflection bug fixed in session 5.
+- *Source:* Session 5 — dashboard /chat used to deflect to WhatsApp because its inline prompt didn't match
+- *Added:* 2026-04-28
+
+### R18 — Conversation history is shared across surfaces, single Postgres source
+Every surface PERSISTS its own messages to the `messages` table tagged with `surface IN ('whatsapp','dashboard',...)` AND PULLS the last N messages across BOTH surfaces (no surface filter) as agent context before each turn. Same `fromNumber = hashPhone(ownerPhone)` for both surfaces. Reaffirms R5 and extends it: history is also single-source, not just memories/reminders.
+- *Source:* Session 5 — same-page implementation
+- *Added:* 2026-04-28
+
+### R19 — Web search uses Anthropic server-side `web_search_20250305`
+Do not wire external web-search providers (Tavily/Exa/Brave) for tool use. The Anthropic-built-in `web_search_20250305` server tool is appended to the `tools` array passed to `messages.create` in every surface's LLM client. Zero external API key, zero infra. If a future need requires logging/auditing search queries, supersede this rule with a higher-numbered one — don't quietly add a second provider.
+- *Source:* Session 5 — research compared Tavily, Exa, Brave; built-in won
+- *Added:* 2026-04-28
+
+### R20 — Vercel routes that call Anthropic must declare `runtime = "nodejs"` and `maxDuration`
+`/api/chat`, `/api/chat/history`, and any future tool-using API route MUST set `export const runtime = "nodejs"` (Edge runtime can't run our deps), `export const dynamic = "force-dynamic"` (no static caching), and `export const maxDuration = 60` (agent loops can take >10s).
+- *Source:* Session 4 — earlier route was timing out at default 10s on tool-use rounds
+- *Added:* 2026-04-28
+
+### R21 — ASCII-only in PowerShell scripts
+PowerShell silently breaks on em-dashes (—), smart quotes (" "), and ellipsis (…) when invoked via `powershell.exe -File`. All `.ps1` files use ASCII hyphens, straight quotes, three dots only.
+- *Source:* Session 4 — repeated silent failures from autocorrected dashes
+- *Added:* 2026-04-28
+
+### R22 — Always clear `.git/index.lock` before git ops
+Crashed PowerShell scripts leave `.git\index.lock` behind, which blocks all subsequent git operations with "fatal: Unable to create .git/index.lock". Every script that touches git starts with `Remove-Item .git\index.lock -Force -ErrorAction SilentlyContinue`.
+- *Source:* Session 4
+- *Added:* 2026-04-28
+
+### R23 — NEVER `vercel env pull` (destructive to local `.env.local`)
+`vercel env pull` overwrites the local `.env.local` with Vercel's stripped-down version, losing local-only secrets (GITHUB_PAT, ENCRYPTION_KEY backups, dev tokens). Local is the source of truth; push TO Vercel via the dashboard UI or CLI `vercel env add`, never pull FROM.
+- *Source:* Session 3 — lost ENCRYPTION_KEY once, regenerated everything
+- *Added:* 2026-04-28
+
+### R24 — Vercel env values pasted WITHOUT surrounding quotes
+Vercel's "Import .env" UI preserves quotes literally — `DATABASE_URL="postgresql://..."` becomes `"postgresql://..."` (with the actual quote chars in the value). Always paste the raw value with no quotes.
+- *Source:* Session 3 — DB-not-configured bug; took hours to find the corrupted env var
+- *Added:* 2026-04-28
+
+### R25 — When Vercel build fails, redeploy WITHOUT cache to surface real errors
+Vercel keeps serving the last successful deploy when a new build fails — the live site looks fine but the new code never landed. To diagnose: in the Vercel UI on the failed deploy, click "Redeploy" and uncheck "Use existing Build Cache". Surfaces the real TS error in the build log, which can then be read via `vercel inspect <deployment-url> --logs`.
+- *Source:* Session 4 — chased phantom "deployment ok" before realizing it was stale
+- *Added:* 2026-04-28
+
+### R26 — Shared package NEVER imports from `apps/*` (R16 reaffirmed)
+`packages/shared/*` must not import (statically OR dynamically) from `apps/bot/*` or `apps/dashboard/*`. Concrete violation: `04-morning-brief.ts:84` and `05-whats-on-my-plate.ts:26` dynamic-import `apps/bot/src/adapters.js`. This poisons the dashboard build (every bot strict-mode bug blocks dashboard deploy). Aggregator functions must be exposed via `AgentDeps` and wired by each app at boot. Cleanup scheduled: `trig_01XYHgVLJMMAVQQbBAFjr7Az` fires 2026-05-12.
+- *Source:* Sessions 3+4 — caused 4+ Vercel build failures
+- *Added:* 2026-04-28
+
+### R27 — `noUncheckedIndexedAccess` violations: grep the full build path before pushing
+When a TS error like "Object is possibly 'undefined'" or "Type 'undefined' cannot be used as an index type" surfaces, before fixing-and-pushing, grep the full transitive build path for sibling violations: `\.split\([^)]+\)\[\d+\]\.`, `\.match\([^)]+\)\?\.\[\d+\]`, `\?\?\s*\w+\.split\([^)]+\)\[\d+\]`. Each unfixed sibling burns one Vercel deploy cycle.
+- *Source:* Session 4 — four sequential failed deploys, one error each
+- *Added:* 2026-04-28
+
 ---
 
 ## Fixes log
@@ -121,6 +176,17 @@ Feature code never imports whatsapp-web.js directly. Features depend on the `Wha
 | 2026-04-25 | whatsapp-web.js cannot run on Vercel serverless | R14 | Split deploy: dashboard on Vercel, bot on Railway |
 | 2026-04-25 | Test depth locked to full pyramid | R15 | Vitest unit+integration, Playwright e2e, coverage gates |
 | 2026-04-25 | WhatsApp transport must be swappable A↔B | R16 | `WhatsAppClient` interface; features never import the lib |
+| 2026-04-28 | Dashboard `/chat` deflected to WhatsApp ("different versions") | R17 | Single `buildSystemPrompt` source of truth, surface-aware addendum |
+| 2026-04-28 | WhatsApp + dashboard had no shared conversation context | R18 | `loadCrossSurfaceHistory` pulls last 20 from both; `surface` column |
+| 2026-04-28 | Web search was a stub returning empty results | R19 | Anthropic server-side `web_search_20250305` injected into LLM tools |
+| 2026-04-28 | Tool routes timing out at default 10s | R20 | Mandatory `runtime/dynamic/maxDuration` exports |
+| 2026-04-28 | PowerShell scripts silently failing on smart chars | R21 | ASCII-only enforced |
+| 2026-04-28 | Stuck on `.git/index.lock` after script crashes | R22 | Always pre-clear lock |
+| 2026-04-28 | `vercel env pull` wiped local secrets | R23 | Never run pull |
+| 2026-04-28 | `DATABASE_URL` env var stored with literal quotes | R24 | Paste WITHOUT quotes in Vercel UI |
+| 2026-04-28 | Vercel served stale "ok" deploy while new build failed | R25 | Redeploy without cache to surface real errors |
+| 2026-04-28 | Shared dynamic-imports apps/bot, poisoning dashboard build | R26 | Reaffirmed; cleanup agent scheduled 2026-05-12 |
+| 2026-04-28 | Whack-a-mole on noUncheckedIndexedAccess (4 deploys) | R27 | Grep full build path before pushing fix |
 
 ---
 

@@ -295,6 +295,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-04-27 | 2b | Cancelled Railway. Bulletproofed local always-on (silent-launcher + broom). Renamed Vercel `nitsyclaw-dashboard` → `nitsyclaw`. Multi-account email/calendar: + Solar Harbour Workspace, + M365 Wattage. Yahoo skipped. All sources merged into morning brief + "what's on my plate". Self-chat-only WhatsApp filter fix. |
 | 2026-04-28 | 3 | DB-not-configured fix (Vercel env corruption). Dashboard pages dark-themed. `/debug` page. Bot strict-mode fixes (subtype, regex, M365 auth). R20 added (Vercel runtime/maxDuration). Yahoo unwired. |
 | 2026-04-28 | 4 | **Dashboard agent loop LIVE.** `/api/chat` runs full 10-tool agent. 4 strict-mode fixes for noUncheckedIndexedAccess (adapters, google-auth, route.ts, morning-brief). Smoke tests pass: plate, birthdays, reminders all hit tools. Final commit `7575aac`. |
+| 2026-04-28 | 5 | **Same-page WhatsApp+dashboard.** `surface` column on messages, both surfaces persist + pull cross-surface history (last 20). Unified system prompt (`buildSystemPrompt`) so smart = answer general-knowledge Qs directly + use Anthropic server-side `web_search_20250305` for current info. New `GET /api/chat/history`. `/chat` page hydrates on mount. WhatsApp bot persists outbound (was inbound-only gap). NWP-Constitution-v1.2 codified to repo + project-root `CLAUDE.md` autoloader. Final commit `e54a971`. |
 
 ---
 
@@ -324,14 +325,50 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - **L20:** Whack-a-mole is wasteful. Before pushing a fix for one TS error, grep the entire build path for sibling violations (`.split(...)[N].`, `match(...)?.[N]`, `[N].method`, `?? x.split(...)[N]`).
 
 **Remaining tech debt (carry to next session):**
-- `04-morning-brief.ts:84` and `05-whats-on-my-plate.ts:26` still dynamic-import `apps/bot/src/adapters.js`. Strict-mode bugs in bot still poison dashboard build. Clean fix: refactor those calls to go through `AgentDeps` so dashboard never sees `apps/bot/*`. Tonight = patch level.
+- `04-morning-brief.ts:84` and `05-whats-on-my-plate.ts:26` still dynamic-import `apps/bot/src/adapters.js`. Strict-mode bugs in bot still poison dashboard build. Clean fix: refactor those calls to go through `AgentDeps` so dashboard never sees `apps/bot/*`. Tonight = patch level. **Scheduled cleanup agent: trig_01XYHgVLJMMAVQQbBAFjr7Az fires 2026-05-12.**
 - google-auth.ts has unused-but-fine standalone TS error (TS6059 rootDir + `redirect_uris[0]` already fixed). Bot tsconfig `include: ["test/**/*"]` should be excluded from `rootDir` or moved.
 - API key rotation still pending.
 - Vercel chat tests vs WhatsApp parity not yet automated.
 
 ---
 
-## 15. Return prompt (updated for v1.1)
+## 15. Session 5 (2026-04-28) — Same-page WhatsApp + dashboard
+
+**Final commit:** `e54a971` — both surfaces share conversation context and now answer general-knowledge questions (no more "go to WhatsApp" deflection).
+
+**What this session shipped:**
+- DB migration `0001_add_surface_to_messages.sql` — additive (default `'whatsapp'`) so legacy rows are safe. Applied via `packages/shared/scripts/apply-migration-0001.mjs`.
+- `packages/shared/src/agent/history.ts` — `loadCrossSurfaceHistory(db, ownerHash, limit)`. Reads BOTH surfaces by `fromNumber=hashPhone(ownerPhone)`, decrypts safely (handles plaintext+AES mix), maps direction→role, returns oldest→newest.
+- `packages/shared/src/agent/system-prompt.ts` — `buildSystemPrompt({surface})` is the single source of truth. Both surfaces import it. Tells the model to answer general-knowledge Qs directly, use tools for personal data, use `web_search` for current/real-time facts.
+- `apps/bot/src/router.ts` — pulls cross-surface history before agent, persists outbound (`sendAndPersist` wrapper) for transcribe/receipt/agent replies, persists `reply_to_user` text too. Uses `buildSystemPrompt({surface:"whatsapp"})`.
+- `apps/dashboard/src/app/api/chat/route.ts` — pulls cross-surface history (ignores client-supplied), persists user+assistant after agent. Uses `buildSystemPrompt({surface:"dashboard"})`.
+- `apps/dashboard/src/app/api/chat/history/route.ts` — new GET endpoint for hydration.
+- `apps/dashboard/src/app/chat/page.tsx` — `useEffect` on mount fetches history; "Loading conversation history..." pre-state.
+- Both LLM call sites inject Anthropic server-side `web_search_20250305` (max_uses 5) so model can fetch current info without external API key. `web_research` local stub disabled in `registerAllFeatures()`.
+- `CLAUDE.md` at project root (NWP autoloader per backlog 5.3 / NWP-v1.2 self-suggested home).
+- Repo-tracked: `NWP-CONSTITUTION-v1.2.md`, `CLAUDE-CODE-BACKLOG.md`, `HANDOFF-TO-CLAUDE-CODE.md`.
+
+**Verified live (2026-04-28 ~10:10 UTC, single deploy, no whack-a-mole):**
+- "what is the capital of brazil?" → direct answer "Brasília", `tools=[]`, `historyLoaded: 8`. Model commented "Looks like you had quite a busy WhatsApp thread going this morning" — proves cross-surface awareness.
+- "whats on my plate today?" → `whats_on_my_plate` fired, `historyLoaded: 10`.
+- `GET /api/chat/history?limit=5` returns persisted dashboard pairs.
+
+**Lessons L21+:**
+- **L21:** Anthropic server-side `web_search_20250305` is the right web-search choice over Tavily/Exa/Brave for tool-use loops — no external API key, no infra, billing baked into Anthropic. Wire by appending to the `tools` array passed to `messages.create`. Tradeoff: no log of search queries (Anthropic-internal).
+- **L22:** Cross-surface history works via `fromNumber = hashPhone(ownerPhone)` — same hash for both surfaces because the user is the same person. SHA-256 deterministic. No surface-specific filter needed; `recentMessages` already returns both surfaces when query doesn't filter by `surface`.
+- **L23:** Always use the pooled `DATABASE_URL` (not `DATABASE_URL_DIRECT`) for migration scripts run from local laptop — direct host frequently DNS-unreachable on Supabase free tier.
+- **L24:** Schema additive migrations with default values (`ADD COLUMN IF NOT EXISTS x text NOT NULL DEFAULT 'foo'`) backfill existing rows in milliseconds and don't break running services.
+- **L25:** Run NWP Step 6 (pre-mortem) BEFORE coding — mitigations baked into design saved this session from another whack-a-mole. Pre-pushed gracefully-degraded paths (`safeDecrypt`, `loadCrossSurfaceHistory.catch(() => [])`, persist-failure-non-fatal) prevented runtime crashes.
+
+**Remaining tech debt (carry to next session):**
+- Two `makeAnthropicLlm` impls (one in `apps/bot/src/adapters.ts`, one in dashboard route) — duplicated. Move to `packages/shared/` so server-tool injection is one-place.
+- `noopWebSearch` in dashboard route is dead code (web_research no longer registered) — delete.
+- `apps/dashboard/src/app/conversations/page.tsx` should display `surface` badge (whatsapp vs dashboard) on each row.
+- Tests: no unit tests yet for `loadCrossSurfaceHistory` or `buildSystemPrompt`. Per R15 (NitsyClaw R15, the test pyramid), should land before next non-trivial feature.
+
+---
+
+## 16. Return prompt (updated for v1.2)
 
 > You are working on the **NitsyClaw** project at `C:\Users\Nitesh\projects\NitsyClaw`.
 > Before doing any work in this repo, in this exact order:
