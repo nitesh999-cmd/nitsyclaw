@@ -205,6 +205,11 @@ All net-new feature asks captured from WhatsApp / dashboard via `request_feature
 - *Added:* 2026-04-28
 - *Extends:* R5, R32
 
+### R37 — Push notification on every bot reply (ntfy.sh primary)
+WhatsApp's self-chat notifications are unreliable (often silent, especially after agent-loop delays). To guarantee Nitesh sees replies on whichever device he's on: every outbound from the bot (sendAndPersist, reply_to_user, transcribe/receipt confirmations) ALSO calls `pushNotify(text)` from `@nitsyclaw/shared/notify` which POSTs to a ntfy.sh topic. Topic in `NTFY_TOPIC` env var (default in repo's `.env.local`: `nitsyclaw-b3011652d4279674`). Optional Windows-toast fallback via `WINDOWS_TOAST=true`. Both are best-effort and never block the actual WhatsApp send. ntfy.sh chosen over Pushover/Pushbullet for: free no-signup, no API key, persistent inbox, cross-device, self-hostable later if needed.
+- *Source:* Session 5f — Nitesh missed bot replies because WhatsApp notifications didn't fire / he'd switched apps before the agent finished
+- *Added:* 2026-04-28
+
 ### R36 — Daily build agent contract: NWP-bound, surgical, safety-gated
 A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes every `feature_requests` row where `status='pending'`. For each row: marks `in_progress`, runs the full 7-step NWP loop (skipping step 2 since no user is online), implements via Edit/Write, runs tsc, commits with `feat(<surface>): ...`, pushes to `origin/main`, polls Vercel deploy if dashboard files changed, inserts a notification row in `messages` (matching surface, direction='out') so user sees the result on next chat open, then marks `done` with `implementation_notes` and `pr_url`. SAFETY: any request that touches secrets / drops tables / requires paid external service / disables tests must be marked `rejected` with a clear `rejection_reason` rather than implemented. The agent never runs destructive operations beyond what NitsyClaw itself does. Schedule managed via claude.ai/code/routines.
 - *Source:* Session 5e — auto-implementation contract for the daily build agent
@@ -243,6 +248,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-04-28 | Bot "alive" but silent — wa-session websocket dropped without event | R34 | Operator restart for now; periodic wa-session probe pending |
 | 2026-04-28 | Feature requests scattered across PARKED + chat history + ad-hoc | R35 | `feature_requests` Postgres table; `request_feature` tool on both surfaces |
 | 2026-04-28 | No automation: feature requests required manual session to implement | R36 | Daily build agent (CCR routine) processes queue with NWP + safety guardrails |
+| 2026-04-28 | Bot replies invisible — WhatsApp self-chat notifications silent / user moved on | R37 | Every outbound also POSTs to ntfy.sh; phone + PC + browser all push-notified |
 
 ---
 

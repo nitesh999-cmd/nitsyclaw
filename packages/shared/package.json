@@ -11,7 +11,8 @@
     "./agent": "./src/agent/index.ts",
     "./whatsapp": "./src/whatsapp/index.ts",
     "./features": "./src/features/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./notify": "./src/notify/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -13,6 +13,7 @@ import {
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import { insertMessage } from "@nitsyclaw/shared/db";
 import { encryptString, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
+import { pushNotify } from "@nitsyclaw/shared/notify";
 
 const SYSTEM_PROMPT = buildSystemPrompt({ surface: "whatsapp" });
 
@@ -21,7 +22,11 @@ export class Router {
 
   constructor(private deps: AgentDeps, private ownerPhone: string) {}
 
-  /** Send a WhatsApp message AND persist it (direction='out', surface='whatsapp'). */
+  /** Send a WhatsApp message, persist it (direction='out', surface='whatsapp'),
+   *  and fire a push notification (ntfy + optional Windows toast) so Nitesh
+   *  isn't relying on WhatsApp's own self-chat notifications (which often
+   *  silently fail). All three are best-effort; failure of any one doesn't
+   *  block the others. */
   private async sendAndPersist(body: string): Promise<void> {
     await this.deps.whatsapp.send({ to: this.ownerPhone, body });
     try {
@@ -35,6 +40,7 @@ export class Router {
     } catch (e) {
       console.error("[router] failed to persist outbound", e);
     }
+    pushNotify(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
   }
 
   async handle(msg: InboundMessage): Promise<void> {
@@ -144,6 +150,7 @@ export class Router {
         } catch (e) {
           console.error("[router] failed to persist reply_to_user outbound", e);
         }
+        pushNotify(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
       }
     } else if (result.finalText.trim()) {
       await this.sendAndPersist(result.finalText);

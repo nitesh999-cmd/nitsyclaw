@@ -24,6 +24,15 @@ Emit `NWP acknowledged` as the first line. Then proceed.
 - **`*add <description>`** — request a new feature. Claude (a) inserts a row into the `feature_requests` Postgres table tagged `source='dashboard'` (since Claude Code runs on your laptop, treat it as the dashboard surface for traceability), THEN (b) decides: if small (< ~30 min, self-contained) and you're online, implements + commits + pushes + updates docs (R29) immediately and marks the row `done` with the commit hash. If larger or you're stepping away, leaves it `pending` for the daily build agent (`trig_01XiN9ZowcHufrXkcNzMkJbe`, fires 12:00 UTC) to pick up. One-line confirmation either way includes the `feature_requests.id`. Example: `*add voice input on /chat page using Web Speech API` or `*add weekly summary email of my expenses every Sunday`.
 - `commit` `push` `check` `sync` `mind` `const` `memory` `todo` `priority` `review` `agent` — global keywords from `~/.claude/CLAUDE.md`
 
+## Push notifications (R37)
+
+Bot fires `pushNotify` on every WhatsApp send — POSTs to ntfy.sh topic (`NTFY_TOPIC` in `.env.local`). Subscribe on each device:
+- **Phone:** install free ntfy app (iOS / Android), tap "Add subscription", enter the topic.
+- **PC browser:** open `https://ntfy.sh/<topic>`, click Subscribe (allow notifications).
+- **Windows toast:** set `WINDOWS_TOAST=true` for a local desktop toast in addition to ntfy.
+
+Default topic: `nitsyclaw-b3011652d4279674` (rotate at any time by changing `.env.local`).
+
 ## After every fix (R29 — non-negotiable)
 
 Every code commit pairs with doc updates IN THE SAME PUSH. Never "I'll catch up the docs later." Specifically:
