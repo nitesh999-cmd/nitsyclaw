@@ -375,7 +375,7 @@ export default function ChatPage() {
           <p className="text-sm text-neutral-500">Start typing below. Try: <code>what's on my plate today</code></p>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+          <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start items-end gap-1"}>
             <div className={
               "rounded-2xl px-4 py-2 max-w-[75%] whitespace-pre-wrap text-sm " +
               (m.role === "user"
@@ -384,6 +384,25 @@ export default function ChatPage() {
             }>
               {m.content}
             </div>
+            {/* Manual Read-aloud button on assistant bubbles. The streaming
+                TTS path can be silently blocked by Chrome's autoplay policy
+                after a long async wait, even with our send-time primer.
+                This button is a guaranteed user gesture → always speaks. */}
+            {m.role === "assistant" && m.content && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window === "undefined" || !window.speechSynthesis) return;
+                  window.speechSynthesis.cancel();
+                  speak(m.content);
+                }}
+                aria-label="Read aloud"
+                title="Read aloud"
+                className="rounded-full w-7 h-7 flex items-center justify-center text-xs bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-neutral-100 transition shrink-0"
+              >
+                🔊
+              </button>
+            )}
           </div>
         ))}
         {busy && (
