@@ -26,6 +26,9 @@ Default recommendation: Option 1 (M365 sendMail). Already half-wired.
 |---|---|---|---|
 | _(empty — first `*add` lands here)_ | | | |
 
+## Build agent status (updated 2026-04-29)
+CCR sandbox permanently blocks outbound network. Option B implemented: `apps/bot/src/build-agent.ts` fires at 12:00 UTC from the always-on bot process — queries pending feature_requests and sends WhatsApp + ntfy notification to Nitesh. Full auto-implementation still requires manual Claude Code session (`*nwp`). See mind.md L36-L37.
+
 ## Priority 0 — Finish what's in flight
 
 ### 0.1 Verify session 3 is closed

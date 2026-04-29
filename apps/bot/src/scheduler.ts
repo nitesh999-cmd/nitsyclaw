@@ -1,11 +1,12 @@
 // node-cron schedules for: morning brief (with multi-account email + calendar),
-// due reminders, memory pruner.
+// due reminders, memory pruner, and local build-agent notification.
 
 import cron from "node-cron";
 import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
+import { runDailyBuildAgent } from "./build-agent.js";
 
 export interface SchedulerOpts {
   deps: AgentDeps;
@@ -17,7 +18,7 @@ export interface SchedulerOpts {
 export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
   const tasks: cron.ScheduledTask[] = [];
 
-  // Every minute â€” fire any due reminders.
+  // Every minute - fire any due reminders.
   tasks.push(
     cron.schedule("* * * * *", async () => {
       try {
@@ -28,7 +29,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
     }),
   );
 
-  // 7am daily morning brief â€” multi-account aggregation.
+  // 7am daily morning brief - multi-account aggregation.
   tasks.push(
     cron.schedule("0 7 * * *", async () => {
       try {
@@ -54,7 +55,20 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
     }),
   );
 
-  // 3am daily â€” memory pruner stub.
+  // 12:00 UTC daily - local build agent (Option B, L36).
+  // CCR sandbox blocks Supabase + ntfy so the CCR routine cannot run;
+  // this fires from the always-on bot process instead and notifies Nitesh.
+  tasks.push(
+    cron.schedule("0 12 * * *", async () => {
+      try {
+        await runDailyBuildAgent(opts.deps, opts.ownerPhone);
+      } catch (e) {
+        console.error("[cron:build] error", e);
+      }
+    }),
+  );
+
+  // 3am daily - memory pruner stub.
   tasks.push(
     cron.schedule("0 3 * * *", async () => {
       console.log("[cron:prune] noop placeholder");
