@@ -1,7 +1,7 @@
 # Session log — 2026-04-28 → 2026-04-29 (overnight Melbourne)
 
 > Layman-friendly summary of what got built. Readable on phone, plain English.
-> For the technical detail, see `mind.md` rows 5–5m and `NitsyClaw-Constitution-v1.0.md` R17–R38.
+> For the technical detail, see `mind.md` rows 5–5n and `NitsyClaw-Constitution-v1.0.md` R17–R39.
 
 ## What you can do now (capabilities)
 
@@ -75,6 +75,7 @@
 14. **iOS Safari voice fix** — was silently blocked by audio-context rules; primer utterance unlocks it.
 15. **Daily build agent** scheduled to auto-process queued features (currently blocked by CCR firewall — see below).
 16. **Outlook calendar WRITE** (early morning 2026-04-29) — `schedule_call` now accepts `calendar: google | outlook`. Says "schedule with Sarah on outlook for tomorrow 3pm" → confirmation rail → reply 'y' → event created in Wattage M365. Dashboard surface (Vercel) silently falls back to Google when outlook is requested, since it can't reach the laptop's `ms-token.json`. R38 codified.
+17. **/chat "no reply text" defensive fix** (2026-04-29) — user reported their message bubble appears but no reply on Android Chrome AND Desktop Chrome. Server endpoints all healthy (verified via curl). Couldn't reproduce without DevTools, so shipped client-side guards: HTTP-status check, reverse-search for assistant message slot, per-event console logs (`[chat] event: ...` visible in browser DevTools), and an automatic fallback to non-streaming `/api/chat` when the stream produces zero text. So even if streaming silently fails on a network/proxy quirk, the user always sees a reply or an Error bubble. R39 codified.
 
 ## What's NOT yet working (open items)
 
@@ -112,9 +113,9 @@
 
 ## Counts
 
-- **Commits this session:** ~26 (from `89056d1` "fix WhatsApp self-chat bug" through `6334c73` "outlook calendar write")
-- **Constitution rules added:** R17 → R38 (22 new rules)
-- **mind.md sub-rows added:** 5 → 5m (13 sub-sessions)
+- **Commits this session:** ~27 (from `89056d1` "fix WhatsApp self-chat bug" through `cdee64d` "/chat defensive streaming + fallback")
+- **Constitution rules added:** R17 → R39 (23 new rules)
+- **mind.md sub-rows added:** 5 → 5n (14 sub-sessions)
 - **Lessons added:** L21 → L36 (16 lessons)
 - **Features implemented:** 5 (voice in, /addfeature, non-receipt image ID, voice out + streaming, Outlook calendar write)
 - **Daily ntfy pushes confirmed working:** ~10
