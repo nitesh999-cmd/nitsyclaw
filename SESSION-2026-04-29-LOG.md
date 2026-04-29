@@ -1,7 +1,7 @@
 # Session log — 2026-04-28 → 2026-04-29 (overnight Melbourne)
 
 > Layman-friendly summary of what got built. Readable on phone, plain English.
-> For the technical detail, see `mind.md` rows 5–5n and `NitsyClaw-Constitution-v1.0.md` R17–R39.
+> For the technical detail, see `mind.md` rows 5–5o and `NitsyClaw-Constitution-v1.0.md` R17–R40.
 
 ## What you can do now (capabilities)
 
@@ -76,6 +76,7 @@
 15. **Daily build agent** scheduled to auto-process queued features (currently blocked by CCR firewall — see below).
 16. **Outlook calendar WRITE** (early morning 2026-04-29) — `schedule_call` now accepts `calendar: google | outlook`. Says "schedule with Sarah on outlook for tomorrow 3pm" → confirmation rail → reply 'y' → event created in Wattage M365. Dashboard surface (Vercel) silently falls back to Google when outlook is requested, since it can't reach the laptop's `ms-token.json`. R38 codified.
 17. **/chat "no reply text" defensive fix** (2026-04-29) — user reported their message bubble appears but no reply on Android Chrome AND Desktop Chrome. Server endpoints all healthy (verified via curl). Couldn't reproduce without DevTools, so shipped client-side guards: HTTP-status check, reverse-search for assistant message slot, per-event console logs (`[chat] event: ...` visible in browser DevTools), and an automatic fallback to non-streaming `/api/chat` when the stream produces zero text. So even if streaming silently fails on a network/proxy quirk, the user always sees a reply or an Error bubble. R39 codified.
+18. **🔊 Read-aloud button on every assistant bubble** (2026-04-29) — text reply now arrived but voice OUT still silent on Chrome. Voice-picker preview worked → audio fine → streaming auto-TTS specifically blocked by Chrome's autoplay policy expiring the gesture context during the async fetch+stream wait. Fix: a small 🔊 button appears next to every grey reply bubble. Tap it → speaks that reply. Always works because the click IS a fresh user gesture. Streaming auto-speak still attempts in the background; the button is the 100%-reliable manual fallback. R40 codified ("every audio feature must have a user-gesture entry-point").
 
 ## What's NOT yet working (open items)
 
@@ -113,9 +114,9 @@
 
 ## Counts
 
-- **Commits this session:** ~27 (from `89056d1` "fix WhatsApp self-chat bug" through `cdee64d` "/chat defensive streaming + fallback")
-- **Constitution rules added:** R17 → R39 (23 new rules)
-- **mind.md sub-rows added:** 5 → 5n (14 sub-sessions)
+- **Commits this session:** ~28 (from `89056d1` "fix WhatsApp self-chat bug" through `11d5eb6` "Read-aloud button")
+- **Constitution rules added:** R17 → R40 (24 new rules)
+- **mind.md sub-rows added:** 5 → 5o (15 sub-sessions)
 - **Lessons added:** L21 → L36 (16 lessons)
 - **Features implemented:** 5 (voice in, /addfeature, non-receipt image ID, voice out + streaming, Outlook calendar write)
 - **Daily ntfy pushes confirmed working:** ~10
