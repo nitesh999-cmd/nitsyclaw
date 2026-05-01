@@ -11,6 +11,7 @@ import {
   confirmations,
   auditLog,
   featureRequests,
+  connectedAccounts,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -19,6 +20,8 @@ import {
   type Memory,
   type NewFeatureRequest,
   type FeatureRequest,
+  type ConnectedAccount,
+  type NewConnectedAccount,
 } from "./schema.js";
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -143,6 +146,57 @@ export async function setFeatureRequestStatus(
   },
 ): Promise<void> {
   await db.update(featureRequests).set(patch).where(eq(featureRequests.id, id));
+}
+
+export async function upsertConnectedAccount(
+  db: DB,
+  account: NewConnectedAccount,
+): Promise<ConnectedAccount> {
+  const [existing] = await db
+    .select()
+    .from(connectedAccounts)
+    .where(
+      and(
+        eq(connectedAccounts.provider, account.provider),
+        eq(connectedAccounts.ownerHash, account.ownerHash),
+        eq(connectedAccounts.accountLabel, account.accountLabel ?? "default"),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    const [row] = await db
+      .update(connectedAccounts)
+      .set({ ...account, updatedAt: new Date() })
+      .where(eq(connectedAccounts.id, existing.id))
+      .returning();
+    return row!;
+  }
+
+  const [row] = await db.insert(connectedAccounts).values(account).returning();
+  return row!;
+}
+
+export async function getConnectedAccount(
+  db: DB,
+  args: {
+    provider: ConnectedAccount["provider"];
+    ownerHash: string;
+    accountLabel?: string;
+  },
+): Promise<ConnectedAccount | null> {
+  const [row] = await db
+    .select()
+    .from(connectedAccounts)
+    .where(
+      and(
+        eq(connectedAccounts.provider, args.provider),
+        eq(connectedAccounts.ownerHash, args.ownerHash),
+        eq(connectedAccounts.accountLabel, args.accountLabel ?? "default"),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 export async function logAudit(

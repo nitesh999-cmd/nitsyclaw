@@ -9,6 +9,7 @@ import { confirmations } from "../db/schema.js";
 import { setConfirmationStatus } from "../db/repo.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { DB } from "../db/client.js";
+import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
 
 export type ConfirmationDecision = "approved" | "rejected" | "expired";
 
@@ -114,6 +115,25 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
           eventId: ev.id,
           link: ev.htmlLink,
           calendar: wantsOutlook ? "outlook" : "google",
+        };
+      }
+      if (out.decision === "approved" && out.action === "spotify_create_playlist") {
+        const p = out.payload as {
+          name: string;
+          description?: string;
+          uris: string[];
+          ownerHash?: string;
+        };
+        const playlist = await createPrivateSpotifyPlaylist(ctx.deps.db, p.ownerHash ?? "", {
+          name: p.name,
+          description: p.description,
+          uris: p.uris,
+        });
+        return {
+          resolved: true,
+          decision: out.decision,
+          action: out.action,
+          playlist,
         };
       }
       return { resolved: true, decision: out.decision, action: out.action };

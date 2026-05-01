@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-02 (session 13 - queued safe tools)
+> Updated: 2026-05-02 (session 14 - Spotify foundation and integrations control plane)
 
 ---
 
@@ -591,3 +591,40 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 **Verification:**
 - `npm test -- --run packages/shared/test/12-whatsapp-history.test.ts packages/shared/test/13-personal-lists.test.ts packages/shared/test/feature-registry-queued.test.ts packages/shared/test/tools-registry.test.ts` passed: 11 tests.
+
+---
+
+## 25. Session 14 (2026-05-02) — Spotify foundation and integrations control plane
+
+**Goal:** Execute the next product sprint with agent review at each decision point, starting with Spotify because it is high-value and does not require phone/banking platform compliance.
+
+**What changed:**
+- Added `connected_accounts` table and migration `0003_add_connected_accounts.sql` for encrypted OAuth token storage.
+- Added Spotify integration client with OAuth URL, token exchange, refresh, top tracks, search, and private playlist creation.
+- Added dashboard Spotify routes:
+  - `/api/integrations/spotify/connect`
+  - `/api/integrations/spotify/callback`
+  - `/api/integrations/spotify/status`
+- Added `/integrations` dashboard page showing WhatsApp, AI keys, Gmail, Outlook, Spotify, Drive, Photos, Phone/SMS, and bank-feed readiness.
+- Added Spotify tools:
+  - `spotify_top_tracks`
+  - `spotify_search_tracks`
+  - `queue_spotify_playlist_creation`
+- Extended confirmation handling so approved Spotify playlist confirmations create the private playlist.
+- Changed WhatsApp confirmation handling to route through the confirmation tool handler so side effects execute, instead of only marking the row approved.
+- Added `z.array` JSON-schema support so playlist URI arrays are exposed correctly to the model.
+- Added `.env.local.example` Spotify variables and `docs/spotify-integration.md`.
+
+**Agent review incorporated:**
+- Register Spotify tools in the main registry.
+- Add actual `spotify_create_playlist` execution in confirmation rail.
+- Add OAuth connect/callback/status routes with state validation.
+- Add unique index for connected accounts by provider/owner/label.
+- Preserve existing refresh token when Spotify does not return a new one.
+- Improve tool schema array conversion for Anthropic tool calls.
+
+**Verification:**
+- `npm test -- --run packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/feature-registry-queued.test.ts` passed: 12 tests.
+- Applied live DB migration `0003_add_connected_accounts.sql`.
+- `npm run build` remains blocked by the existing dashboard dependency issue: `next` is not installed under `apps/dashboard`.
+- `npx tsc -p packages/shared/tsconfig.json --noEmit` remains blocked by the existing shared `rootDir`/test include config issue.

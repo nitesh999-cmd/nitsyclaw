@@ -55,4 +55,11 @@ describe("zodToJsonSchema", () => {
   it("handles enums", () => {
     expect(zodToJsonSchema(z.enum(["a", "b"]))).toEqual({ type: "string", enum: ["a", "b"] });
   });
+
+  it("handles arrays", () => {
+    expect(zodToJsonSchema(z.array(z.string()))).toEqual({
+      type: "array",
+      items: { type: "string" },
+    });
+  });
 });

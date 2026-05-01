@@ -68,5 +68,8 @@ export function zodToJsonSchema(schema: z.ZodTypeAny): unknown {
   if (schema instanceof z.ZodEnum) {
     return { type: "string", enum: schema.options };
   }
+  if (schema instanceof z.ZodArray) {
+    return { type: "array", items: zodToJsonSchema(schema.element) };
+  }
   return {};
 }

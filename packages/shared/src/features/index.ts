@@ -19,6 +19,7 @@ import { registerFeatureRequest } from "./11-feature-request.js";
 import { registerWhatsAppHistory } from "./12-whatsapp-history.js";
 import { registerPersonalLists } from "./13-personal-lists.js";
 import { registerEmailSearch } from "./14-email-search.js";
+import { registerSpotify } from "./15-spotify.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -43,6 +44,7 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerWhatsAppHistory(r);
   registerPersonalLists(r);
   registerEmailSearch(r);
+  registerSpotify(r);
   return r;
 }
 
@@ -60,3 +62,4 @@ export * from "./11-feature-request.js";
 export * from "./12-whatsapp-history.js";
 export * from "./13-personal-lists.js";
 export * from "./14-email-search.js";
+export * from "./15-spotify.js";

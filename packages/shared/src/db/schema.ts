@@ -10,6 +10,7 @@ import {
   integer,
   boolean,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -165,6 +166,39 @@ export const featureRequests = pgTable(
   }),
 );
 
+/**
+ * OAuth/API accounts connected by the owner.
+ * Tokens are encrypted by caller before insert/update.
+ */
+export const connectedAccounts = pgTable(
+  "connected_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider", { enum: ["spotify"] }).notNull(),
+    ownerHash: text("owner_hash").notNull(),
+    accountLabel: text("account_label").notNull().default("default"),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    scope: text("scope").notNull().default(""),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerOwnerIdx: index("connected_accounts_provider_owner_idx").on(
+      t.provider,
+      t.ownerHash,
+      t.accountLabel,
+    ),
+    providerOwnerUniqueIdx: uniqueIndex("connected_accounts_provider_owner_unique_idx").on(
+      t.provider,
+      t.ownerHash,
+      t.accountLabel,
+    ),
+  }),
+);
+
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Memory = typeof memories.$inferSelect;
@@ -178,3 +212,5 @@ export type Confirmation = typeof confirmations.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
 export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
+export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
+export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;

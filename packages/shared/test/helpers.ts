@@ -26,6 +26,7 @@ export interface FakeDbState {
   auditLog: any[];
   audit_log: any[];
   feature_requests: any[];
+  connected_accounts: any[];
 }
 
 export function makeFakeDb(): { db: any; state: FakeDbState } {
@@ -39,12 +40,18 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
     auditLog: [],
     audit_log: [],
     feature_requests: [],
+    connected_accounts: [],
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
   const insert = (table: keyof FakeDbState) => ({
     values: (rows: any | any[]) => {
       const arr = Array.isArray(rows) ? rows : [rows];
-      const inserted = arr.map((r) => ({ id: crypto.randomUUID(), createdAt: new Date(), ...r }));
+      const inserted = arr.map((r) => ({
+        id: crypto.randomUUID(),
+        createdAt: new Date(),
+        ...(table === "confirmations" ? { status: "pending" } : {}),
+        ...r,
+      }));
       state[table].push(...inserted);
       return {
         returning: async () => inserted,
@@ -83,10 +90,14 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
     }),
     update: (table: any) => ({
       set: (patch: any) => ({
-        where: async (_cond: any) => {
+        where: (_cond: any) => {
           const name = tableName(table);
           state[name].forEach((r: any) => Object.assign(r, patch));
-          return Promise.resolve();
+          const updated = state[name];
+          return {
+            returning: async () => updated,
+            then: (resolve: any) => Promise.resolve(updated).then(resolve),
+          };
         },
       }),
     }),

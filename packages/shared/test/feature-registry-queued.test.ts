@@ -10,5 +10,8 @@ describe("queued feature registry", () => {
     expect(names).toContain("add_birthday_template");
     expect(names).toContain("list_birthday_templates");
     expect(names).toContain("search_gmail_inbox");
+    expect(names).toContain("spotify_top_tracks");
+    expect(names).toContain("spotify_search_tracks");
+    expect(names).toContain("queue_spotify_playlist_creation");
   });
 });

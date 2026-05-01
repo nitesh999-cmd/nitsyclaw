@@ -5,7 +5,6 @@ import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { detectIntent } from "@nitsyclaw/shared/utils";
 import {
-  resolveConfirmation,
   registerAllFeatures,
   transcribeAndStore,
   processReceiptImage,
@@ -180,13 +179,37 @@ export class Router {
     // 3. Confirmation y/n short-circuit (no LLM needed).
     const intent = detectIntent(effectiveText);
     if (intent === "confirmation") {
-      const out = await resolveConfirmation({
-        db: this.deps.db,
-        reply: effectiveText,
-        now: this.deps.now(),
-      });
-      if (out) {
-        await this.sendAndPersist(`Confirmation ${out.id}: ${out.decision}`);
+      const confirmationTool = this.registry.get("resolve_confirmation");
+      const reply = /^(y|yes|approve|confirm|ok|okay)\b/i.test(effectiveText.trim())
+        ? "yes"
+        : "no";
+      const out = confirmationTool
+        ? await confirmationTool.handler(
+            { reply },
+            {
+              userPhone: msg.from,
+              now: this.deps.now(),
+              timezone: this.deps.timezone,
+              deps: this.deps,
+            },
+          )
+        : null;
+      if (out && (out as { resolved?: boolean }).resolved) {
+        const resolved = out as {
+          decision?: string;
+          action?: string;
+          playlist?: { name?: string; url?: string; added?: number };
+          link?: string;
+        };
+        if (resolved.playlist) {
+          await this.sendAndPersist(
+            `Done. Created Spotify playlist "${resolved.playlist.name ?? "playlist"}" with ${resolved.playlist.added ?? 0} tracks.\n${resolved.playlist.url ?? ""}`.trim(),
+          );
+        } else if (resolved.link) {
+          await this.sendAndPersist(`Confirmation: ${resolved.decision}\n${resolved.link}`);
+        } else {
+          await this.sendAndPersist(`Confirmation: ${resolved.decision ?? "resolved"}`);
+        }
         return;
       }
     }

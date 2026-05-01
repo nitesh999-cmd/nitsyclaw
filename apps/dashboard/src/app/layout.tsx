@@ -17,6 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <a className="hover:underline" href="/memory">Memory</a>
               <a className="hover:underline" href="/reminders">Reminders</a>
               <a className="hover:underline" href="/expenses">Expenses</a>
+              <a className="hover:underline" href="/integrations">Integrations</a>
               <a className="hover:underline" href="/settings">Settings</a>
             </nav>
           </aside>
