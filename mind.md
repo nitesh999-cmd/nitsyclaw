@@ -549,3 +549,25 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `broom.ps1`, `launch-bot.ps1`, `setup-always-on.ps1`, and `watchdog.ps1` parsed successfully with the PowerShell parser after supervisor hardening.
 - `npm run build` remains blocked by existing local dashboard dependency state: `next` is not recognized under `apps/dashboard`.
 - `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by existing repo config/type issues (`rootDir` includes shared sources and existing `router.ts` `rawText` mismatch); the new `wwebjs-client.ts` errors from this change were fixed.
+
+---
+
+## 23. Session 12 (2026-05-01) — Review-driven WhatsApp reliability hardening
+
+**Goal:** Close the P1 issues found by code/supervisor/product review after the first self-healing patch.
+
+**What changed:**
+- `apps/bot/src/wwebjs-client.ts` now writes `logs/whatsapp-health-last-ok.txt` on `ready` and on every successful active health probe.
+- `wwebjs-client.ts` now wraps `initialize()` with timeout/retry/backoff, adds a post-initialize ready watchdog, and recreates the client until stopped.
+- `send()` now waits for any in-flight restart before sending and records echo suppression only after `sendMessage()` succeeds.
+- `broom.ps1` now watches the dedicated WhatsApp heartbeat file instead of `bot.log`.
+- `broom.ps1` now has a restart cooldown and stops the matched bot process tree, not just one parent PID.
+- `launch-bot.ps1` no longer treats dev/watch as healthy production; it migrates dev/watch by stopping that bot tree before starting production `start`.
+- `launch-bot.ps1` stops NitsyClaw-owned orphan WhatsApp profile processes before clearing singleton locks.
+- `setup-always-on.ps1` now registers one canonical hidden `NitsyClaw Broom` task via `broom-silent.vbs` and unregisters the legacy `NitsyClaw Watchdog` task.
+
+**Verification:**
+- `.\node_modules\.bin\vitest.cmd run apps/bot/test/whatsapp-health.test.ts apps/bot/test/whatsapp-identity.test.ts` passed: 8 tests.
+- PowerShell parser passed for `broom.ps1`, `launch-bot.ps1`, `setup-always-on.ps1`, and `watchdog.ps1`.
+- Local bot restarted through `launch-bot.ps1`, stayed alive after the first 60-second health probe interval, and wrote `logs/whatsapp-health-last-ok.txt` at `2026-05-01 22:54:43`.
+- `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by known repo-wide config/type issues outside this change (`rootDir` pulling shared sources and existing `router.ts` `rawText` mismatch); the changed WhatsApp files did not add new reported TypeScript errors.

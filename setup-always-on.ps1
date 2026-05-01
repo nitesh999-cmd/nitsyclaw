@@ -15,6 +15,7 @@ $ErrorActionPreference = "Stop"
 $root = "C:\Users\Nitesh\projects\NitsyClaw"
 $launcher = "$root\launch-bot.ps1"
 $broom = "$root\broom.ps1"
+$broomSilent = "$root\broom-silent.vbs"
 
 if (-not (Test-Path $root)) {
     Write-Host "ERROR: Project not found at $root" -ForegroundColor Red
@@ -26,6 +27,10 @@ if (-not (Test-Path $launcher)) {
 }
 if (-not (Test-Path $broom)) {
     Write-Host "ERROR: broom.ps1 not found." -ForegroundColor Red
+    exit 1
+}
+if (-not (Test-Path $broomSilent)) {
+    Write-Host "ERROR: broom-silent.vbs not found." -ForegroundColor Red
     exit 1
 }
 
@@ -71,12 +76,13 @@ $sc.Save()
 Write-Host "  shortcut at: $shortcutPath" -ForegroundColor Green
 
 Write-Host "[4/4] Registering broom watchdog task..." -ForegroundColor Yellow
-$taskName = "NitsyClaw Watchdog"
-$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -NoProfile -File `"$broom`""
+$taskName = "NitsyClaw Broom"
+$action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$broomSilent`""
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 2)
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive
 
+Unregister-ScheduledTask -TaskName "NitsyClaw Watchdog" -Confirm:$false -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
 
