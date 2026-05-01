@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-01 (session 9 — WhatsApp mobile reply polish)
+> Updated: 2026-05-01 (session 10 — stale WhatsApp watchdog)
 
 ---
 
@@ -319,6 +319,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-05-01 | 7 | **WhatsApp owner ID normalization.** Bot was ready but owner self-chat messages could be dropped because WhatsApp emitted `614...@c.us` while env used `+614...`. Added shared owner-ID normalization and regression tests. |
 | 2026-05-01 | 8 | **WhatsApp fromMe self-chat gate.** Expanded the self-chat gate to accept owner-authored messages where WhatsApp uses a non-phone sender ID but `fromMe=true` and `to` is the owner number; normal chats/groups still drop. |
 | 2026-05-01 | 9 | **WhatsApp mobile reply polish.** Fixed orphan `Yes` replies so they fall through to agent context instead of `No pending confirmations`; banned markdown tables on WhatsApp; cleaned mojibake from morning brief and plate text. |
+| 2026-05-01 | 10 | **Stale WhatsApp watchdog.** WhatsApp stopped again while bot process was alive and `bot.log` was stale. Restarted bot manually, then taught `broom.ps1` to restart only the bot when `bot.log` is stale for 15 minutes. |
 
 ---
 
@@ -398,6 +399,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - **L39:** WhatsApp owner checks must normalize both env phone numbers and WhatsApp IDs to digits before comparison. `whatsapp-web.js` can emit `614...@c.us` while `.env.local` stores `+614...`; raw string comparison silently drops valid self-chat messages.
 - **L40:** WhatsApp self-chat messages may be delivered as owner-authored `fromMe=true` events where `from` is a non-phone LID but `to` is the owner phone. Accept that shape only when `to` normalizes to the owner; do not relax incoming contact/group messages.
 - **L41:** Never let a naked `yes`/`no` die in the confirmation rail unless a pending confirmation actually exists. If there is no pending confirmation, pass it to the agent so conversation context can resolve it. Also keep WhatsApp output phone-shaped: no markdown tables, no mojibake, compact bullets.
+- **L42:** A live bot process is not a live WhatsApp client. If `logs/bot.log` stops changing while `broom-last-tick.txt` keeps updating, treat the bot as stale and restart only the bot process. This is less risky than all-node restarts and fixes the repeated alive-but-silent WhatsApp Web state.
 
 **Remaining tech debt (carry to next session):**
 - Two `makeAnthropicLlm` impls (one in `apps/bot/src/adapters.ts`, one in dashboard route) — duplicated. Move to `packages/shared/` so server-tool injection is one-place.
@@ -493,3 +495,22 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - `.\node_modules\.bin\vitest.cmd run apps/bot/test/router.integration.test.ts apps/bot/test/whatsapp-identity.test.ts` passed: 10 tests.
 - Mojibake scan under `packages/shared/src` returned no matches for the known corrupted byte patterns.
+
+---
+
+## 21. Session 10 (2026-05-01) — Stale WhatsApp watchdog
+
+**Goal:** Stop requiring manual intervention when WhatsApp Web goes alive-but-silent.
+
+**What happened:**
+- The bot process was alive, but `logs/bot.log` had not changed since 21:06 while `logs/broom-last-tick.txt` kept updating.
+- Manual bot-only restart restored intake immediately; fresh log showed `WhatsApp ready` and accepted owner messages.
+
+**What changed:**
+- `broom.ps1` now checks `logs/bot.log` age when the bot process exists.
+- If `bot.log` is older than 15 minutes, broom stops only matching bot node processes and calls `launch-bot.ps1`.
+- Dashboard and unrelated Node processes are not touched.
+
+**Verification:**
+- Manual bot-only restart produced `[boot] WhatsApp ready` and accepted `Hi`/owner inbound messages.
+- `broom.ps1` syntax checked with PowerShell parser after edit.

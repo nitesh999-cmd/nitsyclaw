@@ -25,6 +25,26 @@ if (-not $bot) {
         '-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-NoProfile',
         '-File',"$root\launch-bot.ps1"
     )
+} else {
+    # whatsapp-web.js can get stuck alive-but-silent: node remains running, but
+    # no WhatsApp events, boot lines, drops, or inbound messages reach bot.log.
+    # In this repo's live incident pattern, a stale bot.log while broom is still
+    # ticking means the WhatsApp client needs a surgical bot-only restart.
+    $botLog = "$logDir\bot.log"
+    $staleMinutes = 15
+    $botLogItem = Get-Item -LiteralPath $botLog -ErrorAction SilentlyContinue
+    if ($botLogItem -and $botLogItem.LastWriteTime -lt (Get-Date).AddMinutes(-$staleMinutes)) {
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot alive but bot.log stale ($([int]((Get-Date) - $botLogItem.LastWriteTime).TotalMinutes)m) -> restart bot" |
+            Out-File -Append "$logDir\broom.log"
+        $bot | ForEach-Object {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 2
+        Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+            '-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-NoProfile',
+            '-File',"$root\launch-bot.ps1"
+        )
+    }
 }
 
 # Kill stray powershell.exe windows running NitsyClaw scripts that ARE NOT hidden

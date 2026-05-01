@@ -230,6 +230,11 @@ WhatsApp replies MUST be readable on a phone: no markdown tables, no corrupted e
 - *Source:* 2026-05-01 WhatsApp screenshots — table-style output was awkward on mobile; `Yes` after a normal assistant question returned `No pending confirmations`; morning brief showed mojibake characters
 - *Added:* 2026-05-01
 
+### R44 — Local WhatsApp watchdog treats stale logs as unhealthy
+For the local Path B bot, an alive `node.exe` process is not sufficient health. If the bot process exists but `logs/bot.log` has not changed for the configured stale window while the broom watchdog is still ticking, the bot is treated as alive-but-stale and restarted with the bot-only launcher. The restart must remain surgical: stop only the bot process, never all Node processes and never the dashboard.
+- *Source:* 2026-05-01 repeated WhatsApp incidents — bot process remained alive while WhatsApp intake stopped and `bot.log` stopped updating
+- *Added:* 2026-05-01
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -287,6 +292,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-01 | Public Vercel dashboard exposed private memories, briefs, reminders, conversations, and settings without auth | R41 | Added dashboard middleware with Basic auth, production fail-closed when password env is missing, and static-asset-only bypass |
 | 2026-05-01 | WhatsApp bot ready but owner self-chat messages still dropped | R42 | Added shared owner-ID normalization and safe `fromMe=true` self-chat acceptance; added regression tests |
 | 2026-05-01 | WhatsApp output awkward on mobile and `Yes` could resolve to `No pending confirmations` without context | R43 | Let orphan yes/no fall through to agent context; banned WhatsApp markdown tables in prompt; cleaned mojibake from morning brief and plate output |
+| 2026-05-01 | WhatsApp stopped again with bot process still alive and no fresh bot.log writes | R44 | Broom now restarts only the bot when bot.log is stale for 15 minutes despite a live bot process |
 
 ---
 
