@@ -220,6 +220,11 @@ The Vercel dashboard exposes private memories, reminders, conversations, expense
 - *Source:* 2026-05-01 public-route privacy audit; Next.js middleware docs (middleware runs before routes render and can respond directly for auth failures)
 - *Added:* 2026-05-01
 
+### R42 — WhatsApp owner identity comparisons are normalized
+Every WhatsApp owner/self-chat check MUST normalize both `.env.local` phone numbers and WhatsApp message IDs to digits before comparing. `whatsapp-web.js` may emit IDs such as `614...@c.us`, while env values may be stored as `+614...`; raw string comparison can silently drop valid owner messages. Normalization must happen in one shared helper and be covered by tests.
+- *Source:* 2026-05-01 WhatsApp incident — bot was ready but dropped owner self-chat messages because `+614...` did not equal `614...@c.us`
+- *Added:* 2026-05-01
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -275,6 +280,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-04-29 | `schedule_call` only wrote to Google; Wattage M365 had read but no write path | R38 | `calendar` enum on tool input, persisted to confirmation payload; `resolve_confirmation` routes per provider; dashboard falls back to Google when outlook is unreachable from Vercel |
 | 2026-04-29 | `/chat` Send produced user bubble + no reply text on user's two Chrome browsers; server endpoints healthy | R39 | Defensive streaming reader (reverse-search assistant, HTTP-status check, per-event console logs), automatic fallback to non-streaming `/api/chat` when streaming yields nothing |
 | 2026-05-01 | Public Vercel dashboard exposed private memories, briefs, reminders, conversations, and settings without auth | R41 | Added dashboard middleware with Basic auth, production fail-closed when password env is missing, and static-asset-only bypass |
+| 2026-05-01 | WhatsApp bot ready but owner self-chat messages still dropped | R42 | Added shared owner-ID normalization so `+614...` env values match WhatsApp IDs like `614...@c.us`; added regression tests |
 
 ---
 

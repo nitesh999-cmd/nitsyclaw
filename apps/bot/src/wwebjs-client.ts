@@ -11,6 +11,7 @@ import type {
   OutboundMessage,
   WhatsAppClient,
 } from "@nitsyclaw/shared/whatsapp";
+import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
@@ -88,18 +89,20 @@ export class WwebjsClient implements WhatsAppClient {
         // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
         // not when you're typing in conversations with other contacts.
         const fromRaw = (m as any).from ?? "";
-        const from = fromRaw.replace(/@c\.us$/, "");
+        const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = (m as any).to ?? "";
-        const to = toRaw.replace(/@c\.us$/, "");
-        const isSelfChat = (from === this.opts.ownerNumber && to === this.opts.ownerNumber);
-        if (!isSelfChat) {
+        const to = normalizeWhatsAppOwnerId(toRaw);
+        if (!isOwnerSelfChat({ from: fromRaw, to: toRaw, ownerNumber: this.opts.ownerNumber })) {
           console.log(`[wwebjs] dropped: not self-chat (from=${from} to=${to})`);
           return;
         }
 
         console.log(`[wwebjs] inbound: from=${from} fromMe=${fromMe} body="${body.slice(0, 50)}"`);
 
-        if (this.opts.onlyOwner !== false && from !== this.opts.ownerNumber) {
+        if (
+          this.opts.onlyOwner !== false &&
+          from !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)
+        ) {
           console.log(`[wwebjs] dropped: from=${from} != owner=${this.opts.ownerNumber}`);
           return;
         }
