@@ -231,7 +231,7 @@ WhatsApp replies MUST be readable on a phone: no markdown tables, no corrupted e
 - *Added:* 2026-05-01
 
 ### R44 — Local WhatsApp watchdog treats stale logs as unhealthy
-For the local Path B bot, an alive `node.exe` process is not sufficient health. If the bot process exists but `logs/bot.log` has not changed for the configured stale window while the broom watchdog is still ticking, the bot is treated as alive-but-stale and restarted with the bot-only launcher. The restart must remain surgical: stop only the bot process, never all Node processes and never the dashboard.
+For the local Path B bot, an alive `node.exe` process is not sufficient health. If the bot process exists but `logs/bot.log` has not changed for the configured stale window while the broom watchdog is still ticking, the bot is treated as alive-but-stale and restarted with the bot-only launcher. The restart must remain surgical: stop only the bot process, never all Node processes and never the dashboard. Recurring watchdogs must not kill "visible" PowerShell/Node children as cleanup; Windows child command lines do not reliably preserve hidden-window intent, and this can kill healthy bot processes. Always-on launchers must run the bot's production `start` command, not dev/watch mode.
 - *Source:* 2026-05-01 repeated WhatsApp incidents — bot process remained alive while WhatsApp intake stopped and `bot.log` stopped updating
 - *Added:* 2026-05-01
 

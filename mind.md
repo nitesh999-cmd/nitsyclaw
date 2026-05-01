@@ -532,6 +532,8 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Added `apps/bot/src/types/qrcode-terminal.d.ts` so bot source type-checking no longer depends on missing third-party types.
 - Added `apps/bot/test/whatsapp-health.test.ts` covering state classification and restart threshold logic.
 - Replaced legacy setup/watchdog paths so future Windows setup uses `broom.ps1` + `launch-bot.ps1` only and never calls `nuke-and-go.ps1` for bot supervision.
+- Updated `launch-bot.ps1` to run production `pnpm --filter @nitsyclaw/bot start` instead of dev/watch mode.
+- Updated broom process matching to recognize both bot start/dev command shapes and removed recurring visible-window killing because it could kill healthy child processes.
 
 **Agent critique incorporated:**
 - Supervisor critique: one supervisor only, avoid broad dashboard/nuke restarts, keep bot-only recovery.
@@ -541,5 +543,6 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - `.\node_modules\.bin\vitest.cmd run apps/bot/test/whatsapp-health.test.ts apps/bot/test/whatsapp-identity.test.ts` passed: 8 tests.
 - `setup-always-on.ps1` and `watchdog.ps1` parsed successfully with the PowerShell parser.
+- `broom.ps1`, `launch-bot.ps1`, `setup-always-on.ps1`, and `watchdog.ps1` parsed successfully with the PowerShell parser after supervisor hardening.
 - `npm run build` remains blocked by existing local dashboard dependency state: `next` is not recognized under `apps/dashboard`.
 - `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by existing repo config/type issues (`rootDir` includes shared sources and existing `router.ts` `rawText` mismatch); the new `wwebjs-client.ts` errors from this change were fixed.

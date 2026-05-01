@@ -14,7 +14,14 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 # optional and NOT a broom responsibility - restarting both via silent-launcher
 # was killing the bot mid-message every 2 min (silent-launcher kills all node).
 $bot = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*tsx*src/index.ts*' }
+    Where-Object {
+        $_.CommandLine -and (
+            $_.CommandLine -like '*NitsyClaw*apps*bot*src/index.ts*' -or
+            $_.CommandLine -like '*@nitsyclaw/bot*start*' -or
+            $_.CommandLine -like '*@nitsyclaw/bot*dev*' -or
+            $_.CommandLine -like '*pnpm.cjs*bot*'
+        )
+    }
 
 if (-not $bot) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot dead -> launch-bot.ps1" |
@@ -47,22 +54,7 @@ if (-not $bot) {
     }
 }
 
-# Kill stray powershell.exe windows running NitsyClaw scripts that ARE NOT hidden
-# (i.e. visible windows from old manual launches).
-# NOTE: regex is narrowed to actual stale-launcher signatures (pnpm bot | pnpm
-# dashboard | next dev | tsx watch). The bare 'nitsyclaw' match used to make
-# the broom kill ITSELF every tick (its own commandline contains the project
-# path). Also excludes our own broom.ps1 + launch-bot.ps1 + silent-launcher.
-Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe' OR Name = 'pwsh.exe'" -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.CommandLine -and
-        $_.CommandLine -match '(pnpm bot|pnpm dashboard|next dev|tsx watch|nuke-and-go)' -and
-        $_.CommandLine -notmatch '(WindowStyle Hidden|silent-launcher\.ps1|launch-bot\.ps1|broom\.ps1|broom-silent\.vbs)'
-    } |
-    ForEach-Object {
-        try {
-            "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: killing visible PID $($_.ProcessId)" |
-                Out-File -Append "$logDir\broom.log"
-            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-        } catch {}
-    }
+# Do not kill "visible" PowerShell windows here. Child processes launched by
+# Start-Process do not reliably preserve the parent WindowStyle in their command
+# line, so this cleanup previously killed healthy bot children. Manual cleanup
+# belongs in an operator command, not in the recurring broom.

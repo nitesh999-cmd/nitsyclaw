@@ -9,7 +9,14 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 # Already alive? Exit. Avoids killing the bot mid-message.
 $alive = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*tsx*src/index.ts*' }
+    Where-Object {
+        $_.CommandLine -and (
+            $_.CommandLine -like '*NitsyClaw*apps*bot*src/index.ts*' -or
+            $_.CommandLine -like '*@nitsyclaw/bot*start*' -or
+            $_.CommandLine -like '*@nitsyclaw/bot*dev*' -or
+            $_.CommandLine -like '*pnpm.cjs*bot*'
+        )
+    }
 if ($alive) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: already alive (PID $($alive.ProcessId | Select-Object -First 1)), skipping" |
         Out-File -Append "$logDir\launcher.log"
@@ -26,7 +33,7 @@ Start-Process powershell -WindowStyle Hidden -ArgumentList @(
     '-ExecutionPolicy','Bypass',
     '-NoLogo','-NoProfile',
     '-Command',
-    "Set-Location '$root'; pnpm bot *>> '$logDir\bot.log'"
+    "Set-Location '$root'; pnpm --filter @nitsyclaw/bot start *>> '$logDir\bot.log'"
 )
 "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: spawned" |
     Out-File -Append "$logDir\launcher.log"
