@@ -98,7 +98,6 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.healthProbeIntervalMs <= 0) return;
     if (this.healthProbe) clearInterval(this.healthProbe);
     this.healthProbe = setInterval(() => void this.probeHealth(), this.healthProbeIntervalMs);
-    this.healthProbe.unref?.();
   }
 
   private async probeHealth(): Promise<void> {

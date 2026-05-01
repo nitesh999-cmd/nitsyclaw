@@ -236,7 +236,7 @@ For the local Path B bot, an alive `node.exe` process is not sufficient health. 
 - *Added:* 2026-05-01
 
 ### R45 — WhatsApp client wrapper owns liveness recovery
-The concrete `whatsapp-web.js` adapter must not assume that the first `ready` event means the client will stay healthy. The adapter must actively probe WhatsApp state after ready, treat repeated non-healthy probe results as a recoverable client failure, and recreate the underlying client while preserving registered message handlers. `disconnected`, `auth_failure`, and outbound send failures must be visible in logs and must trigger recovery rather than leaving a dead client inside a live Node process. External watchdogs remain a second layer only; the first recovery layer belongs inside the WhatsApp adapter.
+The concrete `whatsapp-web.js` adapter must not assume that the first `ready` event means the client will stay healthy. The adapter must actively probe WhatsApp state after ready, treat repeated non-healthy probe results as a recoverable client failure, and recreate the underlying client while preserving registered message handlers. The health probe must remain ref-held in production `start` mode so Node cannot exit immediately after ready. `disconnected`, `auth_failure`, and outbound send failures must be visible in logs and must trigger recovery rather than leaving a dead client inside a live Node process. External watchdogs remain a second layer only; the first recovery layer belongs inside the WhatsApp adapter.
 - *Source:* 2026-05-01 repeated WhatsApp incidents and agent review — client stayed alive or ready while messages stopped flowing
 - *Added:* 2026-05-01
 

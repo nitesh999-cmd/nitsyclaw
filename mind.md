@@ -534,6 +534,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Replaced legacy setup/watchdog paths so future Windows setup uses `broom.ps1` + `launch-bot.ps1` only and never calls `nuke-and-go.ps1` for bot supervision.
 - Updated `launch-bot.ps1` to run production `pnpm --filter @nitsyclaw/bot start` instead of dev/watch mode.
 - Updated broom process matching to recognize both bot start/dev command shapes and removed recurring visible-window killing because it could kill healthy child processes.
+- Kept the WhatsApp health probe timer ref-held so production `start` mode remains alive after `ready`; dev/watch previously masked that event-loop lifetime issue.
 
 **Agent critique incorporated:**
 - Supervisor critique: one supervisor only, avoid broad dashboard/nuke restarts, keep bot-only recovery.
