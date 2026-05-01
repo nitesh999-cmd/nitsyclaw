@@ -29,6 +29,26 @@ export default function SettingsPage() {
           Daily DB dumps run at 03:00 in the bot worker. Manual export endpoint planned for v1.1.
         </p>
       </section>
+
+      <section data-testid="settings-data-controls">
+        <h3 className="text-sm uppercase tracking-wide text-neutral-400 mb-2">Data controls</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {[
+            ["Export my data", "Disabled until export packaging and redaction are implemented."],
+            ["Delete memories", "Disabled until scoped deletion and double confirmation are implemented."],
+            ["Delete conversations", "Disabled until export-before-delete and retention policy are implemented."],
+            ["Delete everything", "Disabled. This needs a separate irreversible-action safety flow."],
+          ].map(([title, detail]) => (
+            <div key={title} className="border border-neutral-800 p-4">
+              <div className="font-medium text-neutral-200">{title}</div>
+              <div className="mt-2 text-sm text-neutral-500">{detail}</div>
+              <button disabled className="mt-3 border border-neutral-800 px-3 py-2 text-xs text-neutral-600">
+                Coming soon
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

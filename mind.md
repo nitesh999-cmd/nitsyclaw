@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-02 (session 14 - Spotify foundation and integrations control plane)
+> Updated: 2026-05-02 (session 15 - product control plane sprint)
 
 ---
 
@@ -628,3 +628,30 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Applied live DB migration `0003_add_connected_accounts.sql`.
 - `npm run build` remains blocked by the existing dashboard dependency issue: `next` is not installed under `apps/dashboard`.
 - `npx tsc -p packages/shared/tsconfig.json --noEmit` remains blocked by the existing shared `rootDir`/test include config issue.
+
+---
+
+## 26. Session 15 (2026-05-02) — Product control plane sprint
+
+**Goal:** Make NitsyClaw feel understandable and inspectable for normal users without adding unsafe external actions.
+
+**What changed:**
+- Added `/onboarding` setup checklist.
+- Added `/health` operational status page with DB/env checks, last message, queue counts, pending confirmations, and latest tool signal.
+- Added `/queue` feature-request dashboard with status filters, source, notes, completion time, and PR/deploy link display.
+- Added `/activity` redacted activity timeline focused on tool-call status and object counts instead of raw private payload dumps.
+- Added `/confirmations` read-only confirmation inbox with action, status, expiry, and redacted payload summaries.
+- Added `/help` capability map with plain-language examples for reminders, memory, email, calendar, expenses, Spotify, and feature requests.
+- Updated Today into a stronger home cockpit with pending approvals, reminders, pending queue count, last activity, and better empty states.
+- Added data-control stubs in Settings for export/delete flows, deliberately disabled until export/redaction/double-confirmation safety exists.
+- Expanded dashboard nav to include the new control-plane pages.
+
+**Agent critique incorporated:**
+- Fix missing nav targets first to avoid broken product credibility.
+- Keep queue and confirmation center read-only for now.
+- Do not expose raw audit input/output or decrypted messages in activity.
+- Do not add browser-triggered destructive actions until POST flows, explicit IDs, audit logs, and side-effect execution are designed.
+
+**Verification:**
+- `npm test -- --run packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/feature-registry-queued.test.ts` passed: 12 tests.
+- Dashboard `tsc` remains blocked by existing missing Next/React/dashboard node_modules resolution, producing broad existing module/JSX errors.
