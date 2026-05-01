@@ -102,7 +102,9 @@ export class Router {
           sourceMessageId: persisted.id,
         });
         effectiveText = transcript;
-        await this.sendAndPersist(`📝 (Transcribed) ${transcript}`);
+        await this.sendAndPersist(
+          `📝 Transcribed. I will reply in English.\n${transcript}`,
+        );
       } catch (e) {
         await this.sendAndPersist(`Couldn't transcribe: ${(e as Error).message}`);
         return;

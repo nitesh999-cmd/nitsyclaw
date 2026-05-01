@@ -16,6 +16,9 @@ import { registerWebResearch } from "./08-web-research.js";
 import { registerConfirmationRail } from "./09-confirmation-rail.js";
 import { registerReceiptExpense } from "./10-receipt-expense.js";
 import { registerFeatureRequest } from "./11-feature-request.js";
+import { registerWhatsAppHistory } from "./12-whatsapp-history.js";
+import { registerPersonalLists } from "./13-personal-lists.js";
+import { registerEmailSearch } from "./14-email-search.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -37,6 +40,9 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerConfirmationRail(r);
   registerReceiptExpense(r);
   registerFeatureRequest(r, { surface: opts.surface });
+  registerWhatsAppHistory(r);
+  registerPersonalLists(r);
+  registerEmailSearch(r);
   return r;
 }
 
@@ -51,3 +57,6 @@ export * from "./08-web-research.js";
 export * from "./09-confirmation-rail.js";
 export * from "./10-receipt-expense.js";
 export * from "./11-feature-request.js";
+export * from "./12-whatsapp-history.js";
+export * from "./13-personal-lists.js";
+export * from "./14-email-search.js";

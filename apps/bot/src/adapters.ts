@@ -286,6 +286,7 @@ export interface AggregatedEmail {
   subject: string;
   date: Date;
   snippet?: string;
+  id?: string;
 }
 
 export interface AggregatedEvent {
@@ -317,6 +318,48 @@ export async function fetchAllUnreadEmails(perAccountLimit = 5): Promise<Aggrega
   }
   try { out.push(...(await fetchMsUnread(perAccountLimit))); } catch (err) { console.error("[email] M365 failed:", err); }
   // Yahoo skipped (parked, see session 2 / mind.md §6).
+  out.sort((a, b) => b.date.getTime() - a.date.getTime());
+  return out;
+}
+
+export async function searchAllGmail(query: string, perAccountLimit = 5): Promise<AggregatedEmail[]> {
+  const out: AggregatedEmail[] = [];
+  const q = query.trim();
+  if (!q) return out;
+
+  for (const label of listGoogleAccounts()) {
+    try {
+      const auth = loadGoogleOAuthClientAgg(label);
+      const gmail = googleApiAgg.gmail({ version: "v1", auth });
+      const list = await gmail.users.messages.list({
+        userId: "me",
+        q: `${q} in:anywhere`,
+        maxResults: perAccountLimit,
+      });
+      for (const msg of list.data.messages ?? []) {
+        if (!msg.id) continue;
+        const detail = await gmail.users.messages.get({
+          userId: "me",
+          id: msg.id,
+          format: "metadata",
+          metadataHeaders: ["From", "Subject", "Date"],
+        });
+        const headers = detail.data.payload?.headers ?? [];
+        const get = (n: string) => headers.find((h) => h.name === n)?.value ?? "";
+        out.push({
+          id: msg.id,
+          source: `Gmail (${label})`,
+          from: get("From"),
+          subject: get("Subject") || "(no subject)",
+          date: new Date(get("Date") || Date.now()),
+          snippet: detail.data.snippet ?? undefined,
+        });
+      }
+    } catch (err) {
+      console.error(`[email] Gmail/${label} search failed:`, err);
+    }
+  }
+
   out.sort((a, b) => b.date.getTime() - a.date.getTime());
   return out;
 }

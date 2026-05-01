@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-01 (session 10 — stale WhatsApp watchdog)
+> Updated: 2026-05-02 (session 13 - queued safe tools)
 
 ---
 
@@ -10,7 +10,7 @@
 **NitsyClaw** is Nitesh's personal AI assistant.
 
 - **Channels:** WhatsApp self-chat (primary), Vercel dashboard at https://nitsyclaw.vercel.app (browser, anywhere)
-- **Brain:** Anthropic Claude Sonnet 4.6 with tool use (10 P0 features as tools)
+- **Brain:** Anthropic Claude Sonnet 4.6 with tool use (10 P0 features + safe queued tools)
 - **Hosting:** local laptop (always-on) for the bot, Vercel for the dashboard, Supabase for the DB. Cloud bot abandoned (see §10).
 - **Owner number:** `61430008008` (Australia)
 - **Timezone:** `Australia/Melbourne`
@@ -571,3 +571,23 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - PowerShell parser passed for `broom.ps1`, `launch-bot.ps1`, `setup-always-on.ps1`, and `watchdog.ps1`.
 - Local bot restarted through `launch-bot.ps1`, stayed alive after the first 60-second health probe interval, and wrote `logs/whatsapp-health-last-ok.txt` at `2026-05-01 22:54:43`.
 - `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by known repo-wide config/type issues outside this change (`rootDir` pulling shared sources and existing `router.ts` `rawText` mismatch); the changed WhatsApp files did not add new reported TypeScript errors.
+
+---
+
+## 24. Session 13 (2026-05-02) — Queued safe tools
+
+**Goal:** Work through the live feature-request queue without faking unavailable external permissions.
+
+**What changed:**
+- Added `search_conversation_history` to search saved WhatsApp/dashboard messages by keyword, including encrypted-at-rest bodies after safe decrypt.
+- Added personal can't-do tooling: `add_cant_do_item` and `list_cant_do_items`, stored as pinned memories.
+- Added birthday template tooling: `add_birthday_template` and `list_birthday_templates`, stored as pinned memories.
+- Added `search_gmail_inbox`, a read-only Gmail search tool across connected Google account labels using the existing Gmail OAuth tokens.
+- Updated the WhatsApp voice-note acknowledgement and system prompt so Hindi/Hinglish/non-English transcripts are understood and answered in English by default.
+
+**Still blocked / not marked complete:**
+- Sending email/SMS, phone calls, Google Drive/OneDrive browsing, Google Photos actions, Spotify actions, Facebook birthday automation, and bank-feed expense tracking need explicit API credentials, platform permission flows, and confirmation rails before they can be safely exposed.
+- Destructive or outbound actions must not be implemented as silent shortcuts.
+
+**Verification:**
+- `npm test -- --run packages/shared/test/12-whatsapp-history.test.ts packages/shared/test/13-personal-lists.test.ts packages/shared/test/feature-registry-queued.test.ts packages/shared/test/tools-registry.test.ts` passed: 11 tests.
