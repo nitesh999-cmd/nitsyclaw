@@ -514,3 +514,32 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - Manual bot-only restart produced `[boot] WhatsApp ready` and accepted `Hi`/owner inbound messages.
 - `broom.ps1` syntax checked with PowerShell parser after edit.
+
+---
+
+## 22. Session 11 (2026-05-01) — WhatsApp self-healing client
+
+**Goal:** Make the WhatsApp bot recover from client-level dead states instead of relying only on external stale-log detection.
+
+**What changed:**
+- Added `apps/bot/src/whatsapp-health.ts` with reusable health-state, restart-threshold, and timeout helpers.
+- Updated `apps/bot/src/wwebjs-client.ts` so the wrapper owns recovery:
+  - starts a periodic active health probe after `ready`;
+  - requires `CONNECTED` plus a successful `sendPresenceAvailable()` call;
+  - restarts the underlying whatsapp-web.js client after repeated probe failures;
+  - restarts on `disconnected`, `auth_failure`, or failed outbound send;
+  - preserves registered router handlers across client recreation.
+- Added `apps/bot/src/types/qrcode-terminal.d.ts` so bot source type-checking no longer depends on missing third-party types.
+- Added `apps/bot/test/whatsapp-health.test.ts` covering state classification and restart threshold logic.
+- Replaced legacy setup/watchdog paths so future Windows setup uses `broom.ps1` + `launch-bot.ps1` only and never calls `nuke-and-go.ps1` for bot supervision.
+
+**Agent critique incorporated:**
+- Supervisor critique: one supervisor only, avoid broad dashboard/nuke restarts, keep bot-only recovery.
+- WhatsApp client critique: add active liveness probe and recreate the client on disconnect/repeated probe failure.
+- Product/ops critique: next reliability layer should be a Supabase heartbeat, dashboard health banner, and out-of-band email alert.
+
+**Verification:**
+- `.\node_modules\.bin\vitest.cmd run apps/bot/test/whatsapp-health.test.ts apps/bot/test/whatsapp-identity.test.ts` passed: 8 tests.
+- `setup-always-on.ps1` and `watchdog.ps1` parsed successfully with the PowerShell parser.
+- `npm run build` remains blocked by existing local dashboard dependency state: `next` is not recognized under `apps/dashboard`.
+- `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by existing repo config/type issues (`rootDir` includes shared sources and existing `router.ts` `rawText` mismatch); the new `wwebjs-client.ts` errors from this change were fixed.

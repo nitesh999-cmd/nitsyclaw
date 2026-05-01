@@ -235,6 +235,11 @@ For the local Path B bot, an alive `node.exe` process is not sufficient health. 
 - *Source:* 2026-05-01 repeated WhatsApp incidents — bot process remained alive while WhatsApp intake stopped and `bot.log` stopped updating
 - *Added:* 2026-05-01
 
+### R45 — WhatsApp client wrapper owns liveness recovery
+The concrete `whatsapp-web.js` adapter must not assume that the first `ready` event means the client will stay healthy. The adapter must actively probe WhatsApp state after ready, treat repeated non-healthy probe results as a recoverable client failure, and recreate the underlying client while preserving registered message handlers. `disconnected`, `auth_failure`, and outbound send failures must be visible in logs and must trigger recovery rather than leaving a dead client inside a live Node process. External watchdogs remain a second layer only; the first recovery layer belongs inside the WhatsApp adapter.
+- *Source:* 2026-05-01 repeated WhatsApp incidents and agent review — client stayed alive or ready while messages stopped flowing
+- *Added:* 2026-05-01
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -293,6 +298,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-01 | WhatsApp bot ready but owner self-chat messages still dropped | R42 | Added shared owner-ID normalization and safe `fromMe=true` self-chat acceptance; added regression tests |
 | 2026-05-01 | WhatsApp output awkward on mobile and `Yes` could resolve to `No pending confirmations` without context | R43 | Let orphan yes/no fall through to agent context; banned WhatsApp markdown tables in prompt; cleaned mojibake from morning brief and plate output |
 | 2026-05-01 | WhatsApp stopped again with bot process still alive and no fresh bot.log writes | R44 | Broom now restarts only the bot when bot.log is stale for 15 minutes despite a live bot process |
+| 2026-05-01 | WhatsApp could become dead inside a live bot process without `disconnected` recovery | R45 | Adapter now probes active WhatsApp health and recreates the client on repeated probe failures, disconnects, auth failures, or send failures |
 
 ---
 

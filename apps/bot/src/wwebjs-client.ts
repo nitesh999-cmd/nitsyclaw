@@ -3,6 +3,7 @@
 
 import wweb from "whatsapp-web.js";
 const { Client, LocalAuth } = wweb;
+type WwebjsClientInstance = InstanceType<typeof Client>;
 type Message = wweb.Message;
 
 import qrcode from "qrcode-terminal";
@@ -11,6 +12,11 @@ import type {
   OutboundMessage,
   WhatsAppClient,
 } from "@nitsyclaw/shared/whatsapp";
+import {
+  isHealthyWhatsAppState,
+  shouldRestartWhatsAppClient,
+  withTimeout,
+} from "./whatsapp-health.js";
 import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
@@ -21,37 +27,60 @@ export interface WwebjsOptions {
   sessionDir: string;
   ownerNumber: string;
   onlyOwner?: boolean;
+  healthProbeIntervalMs?: number;
+  healthProbeTimeoutMs?: number;
+  maxConsecutiveHealthFailures?: number;
 }
 
 export class WwebjsClient implements WhatsAppClient {
   private recentOutgoingBodies: Array<{ body: string; sentAt: number }> = [];
-  private client: Client;
+  private client: WwebjsClientInstance;
   private handlers: Array<(m: InboundMessage) => Promise<void> | void> = [];
   private readyPromise: Promise<void>;
   private readyResolve!: () => void;
+  private healthProbe?: NodeJS.Timeout;
+  private restarting?: Promise<void>;
+  private stopped = false;
+  private generation = 0;
+  private consecutiveHealthFailures = 0;
+  private readonly healthProbeIntervalMs: number;
+  private readonly healthProbeTimeoutMs: number;
+  private readonly maxConsecutiveHealthFailures: number;
+  private readonly puppeteerOpts: Record<string, unknown>;
 
   constructor(private opts: WwebjsOptions) {
-    this.readyPromise = new Promise((res) => { this.readyResolve = res; });
+    this.healthProbeIntervalMs = opts.healthProbeIntervalMs ?? 60_000;
+    this.healthProbeTimeoutMs = opts.healthProbeTimeoutMs ?? 15_000;
+    this.maxConsecutiveHealthFailures = opts.maxConsecutiveHealthFailures ?? 2;
+    this.readyPromise = this.newReadyPromise();
 
-    const puppeteerOpts: Record<string, unknown> = {
+    this.puppeteerOpts = {
       headless: true,
       args: PUPPETEER_ARGS,
       handleSIGINT: false,
     };
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      puppeteerOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      this.puppeteerOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
 
-    this.client = new Client({
-      authStrategy: new LocalAuth({ dataPath: opts.sessionDir }),
-      puppeteer: puppeteerOpts as never,
+    this.client = this.createClient();
+    this.wireEvents(this.generation);
+    void this.client.initialize();
+  }
+
+  private newReadyPromise(): Promise<void> {
+    return new Promise((res) => { this.readyResolve = res; });
+  }
+
+  private createClient(): WwebjsClientInstance {
+    return new Client({
+      authStrategy: new LocalAuth({ dataPath: this.opts.sessionDir }),
+      puppeteer: this.puppeteerOpts as never,
       webVersionCache: {
         type: "remote",
         remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1023223821.html",
       },
     });
-    this.wireEvents();
-    this.client.initialize();
   }
 
   private isOurEcho(body: string): boolean {
@@ -65,21 +94,111 @@ export class WwebjsClient implements WhatsAppClient {
     return false;
   }
 
-  private wireEvents(): void {
-    this.client.on("qr", (qr) => {
+  private startHealthProbe(): void {
+    if (this.healthProbeIntervalMs <= 0) return;
+    if (this.healthProbe) clearInterval(this.healthProbe);
+    this.healthProbe = setInterval(() => void this.probeHealth(), this.healthProbeIntervalMs);
+    this.healthProbe.unref?.();
+  }
+
+  private async probeHealth(): Promise<void> {
+    if (this.stopped || this.restarting) return;
+    try {
+      const state = await withTimeout(
+        this.client.getState(),
+        this.healthProbeTimeoutMs,
+        "WhatsApp getState",
+      );
+      if (!isHealthyWhatsAppState(String(state))) {
+        throw new Error(`state=${state ?? "unknown"}`);
+      }
+      await withTimeout(
+        this.client.sendPresenceAvailable(),
+        this.healthProbeTimeoutMs,
+        "WhatsApp presence probe",
+      );
+      this.consecutiveHealthFailures = 0;
+    } catch (e) {
+      this.consecutiveHealthFailures += 1;
+      console.error(
+        `[wwebjs] health probe failed (${this.consecutiveHealthFailures}/${this.maxConsecutiveHealthFailures})`,
+        e,
+      );
+      if (
+        shouldRestartWhatsAppClient(
+          this.consecutiveHealthFailures,
+          this.maxConsecutiveHealthFailures,
+        )
+      ) {
+        await this.restart(`health probe failed: ${String(e)}`);
+      }
+    }
+  }
+
+  private async restart(reason: string): Promise<void> {
+    if (this.stopped) return;
+    if (this.restarting) return this.restarting;
+
+    this.restarting = (async () => {
+      console.error(`[wwebjs] restarting client: ${reason}`);
+      if (this.healthProbe) {
+        clearInterval(this.healthProbe);
+        this.healthProbe = undefined;
+      }
+
+      const oldClient = this.client;
+      oldClient.removeAllListeners();
+      await oldClient.destroy().catch((e: unknown) => {
+        console.error("[wwebjs] destroy during restart failed", e);
+      });
+
+      this.generation += 1;
+      this.readyPromise = this.newReadyPromise();
+      this.client = this.createClient();
+      this.wireEvents(this.generation);
+      await this.client.initialize();
+    })().finally(() => {
+      this.consecutiveHealthFailures = 0;
+      this.restarting = undefined;
+    });
+
+    return this.restarting;
+  }
+
+  private wireEvents(generation: number): void {
+    const isCurrentGeneration = () => generation === this.generation && !this.stopped;
+
+    this.client.on("qr", (qr: string) => {
+      if (!isCurrentGeneration()) return;
       console.log("[wwebjs] QR code received - scan with your phone");
       qrcode.generate(qr, { small: true });
       const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" + encodeURIComponent(qr);
       console.log("[wwebjs] QR also available at: " + qrUrl);
     });
     this.client.on("ready", () => {
+      if (!isCurrentGeneration()) return;
       console.log("[wwebjs] client ready");
+      this.consecutiveHealthFailures = 0;
       this.readyResolve();
+      this.startHealthProbe();
     });
-    this.client.on("auth_failure", (err) => console.error("[wwebjs] auth_failure", err));
-    this.client.on("disconnected", (reason) => console.error("[wwebjs] disconnected", reason));
+    this.client.on("change_state", (state: unknown) => {
+      if (!isCurrentGeneration()) return;
+      console.log("[wwebjs] state", state);
+    });
+    this.client.on("auth_failure", (err: unknown) => {
+      if (!isCurrentGeneration()) return;
+      console.error("[wwebjs] auth_failure", err);
+      void this.restart(`auth_failure: ${String(err)}`);
+    });
+    this.client.on("disconnected", (reason: unknown) => {
+      if (!isCurrentGeneration()) return;
+      console.error("[wwebjs] disconnected", reason);
+      void this.restart(`disconnected: ${String(reason)}`);
+    });
 
     const handleMessage = async (m: Message) => {
+      if (!isCurrentGeneration()) return;
       try {
         const body = m.body ?? "";
         const fromMe = (m as any).fromMe;
@@ -155,8 +274,14 @@ export class WwebjsClient implements WhatsAppClient {
   async send(msg: OutboundMessage): Promise<{ id: string }> {
     this.recentOutgoingBodies.push({ body: msg.body, sentAt: Date.now() });
     const target = msg.to.includes("@") ? msg.to : `${msg.to}@c.us`;
-    const sent = await this.client.sendMessage(target, msg.body);
-    return { id: sent.id?._serialized ?? "" };
+    await this.ready();
+    try {
+      const sent = await this.client.sendMessage(target, msg.body);
+      return { id: sent.id?._serialized ?? "" };
+    } catch (e) {
+      void this.restart(`send failed: ${String(e)}`);
+      throw e;
+    }
   }
 
   onMessage(handler: (m: InboundMessage) => Promise<void> | void): void {
@@ -164,6 +289,9 @@ export class WwebjsClient implements WhatsAppClient {
   }
 
   async destroy(): Promise<void> {
+    this.stopped = true;
+    if (this.healthProbe) clearInterval(this.healthProbe);
+    this.client.removeAllListeners();
     await this.client.destroy();
   }
 }
