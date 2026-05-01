@@ -221,8 +221,8 @@ The Vercel dashboard exposes private memories, reminders, conversations, expense
 - *Added:* 2026-05-01
 
 ### R42 — WhatsApp owner identity comparisons are normalized
-Every WhatsApp owner/self-chat check MUST normalize both `.env.local` phone numbers and WhatsApp message IDs to digits before comparing. `whatsapp-web.js` may emit IDs such as `614...@c.us`, while env values may be stored as `+614...`; raw string comparison can silently drop valid owner messages. Normalization must happen in one shared helper and be covered by tests.
-- *Source:* 2026-05-01 WhatsApp incident — bot was ready but dropped owner self-chat messages because `+614...` did not equal `614...@c.us`
+Every WhatsApp owner/self-chat check MUST normalize both `.env.local` phone numbers and WhatsApp message IDs to digits before comparing. `whatsapp-web.js` may emit IDs such as `614...@c.us`, while env values may be stored as `+614...`; raw string comparison can silently drop valid owner messages. Owner-authored self-chat events may also arrive as `fromMe=true` with a non-phone sender ID and `to` equal to the owner number; that shape is allowed only when `to` normalizes to the owner. Normalization must happen in one shared helper and be covered by tests.
+- *Source:* 2026-05-01 WhatsApp incident — bot was ready but dropped owner self-chat messages because WhatsApp IDs did not match `.env.local` phone formatting
 - *Added:* 2026-05-01
 
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
@@ -280,7 +280,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-04-29 | `schedule_call` only wrote to Google; Wattage M365 had read but no write path | R38 | `calendar` enum on tool input, persisted to confirmation payload; `resolve_confirmation` routes per provider; dashboard falls back to Google when outlook is unreachable from Vercel |
 | 2026-04-29 | `/chat` Send produced user bubble + no reply text on user's two Chrome browsers; server endpoints healthy | R39 | Defensive streaming reader (reverse-search assistant, HTTP-status check, per-event console logs), automatic fallback to non-streaming `/api/chat` when streaming yields nothing |
 | 2026-05-01 | Public Vercel dashboard exposed private memories, briefs, reminders, conversations, and settings without auth | R41 | Added dashboard middleware with Basic auth, production fail-closed when password env is missing, and static-asset-only bypass |
-| 2026-05-01 | WhatsApp bot ready but owner self-chat messages still dropped | R42 | Added shared owner-ID normalization so `+614...` env values match WhatsApp IDs like `614...@c.us`; added regression tests |
+| 2026-05-01 | WhatsApp bot ready but owner self-chat messages still dropped | R42 | Added shared owner-ID normalization and safe `fromMe=true` self-chat acceptance; added regression tests |
 
 ---
 

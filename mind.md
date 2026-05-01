@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-01 (session 7 — WhatsApp owner ID normalization)
+> Updated: 2026-05-01 (session 8 — WhatsApp fromMe self-chat gate)
 
 ---
 
@@ -317,6 +317,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-04-30 | daily-build-agent-4 | **Fourth run — CCR firewall unchanged; zero features processed.** pnpm install succeeded (node_modules absent, fresh install took ~46s). All 6 boot files read successfully (NWP acknowledged). DB connection: TCP timeout to aws-1-ap-northeast-1.pooler.supabase.com:6543 (same as runs 1-3). ntfy.sh: HTTP 403 "Host not in allowlist". Vercel: HTTP 403 "Host not in allowlist". All three external-network exit paths remain blocked. Git proxy (127.0.0.1:35523) operational — fetch + push work. No pending features implemented. Documented this run in mind.md + pushed via git proxy. The laptop node-cron (build-agent.ts, 12:00 UTC) is and will remain the only path for daily feature notification; CCR routine serves as a documentation/audit trail only. No new code changes this run. |
 | 2026-05-01 | 6 | **Dashboard auth gate.** Added `apps/dashboard/src/middleware.ts` so dashboard pages and API routes require Basic auth before route handlers/server components expose private DB data. Production fails closed with HTTP 503 if `NITSYCLAW_DASHBOARD_PASSWORD` is missing; missing/invalid credentials return HTTP 401 with `WWW-Authenticate`. Static Next assets are excluded. Added pure auth helper + 7 unit tests. R41 added. |
 | 2026-05-01 | 7 | **WhatsApp owner ID normalization.** Bot was ready but owner self-chat messages could be dropped because WhatsApp emitted `614...@c.us` while env used `+614...`. Added shared owner-ID normalization and regression tests. |
+| 2026-05-01 | 8 | **WhatsApp fromMe self-chat gate.** Expanded the self-chat gate to accept owner-authored messages where WhatsApp uses a non-phone sender ID but `fromMe=true` and `to` is the owner number; normal chats/groups still drop. |
 
 ---
 
@@ -394,6 +395,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - **L37:** When the CCR build-agent environment blocks all external HTTPS (Vercel, ntfy, Supabase) but the Edit tool is used to write new TypeScript, watch out for two encoding traps: (1) The Edit tool may store curly/smart quotes (U+201C/U+201D) instead of ASCII double-quotes inside code blocks, causing TS1127 "Invalid character" on every string literal — use Write to rewrite the whole file with raw ASCII if the Edit inserts bad quotes. (2) The existing scheduler.ts file had mojibake em-dash sequences (`\xc3\xa2\xe2\x82\xac...`) in comments from an old Windows editor — harmless for tsc but confusing in diffs; replace with ASCII hyphen `--` on next touch. Both traps are benign at runtime but block tsc and therefore Vercel deploys.
 - **L38:** The local untracked `apps/dashboard/node_modules` reparse point can block `pnpm -r build` with `EACCES: permission denied, realpath ...\apps\dashboard\node_modules`. Do not delete it casually because it is untracked local state; either clean it deliberately or verify via Vercel build. Targeted Vitest may need to run outside the sandbox because esbuild process spawn can hit `EPERM`.
 - **L39:** WhatsApp owner checks must normalize both env phone numbers and WhatsApp IDs to digits before comparison. `whatsapp-web.js` can emit `614...@c.us` while `.env.local` stores `+614...`; raw string comparison silently drops valid self-chat messages.
+- **L40:** WhatsApp self-chat messages may be delivered as owner-authored `fromMe=true` events where `from` is a non-phone LID but `to` is the owner phone. Accept that shape only when `to` normalizes to the owner; do not relax incoming contact/group messages.
 
 **Remaining tech debt (carry to next session):**
 - Two `makeAnthropicLlm` impls (one in `apps/bot/src/adapters.ts`, one in dashboard route) — duplicated. Move to `packages/shared/` so server-tool injection is one-place.
@@ -458,3 +460,17 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 **Operational note:**
 - Restart the local bot after this change; `tsx watch` may not reliably pick up newly added files inside the hidden always-on process.
+
+---
+
+## 19. Session 8 (2026-05-01) — WhatsApp fromMe self-chat gate
+
+**Goal:** Cover WhatsApp Web self-chat events where the authored message uses a non-phone sender ID.
+
+**What changed:**
+- `isOwnerSelfChat` now accepts `fromMe=true` plus `to=owner` after normalization.
+- The gate still rejects owner-authored messages sent to any other chat and rejects incoming non-owner chats/groups.
+- Added regression coverage for the LID-style `from` case.
+
+**Verification:**
+- `.\node_modules\.bin\vitest.cmd run apps/bot/test/whatsapp-identity.test.ts` passes after this change.

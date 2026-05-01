@@ -92,7 +92,14 @@ export class WwebjsClient implements WhatsAppClient {
         const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = (m as any).to ?? "";
         const to = normalizeWhatsAppOwnerId(toRaw);
-        if (!isOwnerSelfChat({ from: fromRaw, to: toRaw, ownerNumber: this.opts.ownerNumber })) {
+        if (
+          !isOwnerSelfChat({
+            from: fromRaw,
+            fromMe,
+            to: toRaw,
+            ownerNumber: this.opts.ownerNumber,
+          })
+        ) {
           console.log(`[wwebjs] dropped: not self-chat (from=${from} to=${to})`);
           return;
         }

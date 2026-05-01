@@ -4,13 +4,20 @@ export function normalizeWhatsAppOwnerId(value: string): string {
 
 export function isOwnerSelfChat(args: {
   from: string;
+  fromMe?: boolean;
   to: string;
   ownerNumber: string;
 }): boolean {
   const owner = normalizeWhatsAppOwnerId(args.ownerNumber);
+  const to = normalizeWhatsAppOwnerId(args.to);
+
+  if (args.fromMe === true && to === owner) {
+    return true;
+  }
+
   return (
     owner.length > 0 &&
     normalizeWhatsAppOwnerId(args.from) === owner &&
-    normalizeWhatsAppOwnerId(args.to) === owner
+    to === owner
   );
 }
