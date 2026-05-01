@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-04-27 (session 2 — multi-account email/calendar + silent mode)
+> Updated: 2026-05-01 (session 6 — dashboard auth gate)
 
 ---
 
@@ -315,6 +315,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-04-28 | daily-build-agent-2 | **Daily build agent second run — CCR sandbox network firewall confirmed.** pnpm install succeeded; DB query attempted. Root cause: outbound TCP to Supabase (ports 5432 and 6543, pooler + direct host) ALL time out. ntfy.sh HTTPS 443 also blocked (HTTP 403 "Host not in allowlist"). Not a credential problem — it is a network allowlist firewall in the CCR sandbox. Zero pending rows processed. See L36 for three fix options; Option B (migrate agent to laptop node-cron, already always-on) is recommended. |
 | 2026-04-29 | daily-build-agent-3 | **Third run — Option B implemented.** CCR network firewall re-confirmed (ntfy 403, Vercel 403 with `x-deny-reason: host_not_allowed`, Supabase TCP timeout). pnpm install succeeded; all boots read fine. Implemented Option B: new `apps/bot/src/build-agent.ts` with `runDailyBuildAgent()` — queries pending feature_requests, posts ntfy push, sends WhatsApp self-message listing features with IDs + size tags. Wired into `apps/bot/src/scheduler.ts` cron `0 12 * * *`. Bot process runs on laptop with full network access (Supabase, ntfy, WhatsApp). CCR routine can remain for future if allowlist opens; laptop cron is now the reliable path. Zero pending features processed (DB unreachable from CCR). L37 added. |
 | 2026-04-30 | daily-build-agent-4 | **Fourth run — CCR firewall unchanged; zero features processed.** pnpm install succeeded (node_modules absent, fresh install took ~46s). All 6 boot files read successfully (NWP acknowledged). DB connection: TCP timeout to aws-1-ap-northeast-1.pooler.supabase.com:6543 (same as runs 1-3). ntfy.sh: HTTP 403 "Host not in allowlist". Vercel: HTTP 403 "Host not in allowlist". All three external-network exit paths remain blocked. Git proxy (127.0.0.1:35523) operational — fetch + push work. No pending features implemented. Documented this run in mind.md + pushed via git proxy. The laptop node-cron (build-agent.ts, 12:00 UTC) is and will remain the only path for daily feature notification; CCR routine serves as a documentation/audit trail only. No new code changes this run. |
+| 2026-05-01 | 6 | **Dashboard auth gate.** Added `apps/dashboard/src/middleware.ts` so dashboard pages and API routes require Basic auth before route handlers/server components expose private DB data. Production fails closed with HTTP 503 if `NITSYCLAW_DASHBOARD_PASSWORD` is missing; missing/invalid credentials return HTTP 401 with `WWW-Authenticate`. Static Next assets are excluded. Added pure auth helper + 7 unit tests. R41 added. |
 
 ---
 
@@ -390,6 +391,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - **L35:** CCR (Claude Code Routines) runs in an isolated cloud Linux environment. It does NOT inherit `.env.local` from the laptop. Any secrets the daily build agent needs (DATABASE_URL, GITHUB_PAT, ANTHROPIC_API_KEY, NTFY_TOPIC) must be explicitly added as env vars in the routine's settings at https://claude.ai/code/routines/trig_01XiN9ZowcHufrXkcNzMkJbe. The git proxy (local_proxy@127.0.0.1) handles GitHub push auth automatically — no GITHUB_PAT needed for git. But DATABASE_URL is mandatory for Postgres access.
 - **L36:** CCR sandbox has an outbound network ALLOWLIST firewall — deeper than just missing env vars. Confirmed via `nc -zv` probes in daily-build-agent-2: ALL TCP to Supabase (pooler ports 5432+6543, direct host port 5432) times out. ntfy.sh HTTPS 443 also blocked (HTTP 403 "Host not in allowlist"). Embedding DATABASE_URL in the prompt is correct credential practice but irrelevant when TCP is firewalled. Three fix options: (A) expose thin Vercel API route (`/api/agent/pending-features`) as HTTP proxy for pending rows, since HTTPS to nitsyclaw.vercel.app MAY be in CCR's allowlist; (B) migrate build agent entirely to laptop node-cron (already always-on bot process, has full network access, can call Anthropic API directly) -- RECOMMENDED; (C) Supabase Edge Functions as HTTP wrapper. Option B is most pragmatic given always-on architecture.
 - **L37:** When the CCR build-agent environment blocks all external HTTPS (Vercel, ntfy, Supabase) but the Edit tool is used to write new TypeScript, watch out for two encoding traps: (1) The Edit tool may store curly/smart quotes (U+201C/U+201D) instead of ASCII double-quotes inside code blocks, causing TS1127 "Invalid character" on every string literal — use Write to rewrite the whole file with raw ASCII if the Edit inserts bad quotes. (2) The existing scheduler.ts file had mojibake em-dash sequences (`\xc3\xa2\xe2\x82\xac...`) in comments from an old Windows editor — harmless for tsc but confusing in diffs; replace with ASCII hyphen `--` on next touch. Both traps are benign at runtime but block tsc and therefore Vercel deploys.
+- **L38:** The local untracked `apps/dashboard/node_modules` reparse point can block `pnpm -r build` with `EACCES: permission denied, realpath ...\apps\dashboard\node_modules`. Do not delete it casually because it is untracked local state; either clean it deliberately or verify via Vercel build. Targeted Vitest may need to run outside the sandbox because esbuild process spawn can hit `EPERM`.
 
 **Remaining tech debt (carry to next session):**
 - Two `makeAnthropicLlm` impls (one in `apps/bot/src/adapters.ts`, one in dashboard route) — duplicated. Move to `packages/shared/` so server-tool injection is one-place.
@@ -416,3 +418,23 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 > 9. Ask the user which feature, account, or module to work on next — do NOT assume.
 >
 > Do not write code, edit `apps/` or `packages/`, or change architecture without first verifying the change is consistent with R1–R16 + session 2 decisions in §10. If a proposed change conflicts, surface the conflict and propose either a workaround or a new superseding rule.
+
+---
+
+## 17. Session 6 (2026-05-01) — Dashboard auth gate
+
+**Goal:** Stop the public Vercel dashboard from exposing private data before any product polish.
+
+**What changed:**
+- Added `apps/dashboard/src/lib/dashboard-auth.ts` with pure Basic-auth parsing and fail-closed production checks.
+- Added `apps/dashboard/src/lib/dashboard-auth.test.ts` covering valid credentials, missing credentials, invalid credentials, local-dev fallback, and production fail-closed behavior.
+- Added `apps/dashboard/src/middleware.ts` to protect all dashboard pages and API routes except static Next assets.
+- Added `NITSYCLAW_DASHBOARD_USER` and `NITSYCLAW_DASHBOARD_PASSWORD` placeholders to `.env.local.example`.
+- Added Constitution R41 to make authenticated dashboard access a project invariant.
+
+**Verification:**
+- `.\node_modules\.bin\vitest.cmd run apps/dashboard/src/lib/dashboard-auth.test.ts` passed: 7 tests.
+- `npm run build` is blocked locally by existing untracked `apps/dashboard/node_modules` reparse point resolving with `EACCES`; same failure occurs outside the sandbox. This is local workspace state, not a TypeScript error from the auth code.
+
+**Deployment note:**
+- Set `NITSYCLAW_DASHBOARD_PASSWORD` in Vercel production before or with this deploy. If it is missing, production intentionally returns HTTP 503 instead of exposing private data.

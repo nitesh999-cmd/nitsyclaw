@@ -215,6 +215,11 @@ Browser audio APIs (`speechSynthesis`, `<audio>`, Web Audio) require a recent us
 - *Source:* Session 5o — voice picker preview (sync click→speak) worked; streaming auto-TTS (async after fetch) silently failed on the same browser
 - *Added:* 2026-04-29
 
+### R41 — Dashboard private data is authenticated by default
+The Vercel dashboard exposes private memories, reminders, conversations, expenses, integration state, and agent APIs. Every dashboard page and dashboard API route MUST be protected before route handlers or server components read private data. Production fails closed when `NITSYCLAW_DASHBOARD_PASSWORD` is missing. Local development may run without the password for velocity, but production must not silently expose data. Static Next assets (`/_next/static`, `/_next/image`, favicon, robots, sitemap) may bypass the gate.
+- *Source:* 2026-05-01 public-route privacy audit; Next.js middleware docs (middleware runs before routes render and can respond directly for auth failures)
+- *Added:* 2026-05-01
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -269,6 +274,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-04-28 | Bot replies invisible — WhatsApp self-chat notifications silent / user moved on | R37 | Every outbound also POSTs to ntfy.sh; phone + PC + browser all push-notified |
 | 2026-04-29 | `schedule_call` only wrote to Google; Wattage M365 had read but no write path | R38 | `calendar` enum on tool input, persisted to confirmation payload; `resolve_confirmation` routes per provider; dashboard falls back to Google when outlook is unreachable from Vercel |
 | 2026-04-29 | `/chat` Send produced user bubble + no reply text on user's two Chrome browsers; server endpoints healthy | R39 | Defensive streaming reader (reverse-search assistant, HTTP-status check, per-event console logs), automatic fallback to non-streaming `/api/chat` when streaming yields nothing |
+| 2026-05-01 | Public Vercel dashboard exposed private memories, briefs, reminders, conversations, and settings without auth | R41 | Added dashboard middleware with Basic auth, production fail-closed when password env is missing, and static-asset-only bypass |
 
 ---
 
