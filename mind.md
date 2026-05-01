@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-01 (session 8 — WhatsApp fromMe self-chat gate)
+> Updated: 2026-05-01 (session 9 — WhatsApp mobile reply polish)
 
 ---
 
@@ -318,6 +318,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-05-01 | 6 | **Dashboard auth gate.** Added `apps/dashboard/src/middleware.ts` so dashboard pages and API routes require Basic auth before route handlers/server components expose private DB data. Production fails closed with HTTP 503 if `NITSYCLAW_DASHBOARD_PASSWORD` is missing; missing/invalid credentials return HTTP 401 with `WWW-Authenticate`. Static Next assets are excluded. Added pure auth helper + 7 unit tests. R41 added. |
 | 2026-05-01 | 7 | **WhatsApp owner ID normalization.** Bot was ready but owner self-chat messages could be dropped because WhatsApp emitted `614...@c.us` while env used `+614...`. Added shared owner-ID normalization and regression tests. |
 | 2026-05-01 | 8 | **WhatsApp fromMe self-chat gate.** Expanded the self-chat gate to accept owner-authored messages where WhatsApp uses a non-phone sender ID but `fromMe=true` and `to` is the owner number; normal chats/groups still drop. |
+| 2026-05-01 | 9 | **WhatsApp mobile reply polish.** Fixed orphan `Yes` replies so they fall through to agent context instead of `No pending confirmations`; banned markdown tables on WhatsApp; cleaned mojibake from morning brief and plate text. |
 
 ---
 
@@ -396,6 +397,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - **L38:** The local untracked `apps/dashboard/node_modules` reparse point can block `pnpm -r build` with `EACCES: permission denied, realpath ...\apps\dashboard\node_modules`. Do not delete it casually because it is untracked local state; either clean it deliberately or verify via Vercel build. Targeted Vitest may need to run outside the sandbox because esbuild process spawn can hit `EPERM`.
 - **L39:** WhatsApp owner checks must normalize both env phone numbers and WhatsApp IDs to digits before comparison. `whatsapp-web.js` can emit `614...@c.us` while `.env.local` stores `+614...`; raw string comparison silently drops valid self-chat messages.
 - **L40:** WhatsApp self-chat messages may be delivered as owner-authored `fromMe=true` events where `from` is a non-phone LID but `to` is the owner phone. Accept that shape only when `to` normalizes to the owner; do not relax incoming contact/group messages.
+- **L41:** Never let a naked `yes`/`no` die in the confirmation rail unless a pending confirmation actually exists. If there is no pending confirmation, pass it to the agent so conversation context can resolve it. Also keep WhatsApp output phone-shaped: no markdown tables, no mojibake, compact bullets.
 
 **Remaining tech debt (carry to next session):**
 - Two `makeAnthropicLlm` impls (one in `apps/bot/src/adapters.ts`, one in dashboard route) — duplicated. Move to `packages/shared/` so server-tool injection is one-place.
@@ -474,3 +476,20 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 **Verification:**
 - `.\node_modules\.bin\vitest.cmd run apps/bot/test/whatsapp-identity.test.ts` passes after this change.
+
+---
+
+## 20. Session 9 (2026-05-01) — WhatsApp mobile reply polish
+
+**Goal:** Fix the UX problems visible in the WhatsApp desktop/mobile screenshots.
+
+**What changed:**
+- `apps/bot/src/router.ts` now only short-circuits `yes`/`no` when a real pending confirmation exists. If no pending confirmation exists, the message continues through the normal agent flow with history.
+- `packages/shared/src/agent/system-prompt.ts` now tells WhatsApp replies to avoid markdown tables and to use compact mobile-readable text.
+- `packages/shared/src/agent/system-prompt.ts` also tells the agent to use `pin_memory` immediately for save/remember/pin requests instead of asking unsupported yes/no followups.
+- `packages/shared/src/features/04-morning-brief.ts` and `05-whats-on-my-plate.ts` now use ASCII labels/bullets instead of corrupted emoji bytes.
+- `packages/shared/test/helpers.ts` now initializes `audit_log` and `feature_requests` fake tables so router integration tests cover the current agent audit path.
+
+**Verification:**
+- `.\node_modules\.bin\vitest.cmd run apps/bot/test/router.integration.test.ts apps/bot/test/whatsapp-identity.test.ts` passed: 10 tests.
+- Mojibake scan under `packages/shared/src` returned no matches for the known corrupted byte patterns.

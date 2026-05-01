@@ -1,4 +1,4 @@
-// Feature 4: Morning brief â€” daily 7am cron, also on-demand via "brief me".
+// Feature 4: Morning brief -- daily 7am cron, also on-demand via "brief me".
 // Aggregates events + unread emails from ALL configured email accounts.
 
 import { z } from "zod";
@@ -24,38 +24,38 @@ export function buildBrief(args: { now: Date; timezone: string; inputs: BriefInp
   const date = formatBriefDate(args.now, args.timezone);
   const lines: string[] = [`Good morning. Brief for ${date}:`];
 
-  if (args.inputs.topPriority) lines.push(`\nâ­ Top priority: ${args.inputs.topPriority}`);
+  if (args.inputs.topPriority) lines.push(`\nTop priority: ${args.inputs.topPriority}`);
 
   // Events from all calendars
   if (args.inputs.events.length) {
-    lines.push("\nðŸ“… Calendar:");
+    lines.push("\nCalendar:");
     for (const ev of args.inputs.events.slice(0, 8)) {
       const t = ev.start.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: args.timezone });
       const src = ev.source ? ` [${ev.source}]` : "";
-      lines.push(`  â€¢ ${t} â€” ${ev.title}${src}`);
+      lines.push(`- ${t} - ${ev.title}${src}`);
     }
   } else {
-    lines.push("\nðŸ“… Calendar: nothing scheduled");
+    lines.push("\nCalendar: nothing scheduled");
   }
 
   // Reminders today
   if (args.inputs.reminders.length) {
-    lines.push("\nâ° Reminders today:");
+    lines.push("\nReminders today:");
     for (const r of args.inputs.reminders.slice(0, 6)) {
-      lines.push(`  â€¢ ${r.text}`);
+      lines.push(`- ${r.text}`);
     }
   }
 
   // Top unread email digest
   if (args.inputs.unreadEmails && args.inputs.unreadEmails.length) {
-    lines.push(`\nðŸ“§ Top unread (${args.inputs.unreadEmails.length} across accounts):`);
+    lines.push(`\nTop unread (${args.inputs.unreadEmails.length} across accounts):`);
     for (const e of args.inputs.unreadEmails.slice(0, 8)) {
       const fromName = e.from.match(/"?([^"<]+?)"?\s*</)?.[1] ?? e.from.split("@")[0] ?? e.from;
-      lines.push(`  â€¢ [${e.source}] ${fromName.trim()} â€” ${e.subject}`);
+      lines.push(`- [${e.source}] ${fromName.trim()} - ${e.subject}`);
     }
   }
 
-  if (args.inputs.weatherSummary) lines.push(`\nâ˜ï¸ Weather: ${args.inputs.weatherSummary}`);
+  if (args.inputs.weatherSummary) lines.push(`\nWeather: ${args.inputs.weatherSummary}`);
 
   return { date, body: lines.join("\n") };
 }

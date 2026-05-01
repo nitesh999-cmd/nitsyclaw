@@ -183,11 +183,10 @@ export class Router {
         reply: effectiveText,
         now: this.deps.now(),
       });
-      const body = out
-        ? `Confirmation ${out.id}: ${out.decision}`
-        : "No pending confirmations.";
-      await this.sendAndPersist(body);
-      return;
+      if (out) {
+        await this.sendAndPersist(`Confirmation ${out.id}: ${out.decision}`);
+        return;
+      }
     }
 
     // 4. Default — agent loop with cross-surface history.

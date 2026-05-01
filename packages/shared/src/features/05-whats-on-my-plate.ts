@@ -38,18 +38,18 @@ export async function summarizeToday(args: {
 
   const lines: string[] = ["Today's plate:"];
   if (events.length) {
-    lines.push("\nðŸ“… Events:");
+    lines.push("\nEvents:");
     events.slice(0, 8).forEach((e) => {
       const t = e.start.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: args.deps.timezone });
       const src = e.source ? ` [${e.source}]` : "";
-      lines.push(`  â€¢ ${t} ${e.title}${src}`);
+      lines.push(`- ${t} ${e.title}${src}`);
     });
   }
   if (reminders.length) {
-    lines.push("\nâ° Reminders:");
-    reminders.forEach((r) => lines.push(`  â€¢ ${r.text}`));
+    lines.push("\nReminders:");
+    reminders.forEach((r) => lines.push(`- ${r.text}`));
   }
-  if (events.length + reminders.length === 0) lines.push("\nâœ¨ Nothing scheduled. Wide open.");
+  if (events.length + reminders.length === 0) lines.push("\nNothing scheduled. Wide open.");
 
   return { events, reminders, text: lines.join("\n") };
 }

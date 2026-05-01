@@ -24,6 +24,8 @@ export interface FakeDbState {
   briefs: any[];
   confirmations: any[];
   auditLog: any[];
+  audit_log: any[];
+  feature_requests: any[];
 }
 
 export function makeFakeDb(): { db: any; state: FakeDbState } {
@@ -35,6 +37,8 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
     briefs: [],
     confirmations: [],
     auditLog: [],
+    audit_log: [],
+    feature_requests: [],
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
   const insert = (table: keyof FakeDbState) => ({

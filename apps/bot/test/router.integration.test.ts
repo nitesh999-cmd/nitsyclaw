@@ -86,7 +86,7 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toMatch(/Logged INR 250/);
   });
 
-  it("'yes' reply with no pending → 'No pending confirmations'", async () => {
+  it("'yes' reply with no pending falls through to the agent", async () => {
     await router.handle({
       id: "x",
       from: OWNER,
@@ -94,6 +94,6 @@ describe("Router (integration)", () => {
       timestamp: new Date(),
       hasMedia: false,
     });
-    expect(wa.sent.find((m) => m.body.includes("No pending"))).toBeTruthy();
+    expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 });
