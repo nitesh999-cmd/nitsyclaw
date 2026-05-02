@@ -12,6 +12,7 @@ export interface AgentDeps {
   transcriber: Transcriber;
   webSearch: WebSearcher;
   calendar: CalendarClient;
+  aggregator?: AggregatorClient;
   imageAnalyzer: ImageAnalyzer;
   embedder: Embedder;
   /** for deterministic tests */
@@ -69,6 +70,12 @@ export interface CalendarClient {
     description?: string;
   }): Promise<{ id: string; htmlLink?: string }>;
   listEventsToday?(timezone: string): Promise<Array<{ title: string; start: Date }>>;
+}
+
+export interface AggregatorClient {
+  fetchAllEventsToday(timezone: string): Promise<Array<{ source: string; title: string; start: Date }>>;
+  fetchAllUnreadEmails(limit: number): Promise<Array<{ source: string; from: string; subject: string; date?: Date; snippet?: string }>>;
+  searchAllGmail?(query: string, limit: number): Promise<Array<{ id?: string; source: string; from: string; subject: string; date: Date; snippet?: string }>>;
 }
 export interface ImageAnalyzer {
   /** Returns structured fields extracted from a receipt image. */

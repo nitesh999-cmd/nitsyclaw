@@ -29,7 +29,7 @@ export default async function ExpensesPage() {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-semibold">Expenses</h2>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-neutral-500" data-testid="expenses-total">
         {rows.length} expenses · total {(total / 100).toFixed(2)}
       </p>
       {rows.length === 0 ? (

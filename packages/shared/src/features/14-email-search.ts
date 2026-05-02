@@ -5,12 +5,9 @@ import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
 export async function searchGmailInbox(
   input: { query: string; limit?: number },
-  _ctx: ToolContext,
+  ctx: ToolContext,
 ) {
-  const { searchAllGmail } = await import("../../../../apps/bot/src/adapters.js").catch(() => ({
-    searchAllGmail: async () => [] as any[],
-  }));
-  const rows = await searchAllGmail(input.query, input.limit ?? 5);
+  const rows = await ctx.deps.aggregator?.searchAllGmail?.(input.query, input.limit ?? 5) ?? [];
   return {
     query: input.query,
     count: rows.length,

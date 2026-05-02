@@ -20,12 +20,11 @@ export async function summarizeToday(args: {
   const start = startOfDay(args.now);
   const end = addDays(start, 1);
 
-  // Pull events from all accounts via aggregator
+  // Pull events from all accounts via injected aggregator.
   let events: Array<{ title: string; start: Date; source?: string }> = [];
   try {
-    const { fetchAllEventsToday } = await import("../../../../apps/bot/src/adapters.js");
-    const all = await fetchAllEventsToday(args.deps.timezone);
-    events = all.map((e: any) => ({ title: e.title, start: e.start, source: e.source }));
+    const all = await args.deps.aggregator?.fetchAllEventsToday(args.deps.timezone);
+    events = (all ?? []).map((e) => ({ title: e.title, start: e.start, source: e.source }));
   } catch {
     // Fallback to single-source if aggregator unavailable (e.g. tests)
     if (args.deps.calendar.listEventsToday) {

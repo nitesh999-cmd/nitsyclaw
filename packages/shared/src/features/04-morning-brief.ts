@@ -80,14 +80,8 @@ export function registerMorningBrief(registry: ToolRegistry): void {
       topPriority: z.string().optional(),
     }),
     handler: async (input: { topPriority?: string }, ctx: ToolContext) => {
-      // Lazy-load aggregator to avoid pulling googleapis in tests
-      const { fetchAllEventsToday, fetchAllUnreadEmails } = await import("../../../../apps/bot/src/adapters.js").catch(() => ({
-        fetchAllEventsToday: async () => [] as any[],
-        fetchAllUnreadEmails: async () => [] as any[],
-      }));
-
-      const events = await fetchAllEventsToday(ctx.timezone).catch(() => [] as any[]);
-      const unreadEmails = await fetchAllUnreadEmails(3).catch(() => [] as any[]);
+      const events = await ctx.deps.aggregator?.fetchAllEventsToday(ctx.timezone).catch(() => []) ?? [];
+      const unreadEmails = await ctx.deps.aggregator?.fetchAllUnreadEmails(3).catch(() => []) ?? [];
 
       return runMorningBrief({
         now: ctx.now,

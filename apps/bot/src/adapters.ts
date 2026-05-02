@@ -266,6 +266,11 @@ export function buildAgentDeps(args: {
     transcriber,
     webSearch: stubWebSearch,
     calendar: realCalendar,
+    aggregator: {
+      fetchAllEventsToday,
+      fetchAllUnreadEmails,
+      searchAllGmail,
+    },
     imageAnalyzer,
     embedder,
     now: args.now ?? (() => new Date()),

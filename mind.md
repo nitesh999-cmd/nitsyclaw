@@ -655,3 +655,28 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - `npm test -- --run packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/feature-registry-queued.test.ts` passed: 12 tests.
 - Dashboard `tsc` remains blocked by existing missing Next/React/dashboard node_modules resolution, producing broad existing module/JSX errors.
+
+---
+
+## 27. Session 16 (2026-05-02) — Shared dependency cleanup and reminder controls
+
+**Goal:** Follow agent critique and reduce deploy fragility before adding more UI surfaces.
+
+**What changed:**
+- Removed runtime imports from `packages/shared/src/features` into `apps/bot/src/adapters`.
+- Added optional `aggregator` dependency to `AgentDeps` for all-account calendar/email/Gmail search.
+- Bot now injects `fetchAllEventsToday`, `fetchAllUnreadEmails`, and `searchAllGmail` through `AgentDeps`.
+- Dashboard keeps safe fallback behavior when local-only aggregators are unavailable.
+- Updated morning brief, plate, and Gmail search features to use injected dependencies.
+- Added `packages/shared/test/14-email-search.test.ts`.
+- Added dashboard reminder management: create, complete, cancel, and reschedule from `/reminders`.
+- Restored stale Playwright hook by adding `data-testid="expenses-total"` on `/expenses`.
+
+**Agent critique incorporated:**
+- Build/deploy fragility from shared importing bot code was higher leverage than more UI polish.
+- Keep reminder CRUD scoped to existing DB state and avoid external side effects.
+- Repair stale dashboard test selectors while touching dashboard pages.
+
+**Verification:**
+- Confirmed no shared feature runtime imports from `apps/*` remain.
+- `npm test -- --run packages/shared/test/04-morning-brief.test.ts packages/shared/test/05-whats-on-my-plate.test.ts packages/shared/test/14-email-search.test.ts packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts` passed: 18 tests.
