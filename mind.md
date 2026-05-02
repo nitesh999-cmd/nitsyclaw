@@ -769,3 +769,28 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - Stopped the looping bot process before patching.
 - `npm test -- --run apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 17 tests.
+
+---
+
+## 31. Session 20 (2026-05-02) — Self-healing WhatsApp loop breaker
+
+**Goal:** Make future WhatsApp loop bugs fail closed instead of spamming the self-chat.
+
+**What changed:**
+- Added `WhatsAppLoopBreaker`, a `WhatsAppClient` wrapper around the production WhatsApp client.
+- The breaker tracks recent outbound replies and send rate across all callers, including Router tools, reminders, and scheduled sends.
+- If an inbound message matches recent bot output, it latches WhatsApp replies paused and drops the suspected self-reply before Router sees it.
+- If outbound sends spike past the configured window, it blocks the triggering send before it leaves.
+- Paused state is latched until manual reset with `resume bot`; the reset command is consumed and does not reach the agent.
+- On trip, the bot writes durable diagnostics to `system_heartbeats`, logs an audit row, sends a non-WhatsApp push notification, and auto-queues a P0 follow-up feature request.
+- On reset, the loop guard heartbeat returns to `ok`.
+
+**Agent critique incorporated:**
+- Use a wrapper instead of only Router so all WhatsApp sends are protected.
+- Do not auto-resume after a timer; require manual reset.
+- Do not send incident alerts through WhatsApp.
+- Persist diagnostics for postmortem rather than console-only logging.
+- Keep normal self-chat working unless a loop pattern is detected.
+
+**Verification:**
+- `npm test -- --run apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 22 tests.
