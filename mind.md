@@ -848,3 +848,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - Applied Drizzle migration `0005_profile_context_and_work_item_type` to the live database.
 - `npm test -- --run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/feature-shortcut.test.ts apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/personal-context.test.ts packages/shared/test/system-prompt.test.ts packages/shared/test/env.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 40 tests.
+
+---
+
+| 2026-05-02 | daily-build-agent-6 | **Sixth run -- CCR firewall unchanged; zero features processed.** All external exit paths still blocked: Supabase TCP (port 6543) timeout (CONNECT_TIMEOUT), ntfy.sh HTTP 403 "Host not in allowlist", nitsyclaw.vercel.app HTTP 403 "Host not in allowlist", Supabase REST API HTTP 403 "Host not in allowlist". DATABASE_URL not set in CCR env; .env.local absent on cloud runner. Git proxy (127.0.0.1) operational -- fetch + branch pointer repair succeeded. Local `main` branch was stale at 601516a (session 5f); HEAD was detached at c6173ca (session 22). Fixed by `git checkout -B main HEAD`. Origin already at c6173ca (previous sessions' 40 commits were already pushed). No pending features implemented. No new code changes. Documented this run and pushed. Laptop node-cron (build-agent.ts, 12:00 UTC) remains the only functional feature-notification path. |
