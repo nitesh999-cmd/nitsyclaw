@@ -8,6 +8,34 @@
       "when": 1777128311664,
       "tag": "0000_tough_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777128311665,
+      "tag": "0001_add_surface_to_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777128311666,
+      "tag": "0002_add_feature_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777128311667,
+      "tag": "0003_add_connected_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777128311668,
+      "tag": "0004_add_system_heartbeats",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@
     "./whatsapp": "./src/whatsapp/index.ts",
     "./features": "./src/features/index.ts",
     "./integrations/spotify": "./src/integrations/spotify.ts",
+    "./ops/heartbeat": "./src/ops/heartbeat.ts",
     "./utils": "./src/utils/index.ts",
     "./notify": "./src/notify/index.ts"
   },

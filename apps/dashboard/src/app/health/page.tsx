@@ -1,16 +1,27 @@
-import { getDb, messages, reminders, confirmations, featureRequests, auditLog } from "@nitsyclaw/shared/db";
+import { getDb, messages, reminders, confirmations, featureRequests, auditLog, getSystemHeartbeat } from "@nitsyclaw/shared/db";
+import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
 async function loadHealth() {
   const db = getDb();
-  const [lastMessageRows, pendingReminderRows, pendingConfirmationRows, queueRows, latestAuditRows] = await Promise.all([
+  const [
+    lastMessageRows,
+    pendingReminderRows,
+    pendingConfirmationRows,
+    queueRows,
+    latestAuditRows,
+    schedulerHeartbeat,
+    reminderHeartbeat,
+  ] = await Promise.all([
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
     db.select().from(reminders).where(eq(reminders.status, "pending")).limit(25),
     db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(25),
     db.select().from(featureRequests).limit(200),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
+    getSystemHeartbeat(db, "bot-scheduler"),
+    getSystemHeartbeat(db, "reminder-sweep"),
   ]);
   const queueCounts = queueRows.reduce<Record<string, number>>((acc, row) => {
     acc[row.status] = (acc[row.status] ?? 0) + 1;
@@ -23,6 +34,10 @@ async function loadHealth() {
     pendingConfirmations: pendingConfirmationRows.length,
     queueCounts,
     latestAudit: latestAuditRows[0] ?? null,
+    schedulerHeartbeat,
+    schedulerFreshness: classifyHeartbeat(schedulerHeartbeat, new Date()),
+    reminderHeartbeat,
+    reminderFreshness: classifyHeartbeat(reminderHeartbeat, new Date()),
   };
 }
 
@@ -84,6 +99,24 @@ export default async function HealthPage() {
             <div className="text-xs uppercase text-neutral-500">Feature queue</div>
             <div className="mt-2 text-sm text-neutral-300">
               {Object.entries(data.queueCounts).map(([k, v]) => `${k}: ${v}`).join(" | ") || "Empty"}
+            </div>
+          </div>
+          <div className="border border-neutral-800 p-4">
+            <div className="text-xs uppercase text-neutral-500">Bot scheduler</div>
+            <div className={data.schedulerFreshness === "ok" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
+              {data.schedulerFreshness}
+            </div>
+            <div className="mt-1 text-xs text-neutral-500">
+              {data.schedulerHeartbeat ? new Date(data.schedulerHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
+            </div>
+          </div>
+          <div className="border border-neutral-800 p-4">
+            <div className="text-xs uppercase text-neutral-500">Reminder sweep</div>
+            <div className={data.reminderFreshness === "ok" && data.reminderHeartbeat?.status !== "error" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
+              {data.reminderHeartbeat?.status === "error" ? "error" : data.reminderFreshness}
+            </div>
+            <div className="mt-1 text-xs text-neutral-500">
+              {data.reminderHeartbeat ? new Date(data.reminderHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
           <div className="border border-neutral-800 p-4 md:col-span-4">

@@ -12,6 +12,7 @@ import {
   auditLog,
   featureRequests,
   connectedAccounts,
+  systemHeartbeats,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -22,6 +23,7 @@ import {
   type FeatureRequest,
   type ConnectedAccount,
   type NewConnectedAccount,
+  type SystemHeartbeat,
 } from "./schema.js";
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -195,6 +197,49 @@ export async function getConnectedAccount(
         eq(connectedAccounts.accountLabel, args.accountLabel ?? "default"),
       ),
     )
+    .limit(1);
+  return row ?? null;
+}
+
+export async function upsertSystemHeartbeat(
+  db: DB,
+  args: {
+    source: string;
+    status?: string;
+    lastSeenAt?: Date;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<SystemHeartbeat> {
+  const [row] = await db
+    .insert(systemHeartbeats)
+    .values({
+      source: args.source,
+      status: args.status ?? "ok",
+      lastSeenAt: args.lastSeenAt ?? new Date(),
+      metadata: args.metadata ?? {},
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: systemHeartbeats.source,
+      set: {
+        status: args.status ?? "ok",
+        lastSeenAt: args.lastSeenAt ?? new Date(),
+        metadata: args.metadata ?? {},
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return row!;
+}
+
+export async function getSystemHeartbeat(
+  db: DB,
+  source: string,
+): Promise<SystemHeartbeat | null> {
+  const [row] = await db
+    .select()
+    .from(systemHeartbeats)
+    .where(eq(systemHeartbeats.source, source))
     .limit(1);
   return row ?? null;
 }

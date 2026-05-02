@@ -4,6 +4,7 @@
 import cron from "node-cron";
 import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
+import { upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
@@ -18,12 +19,47 @@ export interface SchedulerOpts {
 export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
   const tasks: cron.ScheduledTask[] = [];
 
+  async function writeHeartbeat(
+    source: string,
+    metadata: Record<string, unknown> = {},
+    status = "ok",
+  ) {
+    await upsertSystemHeartbeat(opts.deps.db, {
+      source,
+      status,
+      lastSeenAt: opts.deps.now(),
+      metadata,
+    });
+  }
+
+  tasks.push(
+    cron.schedule("* * * * *", async () => {
+      try {
+        await writeHeartbeat("bot-scheduler", { scheduler: "alive" });
+      } catch (e) {
+        console.error("[cron:heartbeat] error", e);
+      }
+    }),
+  );
+
+  writeHeartbeat("bot-scheduler", { scheduler: "started" }).catch((e) => {
+    console.error("[cron:heartbeat] initial error", e);
+  });
+
   // Every minute - fire any due reminders.
   tasks.push(
     cron.schedule("* * * * *", async () => {
       try {
         await fireDueReminders(opts.deps.db, opts.deps.whatsapp, opts.ownerPhone, opts.deps.now());
+        await writeHeartbeat("reminder-sweep", { lastReminderSweep: opts.deps.now().toISOString() });
       } catch (e) {
+        await writeHeartbeat(
+          "reminder-sweep",
+          { error: e instanceof Error ? e.message : String(e) },
+          "error",
+        ).catch((heartbeatError) => {
+          console.error("[cron:heartbeat] reminder error status failed", heartbeatError);
+        });
         console.error("[cron:reminders] error", e);
       }
     }),

@@ -199,6 +199,21 @@ export const connectedAccounts = pgTable(
   }),
 );
 
+/**
+ * Lightweight operational heartbeat table.
+ * Local processes write here so the dashboard can detect alive-but-stale states.
+ */
+export const systemHeartbeats = pgTable(
+  "system_heartbeats",
+  {
+    source: text("source").primaryKey(),
+    status: text("status").notNull().default("ok"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Memory = typeof memories.$inferSelect;
@@ -214,3 +229,5 @@ export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
+export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;
+export type NewSystemHeartbeat = typeof systemHeartbeats.$inferInsert;

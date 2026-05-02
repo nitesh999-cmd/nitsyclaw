@@ -680,3 +680,32 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - Confirmed no shared feature runtime imports from `apps/*` remain.
 - `npm test -- --run packages/shared/test/04-morning-brief.test.ts packages/shared/test/05-whats-on-my-plate.test.ts packages/shared/test/14-email-search.test.ts packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts` passed: 18 tests.
+
+---
+
+## 28. Session 17 (2026-05-02) — Expense polish and bot heartbeat
+
+**Goal:** Improve normal-user dashboard control and make bot stoppages visible instead of invisible.
+
+**What changed:**
+- Upgraded `/expenses` with manual expense add, merchant/category/date filters, category totals, notes display, and CSV export.
+- Added hardened CSV output with spreadsheet formula-injection protection, no-store caching, and invalid date validation.
+- Added shared expense filter helpers so the page and CSV export use matching inclusive end-date semantics.
+- Added `system_heartbeats` schema, migration, repo helpers, and Drizzle journal entries.
+- Bot scheduler now writes `bot-scheduler` heartbeat every minute and `reminder-sweep` heartbeat after reminder processing.
+- Reminder sweep failures now write an `error` heartbeat with redacted error metadata.
+- `/health` now surfaces bot scheduler and reminder sweep freshness separately, avoiding false claims that WhatsApp itself is healthy.
+- Added focused tests for heartbeat freshness and expense CSV/filter helper behavior.
+
+**Agent critique incorporated:**
+- Fixed date `to` filters excluding most of the selected day.
+- Hardened CSV injection against whitespace/control-character prefixes.
+- Added invalid export date 400 handling.
+- Added integer/currency guards before manual expense insert.
+- Renamed/split heartbeat signals so a scheduler DB heartbeat does not overstate WhatsApp session health.
+- Updated migration journal so Drizzle migration flows can see the new SQL migration.
+
+**Verification:**
+- `npm test -- --run packages/shared/test/heartbeat.test.ts apps/dashboard/src/lib/expense-utils.test.ts packages/shared/test/04-morning-brief.test.ts packages/shared/test/05-whats-on-my-plate.test.ts packages/shared/test/14-email-search.test.ts packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts` passed: 25 tests.
+- Applied live DB migration `0004_add_system_heartbeats.sql`.
+- `npm run build` remains blocked by the existing dashboard dependency issue: `next` is not installed under `apps/dashboard`.
