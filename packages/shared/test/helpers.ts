@@ -26,6 +26,7 @@ export interface FakeDbState {
   auditLog: any[];
   audit_log: any[];
   feature_requests: any[];
+  profile_context: any[];
   connected_accounts: any[];
 }
 
@@ -40,6 +41,7 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
     auditLog: [],
     audit_log: [],
     feature_requests: [],
+    profile_context: [],
     connected_accounts: [],
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
@@ -50,6 +52,8 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
         id: crypto.randomUUID(),
         createdAt: new Date(),
         ...(table === "confirmations" ? { status: "pending" } : {}),
+        ...(table === "feature_requests" ? { status: "pending", type: "feature" } : {}),
+        ...(table === "profile_context" ? { updatedAt: new Date() } : {}),
         ...r,
       }));
       state[table].push(...inserted);

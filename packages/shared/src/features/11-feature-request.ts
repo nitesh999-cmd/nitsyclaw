@@ -11,6 +11,7 @@ import { z } from "zod";
 import { insertFeatureRequest } from "../db/repo.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { Surface } from "../agent/system-prompt.js";
+import { hashPhone } from "../utils/crypto.js";
 
 export interface FeatureRequestRegisterOpts {
   surface: Surface;
@@ -23,7 +24,7 @@ export function registerFeatureRequest(
   registry.register({
     name: "request_feature",
     description:
-      "Queue a NEW NitsyClaw feature request from the user. Use when the user says 'add a feature', 'I want NitsyClaw to do X', 'feature request: Y', 'can you build me Z', or any similar new-capability ask. The request is persisted and the daily build agent (runs at 12:00 UTC = 22:00 Sydney) will pick it up, run NWP, implement, push, and notify you back. Do NOT use this for bug reports about existing features (just fix those) or for one-off requests like 'remind me to X' (use set_reminder).",
+      "Queue a NEW NitsyClaw feature request from the user. Use when the user says 'add a feature', 'I want NitsyClaw to do X', 'feature request: Y', 'can you build me Z', or any similar new-capability ask. The request is persisted and the build agent will review it on the next run. Do NOT use this for bug reports about existing features (use report_product_bug) or for one-off requests like 'remind me to X' (use set_reminder).",
     inputSchema: z.object({
       description: z
         .string()
@@ -45,15 +46,16 @@ export function registerFeatureRequest(
     ) => {
       const row = await insertFeatureRequest(ctx.deps.db, {
         description: input.description,
+        type: "feature",
         size: input.size ?? "M",
         source: opts.surface,
-        requestedBy: ctx.userPhone,
+        requestedBy: hashPhone(ctx.userPhone),
       });
       return {
         id: row.id,
         status: row.status,
         size: row.size,
-        eta: "Daily build agent runs at 12:00 UTC (22:00 Australia/Sydney). You can also trigger it sooner from claude.ai/code/routines.",
+        eta: "Build agent will review this on the next run. You can also trigger it sooner from claude.ai/code/routines.",
       };
     },
   });

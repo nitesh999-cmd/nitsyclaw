@@ -10,10 +10,15 @@ import {
   processReceiptImage,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
-import { insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
+import { insertMessage, insertFeatureRequest, listPendingFeatureRequests } from "@nitsyclaw/shared/db";
 import { encryptString, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
+import {
+  parseBugReportShortcut,
+  parseFeatureQueueShortcut,
+  parseLocationShortcut,
+} from "./personal-command-shortcuts.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -162,6 +167,7 @@ export class Router {
       try {
         const row = await insertFeatureRequest(this.deps.db, {
           description,
+          type: "feature",
           size: "M",
           source: "whatsapp",
           requestedBy: hashPhone(this.ownerPhone),
@@ -171,6 +177,73 @@ export class Router {
         );
       } catch (e) {
         await this.sendAndPersist(`Couldn't queue: ${(e as Error).message}`);
+      }
+      return;
+    }
+
+    const locationShortcut = parseLocationShortcut(effectiveText);
+    if (locationShortcut) {
+      const tool = this.registry.get("set_current_location");
+      try {
+        const out = tool
+          ? ((await tool.handler(
+              { city: locationShortcut.city, expiresHint: locationShortcut.expiresHint },
+              {
+                userPhone: msg.from,
+                now: this.deps.now(),
+                timezone: this.deps.timezone,
+                deps: this.deps,
+              },
+            )) as { location?: string; expiresHint?: string })
+          : null;
+        await this.sendAndPersist(
+          out?.expiresHint
+            ? `Location updated: ${out.location} until ${out.expiresHint}.`
+            : `Location updated: ${out?.location ?? locationShortcut.city}.`,
+        );
+      } catch (e) {
+        await this.sendAndPersist(`Couldn't save location: ${(e as Error).message}`);
+      }
+      return;
+    }
+
+    const bugShortcut = parseBugReportShortcut(effectiveText);
+    if (bugShortcut) {
+      try {
+        const row = await insertFeatureRequest(this.deps.db, {
+          description: bugShortcut.description,
+          type: "bug",
+          severity: "P1",
+          size: "M",
+          source: "whatsapp",
+          requestedBy: hashPhone(this.ownerPhone),
+          dedupeKey: bugShortcut.description.toLowerCase().slice(0, 160),
+        });
+        await this.sendAndPersist(
+          `Logged as bug ${row.id.slice(0, 8)}. I captured it as existing broken behavior, not a new feature.`,
+        );
+      } catch (e) {
+        await this.sendAndPersist(`Couldn't log bug: ${(e as Error).message}`);
+      }
+      return;
+    }
+
+    const featureQueue = parseFeatureQueueShortcut(effectiveText);
+    if (featureQueue) {
+      try {
+        const rows = await listPendingFeatureRequests(this.deps.db);
+        const top = rows.slice(0, featureQueue.limit);
+        const lines = top.map((row, index) => {
+          const label = row.type === "bug" ? `bug ${row.severity ?? ""}`.trim() : "feature";
+          return `${index + 1}. ${row.id.slice(0, 8)} ${label}: ${row.description.slice(0, 90)}`;
+        });
+        await this.sendAndPersist(
+          lines.length
+            ? `Pending queue (${rows.length} total):\n${lines.join("\n")}`
+            : "No pending feature or bug queue items.",
+        );
+      } catch (e) {
+        await this.sendAndPersist(`Couldn't load feature queue: ${(e as Error).message}`);
       }
       return;
     }

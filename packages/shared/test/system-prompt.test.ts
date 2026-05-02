@@ -6,7 +6,7 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt({ surface: "whatsapp" });
 
     expect(prompt).toContain("Melbourne, Victoria, Australia");
-    expect(prompt).toContain("Otherwise use the current/default weather location above");
+    expect(prompt).toContain("Otherwise call get_current_location");
     expect(prompt).toContain("Weather replies must name the location used");
   });
 

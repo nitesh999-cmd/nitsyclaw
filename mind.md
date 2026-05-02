@@ -818,3 +818,33 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 **Verification:**
 - `npm test -- --run apps/bot/src/feature-shortcut.test.ts apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/system-prompt.test.ts packages/shared/test/env.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 30 tests.
+
+---
+
+## 33. Session 22 (2026-05-02) — Personal context, feature command center, and bug queue
+
+**Goal:** Turn the next product slice into reliable WhatsApp-first behavior for normal users: travel/location context, feature queue visibility, and bug reporting.
+
+**What changed:**
+- Added structured `profile_context` storage so current/travel location is active state with an expiry, not a free-form memory pin.
+- Added typed work queue fields to `feature_requests`: `type`, `severity`, and `dedupe_key`.
+- Added `set_current_location`, `get_current_location`, and `report_product_bug` tools.
+- Updated weather prompt rules so weather with no city calls `get_current_location` before web search.
+- Added deterministic WhatsApp shortcuts:
+  - `I'm in Brisbane until Monday`
+  - `use Sydney for weather this week`
+  - `back in Melbourne now`
+  - `bug: ...`
+  - `feature status` / `show feature queue`
+- Updated dashboard chat and stream routes to build prompts with the same profile defaults.
+- Added `**/.wa-session/` ignore coverage so nested WhatsApp session state is not accidentally tracked.
+
+**Agent critique incorporated:**
+- Keep normal-user receipts simple; avoid exposing build machinery unless asked.
+- Make active location schema-backed with expiry.
+- Keep bug reports separate from feature requests through typed queue fields.
+- Keep deterministic WhatsApp paths for low-ambiguity commands.
+
+**Verification:**
+- Applied Drizzle migration `0005_profile_context_and_work_item_type` to the live database.
+- `npm test -- --run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/feature-shortcut.test.ts apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/personal-context.test.ts packages/shared/test/system-prompt.test.ts packages/shared/test/env.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 40 tests.

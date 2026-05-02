@@ -42,7 +42,10 @@ interface ChatBody {
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
-const SYSTEM_PROMPT = buildSystemPrompt({ surface: "dashboard" });
+function formatLocation(city?: string, region?: string, country?: string): string | undefined {
+  const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
 
 class NoopWhatsApp implements WhatsAppClient {
   async ready(): Promise<void> {}
@@ -152,6 +155,21 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
     embedder: openaiKey ? makeOpenAiEmbedder(openaiKey) : { async embed() { return []; } },
     now: () => new Date(),
     timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
+    profile: {
+      homeLocation: formatLocation(
+        process.env.HOME_CITY ?? "Melbourne",
+        process.env.HOME_REGION ?? "Victoria",
+        process.env.HOME_COUNTRY ?? "Australia",
+      ),
+      currentLocation:
+        formatLocation(process.env.CURRENT_CITY, process.env.CURRENT_REGION, process.env.CURRENT_COUNTRY) ??
+        formatLocation(
+          process.env.HOME_CITY ?? "Melbourne",
+          process.env.HOME_REGION ?? "Victoria",
+          process.env.HOME_COUNTRY ?? "Australia",
+        ),
+      timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
+    },
   };
   return { deps, anthropic, model };
 }
@@ -191,6 +209,7 @@ export async function POST(req: Request) {
       const { deps } = buildDashboardDeps();
       const row = await insertFeatureRequest(deps.db, {
         description,
+        type: "feature",
         size: "M",
         source: "dashboard",
         requestedBy: ownerHash,
@@ -237,7 +256,7 @@ export async function POST(req: Request) {
         for (let i = 0; i < MAX_TOOL_ROUNDS; i++) {
           rounds++;
           const resp = await deps.llm.toolStep({
-            system: SYSTEM_PROMPT,
+            system: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
             messages,
             tools: registry.toAnthropicTools(),
           });
@@ -321,7 +340,7 @@ export async function POST(req: Request) {
           const stream2 = anthropic.messages.stream({
             model,
             max_tokens: 1500,
-            system: SYSTEM_PROMPT,
+            system: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
             tools: allTools,
             messages: messages.map((m) => ({ role: m.role, content: m.content })),
           });

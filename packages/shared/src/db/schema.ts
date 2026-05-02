@@ -149,6 +149,8 @@ export const featureRequests = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     description: text("description").notNull(),
+    type: text("type", { enum: ["feature", "bug"] }).notNull().default("feature"),
+    severity: text("severity", { enum: ["P0", "P1", "P2", "P3"] }),
     size: text("size", { enum: ["S", "M", "L"] }).notNull().default("M"),
     status: text("status", { enum: ["pending", "in_progress", "done", "rejected"] })
       .notNull()
@@ -158,11 +160,38 @@ export const featureRequests = pgTable(
     implementationNotes: text("implementation_notes"),
     prUrl: text("pr_url"),
     rejectionReason: text("rejection_reason"),
+    dedupeKey: text("dedupe_key"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (t) => ({
     statusIdx: index("feature_requests_status_idx").on(t.status, t.createdAt),
+  }),
+);
+
+/**
+ * Small structured profile/context state used for active routing decisions.
+ * This is distinct from free-form memories because values can expire and
+ * should be overwritten predictably.
+ */
+export const profileContext = pgTable(
+  "profile_context",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    key: text("key").notNull(),
+    value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+    source: text("source").notNull().default("manual"),
+    sensitivity: text("sensitivity", { enum: ["normal", "personal", "sensitive"] })
+      .notNull()
+      .default("personal"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerKeyUniqueIdx: uniqueIndex("profile_context_owner_key_unique_idx").on(t.ownerHash, t.key),
+    keyIdx: index("profile_context_key_idx").on(t.key),
   }),
 );
 
@@ -227,6 +256,8 @@ export type Confirmation = typeof confirmations.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
 export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
+export type ProfileContext = typeof profileContext.$inferSelect;
+export type NewProfileContext = typeof profileContext.$inferInsert;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;

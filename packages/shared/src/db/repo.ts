@@ -11,6 +11,7 @@ import {
   confirmations,
   auditLog,
   featureRequests,
+  profileContext,
   connectedAccounts,
   systemHeartbeats,
   type NewMessage,
@@ -21,6 +22,8 @@ import {
   type Memory,
   type NewFeatureRequest,
   type FeatureRequest,
+  type ProfileContext,
+  type NewProfileContext,
   type ConnectedAccount,
   type NewConnectedAccount,
   type SystemHeartbeat,
@@ -148,6 +151,41 @@ export async function setFeatureRequestStatus(
   },
 ): Promise<void> {
   await db.update(featureRequests).set(patch).where(eq(featureRequests.id, id));
+}
+
+export async function upsertProfileContext(
+  db: DB,
+  ctx: NewProfileContext,
+): Promise<ProfileContext> {
+  const [existing] = await db
+    .select()
+    .from(profileContext)
+    .where(and(eq(profileContext.ownerHash, ctx.ownerHash ?? "owner"), eq(profileContext.key, ctx.key)))
+    .limit(1);
+
+  if (existing) {
+    const [row] = await db
+      .update(profileContext)
+      .set({ ...ctx, updatedAt: new Date() })
+      .where(eq(profileContext.id, existing.id))
+      .returning();
+    return row!;
+  }
+
+  const [row] = await db.insert(profileContext).values(ctx).returning();
+  return row!;
+}
+
+export async function getProfileContext(
+  db: DB,
+  args: { ownerHash: string; key: string },
+): Promise<ProfileContext | null> {
+  const [row] = await db
+    .select()
+    .from(profileContext)
+    .where(and(eq(profileContext.ownerHash, args.ownerHash), eq(profileContext.key, args.key)))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function upsertConnectedAccount(

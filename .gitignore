@@ -6,6 +6,7 @@
 
 # Sessions / state
 .wa-session/
+**/.wa-session/
 *.sqlite
 *.db
 logs/

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ToolRegistry, zodToJsonSchema } from "../src/agent/tools.js";
+import { registerAllFeatures } from "../src/features/index.js";
 
 describe("ToolRegistry", () => {
   it("registers and retrieves tools", () => {
@@ -61,5 +62,15 @@ describe("zodToJsonSchema", () => {
       type: "array",
       items: { type: "string" },
     });
+  });
+});
+
+describe("registerAllFeatures", () => {
+  it("includes personal context tools", () => {
+    const registry = registerAllFeatures({ surface: "whatsapp" });
+
+    expect(registry.get("set_current_location")).toBeTruthy();
+    expect(registry.get("get_current_location")).toBeTruthy();
+    expect(registry.get("report_product_bug")).toBeTruthy();
   });
 });

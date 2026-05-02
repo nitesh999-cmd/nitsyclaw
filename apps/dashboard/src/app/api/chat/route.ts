@@ -217,6 +217,7 @@ export async function POST(req: Request) {
       }
       const row = await insertFeatureRequest(deps.db, {
         description,
+        type: "feature",
         size: "M",
         source: "dashboard",
         requestedBy: ownerHash,

@@ -36,6 +36,13 @@
       "when": 1777128311668,
       "tag": "0004_add_system_heartbeats",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777128311669,
+      "tag": "0005_profile_context_and_work_item_type",
+      "breakpoints": true
     }
   ]
 }
