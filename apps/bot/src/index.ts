@@ -48,11 +48,22 @@ async function main() {
     console.log("[boot] scheduler started");
   }
 
-  process.on("SIGINT", async () => {
-    console.log("[boot] shutting down");
-    await whatsapp.destroy();
-    process.exit(0);
-  });
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[boot] shutting down (${signal})`);
+    try {
+      await whatsapp.destroy();
+      process.exit(0);
+    } catch (e) {
+      console.error("[boot] shutdown failed", e);
+      process.exit(1);
+    }
+  };
+
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
 main().catch((e) => {

@@ -20,6 +20,7 @@ import {
   withTimeout,
 } from "./whatsapp-health.js";
 import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
+import { markPresenceUnavailable } from "./whatsapp-presence.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
@@ -129,6 +130,10 @@ export class WwebjsClient implements WhatsAppClient {
     }
   }
 
+  private async markUnavailable(label: string): Promise<void> {
+    await markPresenceUnavailable(this.client, Math.min(this.healthProbeTimeoutMs, 2_000), label);
+  }
+
   private async initializeClient(reason: string): Promise<void> {
     try {
       await withTimeout(
@@ -170,11 +175,6 @@ export class WwebjsClient implements WhatsAppClient {
       if (!isHealthyWhatsAppState(String(state))) {
         throw new Error(`state=${state ?? "unknown"}`);
       }
-      await withTimeout(
-        this.client.sendPresenceAvailable(),
-        this.healthProbeTimeoutMs,
-        "WhatsApp presence probe",
-      );
       this.consecutiveHealthFailures = 0;
       await this.writeHealthHeartbeat(String(state));
     } catch (e) {
@@ -211,6 +211,11 @@ export class WwebjsClient implements WhatsAppClient {
 
       const oldClient = this.client;
       oldClient.removeAllListeners();
+      await markPresenceUnavailable(
+        oldClient,
+        Math.min(this.healthProbeTimeoutMs, 2_000),
+        "WhatsApp presence before restart",
+      );
       await oldClient.destroy().catch((e: unknown) => {
         console.error("[wwebjs] destroy during restart failed", e);
       });
@@ -248,6 +253,7 @@ export class WwebjsClient implements WhatsAppClient {
       this.consecutiveHealthFailures = 0;
       this.readyResolve();
       void this.writeHealthHeartbeat("READY");
+      void this.markUnavailable("WhatsApp presence after ready");
       this.startHealthProbe();
     });
     this.client.on("change_state", (state: unknown) => {
@@ -347,6 +353,11 @@ export class WwebjsClient implements WhatsAppClient {
     try {
       const sent = await client.sendMessage(target, msg.body);
       this.recentOutgoingBodies.push({ body: msg.body, sentAt: Date.now() });
+      void markPresenceUnavailable(
+        client,
+        Math.min(this.healthProbeTimeoutMs, 2_000),
+        "WhatsApp presence after send",
+      );
       return { id: sent.id?._serialized ?? "" };
     } catch (e) {
       void this.restart(`send failed: ${String(e)}`);
@@ -363,6 +374,7 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.healthProbe) clearInterval(this.healthProbe);
     if (this.readyWatchdog) clearTimeout(this.readyWatchdog);
     this.client.removeAllListeners();
+    await this.markUnavailable("WhatsApp presence before destroy");
     await this.client.destroy();
   }
 }

@@ -709,3 +709,32 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm test -- --run packages/shared/test/heartbeat.test.ts apps/dashboard/src/lib/expense-utils.test.ts packages/shared/test/04-morning-brief.test.ts packages/shared/test/05-whats-on-my-plate.test.ts packages/shared/test/14-email-search.test.ts packages/shared/test/15-spotify.test.ts packages/shared/test/tools-registry.test.ts` passed: 25 tests.
 - Applied live DB migration `0004_add_system_heartbeats.sql`.
 - `npm run build` remains blocked by the existing dashboard dependency issue: `next` is not installed under `apps/dashboard`.
+
+---
+
+## 29. Session 18 (2026-05-02) — WhatsApp presence privacy fix
+
+**Goal:** Stop the local WhatsApp bot from making Nitesh appear online while idle.
+
+**Root cause:**
+- The WhatsApp health probe called `sendPresenceAvailable()` every 60 seconds.
+- `whatsapp-web.js` documents that method as marking the client online, so the bot was actively refreshing visible online presence.
+
+**What changed:**
+- Removed `sendPresenceAvailable()` from the recurring health probe.
+- Health probe now uses `getState()` only, then writes the existing health heartbeat.
+- Added a best-effort `markPresenceUnavailable()` helper that never throws into message/restart flows.
+- Mark unavailable after client ready, after outbound sends, before restart, and before destroy.
+- Capped presence cleanup waits to 2 seconds so a wedged browser does not delay reconnects for the full health timeout.
+- Added SIGTERM shutdown handling and a double-shutdown guard.
+- Added focused tests for the presence helper.
+
+**Agent critique incorporated:**
+- Keep the bot connected so inbound messages are not intentionally missed.
+- Avoid recurring unavailable calls in the health loop because presence calls themselves are WhatsApp-side activity.
+- Make presence cleanup non-fatal so privacy cleanup cannot create reconnect loops.
+- Guard shutdown and keep restart cleanup bounded.
+
+**Verification:**
+- `npm test -- --run apps/bot/src/whatsapp-presence.test.ts packages/shared/test/heartbeat.test.ts apps/dashboard/src/lib/expense-utils.test.ts packages/shared/test/tools-registry.test.ts` passed: 16 tests.
+- `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by existing monorepo `rootDir` shared-import errors and older unrelated router/shared type errors.
