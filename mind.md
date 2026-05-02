@@ -738,3 +738,34 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Verification:**
 - `npm test -- --run apps/bot/src/whatsapp-presence.test.ts packages/shared/test/heartbeat.test.ts apps/dashboard/src/lib/expense-utils.test.ts packages/shared/test/tools-registry.test.ts` passed: 16 tests.
 - `npx tsc -p apps/bot/tsconfig.json --noEmit` remains blocked by existing monorepo `rootDir` shared-import errors and older unrelated router/shared type errors.
+
+---
+
+## 30. Session 19 (2026-05-02) — WhatsApp self-reply loop guard
+
+**Goal:** Stop open-question replies from causing the bot to answer its own WhatsApp self-chat messages.
+
+**Root cause:**
+- The WhatsApp transport listens to both `message` and `message_create`.
+- Bot outbound replies can appear back as `fromMe=true` self-chat events.
+- The previous body echo guard was registered only after `sendMessage` returned and consumed the first match, so duplicate event delivery could still reach Router.
+- After restart, old self-chat events could replay with empty in-memory echo state.
+
+**What changed:**
+- Added `WhatsAppEchoGuard` for transport-level echo protection.
+- Register outbound body before awaiting `sendMessage`.
+- Echo body matches are now non-consuming for duplicate event delivery.
+- Added WhatsApp message ID dedupe for `message`/`message_create` duplicates.
+- Added startup replay detection for old `fromMe` events based on message timestamp.
+- Shortened body echo TTL to 15 seconds and capped outgoing echo memory to 100 entries.
+- Added focused tests for non-consuming echo matches, TTL expiry, duplicate message IDs, and startup replay.
+
+**Agent critique incorporated:**
+- Do not drop all `fromMe=true` messages because self-chat commands depend on them.
+- Guard at the WhatsApp transport boundary before Router persists or runs the agent.
+- Handle restart replay before relaunching the fixed bot.
+- Keep false drops narrow by shortening the body-match window.
+
+**Verification:**
+- Stopped the looping bot process before patching.
+- `npm test -- --run apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 17 tests.

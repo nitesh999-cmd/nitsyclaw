@@ -20,6 +20,7 @@ import {
   withTimeout,
 } from "./whatsapp-health.js";
 import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
+import { WhatsAppEchoGuard, isStartupReplay } from "./whatsapp-echo-guard.js";
 import { markPresenceUnavailable } from "./whatsapp-presence.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
@@ -47,7 +48,8 @@ export interface WwebjsOptions {
 }
 
 export class WwebjsClient implements WhatsAppClient {
-  private recentOutgoingBodies: Array<{ body: string; sentAt: number }> = [];
+  private echoGuard = new WhatsAppEchoGuard();
+  private readonly acceptMessagesAfterMs = Date.now();
   private client: WwebjsClientInstance;
   private handlers: Array<(m: InboundMessage) => Promise<void> | void> = [];
   private readyPromise: Promise<void>;
@@ -102,17 +104,6 @@ export class WwebjsClient implements WhatsAppClient {
         remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1023223821.html",
       },
     });
-  }
-
-  private isOurEcho(body: string): boolean {
-    const now = Date.now();
-    this.recentOutgoingBodies = this.recentOutgoingBodies.filter(e => now - e.sentAt < 60_000);
-    const idx = this.recentOutgoingBodies.findIndex(e => e.body === body);
-    if (idx >= 0) {
-      this.recentOutgoingBodies.splice(idx, 1);
-      return true;
-    }
-    return false;
   }
 
   private startHealthProbe(): void {
@@ -276,8 +267,28 @@ export class WwebjsClient implements WhatsAppClient {
       try {
         const body = m.body ?? "";
         const fromMe = (m as any).fromMe;
+        const messageId = m.id?._serialized ?? "";
 
-        if (fromMe && this.isOurEcho(body)) return;
+        if (
+          isStartupReplay(
+            typeof m.timestamp === "number" ? m.timestamp : undefined,
+            Boolean(fromMe),
+            this.acceptMessagesAfterMs,
+          )
+        ) {
+          console.log(`[wwebjs] dropped: startup replay id=${messageId}`);
+          return;
+        }
+
+        if (!this.echoGuard.firstSeenMessage(messageId)) {
+          console.log(`[wwebjs] dropped: duplicate event id=${messageId}`);
+          return;
+        }
+
+        if (fromMe && this.echoGuard.isOutgoingEcho(body)) {
+          console.log(`[wwebjs] dropped: bot echo body="${body.slice(0, 50)}"`);
+          return;
+        }
 
         // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
         // not when you're typing in conversations with other contacts.
@@ -351,8 +362,8 @@ export class WwebjsClient implements WhatsAppClient {
     await this.ready();
     const client = this.client;
     try {
+      this.echoGuard.rememberOutgoing(msg.body);
       const sent = await client.sendMessage(target, msg.body);
-      this.recentOutgoingBodies.push({ body: msg.body, sentAt: Date.now() });
       void markPresenceUnavailable(
         client,
         Math.min(this.healthProbeTimeoutMs, 2_000),
