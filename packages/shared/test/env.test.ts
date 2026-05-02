@@ -10,7 +10,10 @@ describe("loadEnv", () => {
       DATABASE_URL: "postgres://x",
       WHATSAPP_OWNER_NUMBER: "+91",
     });
-    expect(env.TIMEZONE).toBe("Asia/Kolkata");
+    expect(env.TIMEZONE).toBe("Australia/Melbourne");
+    expect(env.HOME_CITY).toBe("Melbourne");
+    expect(env.HOME_REGION).toBe("Victoria");
+    expect(env.HOME_COUNTRY).toBe("Australia");
     expect(env.ANTHROPIC_MODEL).toBe("claude-sonnet-4-6");
   });
 

@@ -794,3 +794,27 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 **Verification:**
 - `npm test -- --run apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 22 tests.
+
+---
+
+## 32. Session 21 (2026-05-02) — Melbourne weather default and WhatsApp feature intake
+
+**Goal:** Stop weather answers from assuming Sydney and make WhatsApp feature requests easier for normal users.
+
+**What changed:**
+- Changed the shared env default timezone from `Asia/Kolkata` to `Australia/Melbourne`.
+- Added profile location env defaults: `HOME_CITY`, `HOME_REGION`, `HOME_COUNTRY`, plus optional `CURRENT_CITY`, `CURRENT_REGION`, `CURRENT_COUNTRY`.
+- Injected `homeLocation`, `currentLocation`, and `timezone` into the shared system prompt on both WhatsApp and dashboard.
+- Added weather rules: use the city in the current message when present, otherwise use the current/default location, do not infer location from phone/IP/timezone/calendar, and always name the location used.
+- Kept travel handling temporary unless Nitesh explicitly asks to save a new home/default location.
+- Added a deterministic WhatsApp feature shortcut parser so `/addfeature ...`, `feature request: ...`, and `add feature ...` queue directly without relying on the LLM.
+- Fixed env boolean parsing so strings like `"false"` really parse as `false`.
+
+**Agent critique incorporated:**
+- Treat weather as a location-policy problem, not only a web-search problem.
+- Melbourne should be the default, but travel mentions should override for the request.
+- Feature requests should be queued for review/build, not promised as already implemented.
+- Keep bug reports and reminders separate from feature requests.
+
+**Verification:**
+- `npm test -- --run apps/bot/src/feature-shortcut.test.ts apps/bot/src/whatsapp-echo-guard.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-presence.test.ts packages/shared/test/system-prompt.test.ts packages/shared/test/env.test.ts packages/shared/test/tools-registry.test.ts packages/shared/test/heartbeat.test.ts` passed: 30 tests.

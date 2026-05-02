@@ -1,8 +1,23 @@
 import { z } from "zod";
 
+const envBoolean = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off"].includes(normalized)) return false;
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  }
+  return value;
+}, z.coerce.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  TIMEZONE: z.string().default("Asia/Kolkata"),
+  TIMEZONE: z.string().default("Australia/Melbourne"),
+  HOME_CITY: z.string().default("Melbourne"),
+  HOME_REGION: z.string().default("Victoria"),
+  HOME_COUNTRY: z.string().default("Australia"),
+  CURRENT_CITY: z.string().optional(),
+  CURRENT_REGION: z.string().optional(),
+  CURRENT_COUNTRY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().min(1),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-6"),
   OPENAI_API_KEY: z.string().optional(),
@@ -13,8 +28,8 @@ const envSchema = z.object({
   WHATSAPP_OWNER_NUMBER: z.string().min(1),
   ENCRYPTION_KEY: z.string().optional(),
   DAILY_LLM_BUDGET_USD: z.coerce.number().default(5),
-  ENABLE_HEARTBEAT: z.coerce.boolean().default(true),
-  ENABLE_WEB_RESEARCH: z.coerce.boolean().default(true),
+  ENABLE_HEARTBEAT: envBoolean.default(true),
+  ENABLE_WEB_RESEARCH: envBoolean.default(true),
   QUIET_HOURS_START: z.string().default("22:00"),
   QUIET_HOURS_END: z.string().default("07:00"),
 });

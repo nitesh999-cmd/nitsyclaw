@@ -243,6 +243,17 @@ export interface BotConfigEnv {
   OPENAI_API_KEY?: string;
   TRANSCRIPTION_MODEL: string;
   TIMEZONE: string;
+  HOME_CITY?: string;
+  HOME_REGION?: string;
+  HOME_COUNTRY?: string;
+  CURRENT_CITY?: string;
+  CURRENT_REGION?: string;
+  CURRENT_COUNTRY?: string;
+}
+
+function formatLocation(city?: string, region?: string, country?: string): string | undefined {
+  const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
 }
 
 export function buildAgentDeps(args: {
@@ -275,6 +286,21 @@ export function buildAgentDeps(args: {
     embedder,
     now: args.now ?? (() => new Date()),
     timezone: args.env.TIMEZONE,
+    profile: {
+      homeLocation: formatLocation(
+        args.env.HOME_CITY ?? "Melbourne",
+        args.env.HOME_REGION ?? "Victoria",
+        args.env.HOME_COUNTRY ?? "Australia",
+      ),
+      currentLocation:
+        formatLocation(args.env.CURRENT_CITY, args.env.CURRENT_REGION, args.env.CURRENT_COUNTRY) ??
+        formatLocation(
+          args.env.HOME_CITY ?? "Melbourne",
+          args.env.HOME_REGION ?? "Victoria",
+          args.env.HOME_COUNTRY ?? "Australia",
+        ),
+      timezone: args.env.TIMEZONE,
+    },
   };
 }
 // ====================================================================

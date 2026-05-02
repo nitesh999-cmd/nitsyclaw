@@ -13,8 +13,7 @@ import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import { insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
 import { encryptString, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
-
-const SYSTEM_PROMPT = buildSystemPrompt({ surface: "whatsapp" });
+import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -149,14 +148,14 @@ export class Router {
       return;
     }
 
-    // 2.5 — `/addfeature <description>` shortcut (feature_request fr_96407890).
+    // 2.5 — feature request shortcuts (feature_request fr_96407890).
     //      Fast path for power users: skip the agent loop, persist directly.
-    const addFeatureMatch = effectiveText.trim().match(/^\/addfeature\s+(.+)$/is);
-    if (addFeatureMatch) {
-      const description = addFeatureMatch[1]?.trim() ?? "";
+    const featureShortcut = parseFeatureRequestShortcut(effectiveText);
+    if (featureShortcut) {
+      const description = featureShortcut.description;
       if (description.length < 5) {
         await this.sendAndPersist(
-          `That description is too short. Try: /addfeature voice input on dashboard /chat using Web Speech API`,
+          `That description is too short. Try: feature request: voice input on dashboard /chat using Web Speech API`,
         );
         return;
       }
@@ -219,7 +218,7 @@ export class Router {
       userPhone: msg.from,
       userMessage: effectiveText,
       history,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: this.deps.profile }),
       registry: this.registry,
       deps: this.deps,
     });

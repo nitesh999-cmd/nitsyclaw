@@ -33,7 +33,10 @@ interface ChatBody {
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
-const SYSTEM_PROMPT = buildSystemPrompt({ surface: "dashboard" });
+function formatLocation(city?: string, region?: string, country?: string): string | undefined {
+  const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
 
 class NoopWhatsApp implements WhatsAppClient {
   async ready(): Promise<void> { /* noop */ }
@@ -154,6 +157,21 @@ function buildDashboardDeps(): AgentDeps {
       : { async embed() { return []; } },
     now: () => new Date(),
     timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
+    profile: {
+      homeLocation: formatLocation(
+        process.env.HOME_CITY ?? "Melbourne",
+        process.env.HOME_REGION ?? "Victoria",
+        process.env.HOME_COUNTRY ?? "Australia",
+      ),
+      currentLocation:
+        formatLocation(process.env.CURRENT_CITY, process.env.CURRENT_REGION, process.env.CURRENT_COUNTRY) ??
+        formatLocation(
+          process.env.HOME_CITY ?? "Melbourne",
+          process.env.HOME_REGION ?? "Victoria",
+          process.env.HOME_COUNTRY ?? "Australia",
+        ),
+      timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
+    },
   };
 }
 
@@ -236,7 +254,7 @@ export async function POST(req: Request) {
       userPhone: ownerPhone,
       userMessage: last.content,
       history,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
       registry,
       deps,
       maxRounds: 6,

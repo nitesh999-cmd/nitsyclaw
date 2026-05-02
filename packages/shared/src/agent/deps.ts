@@ -18,6 +18,13 @@ export interface AgentDeps {
   /** for deterministic tests */
   now: () => Date;
   timezone: string;
+  profile?: UserProfile;
+}
+
+export interface UserProfile {
+  homeLocation?: string;
+  currentLocation?: string;
+  timezone?: string;
 }
 
 export interface LlmClient {
