@@ -134,7 +134,11 @@ export default function ChatPage() {
       return;
     }
     if (recording) {
-      try { r.stop(); } catch {}
+      try {
+        r.stop();
+      } catch {
+        setRecording(false);
+      }
     } else {
       setInput("");
       try {

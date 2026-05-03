@@ -60,14 +60,15 @@ export default async function RemindersPage() {
   let rows: Awaited<ReturnType<typeof load>> = [];
   try {
     rows = await load();
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[Reminders] DB error:", e);
+    const message = e instanceof Error ? e.message : String(e);
     return (
       <div className="p-6 max-w-2xl mx-auto">
         <h1 className="text-2xl font-semibold mb-4">Reminders</h1>
         <div className="p-4 bg-red-50 border border-red-200 rounded">
           <p className="text-sm font-medium text-red-900">Database error</p>
-          <pre className="text-xs text-red-700 mt-2 whitespace-pre-wrap">{e?.message ?? String(e)}</pre>
+          <pre className="text-xs text-red-700 mt-2 whitespace-pre-wrap">{message}</pre>
         </div>
       </div>
     );
