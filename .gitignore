@@ -51,3 +51,6 @@ ms-token.json
 apps/dashboard/.env.production.local
 apps/dashboard/.env.vercel.current
 .vercel
+
+# Graphify local cache is regenerated; commit graph outputs, not per-file cache blobs.
+graphify-out/cache/

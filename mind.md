@@ -318,6 +318,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-05-01 | 6 | **Dashboard auth gate.** Added `apps/dashboard/src/middleware.ts` so dashboard pages and API routes require Basic auth before route handlers/server components expose private DB data. Production fails closed with HTTP 503 if `NITSYCLAW_DASHBOARD_PASSWORD` is missing; missing/invalid credentials return HTTP 401 with `WWW-Authenticate`. Static Next assets are excluded. Added pure auth helper + 7 unit tests. R41 added. |
 | 2026-05-01 | 7 | **WhatsApp owner ID normalization.** Bot was ready but owner self-chat messages could be dropped because WhatsApp emitted `614...@c.us` while env used `+614...`. Added shared owner-ID normalization and regression tests. |
 | 2026-05-01 | 8 | **WhatsApp fromMe self-chat gate.** Expanded the self-chat gate to accept owner-authored messages where WhatsApp uses a non-phone sender ID but `fromMe=true` and `to` is the owner number; normal chats/groups still drop. |
+| 2026-05-03 | 24 | **Graphify + Caveman machine bootstrap.** Installed Graphify, installed Caveman for Claude Code, added repo Graphify integration for Codex/Claude, generated the first source-only graph, and excluded generated/session/secret files from graph ingestion. |
 | 2026-05-01 | 9 | **WhatsApp mobile reply polish.** Fixed orphan `Yes` replies so they fall through to agent context instead of `No pending confirmations`; banned markdown tables on WhatsApp; cleaned mojibake from morning brief and plate text. |
 | 2026-05-01 | 10 | **Stale WhatsApp watchdog.** WhatsApp stopped again while bot process was alive and `bot.log` was stale. Restarted bot manually, then taught `broom.ps1` to restart only the bot when `bot.log` is stale for 15 minutes. |
 | 2026-05-01 | 11 | **WhatsApp self-healing client.** Bot adapter now actively probes WhatsApp health post-`ready`, recreates the underlying client on repeated probe failures, `disconnected`, `auth_failure`, or send failures, and preserves registered handlers across recreation. Added `whatsapp-health.ts` helpers + `qrcode-terminal.d.ts` type stub. R45 codified. |
@@ -889,3 +890,29 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Settings data export/delete controls are still disabled; this is acceptable for private/internal beta but not for broad consumer release.
 - `/debug` still exists and should be removed or debug-env gated before external users.
 - Coverage now gates core testable units; dashboard route/page coverage remains mostly e2e-level, not unit-level.
+
+**Follow-up note:** The Basic Auth lockout, audit redaction, strict encrypted storage, debug gating, and data export/delete gaps were fixed in the later hardening commit `4b3d111`. Remaining risk after that commit is stronger production auth/sessioning, durable distributed rate limiting, historical plaintext migration, and local secret/session rotation.
+
+---
+
+## 35. Session 24 (2026-05-03) - Graphify and Caveman machine bootstrap
+
+**Goal:** Add the project knowledge-graph layer and terse-agent mode so future work starts from a mapped codebase instead of raw search.
+
+**What changed:**
+- Installed Graphify Python package (`graphifyy`) and verified import through the active Python runtime.
+- Installed Caveman for Claude Code from `JuliusBrussee/caveman`; Claude reports `caveman@caveman` enabled at user scope.
+- Ran `python -m graphify codex install` and `python -m graphify claude install`.
+- Added `.graphifyignore` to exclude `node_modules`, build output, coverage, Playwright output, WhatsApp session state, logs, env files, OAuth token JSON, credentials JSON, and lockfiles from graph ingestion.
+- Generated the first Graphify AST graph: `480` nodes, `1028` edges, `14` communities.
+- Patched generated `.claude/settings.json` and `.codex/hooks.json` to use `python -m graphify hook-check`, because the local `graphify.exe` shim failed with a uv trampoline path error.
+
+**Graph highlights:**
+- God nodes: `ToolRegistry`, `getDb()`, `registerAllFeatures()`, `getOwnerIdentity()`, `WwebjsClient`, `hashPhone()`, `makeAgentDeps()`, `WhatsAppLoopBreaker`.
+- Main risk signal: `getDb()` and `hashPhone()` are cross-community bridges, so changes there need focused regression tests.
+
+**Verification:**
+- `claude plugin list` showed `caveman@caveman` enabled.
+- `python -c "import graphify"` passed through the active Python runtime.
+- `python -m graphify update .` completed and wrote `graphify-out/graph.json`, `graphify-out/graph.html`, and `graphify-out/GRAPH_REPORT.md`.
+- `.claude/settings.json` and `.codex/hooks.json` both parsed as valid JSON.

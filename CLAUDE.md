@@ -62,3 +62,13 @@ If mind.md isn't touched by your last commit, the fix isn't done.
 ## Rule 15 (most-violated, repeat)
 
 NEVER ask the user to paste terminal output, logs, command results, error messages, or file contents. ALWAYS run the command via Bash/Read/Grep/subagent and read output yourself. If blocked, escalate via 3 paths (different tool / different agent / read from disk) before asking. Forbidden phrases: "Can you paste...", "Run this and show me...", "What does X return?", "Send me the log...".
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
