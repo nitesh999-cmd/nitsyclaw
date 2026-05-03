@@ -15,10 +15,12 @@ import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
+  parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
+import { runDailyBuildAgent } from "./build-agent.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -244,6 +246,37 @@ export class Router {
         );
       } catch (e) {
         await this.sendAndPersist(`Couldn't load feature queue: ${(e as Error).message}`);
+      }
+      return;
+    }
+
+    const buildAgent = parseBuildAgentShortcut(effectiveText);
+    if (buildAgent) {
+      try {
+        const rows = await listPendingFeatureRequests(this.deps.db);
+        if (rows.length === 0) {
+          await this.sendAndPersist("Build agent checked the queue. No pending features or bugs.");
+          return;
+        }
+
+        const preview = rows
+          .slice(0, 5)
+          .map((row, index) => `${index + 1}. ${row.id.slice(0, 8)} ${row.description.slice(0, 80)}`)
+          .join("\n");
+
+        if (buildAgent.dryRun) {
+          await this.sendAndPersist(
+            `Build queue preview (${rows.length} pending):\n${preview}`,
+          );
+          return;
+        }
+
+        await this.sendAndPersist(
+          `Build agent checked ${rows.length} pending item(s). I will post the queue summary here. Implementation still happens in Claude Code.`,
+        );
+        await runDailyBuildAgent(this.deps, this.ownerPhone);
+      } catch (e) {
+        await this.sendAndPersist(`Build agent run failed: ${(e as Error).message}`);
       }
       return;
     }

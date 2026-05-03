@@ -67,10 +67,16 @@ export default async function QueuePage({
 
       <div className="divide-y divide-neutral-800 border-y border-neutral-800">
         {rows.map((row) => (
-          <div key={row.id} className="grid gap-3 py-4 md:grid-cols-[110px_80px_90px_1fr_180px]">
-            <div><span className={badge(row.status)}>{row.status}</span></div>
+          <div key={row.id} className="grid gap-3 py-4 md:grid-cols-[110px_80px_90px_1fr_220px]">
+            <div>
+              <span className={badge(row.status)}>{row.status}</span>
+              <div className="mt-2 text-xs text-neutral-500">{row.id.slice(0, 8)}</div>
+            </div>
             <div className="text-sm text-neutral-400">{row.size}</div>
-            <div className="text-sm text-neutral-400">{row.source}</div>
+            <div className="text-sm text-neutral-400">
+              <div>{row.source}</div>
+              <div className="mt-1 text-xs">{row.type}</div>
+            </div>
             <div>
               <div className="text-sm">{row.description}</div>
               {row.prUrl ? <a className="mt-1 block text-xs text-sky-300" href={row.prUrl}>PR / deploy link</a> : null}
@@ -84,6 +90,30 @@ export default async function QueuePage({
             <div className="text-xs text-neutral-500">
               <div>Created {new Date(row.createdAt).toLocaleString()}</div>
               {row.completedAt ? <div>Completed {new Date(row.completedAt).toLocaleString()}</div> : null}
+              <form action="/api/queue/update" method="post" className="mt-3 space-y-2">
+                <input type="hidden" name="id" value={row.id} />
+                <select
+                  name="status"
+                  defaultValue={row.status}
+                  className="w-full border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
+                >
+                  <option value="pending">pending</option>
+                  <option value="in_progress">in_progress</option>
+                  <option value="done">done</option>
+                  <option value="rejected">rejected</option>
+                </select>
+                <input
+                  name="note"
+                  placeholder="Completion or rejection note"
+                  className="w-full border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200 placeholder:text-neutral-600"
+                />
+                <button
+                  type="submit"
+                  className="w-full border border-neutral-700 px-2 py-1 text-xs text-neutral-200 hover:border-neutral-500"
+                >
+                  Update
+                </button>
+              </form>
             </div>
           </div>
         ))}

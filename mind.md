@@ -319,6 +319,7 @@ Status as of session 2: probably failing on multi-account adapter changes (no ne
 | 2026-05-01 | 7 | **WhatsApp owner ID normalization.** Bot was ready but owner self-chat messages could be dropped because WhatsApp emitted `614...@c.us` while env used `+614...`. Added shared owner-ID normalization and regression tests. |
 | 2026-05-01 | 8 | **WhatsApp fromMe self-chat gate.** Expanded the self-chat gate to accept owner-authored messages where WhatsApp uses a non-phone sender ID but `fromMe=true` and `to` is the owner number; normal chats/groups still drop. |
 | 2026-05-03 | 24 | **Graphify + Caveman machine bootstrap.** Installed Graphify, installed Caveman for Claude Code, added repo Graphify integration for Codex/Claude, generated the first source-only graph, and excluded generated/session/secret files from graph ingestion. |
+| 2026-05-03 | 25 | **Pending queue execution slice.** Added WhatsApp `run build` / `build status` shortcuts and dashboard queue status controls. Marked only the matching WhatsApp build-trigger row done; external-service rows remain pending/blocked until OAuth/scopes/consent flows exist. |
 | 2026-05-01 | 9 | **WhatsApp mobile reply polish.** Fixed orphan `Yes` replies so they fall through to agent context instead of `No pending confirmations`; banned markdown tables on WhatsApp; cleaned mojibake from morning brief and plate text. |
 | 2026-05-01 | 10 | **Stale WhatsApp watchdog.** WhatsApp stopped again while bot process was alive and `bot.log` was stale. Restarted bot manually, then taught `broom.ps1` to restart only the bot when `bot.log` is stale for 15 minutes. |
 | 2026-05-01 | 11 | **WhatsApp self-healing client.** Bot adapter now actively probes WhatsApp health post-`ready`, recreates the underlying client on repeated probe failures, `disconnected`, `auth_failure`, or send failures, and preserves registered handlers across recreation. Added `whatsapp-health.ts` helpers + `qrcode-terminal.d.ts` type stub. R45 codified. |
@@ -916,3 +917,34 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `python -c "import graphify"` passed through the active Python runtime.
 - `python -m graphify update .` completed and wrote `graphify-out/graph.json`, `graphify-out/graph.html`, and `graphify-out/GRAPH_REPORT.md`.
 - `.claude/settings.json` and `.codex/hooks.json` both parsed as valid JSON.
+
+---
+
+## 36. Session 25 (2026-05-03) - Pending queue execution slice
+
+**Goal:** Process the live `feature_requests` queue without pretending large permission-heavy integrations are complete.
+
+**What changed:**
+- Queried the live Postgres `feature_requests` table: 22 pending rows before this session.
+- Added deterministic WhatsApp shortcuts:
+  - `run build`
+  - `trigger build`
+  - `run build agent`
+  - `process feature queue`
+  - `build status`
+- `build status` now previews the pending queue from WhatsApp.
+- `run build` now calls the local laptop build-agent notifier and posts the queue summary back to WhatsApp.
+- Wording is intentionally honest: it says implementation still happens in Claude Code, because the local build agent currently summarizes/notifies rather than auto-writing code.
+- Added dashboard queue controls so rows can be moved between `pending`, `in_progress`, `done`, and `rejected` with a note.
+- Marked live feature row `63f504ce` done: WhatsApp can now trigger the build-agent queue summary.
+
+**Agent critique incorporated:**
+- Do not mark external integrations done unless OAuth/scopes/platform access and end-to-end behavior exist.
+- Keep email sending, Drive/OneDrive, phone/SMS, bank feeds, Google Photos, Facebook birthdays, and social-video analysis pending/blocked for separate permission-safe builds.
+- Do not mislead the user that `run build` auto-implements features.
+
+**Verification:**
+- `npm test -- apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts` passed: 15 tests.
+- `npm test -- queue-controls.test.ts apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts` passed: 17 tests.
+- `npm test` passed: 41 files, 182 tests.
+- `corepack pnpm -r typecheck` passed.

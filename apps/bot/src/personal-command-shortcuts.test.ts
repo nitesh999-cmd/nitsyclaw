@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
   parseLocationShortcut,
@@ -32,6 +33,18 @@ describe("personal command shortcuts", () => {
   it("parses feature queue/status commands", () => {
     expect(parseFeatureQueueShortcut("feature status")).toEqual({ limit: 5 });
     expect(parseFeatureQueueShortcut("show feature queue")).toEqual({ limit: 5 });
+  });
+
+  it("parses build agent trigger commands", () => {
+    expect(parseBuildAgentShortcut("run build")).toEqual({ dryRun: false });
+    expect(parseBuildAgentShortcut("trigger build agent")).toEqual({ dryRun: false });
+    expect(parseBuildAgentShortcut("process feature queue")).toEqual({ dryRun: false });
+    expect(parseBuildAgentShortcut("build status")).toEqual({ dryRun: true });
+  });
+
+  it("does not parse normal build words as build agent triggers", () => {
+    expect(parseBuildAgentShortcut("build me a playlist")).toBeNull();
+    expect(parseBuildAgentShortcut("run tomorrow morning")).toBeNull();
   });
 
   it("parses explicit bug report shortcuts", () => {

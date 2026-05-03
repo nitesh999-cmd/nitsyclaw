@@ -104,4 +104,66 @@ describe("Router (integration)", () => {
     });
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
+
+  it("build status previews the pending queue without running the notifier", async () => {
+    const state = (deps.db as any).__state;
+    state.feature_requests.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      description: "Add Google Photos search",
+      type: "feature",
+      size: "M",
+      status: "pending",
+      source: "whatsapp",
+      createdAt: new Date("2026-04-28T17:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "build status",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Build queue preview (1 pending)"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Add Google Photos search"))).toBe(true);
+  });
+
+  it("run build triggers the local build-agent notification summary", async () => {
+    const state = (deps.db as any).__state;
+    state.feature_requests.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      description: "Add Google Photos search",
+      type: "feature",
+      size: "M",
+      status: "pending",
+      source: "whatsapp",
+      createdAt: new Date("2026-04-28T17:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "run build",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Build agent checked 1 pending"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Implementation still happens in Claude Code"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Add Google Photos search"))).toBe(true);
+  });
+
+  it("run build reports an empty queue without calling the notifier", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "run build",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0].body).toBe("Build agent checked the queue. No pending features or bugs.");
+  });
 });

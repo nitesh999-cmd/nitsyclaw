@@ -7,6 +7,10 @@ export interface FeatureQueueShortcut {
   limit: number;
 }
 
+export interface BuildAgentShortcut {
+  dryRun: boolean;
+}
+
 export interface BugReportShortcut {
   description: string;
 }
@@ -53,6 +57,28 @@ export function parseFeatureQueueShortcut(text: string): FeatureQueueShortcut | 
     trimmed === "show features"
   ) {
     return { limit: 5 };
+  }
+  return null;
+}
+
+export function parseBuildAgentShortcut(text: string): BuildAgentShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!]+$/, "");
+  if (
+    trimmed === "run build" ||
+    trimmed === "trigger build" ||
+    trimmed === "run build agent" ||
+    trimmed === "trigger build agent" ||
+    trimmed === "start build agent" ||
+    trimmed === "process feature queue"
+  ) {
+    return { dryRun: false };
+  }
+  if (
+    trimmed === "build status" ||
+    trimmed === "build agent status" ||
+    trimmed === "preview build queue"
+  ) {
+    return { dryRun: true };
   }
   return null;
 }

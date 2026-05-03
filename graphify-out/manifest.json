@@ -95,6 +95,10 @@
     "mtime": 1777353931.969334,
     "hash": "52cc94750ae7c818c9534b26e3e7413e"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\queue-controls.test.ts": {
+    "mtime": 1777812793.8296688,
+    "hash": "760da05cdfef6a2168ef5d0cec9fe1ad"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\setup-always-on.ps1": {
     "mtime": 1777640227.4914527,
     "hash": "e98952a90706431f8f1cd69e53c8ee59"
@@ -148,16 +152,16 @@
     "hash": "ffb1e63153c46959c2994a11496139ae"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\personal-command-shortcuts.test.ts": {
-    "mtime": 1777701916.2054029,
-    "hash": "16c2715028c8b6ddebf8ab39d06fc775"
+    "mtime": 1777812352.8756342,
+    "hash": "9679778181bf8bcb095ac9a70068d0e7"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\personal-command-shortcuts.ts": {
-    "mtime": 1777703342.707918,
-    "hash": "95a45d07b2f2a367edc335a12da57f43"
+    "mtime": 1777812341.6099336,
+    "hash": "67f0f3719ca7a0c57f1c77db76b035a3"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\router.ts": {
-    "mtime": 1777808805.0248356,
-    "hash": "fb6460673047474ab53e30cad3b7c207"
+    "mtime": 1777812556.0952404,
+    "hash": "54006bc0986848859825f7cd62644115"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\scheduler.ts": {
     "mtime": 1777695040.8449838,
@@ -208,8 +212,8 @@
     "hash": "aac2d57da0b7b8a0c067744637cc7828"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\test\\router.integration.test.ts": {
-    "mtime": 1777809161.0637195,
-    "hash": "54d4b11c9f5b93447d5dc5104a10ae1a"
+    "mtime": 1777812570.426986,
+    "hash": "c9a9bc97b41b3ce8ac6b734c78adf43f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\test\\whatsapp-health.test.ts": {
     "mtime": 1777636453.8081288,
@@ -287,6 +291,10 @@
     "mtime": 1777774454.3524415,
     "hash": "f7ed1de83f032835ac29ac0f1d53c840"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\queue\\update\\route.ts": {
+    "mtime": 1777812762.7759073,
+    "hash": "c9319a15f4a5d7721518692b96ba274c"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\chat\\page.tsx": {
     "mtime": 1777803568.664608,
     "hash": "5b91d58ad7b714e048d977e6c6641d58"
@@ -328,8 +336,8 @@
     "hash": "2314e626f49b839c509076e89f8b2e86"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\queue\\page.tsx": {
-    "mtime": 1777774454.353442,
-    "hash": "7762447e494f67df6ce54f4caa26b11f"
+    "mtime": 1777812779.0455935,
+    "hash": "77daf54da507e8e7857957cba4d4f331"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\reminders\\page.tsx": {
     "mtime": 1777803576.8890862,
@@ -696,8 +704,8 @@
     "hash": "a3c1bb8201e3b8f7d5bf843adcebc097"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\mind.md": {
-    "mtime": 1777810487.0848682,
-    "hash": "32b74c17fe65a553d7857bcd9086e9ff"
+    "mtime": 1777812831.4806378,
+    "hash": "c898fc7b4ec451ce1b3dcf929f9add74"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\NitsyClaw-Constitution-v1.0.md": {
     "mtime": 1777640227.4882152,
