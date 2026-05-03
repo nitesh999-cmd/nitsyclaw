@@ -1,7 +1,9 @@
 .git
 .github
 .claude
+.codex
 .vercel
+graphify-out
 
 node_modules
 **/node_modules
