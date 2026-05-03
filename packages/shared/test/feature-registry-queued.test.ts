@@ -13,5 +13,14 @@ describe("queued feature registry", () => {
     expect(names).toContain("spotify_top_tracks");
     expect(names).toContain("spotify_search_tracks");
     expect(names).toContain("queue_spotify_playlist_creation");
+    expect(names).toContain("list_integration_capabilities");
+
+    expect(names).not.toContain("send_email");
+    expect(names).not.toContain("drive_search");
+    expect(names).not.toContain("send_sms");
+    expect(names).not.toContain("bank_feed_sync");
+    expect(names).not.toContain("google_photos_search");
+    expect(names).not.toContain("facebook_birthdays");
+    expect(names).not.toContain("analyze_social_video");
   });
 });

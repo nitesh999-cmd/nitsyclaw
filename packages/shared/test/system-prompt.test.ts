@@ -24,4 +24,11 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("current/default weather location is Brisbane, Queensland, Australia");
     expect(prompt).toContain("do not permanently change his home location");
   });
+
+  it("requires capability checks before promising external integrations", () => {
+    const prompt = buildSystemPrompt({ surface: "whatsapp" });
+
+    expect(prompt).toContain("use list_integration_capabilities before promising anything");
+    expect(prompt).toContain("Never claim live access to private email sending");
+  });
 });

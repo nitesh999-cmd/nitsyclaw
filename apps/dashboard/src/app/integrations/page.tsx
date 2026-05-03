@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 interface IntegrationRow {
   name: string;
-  status: "Connected" | "Needs setup" | "Read-only" | "Local only";
+  status: "Connected" | "Needs setup" | "Blocked" | "Read-only" | "Local only" | "Partial";
   detail: string;
   action?: { href: string; label: string };
 }
@@ -92,8 +92,18 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Bank feeds",
-      status: "Needs setup",
-      detail: "Requires Basiq/Yodlee/CDR consent flow. CSV import should come first.",
+      status: "Blocked",
+      detail: "Live feeds need a compliant provider and consent flow. CSV import should come first.",
+    },
+    {
+      name: "Facebook birthdays",
+      status: "Blocked",
+      detail: "Use contacts, calendar, CSV, or manual birthdays. Do not rely on scraping Facebook.",
+    },
+    {
+      name: "Social video analysis",
+      status: "Partial",
+      detail: "Public links or uploaded media can be analyzed. Deeper comments/metadata need platform APIs.",
     },
   );
 
@@ -106,9 +116,13 @@ function badge(status: IntegrationRow["status"]) {
       ? "border-emerald-500/40 text-emerald-300"
       : status === "Read-only"
         ? "border-sky-500/40 text-sky-300"
+        : status === "Partial"
+          ? "border-violet-500/40 text-violet-300"
         : status === "Local only"
           ? "border-amber-500/40 text-amber-300"
-          : "border-neutral-700 text-neutral-300";
+          : status === "Blocked"
+            ? "border-red-500/40 text-red-300"
+            : "border-neutral-700 text-neutral-300";
   return `rounded border px-2 py-1 text-xs ${cls}`;
 }
 

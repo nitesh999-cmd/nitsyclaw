@@ -949,3 +949,36 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm test -- queue-controls.test.ts apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts` passed: 17 tests.
 - `npm test` passed: 41 files, 182 tests.
 - `corepack pnpm -r typecheck` passed.
+
+---
+
+## 37. Session 26 (2026-05-03) - External integration honesty layer
+
+**Goal:** Start the requested Email sending, Drive/OneDrive, phone/SMS, bank feeds, Google Photos, Facebook birthdays, and social video analysis build without claiming unsafe or unpermissioned live access.
+
+**What changed:**
+- Added `list_integration_capabilities` as the shared truth tool for permission-heavy integrations.
+- Captured the exact status of each requested rail:
+  - `email_sending`: needs setup.
+  - `drive_onedrive`: needs setup.
+  - `phone_sms`: needs setup.
+  - `bank_feeds`: blocked until compliant provider/consent; CSV import is the safe first slice.
+  - `google_photos`: needs setup; selected media first.
+  - `facebook_birthdays`: blocked; use manual/contact/calendar import instead of scraping.
+  - `social_video_analysis`: partial; public/user-provided media only until platform APIs are wired.
+- Updated the shared WhatsApp/dashboard prompt so NitsyClaw must call `list_integration_capabilities` before promising private email sending, files, bank data, phone logs, photos, or social account access.
+- Updated the dashboard Integrations page so Bank feeds and Facebook birthdays show `Blocked`, and Social video analysis shows `Partial`.
+- Added regression tests that the registry does not expose fake live tools such as `send_email`, `drive_search`, `send_sms`, `bank_feed_sync`, `google_photos_search`, `facebook_birthdays`, or `analyze_social_video`.
+
+**Agent critique incorporated:**
+- Keep read-only tools where real, queue/setup where not built, and block where platform/legal consent is missing.
+- Use the Spotify confirmation pattern for future write actions.
+- Do not mark the queued external integrations done until real OAuth scopes, adapters, confirmation rails, and end-to-end tests exist.
+
+**Verification:**
+- `npm test -- integration-capabilities.test.ts integrations-page.test.ts feature-registry-queued.test.ts system-prompt.test.ts` passed: 9 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm test` passed: 44 files, 192 tests.
+- `npm run build` passed for bot and dashboard.
+- `npm run lint` passed with existing warnings only; this change did not add new lint warnings.
+- `python -m graphify update .` rebuilt the graph: 490 nodes, 1052 edges, 64 communities.
