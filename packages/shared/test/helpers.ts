@@ -106,6 +106,7 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
       }),
     }),
   };
+  db.__state = state;
 
   return { db, state };
 }

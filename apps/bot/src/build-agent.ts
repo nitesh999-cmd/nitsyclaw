@@ -7,7 +7,7 @@
 
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { listPendingFeatureRequests, insertMessage } from "@nitsyclaw/shared/db";
-import { encryptString, hashPhone } from "@nitsyclaw/shared/utils";
+import { encryptForStorage, hashPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 
 export async function runDailyBuildAgent(
@@ -54,7 +54,7 @@ export async function runDailyBuildAgent(
   // WhatsApp self-message so Nitesh sees the list on his phone
   try {
     await deps.whatsapp.send({ to: ownerPhone, body });
-    const enc = process.env.ENCRYPTION_KEY ? encryptString(body) : body;
+    const enc = encryptForStorage(body);
     await insertMessage(deps.db, {
       direction: "out",
       surface: "whatsapp",

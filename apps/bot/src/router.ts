@@ -11,7 +11,7 @@ import {
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import { insertMessage, insertFeatureRequest, listPendingFeatureRequests } from "@nitsyclaw/shared/db";
-import { encryptString, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
+import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
@@ -54,7 +54,7 @@ export class Router {
   private async sendAndPersist(body: string): Promise<void> {
     await this.deps.whatsapp.send({ to: this.ownerPhone, body });
     try {
-      const enc = process.env.ENCRYPTION_KEY ? encryptString(body) : body;
+      const enc = encryptForStorage(body);
       await insertMessage(this.deps.db, {
         direction: "out",
         surface: "whatsapp",
@@ -81,7 +81,7 @@ export class Router {
     });
 
     // Persist inbound (R5: single source of truth).
-    const encryptedBody = process.env.ENCRYPTION_KEY ? encryptString(msg.body) : msg.body;
+    const encryptedBody = encryptForStorage(msg.body);
     const persisted = await insertMessage(this.deps.db, {
       direction: "in",
       surface: "whatsapp",
@@ -302,7 +302,7 @@ export class Router {
       const text = (replyToUserCall.input as { text?: string })?.text ?? "";
       if (text.trim()) {
         try {
-          const enc = process.env.ENCRYPTION_KEY ? encryptString(text) : text;
+          const enc = encryptForStorage(text);
           await insertMessage(this.deps.db, {
             direction: "out",
             surface: "whatsapp",

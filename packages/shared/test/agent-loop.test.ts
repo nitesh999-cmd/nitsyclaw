@@ -35,6 +35,50 @@ describe("runAgent", () => {
     expect(result.rounds).toBe(2);
   });
 
+  it("redacts sensitive tool audit payloads before persistence", async () => {
+    const r = new ToolRegistry();
+    r.register({
+      name: "send_email",
+      description: "send email",
+      inputSchema: z.object({
+        to: z.string(),
+        body: z.string(),
+        accessToken: z.string(),
+      }),
+      handler: async () => ({
+        ok: true,
+        phone: "+61430008008",
+        refresh_token: "refresh-secret",
+        content: "private reply body",
+      }),
+    });
+
+    const deps = makeAgentDeps({
+      llm: fakeLlmWithToolCall("send_email", {
+        to: "person@example.com",
+        body: "private email body",
+        accessToken: "token-secret",
+      }),
+    });
+    await runAgent({
+      userPhone: "+9100",
+      userMessage: "send this",
+      systemPrompt: "test",
+      registry: r,
+      deps,
+    });
+
+    const auditState = deps.db as { __state?: { audit_log?: unknown[] } };
+    const auditText = JSON.stringify(auditState.__state?.audit_log ?? []);
+    expect(auditText).not.toContain("person@example.com");
+    expect(auditText).not.toContain("private email body");
+    expect(auditText).not.toContain("token-secret");
+    expect(auditText).not.toContain("+61430008008");
+    expect(auditText).not.toContain("refresh-secret");
+    expect(auditText).not.toContain("private reply body");
+    expect(auditText).toContain("[redacted");
+  });
+
   it("captures tool errors and continues", async () => {
     const r = new ToolRegistry();
     r.register({

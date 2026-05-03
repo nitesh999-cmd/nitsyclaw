@@ -1,4 +1,4 @@
-import { hashPhone, encryptString } from "@nitsyclaw/shared/utils";
+import { hashPhone, encryptForStorage } from "@nitsyclaw/shared/utils";
 
 export interface OwnerIdentity {
   ownerPhone: string;
@@ -14,14 +14,7 @@ export function getOwnerIdentity(env: NodeJS.ProcessEnv = process.env): OwnerIde
 }
 
 export function encryptDashboardText(text: string, env: NodeJS.ProcessEnv = process.env): string {
-  const key = env.ENCRYPTION_KEY?.trim();
-  if (!key) {
-    if (env.NODE_ENV === "production") {
-      throw new Error("ENCRYPTION_KEY is required in production");
-    }
-    return text;
-  }
-  return encryptString(text);
+  return encryptForStorage(text, env);
 }
 
 export function publicConfigError(error: unknown): { reply: string; status: number } {

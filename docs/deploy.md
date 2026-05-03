@@ -18,7 +18,10 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
 2. Set env vars in Vercel dashboard:
    - `DATABASE_URL` (pooled)
    - `ANTHROPIC_API_KEY`
-   - `NEXTAUTH_SECRET`
+   - `NITSYCLAW_DASHBOARD_USER`
+   - `NITSYCLAW_DASHBOARD_PASSWORD`
+   - `WHATSAPP_OWNER_NUMBER`
+   - `ENCRYPTION_KEY` (required; no implicit plaintext storage)
    - `QUIET_HOURS_*`, `GOOGLE_*`
 3. `vercel --prod`
 4. Production URL goes into `NEXTAUTH_URL`.

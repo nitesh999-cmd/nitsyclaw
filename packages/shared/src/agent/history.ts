@@ -5,7 +5,7 @@
 import { desc, eq } from "drizzle-orm";
 import type { DB } from "../db/client.js";
 import { messages } from "../db/schema.js";
-import { decryptString } from "../utils/crypto.js";
+import { decryptString, isEncryptedString } from "../utils/crypto.js";
 
 export interface HistoryTurn {
   role: "user" | "assistant";
@@ -22,6 +22,7 @@ function safeDecrypt(body: string): string {
   try {
     return decryptString(body);
   } catch {
+    if (isEncryptedString(body)) return "[unreadable encrypted message]";
     return body;
   }
 }

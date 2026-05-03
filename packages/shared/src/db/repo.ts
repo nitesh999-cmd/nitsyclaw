@@ -294,5 +294,52 @@ export async function logAudit(
     durationMs?: number;
   },
 ) {
-  await db.insert(auditLog).values(entry);
+  await db.insert(auditLog).values({
+    ...entry,
+    input: sanitizeAuditPayload(entry.input),
+    output: sanitizeAuditPayload(entry.output),
+    error: entry.error ? redactAuditString(entry.error) : undefined,
+  });
+}
+
+const SENSITIVE_KEY_RE = /(token|secret|password|credential|authorization|cookie|body|content|message|email|phone|number|address|location|transcript|payload|refresh|access)/i;
+const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
+const TOKEN_RE = /\b(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,}\b/g;
+
+function redactAuditString(value: string): string {
+  const redacted = value
+    .replace(EMAIL_RE, "[redacted:email]")
+    .replace(PHONE_RE, "[redacted:phone]")
+    .replace(TOKEN_RE, "[redacted:token]");
+  return redacted.length > 160 ? `${redacted.slice(0, 160)}...[truncated]` : redacted;
+}
+
+export function sanitizeAuditPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") return {};
+  return sanitizeAuditValue(value) as Record<string, unknown>;
+}
+
+function sanitizeAuditValue(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") return redactAuditString(value);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    if (value.length > 10) {
+      return { count: value.length, sample: value.slice(0, 3).map(sanitizeAuditValue) };
+    }
+    return value.map(sanitizeAuditValue);
+  }
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if (SENSITIVE_KEY_RE.test(key)) {
+        out[key] = "[redacted]";
+      } else {
+        out[key] = sanitizeAuditValue(child);
+      }
+    }
+    return out;
+  }
+  return "[redacted]";
 }

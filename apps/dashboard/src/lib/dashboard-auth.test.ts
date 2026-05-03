@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkDashboardAuth, parseBasicAuth } from "./dashboard-auth";
+import {
+  checkDashboardAuth,
+  clearDashboardAuthAttempts,
+  parseBasicAuth,
+  recordDashboardAuthFailure,
+} from "./dashboard-auth";
 
 function basic(user: string, password: string) {
   return `Basic ${btoa(`${user}:${password}`)}`;
@@ -50,6 +55,43 @@ describe("dashboard auth", () => {
       nodeEnv: "production",
       dashboardUser: "owner",
       dashboardPassword: "secret",
+    })).toEqual({ ok: true });
+  });
+
+  it("locks a client after repeated invalid credentials", () => {
+    clearDashboardAuthAttempts();
+    const env = {
+      nodeEnv: "production",
+      dashboardPassword: "secret",
+    };
+
+    for (let i = 0; i < 5; i++) {
+      expect(checkDashboardAuth(basic("nitesh", "wrong"), env, {
+        clientKey: "203.0.113.10",
+        nowMs: 1_000,
+      })).toEqual({ ok: false, reason: "invalid" });
+    }
+
+    expect(checkDashboardAuth(basic("nitesh", "secret"), env, {
+      clientKey: "203.0.113.10",
+      nowMs: 1_001,
+    })).toEqual({ ok: false, reason: "locked" });
+  });
+
+  it("expires auth lockout after the configured window", () => {
+    clearDashboardAuthAttempts();
+    const env = {
+      nodeEnv: "production",
+      dashboardPassword: "secret",
+    };
+
+    for (let i = 0; i < 5; i++) {
+      recordDashboardAuthFailure("203.0.113.11", 1_000);
+    }
+
+    expect(checkDashboardAuth(basic("nitesh", "secret"), env, {
+      clientKey: "203.0.113.11",
+      nowMs: 16 * 60_000 + 1_000,
     })).toEqual({ ok: true });
   });
 });

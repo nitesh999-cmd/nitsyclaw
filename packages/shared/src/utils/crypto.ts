@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 
 const ALGO = "aes-256-gcm";
+const PREFIX = "enc:v1:";
 
 /**
  * Mask a phone number for logs (R6). Keeps last 4 digits.
@@ -45,18 +46,39 @@ export function encryptString(plain: string, envKey?: string): string {
   const cipher = createCipheriv(ALGO, key, iv);
   const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return Buffer.concat([iv, tag, enc]).toString("base64");
+  return `${PREFIX}${Buffer.concat([iv, tag, enc]).toString("base64")}`;
+}
+
+interface StorageEncryptionEnv {
+  [key: string]: string | undefined;
+  ENCRYPTION_KEY?: string;
+  ALLOW_PLAINTEXT_DB?: string;
+}
+
+export function isEncryptedString(value: string): boolean {
+  return value.startsWith(PREFIX);
 }
 
 export function decryptString(payload: string, envKey?: string): string {
   const key = getKey(envKey);
-  const buf = Buffer.from(payload, "base64");
+  const cipherPayload = isEncryptedString(payload) ? payload.slice(PREFIX.length) : payload;
+  const buf = Buffer.from(cipherPayload, "base64");
   const iv = buf.subarray(0, 12);
   const tag = buf.subarray(12, 28);
   const enc = buf.subarray(28);
   const decipher = createDecipheriv(ALGO, key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
+}
+
+export function encryptForStorage(
+  plain: string,
+  env: StorageEncryptionEnv = process.env,
+): string {
+  const key = env.ENCRYPTION_KEY?.trim();
+  if (key) return encryptString(plain, key);
+  if (env.ALLOW_PLAINTEXT_DB === "true") return plain;
+  throw new Error("ENCRYPTION_KEY is required for database storage");
 }
 
 /**

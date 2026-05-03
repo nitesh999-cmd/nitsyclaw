@@ -4,13 +4,14 @@ import { z } from "zod";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import { recentMessages } from "../db/repo.js";
 import type { Message } from "../db/schema.js";
-import { decryptString, hashPhone } from "../utils/crypto.js";
+import { decryptString, hashPhone, isEncryptedString } from "../utils/crypto.js";
 
 function safeDecrypt(body: string): string {
   if (!process.env.ENCRYPTION_KEY || !body) return body;
   try {
     return decryptString(body);
   } catch {
+    if (isEncryptedString(body)) return "[unreadable encrypted message]";
     return body;
   }
 }

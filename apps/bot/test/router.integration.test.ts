@@ -2,16 +2,16 @@
 // Exercises the full path: WhatsApp inbound -> router -> agent loop -> tool -> WhatsApp outbound.
 // All deps are fakes; no network.
 
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { Router } from "../src/router.js";
 import {
   makeAgentDeps,
   fakeLlmWithToolCall,
-  makeFakeDb,
   fakeImageAnalyzer,
   fakeTranscriber,
 } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
+import { generateKey } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
 
@@ -19,14 +19,22 @@ describe("Router (integration)", () => {
   let wa: MockWhatsAppClient;
   let deps: ReturnType<typeof makeAgentDeps>;
   let router: Router;
+  let oldEncryptionKey: string | undefined;
 
   beforeEach(() => {
+    oldEncryptionKey = process.env.ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = generateKey();
     wa = new MockWhatsAppClient();
     deps = makeAgentDeps({
       whatsapp: wa,
       llm: fakeLlmWithToolCall("reply_to_user", { text: "ack" }),
     });
     router = new Router(deps, OWNER);
+  });
+
+  afterEach(() => {
+    if (oldEncryptionKey) process.env.ENCRYPTION_KEY = oldEncryptionKey;
+    else delete process.env.ENCRYPTION_KEY;
   });
 
   it("drops messages from non-owners (R2)", async () => {

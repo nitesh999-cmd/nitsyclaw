@@ -6,8 +6,15 @@ describe("dashboard runtime guards", () => {
     expect(() => getOwnerIdentity({} as NodeJS.ProcessEnv)).toThrow(/WHATSAPP_OWNER_NUMBER/);
   });
 
-  it("allows plaintext only outside production when encryption is missing", () => {
-    expect(encryptDashboardText("hello", { NODE_ENV: "development" } as NodeJS.ProcessEnv)).toBe("hello");
+  it("allows plaintext only with explicit local opt-in when encryption is missing", () => {
+    expect(encryptDashboardText("hello", {
+      NODE_ENV: "development",
+      ALLOW_PLAINTEXT_DB: "true",
+    } as NodeJS.ProcessEnv)).toBe("hello");
+  });
+
+  it("rejects implicit plaintext storage outside production", () => {
+    expect(() => encryptDashboardText("hello", { NODE_ENV: "development" } as NodeJS.ProcessEnv)).toThrow(/ENCRYPTION_KEY/);
   });
 
   it("requires encryption key in production", () => {
