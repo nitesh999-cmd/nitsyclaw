@@ -31,11 +31,11 @@ function badge(status: string) {
 export default async function QueuePage({
   searchParams,
 }: {
-  searchParams?: Promise<{ status?: string }> | { status?: string };
+  searchParams?: Promise<{ status?: string }>;
 }) {
   let rows: Awaited<ReturnType<typeof loadQueue>> = [];
   let error: string | null = null;
-  const params = searchParams ? await Promise.resolve(searchParams) : undefined;
+  const params = searchParams ? await searchParams : undefined;
   try {
     rows = await loadQueue(params?.status);
   } catch (e) {

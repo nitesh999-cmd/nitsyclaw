@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test";
 test.describe("dashboard routes render", () => {
   test("Today page", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
   });
 
   test("Conversations page", async ({ page }) => {

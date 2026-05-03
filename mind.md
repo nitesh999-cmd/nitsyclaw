@@ -852,3 +852,39 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 ---
 
 | 2026-05-02 | daily-build-agent-6 | **Sixth run -- CCR firewall unchanged; zero features processed.** All external exit paths still blocked: Supabase TCP (port 6543) timeout (CONNECT_TIMEOUT), ntfy.sh HTTP 403 "Host not in allowlist", nitsyclaw.vercel.app HTTP 403 "Host not in allowlist", Supabase REST API HTTP 403 "Host not in allowlist". DATABASE_URL not set in CCR env; .env.local absent on cloud runner. Git proxy (127.0.0.1) operational -- fetch + branch pointer repair succeeded. Local `main` branch was stale at 601516a (session 5f); HEAD was detached at c6173ca (session 22). Fixed by `git checkout -B main HEAD`. Origin already at c6173ca (previous sessions' 40 commits were already pushed). No pending features implemented. No new code changes. Documented this run and pushed. Laptop node-cron (build-agent.ts, 12:00 UTC) remains the only functional feature-notification path. |
+
+## 34. Session 23 (2026-05-03) — Release hardening audit
+
+**Goal:** Principal-level release audit across security, reliability, product trust, build gates, and adversarial input handling.
+
+**What changed:**
+- Added `.dockerignore` so Docker/Railway build contexts exclude env files, OAuth tokens, WhatsApp session state, Vercel metadata, logs, build output, coverage, test output, and `node_modules`.
+- Hardened `.gitignore` for nested `.wa-session`, extra OAuth token names, `.vercel`, `package-lock.json`, coverage, and Playwright output.
+- Added dashboard chat payload validation with body-size, history-count, message-length, role, and empty-message guards before DB/LLM work.
+- Removed hardcoded dashboard owner-phone fallbacks; dashboard chat/history/Spotify/onboarding/integrations now fail closed if `WHATSAPP_OWNER_NUMBER` is missing.
+- Added production dashboard encryption guard so dashboard message writes fail closed if `ENCRYPTION_KEY` is absent in production.
+- Fixed conversation-history tool handler signature and tests.
+- Fixed receipt image return typing for `rawText`.
+- Fixed Next 15 `searchParams` page prop types for Expenses and Queue.
+- Fixed reminder direct-date nullability.
+- Added ESLint 9 flat config and explicit TypeScript ESLint dependencies.
+- Made bot `build` typecheck-only so it does not emit generated JS/declaration files into source during verification.
+- Fixed pnpm CI setup and upgraded package manager to pnpm `10.33.2`.
+- Applied pnpm audit overrides for patched `drizzle-orm`, `esbuild`, `vite`, `uuid`, and `postcss`.
+- Made Playwright e2e start a deterministic dashboard dev server on port `3101`.
+
+**Verification:**
+- `npm test` passed: 37 files, 168 tests.
+- `npm run test:coverage` passed: 84.26% lines/statements, 82.5% branches, 85.45% functions.
+- `corepack pnpm -r typecheck` passed.
+- `corepack pnpm -r build` passed.
+- `npm run lint` passed with warnings only.
+- `corepack pnpm audit --audit-level=moderate` passed: no known vulnerabilities.
+- `npm run test:e2e` passed: 7 Playwright tests.
+
+**Remaining release risks:**
+- Dashboard still uses Basic Auth without rate limiting or lockout.
+- Audit logs can still store sensitive tool inputs/outputs; activity UI should stay redacted and audit persistence needs schema-aware minimization.
+- Settings data export/delete controls are still disabled; this is acceptable for private/internal beta but not for broad consumer release.
+- `/debug` still exists and should be removed or debug-env gated before external users.
+- Coverage now gates core testable units; dashboard route/page coverage remains mostly e2e-level, not unit-level.

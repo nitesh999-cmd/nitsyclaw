@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getConnectedAccount, getDb, memories, reminders, confirmations } from "@nitsyclaw/shared/db";
-import { hashPhone } from "@nitsyclaw/shared/utils";
+import { getOwnerIdentity } from "../../lib/dashboard-runtime";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +20,9 @@ async function loadChecklist() {
   try {
     const db = getDb();
     checks.database = true;
-    const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
+    const owner = checks.whatsappOwner ? getOwnerIdentity() : null;
     const [spotify, memoryRows, reminderRows, confirmationRows] = await Promise.all([
-      getConnectedAccount(db, { provider: "spotify", ownerHash: hashPhone(ownerPhone) }).catch(() => null),
+      owner ? getConnectedAccount(db, { provider: "spotify", ownerHash: owner.ownerHash }).catch(() => null) : null,
       db.select().from(memories).limit(1),
       db.select().from(reminders).where(eq(reminders.status, "pending")).limit(1),
       db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(10),

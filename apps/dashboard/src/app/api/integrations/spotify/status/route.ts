@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, getConnectedAccount } from "@nitsyclaw/shared/db";
-import { hashPhone } from "@nitsyclaw/shared/utils";
+import { getOwnerIdentity, publicConfigError } from "../../../../../lib/dashboard-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,11 +23,24 @@ export async function GET() {
     });
   }
 
+  let ownerHash: string;
+  try {
+    ({ ownerHash } = getOwnerIdentity());
+  } catch (e) {
+    const configError = publicConfigError(e);
+    return NextResponse.json({
+      provider: "spotify",
+      configured: true,
+      connected: false,
+      status: "needs_owner_env",
+      error: configError.reply,
+    }, { status: configError.status });
+  }
+
   const db = getDb();
-  const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
   const account = await getConnectedAccount(db, {
     provider: "spotify",
-    ownerHash: hashPhone(ownerPhone),
+    ownerHash,
   });
 
   return NextResponse.json({

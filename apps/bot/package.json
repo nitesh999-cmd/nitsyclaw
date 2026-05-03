@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "build": "tsc -p .",
+    "build": "tsc -p . --noEmit",
     "typecheck": "tsc --noEmit",
     "google:auth": "tsx src/google-auth.ts",
     "ms:auth": "tsx src/microsoft-auth.ts"

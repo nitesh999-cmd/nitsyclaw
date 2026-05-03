@@ -15,6 +15,7 @@ logs/
 # Node
 node_modules/
 .pnpm-store/
+package-lock.json
 .next/
 dist/
 build/
@@ -44,6 +45,9 @@ packages/shared/dist/
 
 google-credentials.json
 google-token.json
+google-token-*.json
+ms-token.json
 
 apps/dashboard/.env.production.local
 apps/dashboard/.env.vercel.current
+.vercel

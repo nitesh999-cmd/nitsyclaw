@@ -24,8 +24,8 @@ function compact(text: string): string {
 }
 
 export async function searchConversationHistory(
-  ctx: ToolContext,
   input: { query: string; limit?: number; surface?: "whatsapp" | "dashboard" | "all" },
+  ctx: ToolContext,
 ) {
   const query = input.query.trim().toLowerCase();
   const limit = input.limit ?? 8;

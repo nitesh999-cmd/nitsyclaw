@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getConnectedAccount, getDb } from "@nitsyclaw/shared/db";
-import { hashPhone } from "@nitsyclaw/shared/utils";
+import { getOwnerIdentity } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +49,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
   try {
     if (spotifyConfigured) {
       const db = getDb();
-      const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
+      const { ownerHash } = getOwnerIdentity();
       spotifyConnected = Boolean(
         await getConnectedAccount(db, {
           provider: "spotify",
-          ownerHash: hashPhone(ownerPhone),
+          ownerHash,
         }),
       );
     }

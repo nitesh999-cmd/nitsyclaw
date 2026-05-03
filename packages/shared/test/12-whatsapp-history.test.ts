@@ -16,8 +16,8 @@ describe("conversation history search", () => {
     });
 
     const out = await searchConversationHistory(
-      { deps, userPhone, now: deps.now(), timezone: deps.timezone },
       { query: "blue folder" },
+      { deps, userPhone, now: deps.now(), timezone: deps.timezone },
     );
 
     expect(out.count).toBe(1);
@@ -38,8 +38,8 @@ describe("conversation history search", () => {
       });
 
       const out = await searchConversationHistory(
-        { deps, userPhone, now: deps.now(), timezone: deps.timezone },
         { query: "solarharbour" },
+        { deps, userPhone, now: deps.now(), timezone: deps.timezone },
       );
 
       expect(out.count).toBe(1);

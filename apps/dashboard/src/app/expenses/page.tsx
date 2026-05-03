@@ -68,9 +68,9 @@ function asCsvUrl(filters: ExpenseSearchParams) {
 export default async function ExpensesPage({
   searchParams,
 }: {
-  searchParams?: Promise<ExpenseSearchParams> | ExpenseSearchParams;
+  searchParams?: Promise<ExpenseSearchParams>;
 }) {
-  const filters = searchParams ? await Promise.resolve(searchParams) : {};
+  const filters = searchParams ? await searchParams : {};
   const normalizedFilters = normalizeExpenseFilters(filters);
   let rows: Awaited<ReturnType<typeof load>> = [];
   let errorMsg: string | null = null;

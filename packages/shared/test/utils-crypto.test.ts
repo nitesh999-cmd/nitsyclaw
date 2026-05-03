@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { decryptString, encryptString, generateKey, hashPhone, maskPhone } from "../src/utils/crypto.js";
 
 describe("maskPhone", () => {
-  it("keeps last 4 digits", () => {
-    expect(maskPhone("+919876543210")).toBe("+91*****3210");
+  it("keeps only a short prefix and the last 4 digits", () => {
+    const masked = maskPhone("+919876543210");
+
+    expect(masked).toBe("+91******3210");
+    expect(masked).toHaveLength("+919876543210".length);
+    expect(masked).not.toContain("987654");
   });
 
   it("handles short numbers", () => {

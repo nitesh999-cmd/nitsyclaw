@@ -28,12 +28,12 @@ async function main() {
       void upsertSystemHeartbeat(db, {
         source: "whatsapp-loop-guard",
         status: "paused",
-        metadata: incident,
+        metadata: { ...incident },
       }).catch((e) => console.error("[boot] loop guard heartbeat failed", e));
       void logAudit(db, {
         actor: "system",
         tool: "whatsapp_loop_breaker",
-        input: incident,
+        input: { ...incident },
         output: { action: "paused_whatsapp_replies" },
         success: false,
         error: incident.reason,

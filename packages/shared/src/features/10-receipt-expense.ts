@@ -44,7 +44,14 @@ export async function processReceiptImage(args: {
     occurredAt: fields.date ?? args.now,
     sourceMessageId: args.sourceMessageId,
   });
-  return { id: e.id, amount: fields.amount, currency: e.currency, category, merchant: e.merchant };
+  return {
+    id: e.id,
+    amount: fields.amount,
+    currency: e.currency,
+    category,
+    merchant: e.merchant,
+    rawText: fields.rawText,
+  };
 }
 
 export function registerReceiptExpense(registry: ToolRegistry): void {

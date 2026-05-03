@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@nitsyclaw/shared/db";
-import { hashPhone } from "@nitsyclaw/shared/utils";
+import { getOwnerIdentity, publicConfigError } from "../../../../../lib/dashboard-runtime";
 import {
   exchangeSpotifyCode,
   getSpotifyProfile,
@@ -29,9 +29,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid Spotify OAuth state." }, { status: 400 });
   }
 
-  const db = getDb();
-  const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
-  const ownerHash = hashPhone(ownerPhone);
+  let db;
+  let ownerHash: string;
+  try {
+    db = getDb();
+    ({ ownerHash } = getOwnerIdentity());
+  } catch (e) {
+    const configError = publicConfigError(e);
+    return NextResponse.json({ ok: false, error: configError.reply }, { status: configError.status });
+  }
+
   const token = await exchangeSpotifyCode(code);
   await saveSpotifyConnection({ db, ownerHash, token, metadata: { connectedAt: new Date().toISOString() } });
 

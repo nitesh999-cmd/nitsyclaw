@@ -15,7 +15,7 @@ async function createReminder(formData: FormData) {
   const timezone = process.env.TIMEZONE ?? "Australia/Melbourne";
   const parsed = parseRelativeTime(when, now, timezone);
   const directDate = parsed ? null : new Date(when);
-  const fireAt = parsed?.fireAt ?? (!Number.isNaN(directDate.getTime()) ? directDate : null);
+  const fireAt = parsed?.fireAt ?? (directDate && !Number.isNaN(directDate.getTime()) ? directDate : null);
   if (!fireAt) return;
 
   await insertReminder(getDb(), {

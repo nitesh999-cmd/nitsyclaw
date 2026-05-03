@@ -22,6 +22,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import { validateChatBody, validateContentLength } from "../../../../lib/chat-validation";
+import { encryptDashboardText, getOwnerIdentity, publicConfigError } from "../../../../lib/dashboard-runtime";
 import type {
   AgentDeps,
   CalendarClient,
@@ -32,15 +34,10 @@ import type {
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import type { WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
-import { encryptString, hashPhone } from "@nitsyclaw/shared/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-interface ChatBody {
-  history: Array<{ role: "user" | "assistant"; content: string }>;
-}
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
@@ -178,22 +175,31 @@ export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ reply: "Server is missing ANTHROPIC_API_KEY env var." }, { status: 500 });
   }
-  let body: ChatBody;
+  const lengthError = validateContentLength(req.headers.get("content-length"));
+  if (lengthError) {
+    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status });
+  }
+
+  let rawBody: unknown;
   try {
-    body = (await req.json()) as ChatBody;
+    rawBody = await req.json();
   } catch {
     return NextResponse.json({ reply: "Bad request" }, { status: 400 });
   }
-  if (!body.history?.length) {
-    return NextResponse.json({ reply: "No messages provided" }, { status: 400 });
+  const parsedBody = validateChatBody(rawBody);
+  if (!parsedBody.ok) {
+    return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status });
   }
-  const last = body.history[body.history.length - 1];
-  if (!last || last.role !== "user") {
-    return NextResponse.json({ reply: "Last message must be from user" }, { status: 400 });
-  }
+  const last = parsedBody.last;
 
-  const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
-  const ownerHash = hashPhone(ownerPhone);
+  let ownerPhone: string;
+  let ownerHash: string;
+  try {
+    ({ ownerPhone, ownerHash } = getOwnerIdentity());
+  } catch (e) {
+    const configError = publicConfigError(e);
+    return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+  }
 
   // /addfeature shortcut — instant path, no streaming needed.
   const addFeatureMatch = last.content.trim().match(/^\/addfeature\s+(.+)$/is);
@@ -215,13 +221,17 @@ export async function POST(req: Request) {
         requestedBy: ownerHash,
       });
       const reply = `Queued! Feature ID: ${row.id.slice(0, 8)}. Build agent will pick it up at next run.`;
-      const enc = (text: string) => (process.env.ENCRYPTION_KEY ? encryptString(text) : text);
       try {
-        await insertMessage(deps.db, { direction: "in", surface: "dashboard", fromNumber: ownerHash, body: enc(last.content) });
-        await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: enc(reply) });
-      } catch {}
+        await insertMessage(deps.db, { direction: "in", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(last.content) });
+        await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(reply) });
+      } catch (persistErr) {
+        const configError = publicConfigError(persistErr);
+        if (configError.status === 503) return streamSingleEvent({ type: "error", message: configError.reply });
+      }
       return streamSingleEvent({ type: "done", reply, featureId: row.id });
     } catch (e: unknown) {
+      const configError = publicConfigError(e);
+      if (configError.status === 503) return streamSingleEvent({ type: "error", message: configError.reply });
       const msg = e instanceof Error ? e.message : String(e);
       return streamSingleEvent({ type: "error", message: msg });
     }
@@ -354,11 +364,15 @@ export async function POST(req: Request) {
         }
 
         // Persist user + assistant
-        const enc = (t: string) => (process.env.ENCRYPTION_KEY ? encryptString(t) : t);
         try {
-          await insertMessage(deps.db, { direction: "in", surface: "dashboard", fromNumber: ownerHash, body: enc(last.content) });
-          await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: enc(finalText || "(empty reply)") });
+          await insertMessage(deps.db, { direction: "in", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(last.content) });
+          await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(finalText || "(empty reply)") });
         } catch (persistErr) {
+          const configError = publicConfigError(persistErr);
+          if (configError.status === 503) {
+            send({ type: "error", message: configError.reply });
+            return;
+          }
           console.error("[chat/stream] persist failed", persistErr);
         }
 
@@ -371,6 +385,11 @@ export async function POST(req: Request) {
           },
         });
       } catch (e: unknown) {
+        const configError = publicConfigError(e);
+        if (configError.status === 503) {
+          send({ type: "error", message: configError.reply });
+          return;
+        }
         const msg = e instanceof Error ? e.message : String(e);
         send({ type: "error", message: msg });
       } finally {

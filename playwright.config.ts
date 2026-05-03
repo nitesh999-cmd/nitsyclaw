@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [["html", { open: "never" }], ["list"]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3101",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -16,8 +16,8 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "pnpm dashboard",
-    port: 3000,
+    command: "corepack pnpm --filter @nitsyclaw/dashboard exec next dev -p 3101",
+    port: 3101,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

@@ -13,6 +13,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import { validateChatBody, validateContentLength } from "../../../lib/chat-validation";
+import { encryptDashboardText, getOwnerIdentity, publicConfigError } from "../../../lib/dashboard-runtime";
 import type {
   AgentDeps,
   CalendarClient,
@@ -23,15 +25,10 @@ import type {
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import type { WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
-import { encryptString, hashPhone } from "@nitsyclaw/shared/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-interface ChatBody {
-  history: Array<{ role: "user" | "assistant"; content: string }>;
-}
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
@@ -183,26 +180,27 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: ChatBody;
+  const lengthError = validateContentLength(req.headers.get("content-length"));
+  if (lengthError) {
+    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status });
+  }
+
+  let rawBody: unknown;
   try {
-    body = (await req.json()) as ChatBody;
+    rawBody = await req.json();
   } catch {
     return NextResponse.json({ reply: "Bad request" }, { status: 400 });
   }
-  if (!body.history?.length) {
-    return NextResponse.json({ reply: "No messages provided" }, { status: 400 });
+  const parsedBody = validateChatBody(rawBody);
+  if (!parsedBody.ok) {
+    return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status });
   }
-
-  const last = body.history[body.history.length - 1];
-  if (!last || last.role !== "user") {
-    return NextResponse.json({ reply: "Last message must be from user" }, { status: 400 });
-  }
+  const last = parsedBody.last;
 
   try {
     const deps = buildDashboardDeps();
     const registry = registerAllFeatures({ surface: "dashboard" });
-    const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
-    const ownerHash = hashPhone(ownerPhone);
+    const { ownerPhone, ownerHash } = getOwnerIdentity();
 
     // /addfeature <description> shortcut (feature_request fr_96407890).
     // Skip the agent loop for instant feedback.
@@ -222,23 +220,26 @@ export async function POST(req: Request) {
         source: "dashboard",
         requestedBy: ownerHash,
       });
-      const enc = (text: string) =>
-        process.env.ENCRYPTION_KEY ? encryptString(text) : text;
       const reply = `Queued! Feature ID: ${row.id.slice(0, 8)}. Build agent will pick it up at next run.`;
       try {
         await insertMessage(deps.db, {
           direction: "in",
           surface: "dashboard",
           fromNumber: ownerHash,
-          body: enc(last.content),
+          body: encryptDashboardText(last.content),
         });
         await insertMessage(deps.db, {
           direction: "out",
           surface: "dashboard",
           fromNumber: ownerHash,
-          body: enc(reply),
+          body: encryptDashboardText(reply),
         });
-      } catch {}
+      } catch (persistErr) {
+        const configError = publicConfigError(persistErr);
+        if (configError.status === 503) {
+          return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+        }
+      }
       return NextResponse.json({
         reply,
         meta: { rounds: 0, tools: [{ name: "request_feature", success: true }], featureId: row.id },
@@ -262,23 +263,25 @@ export async function POST(req: Request) {
     });
 
     // Persist the user turn + assistant reply so cross-surface history sees them.
-    const enc = (text: string) =>
-      process.env.ENCRYPTION_KEY ? encryptString(text) : text;
     try {
       await insertMessage(deps.db, {
         direction: "in",
         surface: "dashboard",
         fromNumber: ownerHash,
-        body: enc(last.content),
+        body: encryptDashboardText(last.content),
       });
       const replyText = result.finalText?.trim() || "(empty reply)";
       await insertMessage(deps.db, {
         direction: "out",
         surface: "dashboard",
         fromNumber: ownerHash,
-        body: enc(replyText),
+        body: encryptDashboardText(replyText),
       });
     } catch (persistErr) {
+      const configError = publicConfigError(persistErr);
+      if (configError.status === 503) {
+        return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+      }
       console.error("[chat] persist failed", persistErr);
       // Non-fatal — still return the reply.
     }
@@ -292,6 +295,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: unknown) {
+    const configError = publicConfigError(e);
+    if (configError.status === 503) {
+      return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+    }
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
       { reply: `Agent error: ${msg}` },

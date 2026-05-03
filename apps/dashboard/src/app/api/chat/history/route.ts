@@ -4,22 +4,26 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@nitsyclaw/shared/db";
 import { loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
-import { hashPhone } from "@nitsyclaw/shared/utils";
+import { getOwnerIdentity, publicConfigError } from "../../../../lib/dashboard-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20", 10) || 20, 100);
+  const rawLimit = parseInt(url.searchParams.get("limit") ?? "20", 10);
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
 
   try {
     const db = getDb();
-    const ownerPhone = process.env.WHATSAPP_OWNER_NUMBER ?? "61430008008";
-    const ownerHash = hashPhone(ownerPhone);
+    const { ownerHash } = getOwnerIdentity();
     const history = await loadCrossSurfaceHistory(db, ownerHash, limit);
     return NextResponse.json({ messages: history });
   } catch (e: unknown) {
+    const configError = publicConfigError(e);
+    if (configError.status === 503) {
+      return NextResponse.json({ messages: [], error: configError.reply }, { status: configError.status });
+    }
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ messages: [], error: msg }, { status: 500 });
   }

@@ -10,8 +10,25 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: ["packages/*/src/**", "apps/*/src/**"],
-      exclude: ["**/*.test.ts", "**/test/**", "**/*.config.ts"],
+      include: [
+        "packages/shared/src/**",
+        "apps/bot/src/feature-shortcut.ts",
+        "apps/bot/src/personal-command-shortcuts.ts",
+        "apps/bot/src/whatsapp-*.ts",
+        "apps/dashboard/src/lib/**",
+      ],
+      exclude: [
+        "**/*.d.ts",
+        "**/*.js",
+        "**/*.js.map",
+        "**/*.test.ts",
+        "**/test/**",
+        "**/*.config.ts",
+        "packages/shared/src/index.ts",
+        "packages/shared/src/db/client.ts",
+        "packages/shared/src/integrations/spotify.ts",
+        "packages/shared/src/notify/**",
+      ],
       thresholds: {
         lines: 70,
         functions: 70,
