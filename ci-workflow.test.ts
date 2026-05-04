@@ -1,0 +1,41 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+
+describe("GitHub Actions CI workflow", () => {
+  const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+
+  it("does not leave empty with blocks on action steps", () => {
+    const lines = workflow.split(/\r?\n/);
+    const emptyWithLines: number[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] ?? "";
+      const match = line.match(/^(\s*)with:\s*$/);
+      if (!match) continue;
+
+      const indent = match[1].length;
+      const nextMeaningful = lines
+        .slice(i + 1)
+        .find((candidate) => candidate.trim().length > 0);
+      const nextIndent = nextMeaningful?.match(/^(\s*)/)?.[1]?.length ?? 0;
+
+      if (!nextMeaningful || nextIndent <= indent) {
+        emptyWithLines.push(i + 1);
+      }
+    }
+
+    expect(emptyWithLines).toEqual([]);
+  });
+
+  it("uses packageManager from package.json for pnpm setup", () => {
+    expect(workflow).toContain("uses: pnpm/action-setup@v4");
+    expect(workflow).not.toMatch(/uses:\s*pnpm\/action-setup@v4\s*\r?\n\s*with:\s*\r?\n/);
+  });
+
+  it("runs the production build before coverage and e2e gates", () => {
+    expect(workflow).toContain("pnpm build");
+    expect(workflow.indexOf("pnpm build")).toBeLessThan(
+      workflow.indexOf("pnpm test:coverage"),
+    );
+  });
+});

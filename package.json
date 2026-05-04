@@ -12,6 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "pnpm -r typecheck",
+    "release:check": "pnpm lint && pnpm -r typecheck && pnpm build && pnpm test:coverage && pnpm test:e2e && pnpm audit --audit-level=moderate",
+    "release:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     "db:generate": "pnpm --filter @nitsyclaw/shared db:generate",
     "db:migrate": "pnpm --filter @nitsyclaw/shared db:migrate",
     "db:studio": "pnpm --filter @nitsyclaw/shared db:studio",
