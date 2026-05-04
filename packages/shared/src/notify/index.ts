@@ -47,11 +47,17 @@ async function sendNtfy(text: string, opts: NotifyOpts): Promise<void> {
     // Authorization: Bearer ${NTFY_AUTH_TOKEN} + Email: NOTIFY_EMAIL headers.
     // For now, email channel goes via direct SMTP / Graph (see TODO in
     // CLAUDE-CODE-BACKLOG.md). Push channels: ntfy app + Windows toast.
-    await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+    const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
       method: "POST",
       headers,
       body: text.slice(0, 4096),
     });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error(
+        `[notify/ntfy] failed status=${response.status} ${response.statusText} ${body.slice(0, 160)}`.trim(),
+      );
+    }
   } catch (e) {
     console.error("[notify/ntfy] failed", e);
   }
@@ -85,6 +91,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($tpl)
       detached: true,
       stdio: "ignore",
       windowsHide: true,
+    });
+    child.on("error", (e) => {
+      console.error("[notify/toast] failed", e);
     });
     child.unref();
   } catch (e) {

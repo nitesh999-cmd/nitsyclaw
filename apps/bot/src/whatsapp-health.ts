@@ -27,6 +27,48 @@ export function shouldRestartWhatsAppClient(
   return consecutiveFailures >= maxConsecutiveFailures;
 }
 
+export type WhatsAppRuntimeStatus =
+  | "initializing"
+  | "ready"
+  | "qr_required"
+  | "health_ok"
+  | "health_failed"
+  | "restarting"
+  | "auth_failure"
+  | "disconnected"
+  | "stopped";
+
+export interface WhatsAppRuntimeEvent {
+  status: WhatsAppRuntimeStatus;
+  reason?: string;
+  state?: string;
+  consecutiveFailures?: number;
+  qrAvailable?: boolean;
+  at?: string;
+}
+
+export function statusForWhatsAppRuntimeEvent(
+  event: WhatsAppRuntimeEvent,
+): "ok" | "needs_attention" | "restarting" | "stopped" {
+  if (event.status === "ready" || event.status === "health_ok") return "ok";
+  if (event.status === "restarting" || event.status === "initializing") return "restarting";
+  if (event.status === "stopped") return "stopped";
+  return "needs_attention";
+}
+
+export function publicWhatsAppRuntimeMetadata(
+  event: WhatsAppRuntimeEvent,
+): Record<string, unknown> {
+  return {
+    status: event.status,
+    reason: event.reason ? event.reason.slice(0, 180) : undefined,
+    state: event.state,
+    consecutiveFailures: event.consecutiveFailures,
+    qrAvailable: event.qrAvailable === true ? true : undefined,
+    at: event.at,
+  };
+}
+
 export async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,

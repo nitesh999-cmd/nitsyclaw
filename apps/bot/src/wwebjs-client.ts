@@ -22,6 +22,7 @@ import type {
 import {
   isHealthyWhatsAppState,
   shouldRestartWhatsAppClient,
+  type WhatsAppRuntimeEvent,
   withTimeout,
 } from "./whatsapp-health.js";
 import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
@@ -50,6 +51,7 @@ export interface WwebjsOptions {
   restartBackoffMs?: number;
   maxConsecutiveHealthFailures?: number;
   healthFilePath?: string;
+  onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
 }
 
 export class WwebjsClient implements WhatsAppClient {
@@ -58,11 +60,12 @@ export class WwebjsClient implements WhatsAppClient {
   private client: WwebjsClientInstance;
   private handlers: Array<(m: InboundMessage) => Promise<void> | void> = [];
   private readyPromise: Promise<void>;
-  private readyResolve!: () => void;
+  private readyResolvers: Array<() => void> = [];
   private healthProbe?: NodeJS.Timeout;
   private readyWatchdog?: NodeJS.Timeout;
   private restarting?: Promise<void>;
   private stopped = false;
+  private qrPending = false;
   private generation = 0;
   private consecutiveHealthFailures = 0;
   private readonly healthProbeIntervalMs: number;
@@ -97,7 +100,12 @@ export class WwebjsClient implements WhatsAppClient {
   }
 
   private newReadyPromise(): Promise<void> {
-    return new Promise((res) => { this.readyResolve = res; });
+    return new Promise((res) => { this.readyResolvers.push(res); });
+  }
+
+  private resolveReadyWaiters(): void {
+    const resolvers = this.readyResolvers.splice(0);
+    for (const resolveReady of resolvers) resolveReady();
   }
 
   private createClient(): WwebjsClientInstance {
@@ -126,12 +134,23 @@ export class WwebjsClient implements WhatsAppClient {
     }
   }
 
+  private emitStatus(event: WhatsAppRuntimeEvent): void {
+    const safeEvent = {
+      ...event,
+      at: event.at ?? new Date().toISOString(),
+    };
+    Promise.resolve(this.opts.onStatus?.(safeEvent)).catch((e) => {
+      console.error("[wwebjs] status callback failed", e);
+    });
+  }
+
   private async markUnavailable(label: string): Promise<void> {
     await markPresenceUnavailable(this.client, Math.min(this.healthProbeTimeoutMs, 2_000), label);
   }
 
   private async initializeClient(reason: string): Promise<void> {
     try {
+      this.emitStatus({ status: "initializing", reason });
       await withTimeout(
         this.client.initialize(),
         this.initializeTimeoutMs,
@@ -139,13 +158,16 @@ export class WwebjsClient implements WhatsAppClient {
       );
       const generation = this.generation;
       this.readyWatchdog = setTimeout(() => {
-        if (!this.stopped && generation === this.generation && !this.healthProbe) {
+        if (!this.stopped && generation === this.generation && !this.healthProbe && !this.qrPending) {
           void this.restart(`ready timeout after initialize (${reason})`);
+        } else if (!this.stopped && generation === this.generation && this.qrPending) {
+          this.emitStatus({ status: "qr_required", qrAvailable: true });
         }
       }, this.initializeTimeoutMs);
     } catch (e) {
       if (this.stopped) return;
       console.error(`[wwebjs] initialize failed (${reason}); retrying after ${this.restartBackoffMs}ms`, e);
+      this.emitStatus({ status: "restarting", reason: `initialize failed: ${String(e)}` });
       this.client.removeAllListeners();
       await this.client.destroy().catch((destroyError: unknown) => {
         console.error("[wwebjs] destroy after initialize failure failed", destroyError);
@@ -153,6 +175,7 @@ export class WwebjsClient implements WhatsAppClient {
       await new Promise((resolveDelay) => setTimeout(resolveDelay, this.restartBackoffMs));
       if (this.stopped) return;
       this.generation += 1;
+      this.qrPending = false;
       this.readyPromise = this.newReadyPromise();
       this.client = this.createClient();
       this.wireEvents(this.generation);
@@ -173,12 +196,18 @@ export class WwebjsClient implements WhatsAppClient {
       }
       this.consecutiveHealthFailures = 0;
       await this.writeHealthHeartbeat(String(state));
+      this.emitStatus({ status: "health_ok", state: String(state) });
     } catch (e) {
       this.consecutiveHealthFailures += 1;
       console.error(
         `[wwebjs] health probe failed (${this.consecutiveHealthFailures}/${this.maxConsecutiveHealthFailures})`,
         e,
       );
+      this.emitStatus({
+        status: "health_failed",
+        reason: String(e),
+        consecutiveFailures: this.consecutiveHealthFailures,
+      });
       if (
         shouldRestartWhatsAppClient(
           this.consecutiveHealthFailures,
@@ -196,6 +225,7 @@ export class WwebjsClient implements WhatsAppClient {
 
     this.restarting = (async () => {
       console.error(`[wwebjs] restarting client: ${reason}`);
+      this.emitStatus({ status: "restarting", reason });
       if (this.healthProbe) {
         clearInterval(this.healthProbe);
         this.healthProbe = undefined;
@@ -217,6 +247,7 @@ export class WwebjsClient implements WhatsAppClient {
       });
 
       this.generation += 1;
+      this.qrPending = false;
       this.readyPromise = this.newReadyPromise();
       this.client = this.createClient();
       this.wireEvents(this.generation);
@@ -235,20 +266,25 @@ export class WwebjsClient implements WhatsAppClient {
     this.client.on("qr", (qr: string) => {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] QR code received - scan with your phone");
+      this.qrPending = true;
       qrcode.generate(qr, { small: true });
       const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" + encodeURIComponent(qr);
       console.log("[wwebjs] QR also available at: " + qrUrl);
+      void this.writeHealthHeartbeat("QR_REQUIRED");
+      this.emitStatus({ status: "qr_required", qrAvailable: true });
     });
     this.client.on("ready", () => {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] client ready");
+      this.qrPending = false;
       if (this.readyWatchdog) {
         clearTimeout(this.readyWatchdog);
         this.readyWatchdog = undefined;
       }
       this.consecutiveHealthFailures = 0;
-      this.readyResolve();
+      this.resolveReadyWaiters();
       void this.writeHealthHeartbeat("READY");
+      this.emitStatus({ status: "ready" });
       void this.markUnavailable("WhatsApp presence after ready");
       this.startHealthProbe();
     });
@@ -259,11 +295,13 @@ export class WwebjsClient implements WhatsAppClient {
     this.client.on("auth_failure", (err: unknown) => {
       if (!isCurrentGeneration()) return;
       console.error("[wwebjs] auth_failure", err);
+      this.emitStatus({ status: "auth_failure", reason: String(err) });
       void this.restart(`auth_failure: ${String(err)}`);
     });
     this.client.on("disconnected", (reason: unknown) => {
       if (!isCurrentGeneration()) return;
       console.error("[wwebjs] disconnected", reason);
+      this.emitStatus({ status: "disconnected", reason: String(reason) });
       void this.restart(`disconnected: ${String(reason)}`);
     });
 
@@ -318,6 +356,7 @@ export class WwebjsClient implements WhatsAppClient {
 
         if (
           this.opts.onlyOwner !== false &&
+          fromMe !== true &&
           from !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)
         ) {
           console.log(`[wwebjs] dropped: from=${from} != owner=${this.opts.ownerNumber}`);
@@ -388,6 +427,7 @@ export class WwebjsClient implements WhatsAppClient {
 
   async destroy(): Promise<void> {
     this.stopped = true;
+    this.emitStatus({ status: "stopped" });
     if (this.healthProbe) clearInterval(this.healthProbe);
     if (this.readyWatchdog) clearTimeout(this.readyWatchdog);
     this.client.removeAllListeners();

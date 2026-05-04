@@ -8,7 +8,12 @@ import { loadEnv } from "@nitsyclaw/shared";
 import { getDb, insertFeatureRequest, logAudit, upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { WwebjsClient } from "./wwebjs-client.js";
+import {
+  publicWhatsAppRuntimeMetadata,
+  statusForWhatsAppRuntimeEvent,
+} from "./whatsapp-health.js";
 import { WhatsAppLoopBreaker } from "./whatsapp-loop-breaker.js";
+import { WhatsAppSendMonitor } from "./whatsapp-send-monitor.js";
 import { buildAgentDeps } from "./adapters.js";
 import { Router } from "./router.js";
 import { startScheduler } from "./scheduler.js";
@@ -21,6 +26,13 @@ async function main() {
   const rawWhatsapp = new WwebjsClient({
     sessionDir: env.WHATSAPP_SESSION_DIR,
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
+    onStatus: (event) => {
+      void upsertSystemHeartbeat(db, {
+        source: "whatsapp-client",
+        status: statusForWhatsAppRuntimeEvent(event),
+        metadata: publicWhatsAppRuntimeMetadata(event),
+      }).catch((e) => console.error("[boot] whatsapp status heartbeat failed", e));
+    },
   });
   const whatsapp = new WhatsAppLoopBreaker(rawWhatsapp, {
     onTrip: (incident) => {
@@ -59,6 +71,7 @@ async function main() {
       }).catch((e) => console.error("[boot] loop guard reset heartbeat failed", e));
     },
   });
+  const monitoredWhatsapp = new WhatsAppSendMonitor(whatsapp, { db });
 
   const deps = buildAgentDeps({
     env: {
@@ -67,15 +80,21 @@ async function main() {
       OPENAI_API_KEY: env.OPENAI_API_KEY,
       TRANSCRIPTION_MODEL: env.TRANSCRIPTION_MODEL,
       TIMEZONE: env.TIMEZONE,
+      HOME_CITY: env.HOME_CITY,
+      HOME_REGION: env.HOME_REGION,
+      HOME_COUNTRY: env.HOME_COUNTRY,
+      CURRENT_CITY: env.CURRENT_CITY,
+      CURRENT_REGION: env.CURRENT_REGION,
+      CURRENT_COUNTRY: env.CURRENT_COUNTRY,
     },
     db,
-    whatsapp,
+    whatsapp: monitoredWhatsapp,
   });
 
   const router = new Router(deps, env.WHATSAPP_OWNER_NUMBER);
-  whatsapp.onMessage(async (m) => router.handle(m));
+  monitoredWhatsapp.onMessage(async (m) => router.handle(m));
 
-  await whatsapp.ready();
+  await monitoredWhatsapp.ready();
   console.log("[boot] WhatsApp ready");
 
   if (env.ENABLE_HEARTBEAT) {
@@ -94,7 +113,7 @@ async function main() {
     shuttingDown = true;
     console.log(`[boot] shutting down (${signal})`);
     try {
-      await whatsapp.destroy();
+      await monitoredWhatsapp.destroy();
       process.exit(0);
     } catch (e) {
       console.error("[boot] shutdown failed", e);

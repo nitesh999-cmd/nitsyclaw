@@ -12,6 +12,7 @@ async function loadHealth() {
     pendingConfirmationRows,
     queueRows,
     latestAuditRows,
+    whatsappHeartbeat,
     schedulerHeartbeat,
     reminderHeartbeat,
   ] = await Promise.all([
@@ -20,6 +21,7 @@ async function loadHealth() {
     db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(25),
     db.select().from(featureRequests).limit(200),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
+    getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "bot-scheduler"),
     getSystemHeartbeat(db, "reminder-sweep"),
   ]);
@@ -34,6 +36,8 @@ async function loadHealth() {
     pendingConfirmations: pendingConfirmationRows.length,
     queueCounts,
     latestAudit: latestAuditRows[0] ?? null,
+    whatsappHeartbeat,
+    whatsappFreshness: classifyHeartbeat(whatsappHeartbeat, new Date(), 2 * 60 * 1000),
     schedulerHeartbeat,
     schedulerFreshness: classifyHeartbeat(schedulerHeartbeat, new Date()),
     reminderHeartbeat,
@@ -99,6 +103,15 @@ export default async function HealthPage() {
             <div className="text-xs uppercase text-neutral-500">Feature queue</div>
             <div className="mt-2 text-sm text-neutral-300">
               {Object.entries(data.queueCounts).map(([k, v]) => `${k}: ${v}`).join(" | ") || "Empty"}
+            </div>
+          </div>
+          <div className="border border-neutral-800 p-4">
+            <div className="text-xs uppercase text-neutral-500">WhatsApp client</div>
+            <div className={data.whatsappFreshness === "ok" && data.whatsappHeartbeat?.status === "ok" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
+              {data.whatsappHeartbeat?.status ?? data.whatsappFreshness}
+            </div>
+            <div className="mt-1 text-xs text-neutral-500">
+              {data.whatsappHeartbeat ? new Date(data.whatsappHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
           <div className="border border-neutral-800 p-4">

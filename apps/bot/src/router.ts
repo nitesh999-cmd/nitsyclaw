@@ -10,7 +10,12 @@ import {
   processReceiptImage,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
-import { getLatestPendingConfirmation, insertMessage, insertFeatureRequest, listPendingFeatureRequests } from "@nitsyclaw/shared/db";
+import {
+  getLatestPendingConfirmation,
+  insertMessage,
+  insertFeatureRequest,
+  listPendingFeatureRequests,
+} from "@nitsyclaw/shared/db";
 import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";

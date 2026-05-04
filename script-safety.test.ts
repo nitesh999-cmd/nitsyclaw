@@ -43,4 +43,26 @@ describe("release script safety", () => {
 
     expect(violations).toEqual([]);
   });
+
+  test("always-on startup scripts do not kill every node process or start dev dashboard mode", () => {
+    const startupScripts = [
+      "silent-launcher.ps1",
+      "launch-bot.ps1",
+      "broom.ps1",
+      "watchdog.ps1",
+      "setup-always-on.ps1",
+    ];
+    const violations = startupScripts.flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+      return [
+        /Get-Process\s+node[\s\S]*Stop-Process\s+-Force/i,
+        /pnpm\s+dashboard/i,
+        /pnpm\s+bot(?!:|\s+--filter)/i,
+      ]
+        .filter((pattern) => pattern.test(source))
+        .map((pattern) => `${file}: ${pattern}`);
+    });
+
+    expect(violations).toEqual([]);
+  });
 });
