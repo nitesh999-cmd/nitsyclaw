@@ -13,6 +13,7 @@ async function loadHealth() {
     queueRows,
     latestAuditRows,
     whatsappHeartbeat,
+    watchdogHeartbeat,
     schedulerHeartbeat,
     reminderHeartbeat,
   ] = await Promise.all([
@@ -22,6 +23,7 @@ async function loadHealth() {
     db.select().from(featureRequests).limit(200),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
     getSystemHeartbeat(db, "whatsapp-client"),
+    getSystemHeartbeat(db, "local-watchdog"),
     getSystemHeartbeat(db, "bot-scheduler"),
     getSystemHeartbeat(db, "reminder-sweep"),
   ]);
@@ -38,6 +40,8 @@ async function loadHealth() {
     latestAudit: latestAuditRows[0] ?? null,
     whatsappHeartbeat,
     whatsappFreshness: classifyHeartbeat(whatsappHeartbeat, new Date(), 2 * 60 * 1000),
+    watchdogHeartbeat,
+    watchdogFreshness: classifyHeartbeat(watchdogHeartbeat, new Date(), 6 * 60 * 1000),
     schedulerHeartbeat,
     schedulerFreshness: classifyHeartbeat(schedulerHeartbeat, new Date()),
     reminderHeartbeat,
@@ -122,6 +126,15 @@ export default async function HealthPage() {
             </div>
             <div className="mt-1 text-xs text-neutral-500">
               {data.schedulerHeartbeat ? new Date(data.schedulerHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
+            </div>
+          </div>
+          <div className="border border-neutral-800 p-4">
+            <div className="text-xs uppercase text-neutral-500">Local watchdog</div>
+            <div className={data.watchdogFreshness === "ok" && data.watchdogHeartbeat?.status !== "error" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
+              {data.watchdogHeartbeat?.status === "restarting" ? "restarting" : data.watchdogFreshness}
+            </div>
+            <div className="mt-1 text-xs text-neutral-500">
+              {data.watchdogHeartbeat ? new Date(data.watchdogHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
           <div className="border border-neutral-800 p-4">

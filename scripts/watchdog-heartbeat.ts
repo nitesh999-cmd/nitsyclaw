@@ -1,0 +1,113 @@
+import { existsSync, readFileSync } from "node:fs";
+import { getDb, upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
+
+const args = parseArgs(process.argv.slice(2));
+const source = args.source ?? "local-watchdog";
+const status = args.status ?? "ok";
+const event = args.event ?? "tick";
+const dryRun = args.dryRun === true;
+
+loadLocalEnv([".env.local", "apps/dashboard/.env.local", ".env"]);
+
+async function main() {
+  const metadata = {
+    event,
+    pid: process.pid,
+    cwd: process.cwd(),
+    at: new Date().toISOString(),
+  };
+
+  if (dryRun) {
+    console.log(
+      `watchdog heartbeat dry-run source=${source} status=${status} event=${event}`,
+    );
+    return;
+  }
+
+  if (!process.env.DATABASE_URL && !process.env.DATABASE_URL_DIRECT) {
+    throw new Error("DATABASE_URL is required to publish watchdog heartbeat");
+  }
+
+  const db = getDb();
+  await upsertSystemHeartbeat(db, {
+    source,
+    status,
+    metadata,
+  });
+  console.log(`watchdog heartbeat source=${source} status=${status} event=${event}`);
+}
+
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`watchdog heartbeat failed: ${message}`);
+  process.exitCode = 1;
+});
+
+function parseArgs(argv: string[]): {
+  source?: string;
+  status?: string;
+  event?: string;
+  dryRun?: boolean;
+} {
+  const parsed: {
+    source?: string;
+    status?: string;
+    event?: string;
+    dryRun?: boolean;
+  } = {};
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--dry-run") {
+      parsed.dryRun = true;
+      continue;
+    }
+    if (arg === "--source") {
+      parsed.source = cleanArgValue(argv[i + 1]);
+      i += 1;
+      continue;
+    }
+    if (arg === "--status") {
+      parsed.status = cleanArgValue(argv[i + 1]);
+      i += 1;
+      continue;
+    }
+    if (arg === "--event") {
+      parsed.event = cleanArgValue(argv[i + 1]);
+      i += 1;
+    }
+  }
+
+  return parsed;
+}
+
+function cleanArgValue(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return value.replace(/[^\w.-]/g, "").slice(0, 80) || undefined;
+}
+
+function loadLocalEnv(paths: string[]): void {
+  for (const path of paths) {
+    if (!existsSync(path)) continue;
+    const text = readFileSync(path, "utf8");
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq <= 0) continue;
+      const key = line.slice(0, eq).trim();
+      if (process.env[key]) continue;
+      process.env[key] = unquoteEnvValue(line.slice(eq + 1).trim());
+    }
+  }
+}
+
+function unquoteEnvValue(value: string): string {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}

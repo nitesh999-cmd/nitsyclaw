@@ -7,6 +7,22 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | Out-File -Force "$logDir\broom-last-tick.txt"
 
+function Write-WatchdogHeartbeat {
+    param([string]$Status = 'ok', [string]$Event = 'tick')
+    try {
+        Start-Process powershell -WindowStyle Hidden -WorkingDirectory $root -ArgumentList @(
+            '-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-NoProfile',
+            '-Command',
+            "pnpm exec tsx scripts/watchdog-heartbeat.ts --source local-watchdog --status $Status --event $Event *>> '$logDir\watchdog-heartbeat.log'"
+        ) | Out-Null
+    } catch {
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: failed to spawn watchdog heartbeat ($Status/$Event)" |
+            Out-File -Append "$logDir\broom.log"
+    }
+}
+
+Write-WatchdogHeartbeat -Status 'ok' -Event 'tick'
+
 function Get-DescendantProcessIds {
     param([int[]]$ParentIds, [object[]]$AllProcesses)
     $result = @()
@@ -69,6 +85,7 @@ function Restart-Bot {
 
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: restart bot -> $Reason" |
         Out-File -Append "$logDir\broom.log"
+    Write-WatchdogHeartbeat -Status 'restarting' -Event 'restart'
     (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | Out-File -Force $restartFile
     Stop-ProcessTree -Roots $BotProcesses
     Start-Sleep -Seconds 2
@@ -80,6 +97,7 @@ $bot = @(Get-BotRuntimeProcesses)
 if ($bot.Count -eq 0) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot dead -> launch-bot.ps1" |
         Out-File -Append "$logDir\broom.log"
+    Write-WatchdogHeartbeat -Status 'restarting' -Event 'dead'
     Start-Bot
     exit 0
 }

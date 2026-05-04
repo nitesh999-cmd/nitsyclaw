@@ -98,6 +98,14 @@
 - `/command` now shows the local runner commands.
 - Verified `pnpm operator:next` against the real queue; it selected Self-Healing Core and printed the full verification gate.
 
+### 2026-05-05 observable self-healing watchdog addendum
+
+- Claimed `[Reliability] Self-Healing Core` from the production queue.
+- Added `pnpm watchdog:heartbeat` and `scripts/watchdog-heartbeat.ts`.
+- `broom.ps1` now publishes a non-blocking `local-watchdog` heartbeat on tick, bot-dead recovery, and restart recovery.
+- `/health` now shows whether the local watchdog is fresh or stale.
+- Verified with focused tests, a dry-run heartbeat, a real DB heartbeat write, and full `pnpm run release:preflight`.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

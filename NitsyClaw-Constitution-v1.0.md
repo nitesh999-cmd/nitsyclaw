@@ -313,6 +313,11 @@ Dashboard/Vercel may queue, display, and audit operator work, but it MUST NOT ru
 - *Source:* Session 40 — `scripts/operator-runner.ts` and `packages/shared/src/ops/operator-runner.ts`
 - *Added:* 2026-05-05
 
+### R57 — Local self-healing must leave remote evidence
+Any local watchdog or self-healing process that restarts the WhatsApp bot MUST publish a durable `system_heartbeats` signal that the hosted dashboard can read. Local log files are useful for forensics, but they are not sufficient for product health because Vercel cannot inspect the laptop filesystem.
+- *Source:* Session 41 — `scripts/watchdog-heartbeat.ts`, `broom.ps1`, and `/health`
+- *Added:* 2026-05-05
+
 ---
 
 ## Fixes log
@@ -365,6 +370,7 @@ Dashboard/Vercel may queue, display, and audit operator work, but it MUST NOT ru
 | 2026-05-05 | Aggressive "go all in" requests could become invisible or duplicate work | R54 | Added top-20 operator missions, `/api/operator/jobs`, stable dedupe keys, and mission counts on `/command` |
 | 2026-05-05 | Manual mutating-route test inventory could miss a future POST route | R55 | Added route-discovery red-team test that requires `requireSameOrigin` on every dashboard API POST route |
 | 2026-05-05 | Queue had no controlled path from pending item to execution | R56 | Added laptop operator runner with dry-run default, explicit claim/reject modes, verification plan, and unsafe-request rejection |
+| 2026-05-05 | Local watchdog could restart the bot without any hosted dashboard evidence | R57 | Added DB-backed `local-watchdog` heartbeat publisher and `/health` watchdog freshness |
 
 ---
 

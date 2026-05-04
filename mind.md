@@ -1417,3 +1417,29 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - This is the first real bridge from queued ideas to controlled execution.
 - Work can now be previewed, claimed, or rejected from the laptop without pretending Vercel should run shell/git operations.
 - The safety model is explicit: default dry-run, explicit mutation flags only.
+
+---
+
+## 52. Session 41 (2026-05-05) - Observable self-healing watchdog
+
+**Goal:** Make the local self-healing path visible from the hosted dashboard, not only from laptop log files.
+
+**What changed:**
+- Claimed the queued `[Reliability] Self-Healing Core` item with `pnpm operator:claim`.
+- Added `scripts/watchdog-heartbeat.ts`.
+- Added root script `pnpm watchdog:heartbeat`.
+- Updated `broom.ps1` so each watchdog tick publishes a non-blocking `local-watchdog` heartbeat to Postgres.
+- Updated `broom.ps1` so bot-dead and restart paths publish `restarting` watchdog evidence before recovery.
+- Updated `/health` to show `Local watchdog` freshness from `system_heartbeats`.
+- Added `watchdog-self-heal.test.ts`.
+
+**Verification so far:**
+- `pnpm test watchdog-self-heal.test.ts` passed.
+- `pnpm watchdog:heartbeat --dry-run --source local-watchdog --status ok --event tick` passed.
+- `pnpm watchdog:heartbeat --source local-watchdog --status ok --event manual-smoke` wrote a real DB heartbeat.
+- `pnpm run release:preflight` passed: lint, typecheck, build, coverage, Playwright E2E, and audit.
+
+**Why this matters:**
+- If the laptop watchdog stops, the hosted dashboard can now show that the local recovery loop is stale.
+- If the bot is restarted by broom, the recovery attempt is visible in durable DB state.
+- Self-healing is no longer just "hope the local task is alive"; it has remote evidence.

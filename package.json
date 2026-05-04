@@ -17,6 +17,7 @@
     "operator:next": "pnpm exec tsx scripts/operator-runner.ts --dry-run",
     "operator:claim": "pnpm exec tsx scripts/operator-runner.ts --claim",
     "operator:reject-unsafe": "pnpm exec tsx scripts/operator-runner.ts --reject-unsafe",
+    "watchdog:heartbeat": "pnpm exec tsx scripts/watchdog-heartbeat.ts",
     "db:generate": "pnpm --filter @nitsyclaw/shared db:generate",
     "db:migrate": "pnpm --filter @nitsyclaw/shared db:migrate",
     "db:studio": "pnpm --filter @nitsyclaw/shared db:studio",
