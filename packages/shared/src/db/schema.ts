@@ -243,6 +243,17 @@ export const systemHeartbeats = pgTable(
   },
 );
 
+/**
+ * Durable dashboard login-attempt state.
+ * Used by the Node login route so lockout survives serverless instance churn.
+ */
+export const dashboardAuthAttempts = pgTable("dashboard_auth_attempts", {
+  clientKey: text("client_key").primaryKey(),
+  failures: integer("failures").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Memory = typeof memories.$inferSelect;
@@ -262,3 +273,4 @@ export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;
 export type NewSystemHeartbeat = typeof systemHeartbeats.$inferInsert;
+export type DashboardAuthAttempt = typeof dashboardAuthAttempts.$inferSelect;

@@ -1156,3 +1156,32 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Remaining risk:**
 - Production login path still needs a live post-deploy smoke using the real production dashboard password.
 - GitHub push is still blocked by repository credential permissions.
+
+---
+
+## 43. Session 32 (2026-05-04) - Top five auth hardening follow-through
+
+**Goal:** Build the next five highest-leverage code items after session auth landed.
+
+**What changed:**
+- Added `/api/auth/logout` with same-origin protection, strict cookie clearing, and `Cache-Control: no-store`.
+- Added a `Sign out` control to the dashboard navigation.
+- Split the dashboard shell into a client component so `/login` renders without the authenticated dashboard sidebar.
+- Added middleware security headers on protected responses:
+  - `X-Frame-Options: DENY`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: same-origin`
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+  - `Content-Security-Policy: frame-ancestors 'none'`
+- Added committed migration `0006_add_dashboard_auth_attempts.sql` for the durable auth-attempt table.
+- Added `dashboardAuthAttempts` to the shared Drizzle schema.
+- Added auth route/security regression tests covering login/logout same-origin protection, strict cookies, no-store responses, security headers, and login shell behavior.
+- Added Constitution R48.
+
+**Verification:**
+- `npm test -- dashboard-auth-routes.test.ts dashboard-mutating-routes.test.ts dashboard-session.test.ts request-origin.test.ts dashboard-debug-page.test.ts` passed: 5 files, 13 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm test` passed: 53 files, 221 tests.
+- `npm run lint` passed with existing warnings only: 0 errors, 115 warnings.
+- `npm run build` passed for bot and dashboard.
+- `npm run test:e2e` passed: 8 Playwright tests.
