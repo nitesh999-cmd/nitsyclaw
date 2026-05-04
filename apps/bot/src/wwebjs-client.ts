@@ -5,6 +5,11 @@ import wweb from "whatsapp-web.js";
 const { Client, LocalAuth } = wweb;
 type WwebjsClientInstance = InstanceType<typeof Client>;
 type Message = wweb.Message;
+type WwebMessageWithEnvelope = Message & {
+  fromMe?: boolean;
+  from?: string;
+  to?: string;
+};
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -266,7 +271,8 @@ export class WwebjsClient implements WhatsAppClient {
       if (!isCurrentGeneration()) return;
       try {
         const body = m.body ?? "";
-        const fromMe = (m as any).fromMe;
+        const envelope = m as WwebMessageWithEnvelope;
+        const fromMe = envelope.fromMe;
         const messageId = m.id?._serialized ?? "";
 
         if (
@@ -292,9 +298,9 @@ export class WwebjsClient implements WhatsAppClient {
 
         // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
         // not when you're typing in conversations with other contacts.
-        const fromRaw = (m as any).from ?? "";
+        const fromRaw = envelope.from ?? "";
         const from = normalizeWhatsAppOwnerId(fromRaw);
-        const toRaw = (m as any).to ?? "";
+        const toRaw = envelope.to ?? "";
         const to = normalizeWhatsAppOwnerId(toRaw);
         if (
           !isOwnerSelfChat({

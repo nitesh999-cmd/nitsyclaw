@@ -7,8 +7,7 @@ import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { ImageAnalyzer } from "../agent/deps.js";
 import type { DB } from "../db/client.js";
 
-const CATEGORIES = ["food", "transport", "groceries", "shopping", "bills", "entertainment", "health", "other"] as const;
-type Category = (typeof CATEGORIES)[number];
+type Category = "food" | "transport" | "groceries" | "shopping" | "bills" | "entertainment" | "health" | "other";
 
 /**
  * Lightweight categorizer over merchant + raw text. Cheap; LLM can override.

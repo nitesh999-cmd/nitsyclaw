@@ -20,6 +20,18 @@ export interface BriefInputs {
   weatherSummary?: string;
 }
 
+interface AggregatedEvent {
+  title: string;
+  start: Date;
+  source?: string;
+}
+
+interface AggregatedUnreadEmail {
+  source: string;
+  from: string;
+  subject: string;
+}
+
 export function buildBrief(args: { now: Date; timezone: string; inputs: BriefInputs }): BriefSections {
   const date = formatBriefDate(args.now, args.timezone);
   const lines: string[] = [`Good morning. Brief for ${date}:`];
@@ -88,9 +100,13 @@ export function registerMorningBrief(registry: ToolRegistry): void {
         ownerPhone: ctx.userPhone,
         deps: ctx.deps,
         inputs: {
-          events: events.map((e: any) => ({ title: e.title, start: e.start, source: e.source })),
+          events: (events as AggregatedEvent[]).map((e) => ({ title: e.title, start: e.start, source: e.source })),
           reminders: [],
-          unreadEmails: unreadEmails.map((m: any) => ({ source: m.source, from: m.from, subject: m.subject })),
+          unreadEmails: (unreadEmails as AggregatedUnreadEmail[]).map((m) => ({
+            source: m.source,
+            from: m.from,
+            subject: m.subject,
+          })),
           topPriority: input.topPriority,
         },
       });

@@ -255,6 +255,11 @@ Dashboard authentication changes must include an explicit sign-out path, strict 
 - *Source:* 2026-05-04 top-five hardening build — session auth needed logout, migration, security headers, and clean login shell follow-through
 - *Added:* 2026-05-04
 
+### R49 — Production code must not carry lint debt
+Runtime files under `apps/*/src` and `packages/*/src` must stay free of lint warnings. Test helper warnings are tracked separately, but production adapters, feature modules, integrations, routes, and middleware should use named types or narrow local interfaces instead of `any`, unused imports, or unused catch variables.
+- *Source:* 2026-05-04 top-five cleanup — removed production-code lint warnings from Microsoft Graph, WhatsApp client, feature registry, receipt expense, email search, and Spotify integration
+- *Added:* 2026-05-04
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -317,6 +322,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-04 | Mutating dashboard POST routes could be cross-site submitted by a browser with cached Basic Auth | R46 | Added shared same-origin guard, unit coverage for every mutating route, and Playwright hostile-origin destructive POST regression |
 | 2026-05-04 | Basic Auth lockout was process-local and weak under serverless scaling | R47 | Added signed session-cookie middleware and Node/Postgres-backed login-attempt lockout path |
 | 2026-05-04 | Session auth was missing logout, explicit migration, security headers, and a clean login shell | R48 | Added logout route, auth-attempt SQL migration, middleware security headers, login-shell split, and regression tests |
+| 2026-05-04 | Production runtime files still emitted lint warnings after launch hardening | R49 | Removed production-code warnings; remaining lint warnings are confined to tests |
 
 ---
 

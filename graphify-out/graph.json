@@ -718,7 +718,7 @@
       "label": "graphGet()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\microsoft-graph.ts",
-      "source_location": "L18",
+      "source_location": "L36",
       "id": "src_microsoft_graph_graphget",
       "community": 7,
       "norm_label": "graphget()"
@@ -727,7 +727,7 @@
       "label": "graphPost()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\microsoft-graph.ts",
-      "source_location": "L27",
+      "source_location": "L45",
       "id": "src_microsoft_graph_graphpost",
       "community": 7,
       "norm_label": "graphpost()"
@@ -736,7 +736,7 @@
       "label": "createMsEvent()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\microsoft-graph.ts",
-      "source_location": "L55",
+      "source_location": "L73",
       "id": "src_microsoft_graph_createmsevent",
       "community": 7,
       "norm_label": "createmsevent()"
@@ -745,7 +745,7 @@
       "label": "fetchMsEventsToday()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\microsoft-graph.ts",
-      "source_location": "L75",
+      "source_location": "L93",
       "id": "src_microsoft_graph_fetchmseventstoday",
       "community": 7,
       "norm_label": "fetchmseventstoday()"
@@ -754,7 +754,7 @@
       "label": "fetchMsUnread()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\microsoft-graph.ts",
-      "source_location": "L95",
+      "source_location": "L113",
       "id": "src_microsoft_graph_fetchmsunread",
       "community": 7,
       "norm_label": "fetchmsunread()"
@@ -1294,7 +1294,7 @@
       "label": "defaultHealthFilePath()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L30",
+      "source_location": "L35",
       "id": "src_wwebjs_client_defaulthealthfilepath",
       "community": 5,
       "norm_label": "defaulthealthfilepath()"
@@ -1303,7 +1303,7 @@
       "label": "WwebjsClient",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L50",
+      "source_location": "L55",
       "id": "src_wwebjs_client_wwebjsclient",
       "community": 5,
       "norm_label": "wwebjsclient"
@@ -1312,7 +1312,7 @@
       "label": ".constructor()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L71",
+      "source_location": "L76",
       "id": "src_wwebjs_client_wwebjsclient_constructor",
       "community": 5,
       "norm_label": ".constructor()"
@@ -1321,7 +1321,7 @@
       "label": ".newReadyPromise()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L94",
+      "source_location": "L99",
       "id": "src_wwebjs_client_wwebjsclient_newreadypromise",
       "community": 5,
       "norm_label": ".newreadypromise()"
@@ -1330,7 +1330,7 @@
       "label": ".createClient()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L98",
+      "source_location": "L103",
       "id": "src_wwebjs_client_wwebjsclient_createclient",
       "community": 5,
       "norm_label": ".createclient()"
@@ -1339,7 +1339,7 @@
       "label": ".startHealthProbe()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L109",
+      "source_location": "L114",
       "id": "src_wwebjs_client_wwebjsclient_starthealthprobe",
       "community": 5,
       "norm_label": ".starthealthprobe()"
@@ -1348,7 +1348,7 @@
       "label": ".writeHealthHeartbeat()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L115",
+      "source_location": "L120",
       "id": "src_wwebjs_client_wwebjsclient_writehealthheartbeat",
       "community": 5,
       "norm_label": ".writehealthheartbeat()"
@@ -1357,7 +1357,7 @@
       "label": ".markUnavailable()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L124",
+      "source_location": "L129",
       "id": "src_wwebjs_client_wwebjsclient_markunavailable",
       "community": 5,
       "norm_label": ".markunavailable()"
@@ -1366,7 +1366,7 @@
       "label": ".initializeClient()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L128",
+      "source_location": "L133",
       "id": "src_wwebjs_client_wwebjsclient_initializeclient",
       "community": 5,
       "norm_label": ".initializeclient()"
@@ -1375,7 +1375,7 @@
       "label": ".probeHealth()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L158",
+      "source_location": "L163",
       "id": "src_wwebjs_client_wwebjsclient_probehealth",
       "community": 5,
       "norm_label": ".probehealth()"
@@ -1384,7 +1384,7 @@
       "label": ".restart()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L188",
+      "source_location": "L193",
       "id": "src_wwebjs_client_wwebjsclient_restart",
       "community": 5,
       "norm_label": ".restart()"
@@ -1393,7 +1393,7 @@
       "label": ".wireEvents()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L227",
+      "source_location": "L232",
       "id": "src_wwebjs_client_wwebjsclient_wireevents",
       "community": 5,
       "norm_label": ".wireevents()"
@@ -1402,7 +1402,7 @@
       "label": ".ready()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L355",
+      "source_location": "L361",
       "id": "src_wwebjs_client_wwebjsclient_ready",
       "community": 5,
       "norm_label": ".ready()"
@@ -1411,7 +1411,7 @@
       "label": ".send()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L359",
+      "source_location": "L365",
       "id": "src_wwebjs_client_wwebjsclient_send",
       "community": 5,
       "norm_label": ".send()"
@@ -1420,7 +1420,7 @@
       "label": ".onMessage()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L379",
+      "source_location": "L385",
       "id": "src_wwebjs_client_wwebjsclient_onmessage",
       "community": 5,
       "norm_label": ".onmessage()"
@@ -1429,7 +1429,7 @@
       "label": ".destroy()",
       "file_type": "code",
       "source_file": "apps\\bot\\src\\wwebjs-client.ts",
-      "source_location": "L383",
+      "source_location": "L389",
       "id": "src_wwebjs_client_wwebjsclient_destroy",
       "community": 5,
       "norm_label": ".destroy()"
@@ -3499,7 +3499,7 @@
       "label": "buildBrief()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\04-morning-brief.ts",
-      "source_location": "L23",
+      "source_location": "L35",
       "id": "features_04_morning_brief_buildbrief",
       "community": 1,
       "norm_label": "buildbrief()"
@@ -3508,7 +3508,7 @@
       "label": "runMorningBrief()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\04-morning-brief.ts",
-      "source_location": "L63",
+      "source_location": "L75",
       "id": "features_04_morning_brief_runmorningbrief",
       "community": 1,
       "norm_label": "runmorningbrief()"
@@ -3517,7 +3517,7 @@
       "label": "registerMorningBrief()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\04-morning-brief.ts",
-      "source_location": "L75",
+      "source_location": "L87",
       "id": "features_04_morning_brief_registermorningbrief",
       "community": 0,
       "norm_label": "registermorningbrief()"
@@ -3652,7 +3652,7 @@
       "label": "categorizeExpense()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\10-receipt-expense.ts",
-      "source_location": "L16",
+      "source_location": "L15",
       "id": "features_10_receipt_expense_categorizeexpense",
       "community": 0,
       "norm_label": "categorizeexpense()"
@@ -3661,7 +3661,7 @@
       "label": "processReceiptImage()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\10-receipt-expense.ts",
-      "source_location": "L28",
+      "source_location": "L27",
       "id": "features_10_receipt_expense_processreceiptimage",
       "community": 0,
       "norm_label": "processreceiptimage()"
@@ -3670,7 +3670,7 @@
       "label": "registerReceiptExpense()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\10-receipt-expense.ts",
-      "source_location": "L57",
+      "source_location": "L56",
       "id": "features_10_receipt_expense_registerreceiptexpense",
       "community": 0,
       "norm_label": "registerreceiptexpense()"
@@ -3832,7 +3832,7 @@
       "label": "searchGmailInbox()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\14-email-search.ts",
-      "source_location": "L6",
+      "source_location": "L15",
       "id": "features_14_email_search_searchgmailinbox",
       "community": 0,
       "norm_label": "searchgmailinbox()"
@@ -3841,7 +3841,7 @@
       "label": "registerEmailSearch()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\14-email-search.ts",
-      "source_location": "L25",
+      "source_location": "L34",
       "id": "features_14_email_search_registeremailsearch",
       "community": 0,
       "norm_label": "registeremailsearch()"
@@ -4093,7 +4093,7 @@
       "label": "registerAllFeatures()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\features\\index.ts",
-      "source_location": "L32",
+      "source_location": "L31",
       "id": "features_index_registerallfeatures",
       "community": 0,
       "norm_label": "registerallfeatures()"
@@ -4111,7 +4111,7 @@
       "label": "requiredEnv()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L31",
+      "source_location": "L57",
       "id": "integrations_spotify_requiredenv",
       "community": 9,
       "norm_label": "requiredenv()"
@@ -4120,7 +4120,7 @@
       "label": "basicAuth()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L37",
+      "source_location": "L63",
       "id": "integrations_spotify_basicauth",
       "community": 9,
       "norm_label": "basicauth()"
@@ -4129,7 +4129,7 @@
       "label": "enc()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L43",
+      "source_location": "L69",
       "id": "integrations_spotify_enc",
       "community": 9,
       "norm_label": "enc()"
@@ -4138,7 +4138,7 @@
       "label": "dec()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L47",
+      "source_location": "L73",
       "id": "integrations_spotify_dec",
       "community": 9,
       "norm_label": "dec()"
@@ -4147,7 +4147,7 @@
       "label": "buildSpotifyAuthorizeUrl()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L51",
+      "source_location": "L77",
       "id": "integrations_spotify_buildspotifyauthorizeurl",
       "community": 9,
       "norm_label": "buildspotifyauthorizeurl()"
@@ -4156,7 +4156,7 @@
       "label": "exchangeSpotifyCode()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L61",
+      "source_location": "L87",
       "id": "integrations_spotify_exchangespotifycode",
       "community": 9,
       "norm_label": "exchangespotifycode()"
@@ -4165,7 +4165,7 @@
       "label": "refreshSpotifyToken()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L79",
+      "source_location": "L105",
       "id": "integrations_spotify_refreshspotifytoken",
       "community": 9,
       "norm_label": "refreshspotifytoken()"
@@ -4174,7 +4174,7 @@
       "label": "saveSpotifyConnection()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L96",
+      "source_location": "L122",
       "id": "integrations_spotify_savespotifyconnection",
       "community": 9,
       "norm_label": "savespotifyconnection()"
@@ -4183,7 +4183,7 @@
       "label": "accessToken()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L123",
+      "source_location": "L149",
       "id": "integrations_spotify_accesstoken",
       "community": 9,
       "norm_label": "accesstoken()"
@@ -4192,7 +4192,7 @@
       "label": "spotifyFetch()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L154",
+      "source_location": "L180",
       "id": "integrations_spotify_spotifyfetch",
       "community": 9,
       "norm_label": "spotifyfetch()"
@@ -4201,7 +4201,7 @@
       "label": "summarizeTrack()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L174",
+      "source_location": "L200",
       "id": "integrations_spotify_summarizetrack",
       "community": 9,
       "norm_label": "summarizetrack()"
@@ -4210,7 +4210,7 @@
       "label": "getSpotifyProfile()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L185",
+      "source_location": "L211",
       "id": "integrations_spotify_getspotifyprofile",
       "community": 9,
       "norm_label": "getspotifyprofile()"
@@ -4219,7 +4219,7 @@
       "label": "getTopSpotifyTracks()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L189",
+      "source_location": "L215",
       "id": "integrations_spotify_gettopspotifytracks",
       "community": 9,
       "norm_label": "gettopspotifytracks()"
@@ -4228,7 +4228,7 @@
       "label": "searchSpotifyTracks()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L206",
+      "source_location": "L232",
       "id": "integrations_spotify_searchspotifytracks",
       "community": 9,
       "norm_label": "searchspotifytracks()"
@@ -4237,7 +4237,7 @@
       "label": "createPrivateSpotifyPlaylist()",
       "file_type": "code",
       "source_file": "packages\\shared\\src\\integrations\\spotify.ts",
-      "source_location": "L224",
+      "source_location": "L250",
       "id": "integrations_spotify_createprivatespotifyplaylist",
       "community": 9,
       "norm_label": "createprivatespotifyplaylist()"
@@ -7866,9 +7866,9 @@
       "source_file": "apps\\dashboard\\src\\middleware.ts",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_dashboard_src_middleware_ts",
-      "target": "src_middleware_withsecurityheaders",
-      "confidence_score": 1.0
+      "target": "src_middleware_withsecurityheaders"
     },
     {
       "relation": "contains",
@@ -7918,9 +7918,9 @@
       "source_file": "apps\\dashboard\\src\\middleware.ts",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_middleware_unauthorized",
-      "target": "src_middleware_withsecurityheaders",
-      "confidence_score": 1.0
+      "target": "src_middleware_withsecurityheaders"
     },
     {
       "relation": "calls",
@@ -7940,9 +7940,9 @@
       "source_file": "apps\\dashboard\\src\\middleware.ts",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_middleware_notconfigured",
-      "target": "src_middleware_withsecurityheaders",
-      "confidence_score": 1.0
+      "target": "src_middleware_withsecurityheaders"
     },
     {
       "relation": "calls",
@@ -7973,9 +7973,9 @@
       "source_file": "apps\\dashboard\\src\\middleware.ts",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_middleware_middleware",
-      "target": "src_middleware_withsecurityheaders",
-      "confidence_score": 1.0
+      "target": "src_middleware_withsecurityheaders"
     },
     {
       "relation": "calls",
@@ -8038,9 +8038,9 @@
       "source_file": "apps\\dashboard\\src\\app\\dashboard-shell.tsx",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_dashboard_src_app_dashboard_shell_tsx",
-      "target": "app_dashboard_shell_dashboardshell",
-      "confidence_score": 1.0
+      "target": "app_dashboard_shell_dashboardshell"
     },
     {
       "relation": "imports",
@@ -8049,9 +8049,9 @@
       "source_file": "apps\\dashboard\\src\\app\\layout.tsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_dashboard_src_app_layout_tsx",
-      "target": "app_dashboard_shell_dashboardshell",
-      "confidence_score": 1.0
+      "target": "app_dashboard_shell_dashboardshell"
     },
     {
       "relation": "contains",
@@ -8338,9 +8338,9 @@
       "source_file": "apps\\dashboard\\src\\app\\api\\auth\\logout\\route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_dashboard_src_app_api_auth_logout_route_ts",
-      "target": "lib_request_origin_requiresameorigin",
-      "confidence_score": 1.0
+      "target": "lib_request_origin_requiresameorigin"
     },
     {
       "relation": "contains",
@@ -8348,9 +8348,9 @@
       "source_file": "apps\\dashboard\\src\\app\\api\\auth\\logout\\route.ts",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "apps_dashboard_src_app_api_auth_logout_route_ts",
-      "target": "logout_route_post",
-      "confidence_score": 1.0
+      "target": "logout_route_post"
     },
     {
       "relation": "calls",
@@ -14313,22 +14313,22 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "packages\\shared\\src\\features\\index.ts",
-      "source_location": "L15",
+      "source_file": "packages\\shared\\test\\08-web-research.test.ts",
+      "source_location": "L2",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "packages_shared_src_features_index_ts",
+      "source": "packages_shared_test_08_web_research_test_ts",
       "target": "packages_shared_src_features_08_web_research_ts"
     },
     {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "packages\\shared\\test\\08-web-research.test.ts",
-      "source_location": "L2",
+      "source_file": "packages\\shared\\src\\features\\index.ts",
+      "source_location": "L15",
       "weight": 1.0,
       "confidence_score": 1.0,
-      "source": "packages_shared_test_08_web_research_test_ts",
+      "source": "packages_shared_src_features_index_ts",
       "target": "packages_shared_src_features_08_web_research_ts"
     },
     {

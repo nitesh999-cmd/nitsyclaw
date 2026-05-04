@@ -42,7 +42,7 @@ export class Router {
         // generic description even if structured fields are missing.
         return raw.slice(0, 280);
       }
-    } catch {
+    } catch (_e) {
       // ignore; fall through
     }
     return "an image (couldn't auto-classify)";
@@ -140,7 +140,7 @@ export class Router {
         await this.sendAndPersist(
           `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder about this", "log expense ${out?.rawText ? `(${out.rawText})` : ""}", or just describe what you want.`,
         );
-      } catch (e) {
+      } catch (_imageError) {
         // Even receipt parsing crashed (vision API failure, etc.). Try general path.
         try {
           const media = await msg.downloadMedia();
@@ -203,8 +203,8 @@ export class Router {
             ? `Location updated: ${out.location} until ${out.expiresHint}.`
             : `Location updated: ${out?.location ?? locationShortcut.city}.`,
         );
-      } catch (e) {
-        await this.sendAndPersist(`Couldn't save location: ${(e as Error).message}`);
+      } catch (locationError) {
+        await this.sendAndPersist(`Couldn't save location: ${(locationError as Error).message}`);
       }
       return;
     }
@@ -224,8 +224,8 @@ export class Router {
         await this.sendAndPersist(
           `Logged as bug ${row.id.slice(0, 8)}. I captured it as existing broken behavior, not a new feature.`,
         );
-      } catch (e) {
-        await this.sendAndPersist(`Couldn't log bug: ${(e as Error).message}`);
+      } catch (bugError) {
+        await this.sendAndPersist(`Couldn't log bug: ${(bugError as Error).message}`);
       }
       return;
     }
@@ -244,8 +244,8 @@ export class Router {
             ? `Pending queue (${rows.length} total):\n${lines.join("\n")}`
             : "No pending feature or bug queue items.",
         );
-      } catch (e) {
-        await this.sendAndPersist(`Couldn't load feature queue: ${(e as Error).message}`);
+      } catch (queueError) {
+        await this.sendAndPersist(`Couldn't load feature queue: ${(queueError as Error).message}`);
       }
       return;
     }

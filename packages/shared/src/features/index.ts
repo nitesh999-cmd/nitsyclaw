@@ -12,7 +12,6 @@ import { registerMorningBrief } from "./04-morning-brief.js";
 import { registerWhatsOnMyPlate } from "./05-whats-on-my-plate.js";
 import { registerMemoryRecall } from "./06-memory-recall.js";
 import { registerScheduleCall } from "./07-schedule-call.js";
-import { registerWebResearch } from "./08-web-research.js";
 import { registerConfirmationRail } from "./09-confirmation-rail.js";
 import { registerReceiptExpense } from "./10-receipt-expense.js";
 import { registerFeatureRequest } from "./11-feature-request.js";

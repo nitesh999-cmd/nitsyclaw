@@ -28,6 +28,32 @@ interface SpotifyTokenResponse {
   scope?: string;
 }
 
+interface SpotifyArtist {
+  name?: string;
+}
+
+interface SpotifyTrack {
+  id?: string;
+  uri?: string;
+  name?: string;
+  artists?: SpotifyArtist[];
+  album?: { name?: string };
+  external_urls?: { spotify?: string };
+}
+
+interface SpotifyProfile {
+  id: string;
+  display_name?: string;
+  uri?: string;
+  external_urls?: { spotify?: string };
+}
+
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  external_urls?: { spotify?: string };
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
@@ -171,19 +197,19 @@ async function spotifyFetch<T>(
   return (await resp.json()) as T;
 }
 
-function summarizeTrack(track: any): SpotifyTrackSummary {
+function summarizeTrack(track: SpotifyTrack): SpotifyTrackSummary {
   return {
     id: track.id ?? "",
     uri: track.uri ?? "",
     name: track.name ?? "(unknown)",
-    artists: (track.artists ?? []).map((a: any) => a.name).filter(Boolean),
+    artists: (track.artists ?? []).map((artist) => artist.name).filter((name): name is string => Boolean(name)),
     album: track.album?.name,
     url: track.external_urls?.spotify,
   };
 }
 
 export async function getSpotifyProfile(db: DB, ownerHash: string) {
-  return spotifyFetch<any>(db, ownerHash, "/me");
+  return spotifyFetch<SpotifyProfile>(db, ownerHash, "/me");
 }
 
 export async function getTopSpotifyTracks(
@@ -195,7 +221,7 @@ export async function getTopSpotifyTracks(
     limit: String(args.limit ?? 10),
     time_range: args.timeRange ?? "medium_term",
   });
-  const data = await spotifyFetch<{ items: any[] }>(
+  const data = await spotifyFetch<{ items?: SpotifyTrack[] }>(
     db,
     ownerHash,
     `/me/top/tracks?${params.toString()}`,
@@ -213,7 +239,7 @@ export async function searchSpotifyTracks(
     type: "track",
     limit: String(args.limit ?? 10),
   });
-  const data = await spotifyFetch<{ tracks?: { items: any[] } }>(
+  const data = await spotifyFetch<{ tracks?: { items?: SpotifyTrack[] } }>(
     db,
     ownerHash,
     `/search?${params.toString()}`,
@@ -227,7 +253,7 @@ export async function createPrivateSpotifyPlaylist(
   args: { name: string; description?: string; uris: string[] },
 ) {
   const me = await getSpotifyProfile(db, ownerHash);
-  const playlist = await spotifyFetch<any>(db, ownerHash, `/users/${encodeURIComponent(me.id)}/playlists`, {
+  const playlist = await spotifyFetch<SpotifyPlaylist>(db, ownerHash, `/users/${encodeURIComponent(me.id)}/playlists`, {
     method: "POST",
     body: JSON.stringify({
       name: args.name,

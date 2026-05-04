@@ -15,6 +15,24 @@ export interface MsUnreadEmail {
   snippet?: string;
 }
 
+interface GraphDateTime {
+  dateTime?: string;
+}
+
+interface GraphEvent {
+  subject?: string;
+  start?: GraphDateTime;
+  end?: GraphDateTime;
+  location?: { displayName?: string };
+}
+
+interface GraphMailMessage {
+  from?: { emailAddress?: { address?: string } };
+  subject?: string;
+  receivedDateTime?: string;
+  bodyPreview?: string;
+}
+
 async function graphGet(path: string): Promise<unknown> {
   const token = await getMsAccessToken();
   const resp = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
@@ -72,14 +90,14 @@ export async function createMsEvent(args: CreateMsEventArgs): Promise<CreateMsEv
   return { id: data.id ?? "", webLink: data.webLink ?? undefined };
 }
 
-export async function fetchMsEventsToday(timezone: string): Promise<MsEvent[]> {
+export async function fetchMsEventsToday(_timezone: string): Promise<MsEvent[]> {
   if (!hasMsToken()) return [];
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
   const path = `/me/calendarview?startDateTime=${start.toISOString()}&endDateTime=${end.toISOString()}&$orderby=start/dateTime&$top=20`;
   try {
-    const data = (await graphGet(path)) as { value: any[] };
+    const data = (await graphGet(path)) as { value?: GraphEvent[] };
     return (data.value ?? []).map((e) => ({
       title: e.subject ?? "(no title)",
       start: new Date(e.start?.dateTime ?? Date.now()),
@@ -96,7 +114,7 @@ export async function fetchMsUnread(limit = 5): Promise<MsUnreadEmail[]> {
   if (!hasMsToken()) return [];
   const path = `/me/mailFolders/inbox/messages?$filter=isRead eq false&$orderby=receivedDateTime desc&$top=${limit}&$select=from,subject,receivedDateTime,bodyPreview`;
   try {
-    const data = (await graphGet(path)) as { value: any[] };
+    const data = (await graphGet(path)) as { value?: GraphMailMessage[] };
     return (data.value ?? []).map((m) => ({
       source: "Outlook",
       from: m.from?.emailAddress?.address ?? "(unknown)",

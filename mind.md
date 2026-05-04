@@ -1185,3 +1185,28 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm run lint` passed with existing warnings only: 0 errors, 115 warnings.
 - `npm run build` passed for bot and dashboard.
 - `npm run test:e2e` passed: 8 Playwright tests.
+
+---
+
+## 44. Session 33 (2026-05-04) - Production lint debt cleanup
+
+**Goal:** Build the next five runtime-hardening items by removing production-code lint warnings without touching broad test helpers.
+
+**What changed:**
+- Typed Microsoft Graph event and mail responses.
+- Removed the unused feature-registry import for disabled web research.
+- Replaced WhatsApp envelope `any` casts with a local `WwebMessageWithEnvelope` type.
+- Replaced receipt category runtime tuple with a direct `Category` union type.
+- Typed morning-brief aggregator event/unread-email mapping.
+- Typed Gmail search rows.
+- Typed Spotify tracks, artists, playlists, and profile metadata used by OAuth callback.
+- Cleaned unused catch variables in router image fallback while preserving real error messages in user-facing failure paths.
+- Added Constitution R49: production code must stay lint-clean.
+
+**Verification:**
+- `npx eslint apps/bot/src/router.ts` passed.
+- `corepack pnpm -r typecheck` passed.
+- `npm test` passed: 53 files, 221 tests.
+- `npm run lint` passed with 97 warnings, all in test files; production runtime warnings are gone.
+- `npm run build` passed for bot and dashboard.
+- `npm run test:e2e` passed: 8 Playwright tests.

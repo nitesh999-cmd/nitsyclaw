@@ -172,8 +172,8 @@
     "hash": "626484b9265bd053d30167b4acd29aed"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\microsoft-graph.ts": {
-    "mtime": 1777392286.0832582,
-    "hash": "ffb1e63153c46959c2994a11496139ae"
+    "mtime": 1777872807.8572478,
+    "hash": "6ee6a2f856ea5460a3adbedec9d0c79c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\personal-command-shortcuts.test.ts": {
     "mtime": 1777812352.8756342,
@@ -184,8 +184,8 @@
     "hash": "67f0f3719ca7a0c57f1c77db76b035a3"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\router.ts": {
-    "mtime": 1777860845.9019914,
-    "hash": "60a738ecbdc60370a5e0d59a061f37a5"
+    "mtime": 1777873135.75393,
+    "hash": "da0739c560edf44fce68672ce03abdcb"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\scheduler.ts": {
     "mtime": 1777695040.8449838,
@@ -224,8 +224,8 @@
     "hash": "de0081a9e14e7060743e6ab814e429da"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\wwebjs-client.ts": {
-    "mtime": 1777698324.486017,
-    "hash": "d12d0fb312f3956d55997cf20f1f7d6c"
+    "mtime": 1777872819.2109344,
+    "hash": "c3ff4aa7632da4555da41fdeae85cea5"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\yahoo-imap.ts": {
     "mtime": 1777353907.8845415,
@@ -552,8 +552,8 @@
     "hash": "9907fad5a17cb9d9883b06278934a962"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\04-morning-brief.ts": {
-    "mtime": 1777664230.7538939,
-    "hash": "154a71099242c91b12166fbd857f619b"
+    "mtime": 1777872855.3216035,
+    "hash": "e2c45585fc7ec1a341c5ceb18582ce23"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\05-whats-on-my-plate.ts": {
     "mtime": 1777664240.00582,
@@ -576,8 +576,8 @@
     "hash": "18924d1a5966d8814ec3a6c4f8288178"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\10-receipt-expense.ts": {
-    "mtime": 1777774454.3584416,
-    "hash": "bc3ccb2f8fa493922ac2dac69ccf4a98"
+    "mtime": 1777872830.6661806,
+    "hash": "8420c845d338ebbacbc178fdffcc15ba"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\11-feature-request.ts": {
     "mtime": 1777703248.0437374,
@@ -592,8 +592,8 @@
     "hash": "b4dd9f8319035abe634ef0370f62b721"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\14-email-search.ts": {
-    "mtime": 1777664317.7060575,
-    "hash": "9e919a71b6f694d3765ad07c72fa9d63"
+    "mtime": 1777872868.213299,
+    "hash": "5a5f8c7bfe5146519fd11cd6b6eee90a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\15-spotify.ts": {
     "mtime": 1777660416.6299026,
@@ -616,12 +616,12 @@
     "hash": "0d35403cf3ffe5f99b1d28349d262043"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\index.ts": {
-    "mtime": 1777860628.1617112,
-    "hash": "c2281c2dd7be80d5d67bc6a39de4dd7b"
+    "mtime": 1777872823.7803996,
+    "hash": "46d0c3513f94e631c6d491eaf2b0ae86"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\integrations\\spotify.ts": {
-    "mtime": 1777660650.50498,
-    "hash": "0a923ed835d11cb093425189cc49b342"
+    "mtime": 1777872919.30302,
+    "hash": "94f90a27c12c315bc153292b795f580a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\notify\\index.ts": {
     "mtime": 1777381478.5712745,
@@ -792,12 +792,12 @@
     "hash": "a3c1bb8201e3b8f7d5bf843adcebc097"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\mind.md": {
-    "mtime": 1777872115.0443206,
-    "hash": "41f89e146ab53ed8608793813ca8b486"
+    "mtime": 1777873270.2721357,
+    "hash": "a7f7cf23c80b77c8e0752f7d27c36b12"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\NitsyClaw-Constitution-v1.0.md": {
-    "mtime": 1777872102.313219,
-    "hash": "a6d9a4f6c02eb253061a9b07abf3611e"
+    "mtime": 1777873257.9749224,
+    "hash": "c2b974215921e0d40bbb0de6e6af5b99"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\NWP-CONSTITUTION-v1.2.md": {
     "mtime": 1777376206.8622985,

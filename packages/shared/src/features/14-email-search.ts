@@ -3,15 +3,24 @@
 import { z } from "zod";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
+interface GmailSearchRow {
+  id: string;
+  source: string;
+  from: string;
+  subject: string;
+  date: Date | string | number;
+  snippet?: string;
+}
+
 export async function searchGmailInbox(
   input: { query: string; limit?: number },
   ctx: ToolContext,
 ) {
-  const rows = await ctx.deps.aggregator?.searchAllGmail?.(input.query, input.limit ?? 5) ?? [];
+  const rows = (await ctx.deps.aggregator?.searchAllGmail?.(input.query, input.limit ?? 5) ?? []) as GmailSearchRow[];
   return {
     query: input.query,
     count: rows.length,
-    items: rows.map((m: any) => ({
+    items: rows.map((m) => ({
       id: m.id,
       source: m.source,
       from: m.from,
