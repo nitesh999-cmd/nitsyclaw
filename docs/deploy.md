@@ -61,9 +61,11 @@ These are required because Railway runs containers as non-root.
 
 ## 5. Rollback
 
-- Dashboard: Vercel → Deployments → previous → "Promote to production".
+- Dashboard: use the checked rollback helper after a dry run:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "<previous-ready-production-url>"`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "<previous-ready-production-url>" -DryRun:$false`
 - Bot worker: Railway → Deployments → previous → redeploy.
-- DB schema: rollback by re-running an earlier `drizzle-kit migrate` snapshot.
+- DB schema: do not guess. If the release has no migration, document "no database schema rollback required" in `docs/rollback/production-rollback.md`. If the release has a migration, document the exact backup snapshot, migration file, and restore/backout command before deploy.
 
 ## 6. Cost ballpark (monthly)
 

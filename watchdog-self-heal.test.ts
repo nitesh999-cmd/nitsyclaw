@@ -12,6 +12,12 @@ describe("watchdog self-healing contract", () => {
     expect(broom).toContain("--event");
     expect(broom).toContain("restart");
     expect(broom).toContain("Start-Process powershell -WindowStyle Hidden");
+    expect(broom.indexOf("Write-WatchdogHeartbeat -Status 'ok' -Event 'tick'")).toBeGreaterThan(
+      broom.indexOf("if ($health.LastWriteTime -lt"),
+    );
+    expect(broom.indexOf("Write-WatchdogHeartbeat -Status 'restarting' -Event 'restart'")).toBeLessThan(
+      broom.indexOf("Stop-ProcessTree -Roots $BotProcesses"),
+    );
   });
 
   test("watchdog heartbeat script is dry-run capable and writes system heartbeat rows", () => {
@@ -20,9 +26,13 @@ describe("watchdog self-healing contract", () => {
 
     expect(packageJson).toContain('"watchdog:heartbeat"');
     expect(script).toContain("upsertSystemHeartbeat");
+    expect(script).toContain("getSystemHeartbeat");
     expect(script).toContain("loadLocalEnv");
     expect(script).toContain("--dry-run");
-    expect(script).toContain("DATABASE_URL");
+    expect(script).toContain("DATABASE_URL_DIRECT");
+    expect(script).toContain("process.env.DATABASE_URL ?? process.env.DATABASE_URL_DIRECT");
+    expect(script).toContain("skipped stale ok tick");
+    expect(script).not.toContain("cwd:");
     expect(script).toContain("watchdog heartbeat");
   });
 

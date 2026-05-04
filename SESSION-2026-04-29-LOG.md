@@ -106,6 +106,13 @@
 - `/health` now shows whether the local watchdog is fresh or stale.
 - Verified with focused tests, a dry-run heartbeat, a real DB heartbeat write, and full `pnpm run release:preflight`.
 
+### 2026-05-05 rollback gate addendum
+
+- Added a tested rollback helper: `scripts/vercel-rollback.ps1`.
+- Added `docs/rollback/production-rollback.md` with current deployment, previous deployment, dry-run rollback, apply rollback, and DB rollback note.
+- Review agents found and forced fixes for rollback root resolution, alias coverage, DB rollback specificity, watchdog overwrite race, env fallback, and local path privacy.
+- Rollback now restores both `nitsyclaw.vercel.app` and `nitsyclaw-dashboard.vercel.app`.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

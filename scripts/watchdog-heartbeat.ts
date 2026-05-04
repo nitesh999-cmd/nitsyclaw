@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { getDb, upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
+import {
+  getDb,
+  getSystemHeartbeat,
+  upsertSystemHeartbeat,
+} from "@nitsyclaw/shared/db";
 
 const args = parseArgs(process.argv.slice(2));
 const source = args.source ?? "local-watchdog";
@@ -13,7 +17,7 @@ async function main() {
   const metadata = {
     event,
     pid: process.pid,
-    cwd: process.cwd(),
+    runtime: "local-windows-watchdog",
     at: new Date().toISOString(),
   };
 
@@ -25,10 +29,23 @@ async function main() {
   }
 
   if (!process.env.DATABASE_URL && !process.env.DATABASE_URL_DIRECT) {
-    throw new Error("DATABASE_URL is required to publish watchdog heartbeat");
+    throw new Error("DATABASE_URL or DATABASE_URL_DIRECT is required to publish watchdog heartbeat");
   }
 
-  const db = getDb();
+  const db = getDb(process.env.DATABASE_URL ?? process.env.DATABASE_URL_DIRECT);
+  if (status === "ok" && event === "tick") {
+    const current = await getSystemHeartbeat(db, source);
+    const restartingAgeMs = current?.status === "restarting"
+      ? Date.now() - current.lastSeenAt.getTime()
+      : Number.POSITIVE_INFINITY;
+    if (restartingAgeMs >= 0 && restartingAgeMs < 2 * 60 * 1000) {
+      console.log(
+        `watchdog heartbeat skipped stale ok tick; recent restarting signal is ${Math.round(restartingAgeMs / 1000)}s old`,
+      );
+      return;
+    }
+  }
+
   await upsertSystemHeartbeat(db, {
     source,
     status,

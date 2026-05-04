@@ -318,6 +318,11 @@ Any local watchdog or self-healing process that restarts the WhatsApp bot MUST p
 - *Source:* Session 41 — `scripts/watchdog-heartbeat.ts`, `broom.ps1`, and `/health`
 - *Added:* 2026-05-05
 
+### R58 — Production deploys need a tested rollback target
+Every production deploy must have a concrete rollback target and a dry-run-first command that can restore the public production aliases. If the release includes database migrations, the rollback note must state the exact migration/backup restore path. If it does not include migrations, the rollback note must explicitly state that no database schema rollback is required.
+- *Source:* Session 42 — `scripts/vercel-rollback.ps1` and `docs/rollback/production-rollback.md`
+- *Added:* 2026-05-05
+
 ---
 
 ## Fixes log
@@ -371,6 +376,7 @@ Any local watchdog or self-healing process that restarts the WhatsApp bot MUST p
 | 2026-05-05 | Manual mutating-route test inventory could miss a future POST route | R55 | Added route-discovery red-team test that requires `requireSameOrigin` on every dashboard API POST route |
 | 2026-05-05 | Queue had no controlled path from pending item to execution | R56 | Added laptop operator runner with dry-run default, explicit claim/reject modes, verification plan, and unsafe-request rejection |
 | 2026-05-05 | Local watchdog could restart the bot without any hosted dashboard evidence | R57 | Added DB-backed `local-watchdog` heartbeat publisher and `/health` watchdog freshness |
+| 2026-05-05 | Deploys had no checked command-line undo path | R58 | Added dry-run-first Vercel alias rollback helper, rollback manifest, and regression coverage |
 
 ---
 

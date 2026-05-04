@@ -21,8 +21,6 @@ function Write-WatchdogHeartbeat {
     }
 }
 
-Write-WatchdogHeartbeat -Status 'ok' -Event 'tick'
-
 function Get-DescendantProcessIds {
     param([int[]]$ParentIds, [object[]]$AllProcesses)
     $result = @()
@@ -80,6 +78,7 @@ function Restart-Bot {
     if ($lastRestart -and $lastRestart.LastWriteTime -gt (Get-Date).AddMinutes(-$cooldownMinutes)) {
         "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: restart suppressed by ${cooldownMinutes}m cooldown ($Reason)" |
             Out-File -Append "$logDir\broom.log"
+        Write-WatchdogHeartbeat -Status 'restarting' -Event 'restart-suppressed'
         return
     }
 
@@ -110,12 +109,16 @@ $oldestBotStart = ($bot | Sort-Object CreationDate | Select-Object -First 1).Cre
 if (-not $health) {
     if ($oldestBotStart -and $oldestBotStart -lt (Get-Date).AddMinutes(-$staleMinutes)) {
         Restart-Bot -BotProcesses $bot -Reason "missing WhatsApp health heartbeat after ${staleMinutes}m"
+    } else {
+        Write-WatchdogHeartbeat -Status 'ok' -Event 'warming'
     }
     exit 0
 }
 
 if ($health.LastWriteTime -lt (Get-Date).AddMinutes(-$staleMinutes)) {
     Restart-Bot -BotProcesses $bot -Reason "WhatsApp health heartbeat stale ($([int]((Get-Date) - $health.LastWriteTime).TotalMinutes)m)"
+} else {
+    Write-WatchdogHeartbeat -Status 'ok' -Event 'tick'
 }
 
 # Do not kill "visible" PowerShell windows here. Child processes launched by

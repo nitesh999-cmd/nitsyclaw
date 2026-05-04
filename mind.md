@@ -1443,3 +1443,32 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - If the laptop watchdog stops, the hosted dashboard can now show that the local recovery loop is stale.
 - If the bot is restarted by broom, the recovery attempt is visible in durable DB state.
 - Self-healing is no longer just "hope the local task is alive"; it has remote evidence.
+
+---
+
+## 53. Session 42 (2026-05-05) - Agent-reviewed rollback gate
+
+**Goal:** Make production deploys reversible with a tested alias rollback path.
+
+**What changed:**
+- Added `scripts/vercel-rollback.ps1`.
+- Added `docs/rollback/production-rollback.md` with current production, rollback target, dry-run command, apply command, and no-schema-rollback statement.
+- Added `deployment-rollback.test.ts`.
+- Updated deploy/release safety docs so emergency rollback scripts are allowed to mutate Vercel aliases only after dry-run verification.
+- Agent review found and fixed:
+  - rollback helper project-root resolution bug,
+  - missing DB rollback specificity,
+  - single-alias rollback risk,
+  - watchdog heartbeat overwrite race,
+  - misleading `DATABASE_URL_DIRECT` handling,
+  - local cwd leak in watchdog heartbeat metadata.
+
+**Verification so far:**
+- `pnpm test watchdog-self-heal.test.ts deployment-rollback.test.ts script-safety.test.ts` passed.
+- `pnpm exec tsx scripts/watchdog-heartbeat.ts --dry-run --source local-watchdog --status ok --event tick` passed.
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-ms1gbfwsv-nitesh999-4886s-projects.vercel.app"` passed as dry-run and printed the exact alias restore commands.
+
+**Why this matters:**
+- The live deployment can now be undone without searching Vercel UI history.
+- Rollback covers both production aliases.
+- The watchdog signal can no longer hide a restart with a delayed `ok` tick.
