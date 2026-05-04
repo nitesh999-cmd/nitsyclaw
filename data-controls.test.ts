@@ -27,10 +27,16 @@ describe("data controls", () => {
 
     expect(route).toContain("db.transaction");
     expect(route).toContain("tool: \"data_delete\"");
-    expect(route).toContain("isRecentExportSnapshotId");
+    expect(route).toContain("verifyExportProof");
     expect(route).toContain("currentPassword");
+    expect(route).toContain("tx.delete(auditLog).returning");
     expect(settings).toContain("Export snapshot ID");
+    expect(settings).toContain("Export proof");
     expect(settings).toContain("Current dashboard password");
     expect(exportRoute).toContain("snapshotId");
+    expect(exportRoute).toContain("exportProof");
+    expect(exportRoute).toContain("exportComplete");
+    expect(exportRoute).toContain("limit(5001)");
+    expect(exportRoute).toContain("limit(2001)");
   });
 });

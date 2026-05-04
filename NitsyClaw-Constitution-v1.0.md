@@ -329,8 +329,13 @@ Dashboard or bot chat routes that load private cross-surface history MUST NOT at
 - *Added:* 2026-05-05
 
 ### R60 — Destructive data controls need transaction, audit, and fresh backup guard
-Any owner-facing destructive data deletion MUST run inside one database transaction, write a sanitized audit row, and require stronger confirmation for full-account deletion. Full deletion requires a recent export snapshot marker plus fresh password re-auth.
+Any owner-facing destructive data deletion MUST run inside one database transaction, write a sanitized audit row, and require stronger confirmation for full-account deletion. Full deletion requires fresh password re-auth plus a signed, session-bound, non-truncated export proof. The proof must not be a plain timestamp that can be forged.
 - *Source:* Session 43 — `apps/dashboard/src/app/api/data/delete/route.ts`
+- *Added:* 2026-05-05
+
+### R61 — Global auth abuse signals must not lock out correct owner credentials
+Global login-failure counters may be used for alerting, suspicious traffic signals, or soft throttling of bad attempts. They MUST NOT reject a correct owner login before checking credentials. Per-client lockout may remain a hard gate.
+- *Source:* Session 43 — post-deploy review of dashboard login lockout
 - *Added:* 2026-05-05
 
 ---
@@ -389,6 +394,8 @@ Any owner-facing destructive data deletion MUST run inside one database transact
 | 2026-05-05 | Deploys had no checked command-line undo path | R58 | Added dry-run-first Vercel alias rollback helper, rollback manifest, and regression coverage |
 | 2026-05-05 | Dashboard chat could attach provider web search to private cross-surface history | R59 | Removed provider-side web search from dashboard chat routes; future research must use explicit minimal-query tooling |
 | 2026-05-05 | Delete-everything controls could partially delete data without backup proof | R60 | Added transaction, audit row, password re-auth, and recent export snapshot guard |
+| 2026-05-05 | Export snapshot guard was timestamp-only and audit rows could survive delete-everything | R60 | Added signed session-bound export proof, export truncation detection, and all-audit purge before tombstone |
+| 2026-05-05 | Global auth lockout could let anyone lock out the owner | R61 | Correct credentials now bypass/clear the global failure bucket; global lockout only affects bad attempts |
 
 ---
 

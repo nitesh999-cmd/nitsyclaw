@@ -22,7 +22,7 @@ export default async function SettingsPage({
             : params.deleteError === "reauth"
               ? "Enter your current dashboard password before deleting everything."
               : params.deleteError === "export"
-                ? "Export your data first, then paste the export snapshot ID from the download."
+                ? "Export your data first, then paste the snapshot ID and export proof from the download."
             : "Delete request was not recognised."}
         </div>
       ) : null}
@@ -102,6 +102,15 @@ export default async function SettingsPage({
                     id="exportSnapshotId"
                     name="exportSnapshotId"
                     placeholder="export_YYYYMMDDHHMMSS"
+                    className="mt-1 w-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                  />
+                  <label className="mt-3 block text-xs text-neutral-500" htmlFor="exportProof">
+                    Export proof
+                  </label>
+                  <textarea
+                    id="exportProof"
+                    name="exportProof"
+                    rows={3}
                     className="mt-1 w-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
                   />
                   <label className="mt-3 block text-xs text-neutral-500" htmlFor="currentPassword">

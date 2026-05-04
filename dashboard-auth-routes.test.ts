@@ -20,6 +20,7 @@ describe("dashboard auth routes", () => {
     expect(source).toContain("clientKeyFromRequest");
     expect(source).toContain("GLOBAL_LOGIN_FAILURE_KEY");
     expect(source).toContain("x-vercel-forwarded-for");
+    expect(source).not.toContain("Math.max(clientState.lockedUntilMs");
     expect(source).toContain("slice(0, 128)");
     expect(source).toContain("replace(/[^\\w:. -]/g");
   });

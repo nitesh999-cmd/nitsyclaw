@@ -1,26 +1,32 @@
 # Production rollback
 
-Current production:
+Current production is live state, not a hard-coded value in this file. Verify it first:
 
-- https://nitsyclaw-gbxqn89fz-nitesh999-4886s-projects.vercel.app
-- Public aliases: https://nitsyclaw.vercel.app and https://nitsyclaw-dashboard.vercel.app
-- Commit: `612f302`
+```powershell
+npx vercel inspect https://nitsyclaw.vercel.app --json --wait --cwd "C:\Users\Nitesh\projects\NitsyClaw"
+npx vercel ls nitsyclaw --cwd "C:\Users\Nitesh\projects\NitsyClaw"
+```
+
+Public aliases:
+
+- `nitsyclaw.vercel.app`
+- `nitsyclaw-dashboard.vercel.app`
 
 Rollback target:
 
-- https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app
-- Commit: `46fc564`
+- Use the most recent prior `Ready` production deployment from `npx vercel ls nitsyclaw`.
+- The operator performing the deploy must record the exact rollback target in the deploy handoff/final report after production is live.
 
 Dry-run rollback check:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "<previous-ready-production-url>"
 ```
 
 Apply rollback:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app" -DryRun:$false
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "<previous-ready-production-url>" -DryRun:$false
 ```
 
 This restores both production aliases:
@@ -31,7 +37,7 @@ This restores both production aliases:
 Verify after rollback:
 
 ```powershell
-npx vercel inspect https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app --wait --cwd "C:\Users\Nitesh\projects\NitsyClaw"
+npx vercel inspect "<previous-ready-production-url>" --wait --cwd "C:\Users\Nitesh\projects\NitsyClaw"
 curl.exe -I https://nitsyclaw.vercel.app/health
 ```
 

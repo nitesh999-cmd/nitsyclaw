@@ -123,6 +123,11 @@
   - `DELETE EVERYTHING` requires current password plus export snapshot ID,
   - rollback helper verifies Vercel JSON state and primary alias health before moving all aliases,
   - CI checks Windows PowerShell scripts.
+- Post-deploy review found and fixed four P1s:
+  - delete-everything now purges all audit rows and leaves only a minimal tombstone row,
+  - delete-everything requires a signed session-bound export proof, not a forgeable timestamp,
+  - global login failure tracking no longer lets strangers lock out correct owner credentials,
+  - rollback docs now require live Vercel inspect/ls output instead of hard-coded current deploy URLs that go stale on the next deploy.
 
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.

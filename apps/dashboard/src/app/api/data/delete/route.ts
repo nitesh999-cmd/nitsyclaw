@@ -13,7 +13,7 @@ import {
   reminders,
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
-import { eq } from "drizzle-orm";
+import { sessionTokenFromRequest, verifyExportProof } from "../../../../lib/data-export-proof";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -54,6 +54,7 @@ export async function POST(req: Request) {
   const confirm = String(form.get("confirm") ?? "").trim();
   const currentPassword = String(form.get("currentPassword") ?? "");
   const exportSnapshotId = String(form.get("exportSnapshotId") ?? "").trim();
+  const exportProof = String(form.get("exportProof") ?? "").trim();
 
   if (!scope) {
     return redirectToSettings(req, { deleteError: "unknown-scope" });
@@ -68,7 +69,11 @@ export async function POST(req: Request) {
     if (!constantTimeEqual(currentPassword, process.env.NITSYCLAW_DASHBOARD_PASSWORD ?? "")) {
       return redirectToSettings(req, { deleteError: "reauth", scope });
     }
-    if (!isRecentExportSnapshotId(exportSnapshotId)) {
+    if (!verifyExportProof({
+      proof: exportProof,
+      snapshotId: exportSnapshotId,
+      sessionToken: sessionTokenFromRequest(req),
+    })) {
       return redirectToSettings(req, { deleteError: "export", scope });
     }
   }
@@ -94,7 +99,7 @@ export async function POST(req: Request) {
         deleted.connectedAccounts = (await tx.delete(connectedAccounts).returning({ id: connectedAccounts.id })).length;
         deleted.systemHeartbeats = (await tx.delete(systemHeartbeats).returning({ source: systemHeartbeats.source })).length;
         deleted.briefs = (await tx.delete(briefs).returning({ id: briefs.id })).length;
-        deleted.auditLog = (await tx.delete(auditLog).where(eq(auditLog.tool, "data_delete")).returning({ id: auditLog.id })).length;
+        deleted.auditLog = (await tx.delete(auditLog).returning({ id: auditLog.id })).length;
       }
 
       await tx.insert(auditLog).values({
@@ -126,21 +131,6 @@ function redirectToSettings(req: Request, params: Record<string, string>): NextR
   const response = NextResponse.redirect(url, 303);
   response.headers.set("Cache-Control", "no-store");
   return response;
-}
-
-function isRecentExportSnapshotId(value: string): boolean {
-  const match = value.match(/^export_(\d{14})$/);
-  if (!match) return false;
-  const stamp = match[1]!;
-  const year = Number(stamp.slice(0, 4));
-  const month = Number(stamp.slice(4, 6));
-  const day = Number(stamp.slice(6, 8));
-  const hour = Number(stamp.slice(8, 10));
-  const minute = Number(stamp.slice(10, 12));
-  const second = Number(stamp.slice(12, 14));
-  const exportedAtMs = Date.UTC(year, month - 1, day, hour, minute, second);
-  const ageMs = Date.now() - exportedAtMs;
-  return Number.isFinite(exportedAtMs) && ageMs >= 0 && ageMs <= 24 * 60 * 60_000;
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

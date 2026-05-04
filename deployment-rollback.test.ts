@@ -29,8 +29,9 @@ describe("production rollback path", () => {
 
     expect(doc).toContain("Current production");
     expect(doc).toContain("Rollback target");
-    expect(doc).toContain("nitsyclaw-gbxqn89fz-nitesh999-4886s-projects.vercel.app");
-    expect(doc).toContain("nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app");
+    expect(doc).toContain("not a hard-coded value");
+    expect(doc).toContain("npx vercel inspect https://nitsyclaw.vercel.app");
+    expect(doc).toContain("<previous-ready-production-url>");
     expect(doc).toContain("scripts/vercel-rollback.ps1");
     expect(doc).toContain("No database schema rollback is required");
   });

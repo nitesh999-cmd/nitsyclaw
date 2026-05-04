@@ -31,21 +31,24 @@ export async function POST(request: Request): Promise<Response> {
   const next = sanitizeNext(String(form.get("next") ?? "/"));
   const clientKey = `ip:${clientKeyFromRequest(request)}`;
 
-  const [clientState, globalState] = await Promise.all([
-    getDashboardLoginAttemptState(clientKey),
-    getDashboardLoginAttemptState(GLOBAL_LOGIN_FAILURE_KEY),
-  ]);
-  const lockedUntilMs = Math.max(clientState.lockedUntilMs ?? 0, globalState.lockedUntilMs ?? 0);
-  if (lockedUntilMs > Date.now()) {
+  const clientState = await getDashboardLoginAttemptState(clientKey);
+  if (clientState.lockedUntilMs && clientState.lockedUntilMs > Date.now()) {
     return redirectToLogin("locked", next, 303);
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
+    const globalState = await getDashboardLoginAttemptState(GLOBAL_LOGIN_FAILURE_KEY);
     const [updatedClient, updatedGlobal] = await Promise.all([
       recordDashboardLoginFailure(clientKey),
       recordDashboardLoginFailure(GLOBAL_LOGIN_FAILURE_KEY),
     ]);
-    return redirectToLogin(updatedClient.lockedUntilMs || updatedGlobal.lockedUntilMs ? "locked" : "invalid", next, 303);
+    return redirectToLogin(
+      updatedClient.lockedUntilMs || updatedGlobal.lockedUntilMs || (globalState.lockedUntilMs && globalState.lockedUntilMs > Date.now())
+        ? "locked"
+        : "invalid",
+      next,
+      303,
+    );
   }
 
   await Promise.all([

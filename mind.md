@@ -1502,9 +1502,18 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `pnpm test data-controls.test.ts dashboard-safe-errors.test.ts deployment-rollback.test.ts package-scripts.test.ts ci-workflow.test.ts dashboard-auth-routes.test.ts watchdog-self-heal.test.ts` passed.
 - `pnpm lint` passed.
 - `pnpm -r typecheck` passed.
+- `pnpm run release:preflight` passed.
+- Live deploy `0d171c5` reached production at `https://nitsyclaw-9gcjof5jf-nitesh999-4886s-projects.vercel.app`; smoke checks passed for `/health`, `/chat` microphone policy, hostile destructive POST rejection, and rollback dry-run.
+- A final review found four P1s and the follow-up fix added:
+  - signed export proofs tied to the current session,
+  - export truncation detection before full delete,
+  - full audit-log purge during `DELETE EVERYTHING` followed by one minimal tombstone audit row,
+  - global login failure tracking that cannot lock out correct owner credentials,
+  - rollback docs that require live inspect instead of stale committed deployment URLs.
 
 **Why this matters:**
 - The product is harder to break after deployment, not just before deployment.
 - Personal history has a stronger privacy boundary.
 - Destructive data controls now behave like production controls, not demo buttons.
 - Rollback is closer to an operator-safe procedure instead of a hopeful alias command.
+- The rollback target must still be recorded from live Vercel output after each deploy because a committed doc cannot know its own future production URL.
