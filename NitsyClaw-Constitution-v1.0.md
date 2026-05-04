@@ -308,6 +308,11 @@ Every dashboard API route that exports `POST` MUST be protected with `requireSam
 - *Source:* Session 39 — `dashboard-redteam-routes.test.ts`
 - *Added:* 2026-05-05
 
+### R56 — Build execution belongs to the laptop runner, not Vercel
+Dashboard/Vercel may queue, display, and audit operator work, but it MUST NOT run shell commands, mutate git, or perform local filesystem builds. The build runner runs from the laptop with explicit modes: dry-run preview by default, `--claim` to mark work in progress, and `--reject-unsafe` to reject dangerous requests. The runner must reject requests that disable tests, leak secrets, remove auth, commit env files, or perform destructive database-style actions.
+- *Source:* Session 40 — `scripts/operator-runner.ts` and `packages/shared/src/ops/operator-runner.ts`
+- *Added:* 2026-05-05
+
 ---
 
 ## Fixes log
@@ -359,6 +364,7 @@ Every dashboard API route that exports `POST` MUST be protected with `requireSam
 | 2026-05-05 | New `/command` surface worked but blocked on slow state reads before rendering | R53 | Operator state now has a bounded timeout; the command runner renders even when telemetry degrades |
 | 2026-05-05 | Aggressive "go all in" requests could become invisible or duplicate work | R54 | Added top-20 operator missions, `/api/operator/jobs`, stable dedupe keys, and mission counts on `/command` |
 | 2026-05-05 | Manual mutating-route test inventory could miss a future POST route | R55 | Added route-discovery red-team test that requires `requireSameOrigin` on every dashboard API POST route |
+| 2026-05-05 | Queue had no controlled path from pending item to execution | R56 | Added laptop operator runner with dry-run default, explicit claim/reject modes, verification plan, and unsafe-request rejection |
 
 ---
 

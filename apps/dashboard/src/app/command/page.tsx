@@ -160,6 +160,20 @@ export default async function CommandPage() {
         </div>
       </section>
 
+      <section className="border border-neutral-800 p-4">
+        <div className="text-xs uppercase text-neutral-500">Local runner</div>
+        <div className="mt-2 text-sm text-neutral-300">
+          Use the laptop runner for real queue execution. It previews by default and only mutates queue state with an explicit mode.
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {["pnpm operator:next", "pnpm operator:claim", "pnpm operator:reject-unsafe"].map((command) => (
+            <code key={command} className="border border-neutral-900 bg-neutral-950 p-3 text-xs text-neutral-200">
+              {command}
+            </code>
+          ))}
+        </div>
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="border border-neutral-800 p-4">
           <div className="text-xs uppercase text-neutral-500">Loop guard</div>

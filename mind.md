@@ -1382,3 +1382,38 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - The product now has a 70-item executable build map: top 20 missions plus next 50 product moves.
 - Route security coverage is stronger because it discovers new POST routes automatically.
 - The operator queue can grow without duplicate flooding.
+
+---
+
+## 51. Session 40 (2026-05-05) - Local operator job runner
+
+**Goal:** Stop the queue from being only a list and add a laptop-safe runner path that can claim or reject work with evidence.
+
+**What changed:**
+- Added `packages/shared/src/ops/operator-runner.ts`.
+- Added pure runner logic:
+  - Selects the highest-severity, oldest pending item.
+  - Ranks bugs before features at the same severity.
+  - Builds a verification-heavy execution plan.
+  - Rejects unsafe requests that try to disable tests, dump secrets, remove auth, commit `.env`, or perform destructive database-style instructions.
+  - Emits a compact audit-safe run report.
+- Added `scripts/operator-runner.ts`.
+- Added root scripts:
+  - `pnpm operator:next` for dry-run preview.
+  - `pnpm operator:claim` to mark the selected item `in_progress`.
+  - `pnpm operator:reject-unsafe` to reject an unsafe selected item.
+- The runner loads local env files before constructing the DB client.
+- Added a `/command` local-runner panel showing the runner commands.
+- Added tests: `operator-runner.test.ts` and `operator-runner-script.test.ts`.
+
+**Verification so far:**
+- `pnpm test -- operator-runner.test.ts operator-runner-script.test.ts` passed.
+- `pnpm test -- operator-command-page.test.ts operator-runner.test.ts operator-runner-script.test.ts` passed.
+- `pnpm -r typecheck` passed.
+- `pnpm lint` passed.
+- `pnpm operator:next` succeeded in dry-run mode and selected the highest-priority queued item with the full verification command list.
+
+**Why this matters:**
+- This is the first real bridge from queued ideas to controlled execution.
+- Work can now be previewed, claimed, or rejected from the laptop without pretending Vercel should run shell/git operations.
+- The safety model is explicit: default dry-run, explicit mutation flags only.

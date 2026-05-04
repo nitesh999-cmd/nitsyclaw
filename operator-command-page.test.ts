@@ -13,6 +13,8 @@ describe("operator command page", () => {
     expect(page).toContain("whatsapp-client");
     expect(page).toContain("Operator program");
     expect(page).toContain("OPERATOR_MISSIONS.length");
+    expect(page).toContain("pnpm operator:next");
+    expect(page).toContain("pnpm operator:claim");
     expect(client).toContain("/api/chat");
     expect(client).toContain("/api/operator/jobs");
     expect(client).toContain("Queue All 20");

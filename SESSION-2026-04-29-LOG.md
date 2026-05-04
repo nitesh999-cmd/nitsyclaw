@@ -90,6 +90,14 @@
 - Added automatic POST-route discovery coverage so new dashboard mutating APIs cannot skip same-origin protection unnoticed.
 - Test-driven faults found and fixed: accidental 51-item roadmap, missing `queue_next_50` validation, fragile TypeScript narrowing, and too-terse roadmap labels.
 
+### 2026-05-05 local operator runner addendum
+
+- Added the local laptop runner for queue execution: `pnpm operator:next`, `pnpm operator:claim`, and `pnpm operator:reject-unsafe`.
+- Runner default is dry-run, so previewing never mutates queue state.
+- Runner selects the highest-severity oldest pending item, creates a verification plan, and rejects unsafe work instead of executing it.
+- `/command` now shows the local runner commands.
+- Verified `pnpm operator:next` against the real queue; it selected Self-Healing Core and printed the full verification gate.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.
