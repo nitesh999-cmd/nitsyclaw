@@ -10,7 +10,7 @@ import {
   processReceiptImage,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
-import { insertMessage, insertFeatureRequest, listPendingFeatureRequests } from "@nitsyclaw/shared/db";
+import { getLatestPendingConfirmation, insertMessage, insertFeatureRequest, listPendingFeatureRequests } from "@nitsyclaw/shared/db";
 import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
@@ -285,12 +285,22 @@ export class Router {
     const intent = detectIntent(effectiveText);
     if (intent === "confirmation") {
       const confirmationTool = this.registry.get("resolve_confirmation");
+      const confirmationId = parseConfirmationId(effectiveText);
       const reply = /^(y|yes|approve|confirm|ok|okay)\b/i.test(effectiveText.trim())
         ? "yes"
         : "no";
+      if (!confirmationId) {
+        const latest = await getLatestPendingConfirmation(this.deps.db);
+        if (latest?.action === "email_create_draft") {
+          await this.sendAndPersist(
+            `Email drafts need the confirmation id. Reply ${reply} ${latest.id} to resolve this draft.`,
+          );
+          return;
+        }
+      }
       const out = confirmationTool
         ? await confirmationTool.handler(
-            { reply },
+            { reply, ...(confirmationId ? { confirmationId } : {}) },
             {
               userPhone: msg.from,
               now: this.deps.now(),
@@ -305,6 +315,10 @@ export class Router {
           action?: string;
           playlist?: { name?: string; url?: string; added?: number };
           link?: string;
+          draftCreated?: boolean;
+          provider?: string;
+          draftId?: string;
+          unavailable?: string;
         };
         if (resolved.playlist) {
           await this.sendAndPersist(
@@ -312,6 +326,12 @@ export class Router {
           );
         } else if (resolved.link) {
           await this.sendAndPersist(`Confirmation: ${resolved.decision}\n${resolved.link}`);
+        } else if (resolved.action === "email_create_draft") {
+          await this.sendAndPersist(
+            resolved.draftCreated
+              ? `Email draft created in ${resolved.provider ?? "mailbox"}.\nDraft id: ${resolved.draftId ?? "unknown"}`
+              : `Email draft approved, but not created yet: ${resolved.unavailable ?? "email adapter unavailable"}`,
+          );
         } else {
           await this.sendAndPersist(`Confirmation: ${resolved.decision ?? "resolved"}`);
         }
@@ -351,4 +371,9 @@ export class Router {
       await this.sendAndPersist(result.finalText);
     }
   }
+
+}
+
+function parseConfirmationId(text: string): string | undefined {
+  return text.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)?.[0];
 }

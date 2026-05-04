@@ -105,6 +105,62 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("requires confirmation id before resolving pending email draft approval", async () => {
+    const state = (deps.db as any).__state;
+    state.confirmations.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      action: "email_create_draft",
+      payload: {
+        provider: "gmail",
+        to: ["nitesh@example.com"],
+        subject: "Hi",
+        body: "Private body",
+      },
+      status: "pending",
+      expiresAt: new Date("2026-05-03T14:00:00Z"),
+      createdAt: new Date("2026-05-03T13:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "yes",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Email drafts need the confirmation id"))).toBe(true);
+    expect(state.confirmations[0].status).toBe("pending");
+  });
+
+  it("resolves pending email draft when confirmation id is included", async () => {
+    const state = (deps.db as any).__state;
+    state.confirmations.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      action: "email_create_draft",
+      payload: {
+        provider: "gmail",
+        to: ["nitesh@example.com"],
+        subject: "Hi",
+        body: "Private body",
+      },
+      status: "pending",
+      expiresAt: new Date("2026-05-03T14:00:00Z"),
+      createdAt: new Date("2026-05-03T13:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "yes 05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Email draft approved, but not created yet"))).toBe(true);
+    expect(state.confirmations[0].status).toBe("approved");
+  });
+
   it("build status previews the pending queue without running the notifier", async () => {
     const state = (deps.db as any).__state;
     state.feature_requests.push({

@@ -30,13 +30,13 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Gmail",
-      status: "Read-only",
-      detail: "Unread/search are available; sending needs gmail.send re-auth.",
+      status: "Partial",
+      detail: "Unread/search and confirmation-gated draft requests are available; sending needs gmail.send re-auth.",
     },
     {
       name: "Outlook",
-      status: "Read-only",
-      detail: "Unread/calendar read are available; sending needs Mail.Send re-auth.",
+      status: "Partial",
+      detail: "Unread/calendar read and confirmation-gated draft requests are available; sending needs Mail.Send re-auth.",
     },
   ];
 

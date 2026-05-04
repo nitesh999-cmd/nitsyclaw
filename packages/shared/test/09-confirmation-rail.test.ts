@@ -124,3 +124,78 @@ describe("resolve_confirmation tool — calendar routing", () => {
     expect(out.calendar).toBe("google");
   });
 });
+
+describe("resolve_confirmation tool — email draft routing", () => {
+  function setup(opts: { withAdapter?: boolean; expiresAt?: Date; status?: "pending" | "rejected" }) {
+    const { db, state } = makeFakeDb();
+    state.confirmations.push({
+      id: "c1",
+      action: "email_create_draft",
+      payload: {
+        provider: "gmail",
+        to: ["nitesh@example.com"],
+        subject: "Hi",
+        body: "Private body",
+      },
+      status: opts.status ?? "pending",
+      expiresAt: opts.expiresAt ?? new Date("2026-04-25T10:00:00Z"),
+      createdAt: NOW,
+    });
+    const createDraft = vi.fn(async () => ({ draftId: "draft-1", webLink: "https://mail/draft-1" }));
+    const deps = makeAgentDeps({
+      db: db as any,
+      ...(opts.withAdapter ? { emailDraft: { createDraft } } : {}),
+    });
+    const registry = new ToolRegistry();
+    registerConfirmationRail(registry);
+    const tool = registry.get("resolve_confirmation")!;
+    const ctx = {
+      deps,
+      now: NOW,
+      userPhone: "+61000",
+      timezone: "Australia/Melbourne",
+    };
+    return { tool, ctx, createDraft };
+  }
+
+  it("creates a draft through the configured adapter after approval", async () => {
+    const { tool, ctx, createDraft } = setup({ withAdapter: true });
+
+    const out: any = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx as any);
+
+    expect(createDraft).toHaveBeenCalledOnce();
+    expect(out).toMatchObject({
+      resolved: true,
+      decision: "approved",
+      action: "email_create_draft",
+      draftCreated: true,
+      draftId: "draft-1",
+    });
+  });
+
+  it("returns unavailable instead of pretending a draft was created when adapter is missing", async () => {
+    const { tool, ctx } = setup({});
+
+    const out: any = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx as any);
+
+    expect(out).toMatchObject({
+      resolved: true,
+      decision: "approved",
+      action: "email_create_draft",
+      draftCreated: false,
+    });
+    expect(out.unavailable).toMatch(/not configured/i);
+  });
+
+  it("does not create an expired email draft", async () => {
+    const { tool, ctx, createDraft } = setup({
+      withAdapter: true,
+      expiresAt: new Date("2026-04-25T07:00:00Z"),
+    });
+
+    const out: any = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx as any);
+
+    expect(createDraft).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ resolved: true, decision: "expired", action: "email_create_draft" });
+  });
+});

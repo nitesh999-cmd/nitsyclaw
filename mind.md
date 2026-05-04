@@ -959,7 +959,7 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **What changed:**
 - Added `list_integration_capabilities` as the shared truth tool for permission-heavy integrations.
 - Captured the exact status of each requested rail:
-  - `email_sending`: needs setup.
+  - `email_sending`: partial, with confirmation-gated draft requests only; actual sending still blocked.
   - `drive_onedrive`: needs setup.
   - `phone_sms`: needs setup.
   - `bank_feeds`: blocked until compliant provider/consent; CSV import is the safe first slice.
@@ -982,3 +982,36 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm run build` passed for bot and dashboard.
 - `npm run lint` passed with existing warnings only; this change did not add new lint warnings.
 - `python -m graphify update .` rebuilt the graph: 490 nodes, 1052 edges, 64 communities.
+
+---
+
+## 38. Session 27 (2026-05-04) - Email draft approval rail
+
+**Goal:** Move the email-sending queue item forward without creating a dangerous `send_email` tool.
+
+**What changed:**
+- Added `queue_email_draft_creation`.
+- The tool validates recipients, dedupes addresses, stores a pending `email_create_draft` confirmation, and returns an instruction that includes the confirmation id.
+- Added `EmailDraftClient` to the dependency contract for future Gmail/Outlook draft adapters.
+- Added confirmation handling for `email_create_draft`:
+  - If an adapter exists, approval creates a mailbox draft.
+  - If no adapter exists, approval returns a clear unavailable result and does not pretend a draft was created.
+- Hardened the WhatsApp confirmation fast-path:
+  - Plain `yes` / `no` no longer resolves a pending email draft.
+  - Email draft confirmations require `yes <confirmationId>` or `no <confirmationId>`.
+- Redacted email body/recipient arrays in the dashboard confirmation summary.
+- Updated integration status copy: Gmail/Outlook are now `Partial` for read/search + confirmation-gated draft requests; sending still needs send scopes and adapters.
+
+**Agent critique incorporated:**
+- Use `queue_email_draft_creation`, not `send_email`.
+- Keep draft creation separate from sending.
+- Add optional `emailDraft` dependency instead of mixing write-capable email into the read-only aggregator.
+- Require confirmation id for email actions so a casual "yes" cannot approve the wrong draft.
+
+**Verification:**
+- `npm test -- 18-email-drafts.test.ts 09-confirmation-rail.test.ts router.integration.test.ts feature-registry-queued.test.ts integration-capabilities.test.ts system-prompt.test.ts integrations-page.test.ts` passed: 33 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm run lint` passed with warnings only.
+- `npm test` passed: 45 files, 200 tests.
+- `npm run build` passed for bot and dashboard.
+- `python -m graphify update .` rebuilt the graph: 500 nodes, 1087 edges, 65 communities.

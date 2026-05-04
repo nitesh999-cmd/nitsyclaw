@@ -67,6 +67,12 @@ function summarize(payload: Record<string, unknown>) {
   const copy = { ...payload };
   if (Array.isArray(copy.uris)) copy.uris = `${copy.uris.length} Spotify tracks`;
   if (copy.ownerHash) copy.ownerHash = "owner";
+  for (const key of ["body", "message", "content"]) {
+    if (key in copy) copy[key] = "[redacted]";
+  }
+  if (Array.isArray(copy.to)) copy.to = `${copy.to.length} recipient(s)`;
+  if (Array.isArray(copy.cc)) copy.cc = `${copy.cc.length} cc recipient(s)`;
+  if (Array.isArray(copy.bcc)) copy.bcc = `${copy.bcc.length} bcc recipient(s)`;
   return JSON.stringify(copy).slice(0, 240);
 }
 

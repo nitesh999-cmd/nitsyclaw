@@ -18,7 +18,7 @@ describe("integration capabilities", () => {
       "social_video_analysis",
     ]);
 
-    expect(INTEGRATION_CAPABILITIES.email_sending.status).toBe("needs_setup");
+    expect(INTEGRATION_CAPABILITIES.email_sending.status).toBe("partial");
     expect(INTEGRATION_CAPABILITIES.drive_onedrive.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.phone_sms.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.bank_feeds.status).toBe("blocked");

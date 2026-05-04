@@ -123,6 +123,16 @@ export async function setConfirmationStatus(
   await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
 }
 
+export async function getLatestPendingConfirmation(db: DB): Promise<{ id: string; action: string } | null> {
+  const [row] = await db
+    .select()
+    .from(confirmations)
+    .where(eq(confirmations.status, "pending"))
+    .orderBy(desc(confirmations.createdAt))
+    .limit(1);
+  return row ? { id: row.id, action: row.action } : null;
+}
+
 export async function insertFeatureRequest(
   db: DB,
   req: NewFeatureRequest,

@@ -136,6 +136,40 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
           playlist,
         };
       }
+      if (out.decision === "approved" && out.action === "email_create_draft") {
+        const p = out.payload as {
+          provider: "gmail" | "outlook";
+          accountLabel?: string;
+          to: string[];
+          cc?: string[];
+          bcc?: string[];
+          subject: string;
+          body: string;
+          replyToMessageId?: string;
+        };
+        const draft = await ctx.deps.emailDraft?.createDraft(p);
+        if (!draft) {
+          return {
+            resolved: true,
+            decision: out.decision,
+            action: out.action,
+            provider: p.provider,
+            draftCreated: false,
+            unavailable:
+              "Email draft adapter is not configured on this surface yet. Draft content was approved but no mailbox draft was created.",
+          };
+        }
+        return {
+          resolved: true,
+          decision: out.decision,
+          action: out.action,
+          provider: p.provider,
+          draftCreated: true,
+          draftId: draft.draftId,
+          messageId: draft.messageId,
+          webLink: draft.webLink,
+        };
+      }
       return { resolved: true, decision: out.decision, action: out.action };
     },
   });

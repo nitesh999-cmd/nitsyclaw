@@ -14,6 +14,7 @@ describe("queued feature registry", () => {
     expect(names).toContain("spotify_search_tracks");
     expect(names).toContain("queue_spotify_playlist_creation");
     expect(names).toContain("list_integration_capabilities");
+    expect(names).toContain("queue_email_draft_creation");
 
     expect(names).not.toContain("send_email");
     expect(names).not.toContain("drive_search");

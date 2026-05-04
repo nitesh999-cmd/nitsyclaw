@@ -37,22 +37,23 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
   email_sending: {
     area: "email_sending",
     title: "Email sending",
-    status: "needs_setup",
+    status: "partial",
     userPromise:
-      "NitsyClaw can prepare email drafts now, but it must not send Gmail or Outlook messages until send scopes, re-auth, audit logging, and confirmation rails are wired.",
+      "NitsyClaw can queue Gmail/Outlook draft creation for explicit approval now, but it must not send messages until send scopes, re-auth, and send adapters are wired.",
     availableNow: [
       "Gmail inbox search is read-only.",
       "Unread Gmail/Outlook summaries can be included in the morning brief when tokens are present.",
+      "queue_email_draft_creation can prepare a draft request for explicit confirmation-id approval.",
     ],
     needsSetup: [
       "Gmail send OAuth scope and user re-auth.",
       "Microsoft Graph Mail.Send permission and user/admin consent.",
-      "A confirmation step before every external send.",
-      "Audit logs that redact recipient/body secrets.",
+      "Provider draft creation adapters for Gmail/Outlook.",
+      "A provider send adapter that executes only after a separate approved confirmation.",
     ],
     blockedBy: [],
     safeMvp:
-      "Draft an email with recipients, subject, and body; queue a confirmation; only send after an explicit yes.",
+      "Create a mailbox draft only after explicit confirmation-id approval; do not send.",
     nextBuildStep:
       "Add a confirmation-gated send_email tool with provider-specific adapters and tests for missing scope, bad recipients, and duplicate confirmations.",
   },
@@ -216,4 +217,3 @@ export function registerIntegrationCapabilities(registry: ToolRegistry): void {
     },
   });
 }
-

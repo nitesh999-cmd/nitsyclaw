@@ -13,6 +13,7 @@ export interface AgentDeps {
   webSearch: WebSearcher;
   calendar: CalendarClient;
   aggregator?: AggregatorClient;
+  emailDraft?: EmailDraftClient;
   imageAnalyzer: ImageAnalyzer;
   embedder: Embedder;
   /** for deterministic tests */
@@ -84,6 +85,20 @@ export interface AggregatorClient {
   fetchAllUnreadEmails(limit: number): Promise<Array<{ source: string; from: string; subject: string; date?: Date; snippet?: string }>>;
   searchAllGmail?(query: string, limit: number): Promise<Array<{ id?: string; source: string; from: string; subject: string; date: Date; snippet?: string }>>;
 }
+
+export interface EmailDraftClient {
+  createDraft(args: {
+    provider: "gmail" | "outlook";
+    accountLabel?: string;
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    body: string;
+    replyToMessageId?: string;
+  }): Promise<{ draftId: string; messageId?: string; webLink?: string }>;
+}
+
 export interface ImageAnalyzer {
   /** Returns structured fields extracted from a receipt image. */
   extractReceipt(image: Buffer, mimetype: string): Promise<{
