@@ -13,6 +13,7 @@ import {
   reminders,
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
+import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,9 @@ function parseScope(value: FormDataEntryValue | null): DeleteScope | null {
 }
 
 export async function POST(req: Request) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+
   const form = await req.formData();
   const scope = parseScope(form.get("scope"));
   const confirm = String(form.get("confirm") ?? "").trim();

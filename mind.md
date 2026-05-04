@@ -1076,3 +1076,46 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm run lint` passed with existing warnings only: 0 errors, 115 warnings.
 - `npm run build` passed for bot and dashboard.
 - `python -m graphify update .` rebuilt the graph: 510 nodes, 1115 edges, 69 communities.
+
+---
+
+## 41. Session 30 (2026-05-04) - Launch audit same-origin hardening
+
+**Goal:** Treat the product like a real customer/private-data system and remove the highest concrete launch-readiness risk found in dashboard mutation routes.
+
+**What changed:**
+- Added `requireSameOrigin` for dashboard POST handlers.
+- Enforced the guard on `/api/chat`, `/api/chat/stream`, `/api/data/delete`, and `/api/queue/update`.
+- Added unit coverage for the request-origin guard:
+  - accepts same-origin `Origin`
+  - accepts same-origin `Referer` fallback
+  - rejects cross-origin `Origin`
+  - rejects missing `Origin` and `Referer`
+- Added a route inventory regression so every currently discovered mutating dashboard API route must include `requireSameOrigin`.
+- Added a Playwright adversarial check that posts `DELETE ALL NITSYCLAW DATA` to `/api/data/delete` with `Origin: https://evil.example` and expects `403 Invalid request origin`.
+- Added Constitution R46: dashboard mutations require same-origin proof before parsing input or touching state.
+
+**Why:**
+- Basic Auth protects direct access, but a browser can reuse cached Basic Auth credentials on cross-site form posts.
+- `/api/data/delete` is destructive and uses predictable confirmation phrases, so it needed a same-origin gate in addition to auth.
+- `/api/chat` and `/api/chat/stream` trigger private agent work and can write conversation history, so they also need the same protection.
+
+**Audit findings still not fixed:**
+- Basic Auth lockout is in-memory only; serverless instances do not share lockout state.
+- `/debug` still exists behind auth and can expose environment/config shape.
+- Local ignored secret/session files still exist on disk and must not be baked into old Docker/Railway/Vercel images.
+- `npm audit` reads the ignored local `package-lock.json` and reports stale npm-tree vulnerabilities; the actual pnpm workspace audit passes cleanly.
+- Lint passes with 115 existing warnings, mostly `any` in tests and integration adapters.
+
+**Verification:**
+- Red first: `npm test -- dashboard-mutating-routes.test.ts` failed because mutating dashboard routes did not contain `requireSameOrigin`.
+- Green focused: `npm test -- dashboard-mutating-routes.test.ts request-origin.test.ts data-controls.test.ts queue-controls.test.ts chat-validation.test.ts dashboard-auth.test.ts` passed: 6 files, 21 tests.
+- `npm test` passed: 51 files, 214 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm run lint` passed with existing warnings only: 0 errors, 115 warnings.
+- `npm run build` passed for bot and dashboard.
+- `npm run test:coverage` passed: 51 files, 214 tests; overall coverage 86.57% statements / 79.12% branches.
+- `npm run test:e2e` passed: 8 Playwright tests, including hostile-origin destructive POST.
+- `corepack pnpm install --frozen-lockfile` passed with lockfile up to date.
+- `corepack pnpm audit --audit-level=moderate` passed: no known vulnerabilities.
+- `npm audit --audit-level=moderate` failed against ignored local `package-lock.json`; `package-lock.json` is not tracked and is ignored by `.gitignore`/`.dockerignore`.

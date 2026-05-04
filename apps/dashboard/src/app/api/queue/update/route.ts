@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDb, setFeatureRequestStatus } from "@nitsyclaw/shared/db";
+import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,9 @@ function cleanText(value: FormDataEntryValue | null): string | undefined {
 }
 
 export async function POST(request: Request): Promise<never | Response> {
+  const originError = requireSameOrigin(request);
+  if (originError) return originError;
+
   const form = await request.formData();
   const id = cleanText(form.get("id"));
   const status = cleanText(form.get("status"));

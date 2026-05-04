@@ -15,6 +15,7 @@ import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
 import { validateChatBody, validateContentLength } from "../../../lib/chat-validation";
 import { encryptDashboardText, getOwnerIdentity, publicConfigError } from "../../../lib/dashboard-runtime";
+import { requireSameOrigin } from "../../../lib/request-origin";
 import type {
   AgentDeps,
   CalendarClient,
@@ -173,6 +174,9 @@ function buildDashboardDeps(): AgentDeps {
 }
 
 export async function POST(req: Request) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       { reply: "Server is missing ANTHROPIC_API_KEY env var." },

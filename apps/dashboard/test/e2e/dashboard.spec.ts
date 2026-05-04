@@ -39,4 +39,17 @@ test.describe("dashboard routes render", () => {
     await page.getByRole("link", { name: "Memory" }).click();
     await expect(page).toHaveURL(/\/memory$/);
   });
+
+  test("blocks cross-origin destructive API posts", async ({ request }) => {
+    const response = await request.post("/api/data/delete", {
+      headers: { origin: "https://evil.example" },
+      form: {
+        scope: "all",
+        confirm: "DELETE ALL NITSYCLAW DATA",
+      },
+    });
+
+    expect(response.status()).toBe(403);
+    await expect(response.text()).resolves.toContain("Invalid request origin");
+  });
 });
