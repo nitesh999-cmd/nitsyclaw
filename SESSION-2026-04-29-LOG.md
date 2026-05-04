@@ -83,6 +83,13 @@
 - Added mission count and operator program visibility to `/command`.
 - Avoided a new production DB migration in this pass; this uses the existing feature queue safely.
 
+### 2026-05-05 red-team and next-50 addendum
+
+- Added the Next 50 roadmap as executable operator queue items, separate from the top-20 mission catalog.
+- Added `queue_next_50` to `/api/operator/jobs` and "Queue Next 50" to `/command`.
+- Added automatic POST-route discovery coverage so new dashboard mutating APIs cannot skip same-origin protection unnoticed.
+- Test-driven faults found and fixed: accidental 51-item roadmap, missing `queue_next_50` validation, fragile TypeScript narrowing, and too-terse roadmap labels.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

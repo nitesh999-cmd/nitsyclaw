@@ -303,6 +303,11 @@ Aggressive build-program actions from `/command` MUST write to `feature_requests
 - *Source:* Session 38 — `/api/operator/jobs` and top-20 operator mission catalog
 - *Added:* 2026-05-05
 
+### R55 — Mutating dashboard routes must be auto-discovered by red-team tests
+Every dashboard API route that exports `POST` MUST be protected with `requireSameOrigin`. The regression suite must discover POST route files automatically rather than relying only on a hand-maintained list, so new mutating routes fail tests if they omit the guard.
+- *Source:* Session 39 — `dashboard-redteam-routes.test.ts`
+- *Added:* 2026-05-05
+
 ---
 
 ## Fixes log
@@ -353,6 +358,7 @@ Aggressive build-program actions from `/command` MUST write to `feature_requests
 | 2026-05-05 | Dashboard/bot/OAuth failure paths could expose raw provider or DB details; Vercel deploy context missed Google credentials ignore coverage | R52 | Raw failures now stay in server logs; user responses are generic unless a known config error applies; Vercel/Docker ignore policy has regression coverage |
 | 2026-05-05 | New `/command` surface worked but blocked on slow state reads before rendering | R53 | Operator state now has a bounded timeout; the command runner renders even when telemetry degrades |
 | 2026-05-05 | Aggressive "go all in" requests could become invisible or duplicate work | R54 | Added top-20 operator missions, `/api/operator/jobs`, stable dedupe keys, and mission counts on `/command` |
+| 2026-05-05 | Manual mutating-route test inventory could miss a future POST route | R55 | Added route-discovery red-team test that requires `requireSameOrigin` on every dashboard API POST route |
 
 ---
 

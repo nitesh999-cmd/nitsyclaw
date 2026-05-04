@@ -1350,3 +1350,35 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - NitsyClaw now has an explicit product/build program, not just scattered ideas.
 - Big overnight requests can be safely translated into durable queue items.
 - The next worker-agent pass has clear jobs to process, verify, and close.
+
+---
+
+## 50. Session 39 (2026-05-05) - Red-team route sweep and Next 50 roadmap
+
+**Goal:** Push the operator cockpit beyond the first 20 missions and add broader fault-finding coverage.
+
+**What changed:**
+- Added `OPERATOR_NEXT_50`, a 50-item roadmap covering personal AI, trust, memory, automation, production, integrations, user experience, product, and SaaS readiness.
+- Added `queue_next_50` support to `/api/operator/jobs`.
+- Added "Queue Next 50" and a preview of the expanded roadmap to `/command`.
+- Added `/command` metrics for Next 50 queue coverage.
+- Added `operator-roadmap.test.ts` and `operator-jobs-api.test.ts`.
+- Added `dashboard-redteam-routes.test.ts`, which discovers all dashboard API `POST` route files and fails if any omit `requireSameOrigin`.
+- Fixed implementation faults caught by the tests:
+  - Initial roadmap accidentally had 51 items; reduced to exactly 50.
+  - API validation initially omitted `queue_next_50`; added it.
+  - TypeScript narrowing for single-mission queueing was fragile; replaced with explicit branching.
+  - Roadmap labels that were too terse were expanded.
+
+**Verification so far:**
+- `pnpm test -- operator-roadmap.test.ts operator-jobs-api.test.ts operator-command-page.test.ts operator-missions.test.ts dashboard-mutating-routes.test.ts` passed.
+- `pnpm test -- dashboard-redteam-routes.test.ts dashboard-mutating-routes.test.ts` passed.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed.
+- `pnpm lint` passed.
+- `pnpm test:e2e` passed: 9 Playwright tests.
+- `pnpm build` initially failed only because it was run in parallel with Playwright's Next dev server; after stopping port 3101, `pnpm build` passed.
+
+**Why this matters:**
+- The product now has a 70-item executable build map: top 20 missions plus next 50 product moves.
+- Route security coverage is stronger because it discovers new POST routes automatically.
+- The operator queue can grow without duplicate flooding.

@@ -10,6 +10,7 @@ import {
 import { desc, eq } from "drizzle-orm";
 import { OperatorCommandClient } from "./operator-command-client";
 import { OPERATOR_MISSIONS } from "./operator-missions";
+import { OPERATOR_NEXT_50 } from "./operator-roadmap";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,15 @@ async function loadOperatorState() {
     }, {}),
     operatorMissions: queueRows
       .filter((row) => row.dedupeKey?.startsWith("operator-mission:"))
+      .map((row) => ({
+        id: row.id,
+        description: row.description,
+        status: row.status,
+        severity: row.severity,
+        createdAt: row.createdAt,
+      })),
+    next50Missions: queueRows
+      .filter((row) => row.dedupeKey?.startsWith("operator-next-50:"))
       .map((row) => ({
         id: row.id,
         description: row.description,
@@ -88,6 +98,7 @@ export default async function CommandPage() {
   const pendingQueue = data?.queueCounts.pending ?? 0;
   const inProgressQueue = data?.queueCounts.in_progress ?? 0;
   const operatorMissionCount = data?.operatorMissions.length ?? 0;
+  const next50Count = data?.next50Missions.length ?? 0;
   const whatsapp = data?.heartbeats.find((row) => row.source === "whatsapp-client");
   const loopGuard = data?.heartbeats.find((row) => row.source === "whatsapp-loop-guard");
 
@@ -106,12 +117,13 @@ export default async function CommandPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-6">
+      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
         {metric("Approvals", data?.pendingConfirmations ?? "-", "/confirmations")}
         {metric("Reminders", data?.pendingReminders ?? "-", "/reminders")}
         {metric("Queue", pendingQueue, "/queue?status=pending")}
         {metric("Building", inProgressQueue, "/queue?status=in_progress")}
         {metric("Missions", `${operatorMissionCount}/${OPERATOR_MISSIONS.length}`, "/queue")}
+        {metric("Next 50", `${next50Count}/${OPERATOR_NEXT_50.length}`, "/queue")}
         {metric("WhatsApp", whatsapp?.status ?? "unknown", "/health")}
       </section>
 

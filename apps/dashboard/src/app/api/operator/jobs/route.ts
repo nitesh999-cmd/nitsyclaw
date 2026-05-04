@@ -12,6 +12,7 @@ import {
   OPERATOR_MISSIONS,
   type OperatorMission,
 } from "../../../command/operator-missions";
+import { OPERATOR_NEXT_50, type OperatorRoadmapItem } from "../../../command/operator-roadmap";
 import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
@@ -20,8 +21,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const MAX_BATCH = 20;
+const MAX_NEXT_50 = 50;
 
-type QueueAction = "queue_mission" | "queue_all";
+type QueueAction = "queue_mission" | "queue_all" | "queue_next_50";
 
 interface QueueBody {
   action?: QueueAction;
@@ -47,18 +49,21 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const action = rawBody.action;
-  if (action !== "queue_mission" && action !== "queue_all") {
+  if (action !== "queue_mission" && action !== "queue_all" && action !== "queue_next_50") {
     return NextResponse.json({ reply: "Invalid operator job action" }, { status: 400 });
   }
 
-  const missions =
-    action === "queue_all"
-      ? OPERATOR_MISSIONS.slice(0, MAX_BATCH)
-      : rawBody.missionId
-        ? [getOperatorMission(rawBody.missionId)].filter(Boolean)
-        : [];
+  let jobs: OperatorQueueJob[] = [];
+  if (action === "queue_all") {
+    jobs = OPERATOR_MISSIONS.slice(0, MAX_BATCH).map(missionToJob);
+  } else if (action === "queue_next_50") {
+    jobs = OPERATOR_NEXT_50.slice(0, MAX_NEXT_50).map(next50ToJob);
+  } else if (rawBody.missionId) {
+    const mission = getOperatorMission(rawBody.missionId);
+    jobs = mission ? [missionToJob(mission)] : [];
+  }
 
-  if (missions.length === 0) {
+  if (jobs.length === 0) {
     return NextResponse.json({ reply: "Unknown operator mission" }, { status: 400 });
   }
 
@@ -67,13 +72,13 @@ export async function POST(request: Request): Promise<Response> {
     const { ownerHash } = getOwnerIdentity();
     const results: QueueResult[] = [];
 
-    for (const mission of missions as OperatorMission[]) {
-      const dedupeKey = `operator-mission:${mission.id}`;
+    for (const job of jobs) {
+      const dedupeKey = job.dedupeKey;
       const existing = await findExistingMissionJob(db, dedupeKey);
       if (existing) {
         results.push({
-          missionId: mission.id,
-          title: mission.title,
+          missionId: job.id,
+          title: job.title,
           status: "existing",
           featureId: existing.id,
         });
@@ -81,18 +86,18 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       const row = await insertFeatureRequest(db, {
-        description: missionToQueueDescription(mission),
+        description: job.description,
         type: "feature",
-        severity: mission.severity,
-        size: mission.size,
+        severity: job.severity,
+        size: job.size,
         source: "dashboard",
         requestedBy: ownerHash,
         dedupeKey,
-        implementationNotes: `Operator mission queued from /command. Category=${mission.category}. Outcome=${mission.outcome}`,
+        implementationNotes: job.implementationNotes,
       });
       results.push({
-        missionId: mission.id,
-        title: mission.title,
+        missionId: job.id,
+        title: job.title,
         status: "queued",
         featureId: row.id,
       });
@@ -133,3 +138,36 @@ async function findExistingMissionJob(
   return row ?? null;
 }
 
+interface OperatorQueueJob {
+  id: string;
+  title: string;
+  severity: OperatorMission["severity"];
+  size: OperatorMission["size"];
+  dedupeKey: string;
+  description: string;
+  implementationNotes: string;
+}
+
+function missionToJob(mission: OperatorMission): OperatorQueueJob {
+  return {
+    id: mission.id,
+    title: mission.title,
+    severity: mission.severity,
+    size: mission.size,
+    dedupeKey: `operator-mission:${mission.id}`,
+    description: missionToQueueDescription(mission),
+    implementationNotes: `Operator mission queued from /command. Category=${mission.category}. Outcome=${mission.outcome}`,
+  };
+}
+
+function next50ToJob(item: OperatorRoadmapItem): OperatorQueueJob {
+  return {
+    id: item.id,
+    title: item.title,
+    severity: item.severity,
+    size: item.size,
+    dedupeKey: `operator-next-50:${item.id}`,
+    description: `[${item.category}] ${item.title}: ${item.description} Why: ${item.why}`,
+    implementationNotes: `Next-50 operator roadmap item queued from /command. Category=${item.category}. Why=${item.why}`,
+  };
+}

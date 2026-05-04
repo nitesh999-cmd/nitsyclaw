@@ -16,6 +16,7 @@ describe("operator command page", () => {
     expect(client).toContain("/api/chat");
     expect(client).toContain("/api/operator/jobs");
     expect(client).toContain("Queue All 20");
+    expect(client).toContain("Queue Next 50");
     expect(client).toContain("Desktop Gateway");
     expect(client).toContain("Codex Factory");
     expect(client).toContain("Skill Store");

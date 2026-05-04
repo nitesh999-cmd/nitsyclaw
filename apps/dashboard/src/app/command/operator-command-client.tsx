@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { OPERATOR_MISSIONS } from "./operator-missions";
+import { OPERATOR_NEXT_50 } from "./operator-roadmap";
 
 type Mode = "ask" | "feature" | "bug" | "location" | "build";
 
@@ -117,7 +118,7 @@ export function OperatorCommandClient() {
     }
   }
 
-  async function queueMission(action: "queue_mission" | "queue_all", missionId?: string) {
+  async function queueMission(action: "queue_mission" | "queue_all" | "queue_next_50", missionId?: string) {
     if (missionBusy) return;
 
     setMissionBusy(missionId ?? action);
@@ -241,6 +242,40 @@ export function OperatorCommandClient() {
               </div>
               <div className="mt-2 text-xs text-neutral-400">{mission.outcome}</div>
             </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3 border border-neutral-800 p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs uppercase text-neutral-500">Next 50 product moves</div>
+            <div className="mt-1 text-sm text-neutral-300">
+              Queue the expanded roadmap for personal use, trust, automation, integrations, SaaS, and launch readiness.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => queueMission("queue_next_50")}
+            disabled={Boolean(missionBusy)}
+            className="border border-neutral-200 px-4 py-2 text-sm text-neutral-100 disabled:border-neutral-800 disabled:text-neutral-600"
+          >
+            {missionBusy === "queue_next_50" ? "Queuing" : "Queue Next 50"}
+          </button>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+          {OPERATOR_NEXT_50.slice(0, 10).map((item) => (
+            <div key={item.id} className="border border-neutral-900 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-sm text-neutral-100">{item.title}</div>
+                <div className="text-xs text-neutral-500">{item.severity}</div>
+              </div>
+              <div className="mt-2 text-xs text-neutral-500">
+                {item.category} / {item.size}
+              </div>
+              <div className="mt-2 text-xs text-neutral-400">{item.why}</div>
+            </div>
           ))}
         </div>
       </section>
