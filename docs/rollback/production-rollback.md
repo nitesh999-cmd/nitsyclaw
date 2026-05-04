@@ -2,25 +2,25 @@
 
 Current production:
 
-- https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app
+- https://nitsyclaw-gbxqn89fz-nitesh999-4886s-projects.vercel.app
 - Public aliases: https://nitsyclaw.vercel.app and https://nitsyclaw-dashboard.vercel.app
-- Commit: `46fc564`
+- Commit: `612f302`
 
 Rollback target:
 
-- https://nitsyclaw-ms1gbfwsv-nitesh999-4886s-projects.vercel.app
-- Commit: `f7552c1`
+- https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app
+- Commit: `46fc564`
 
 Dry-run rollback check:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-ms1gbfwsv-nitesh999-4886s-projects.vercel.app"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app"
 ```
 
 Apply rollback:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-ms1gbfwsv-nitesh999-4886s-projects.vercel.app" -DryRun:$false
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app" -DryRun:$false
 ```
 
 This restores both production aliases:
@@ -31,7 +31,7 @@ This restores both production aliases:
 Verify after rollback:
 
 ```powershell
-npx vercel inspect https://nitsyclaw-ms1gbfwsv-nitesh999-4886s-projects.vercel.app --wait --cwd "C:\Users\Nitesh\projects\NitsyClaw"
+npx vercel inspect https://nitsyclaw-c056xnn5a-nitesh999-4886s-projects.vercel.app --wait --cwd "C:\Users\Nitesh\projects\NitsyClaw"
 curl.exe -I https://nitsyclaw.vercel.app/health
 ```
 

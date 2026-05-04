@@ -1472,3 +1472,39 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - The live deployment can now be undone without searching Vercel UI history.
 - Rollback covers both production aliases.
 - The watchdog signal can no longer hide a restart with a delayed `ok` tick.
+
+---
+
+## 54. Session 43 (2026-05-05) - Second-pass agent hardening after deploy
+
+**Goal:** Use post-deploy reviewers to find production holes, fix P0/P1 findings, and prepare a safer redeploy.
+
+**What changed:**
+- Removed dashboard Anthropic server-side `web_search_20250305` from private chat/tool rounds so cross-surface WhatsApp/dashboard history is not sent to external web search by default.
+- Fixed broken root `pnpm bot:loop` script by pointing it at the real bot `start` script.
+- Hardened data deletion:
+  - all destructive deletes now run inside a DB transaction,
+  - every delete writes a sanitized `data_delete` audit row,
+  - `DELETE EVERYTHING` requires current dashboard password plus a recent export snapshot ID.
+- Data export now includes a `snapshotId` for the destructive-delete backup guard.
+- Login lockout now has both per-client and global failure buckets.
+- `/chat` microphone permissions are allowed only on `/chat`; other routes stay denied.
+- Chat history load and microphone failures now surface visible user feedback.
+- Raw-ish dashboard page errors were replaced with generic user messages and server-side logs.
+- Mobile dashboard shell layout now wraps instead of squeezing.
+- Rollback helper now uses Vercel JSON inspect, verifies production/READY/project state, checks current alias target, health-checks the primary alias before moving the second alias, and auto-restores the primary alias if health fails.
+- CI now has a Windows lane for PowerShell/script regressions.
+- Docker now uses the root pnpm version and frozen lockfile installs.
+- Preflight now redacts credentialed remotes before printing and checks staged whitespace too.
+- Deploy docs now point to Git/Vercel deploy after `release:preflight`, not local `vercel --prod`.
+
+**Verification so far:**
+- `pnpm test data-controls.test.ts dashboard-safe-errors.test.ts deployment-rollback.test.ts package-scripts.test.ts ci-workflow.test.ts dashboard-auth-routes.test.ts watchdog-self-heal.test.ts` passed.
+- `pnpm lint` passed.
+- `pnpm -r typecheck` passed.
+
+**Why this matters:**
+- The product is harder to break after deployment, not just before deployment.
+- Personal history has a stronger privacy boundary.
+- Destructive data controls now behave like production controls, not demo buttons.
+- Rollback is closer to an operator-safe procedure instead of a hopeful alias command.

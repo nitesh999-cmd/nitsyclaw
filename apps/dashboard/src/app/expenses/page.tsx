@@ -77,7 +77,8 @@ export default async function ExpensesPage({
   try {
     rows = await load(filters);
   } catch (e: unknown) {
-    errorMsg = e instanceof Error ? e.message : String(e);
+    console.error("[expenses] load failed", e);
+    errorMsg = "Could not load expenses. Check Health.";
   }
 
   if (errorMsg) {
@@ -85,8 +86,8 @@ export default async function ExpensesPage({
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold">Expenses</h2>
         <div className="p-4 bg-red-950/40 border border-red-900 rounded text-sm">
-          <p className="font-medium text-red-300">Database error</p>
-          <pre className="text-xs text-red-400 mt-2 whitespace-pre-wrap">{errorMsg}</pre>
+          <p className="font-medium text-red-300">Could not load expenses</p>
+          <p className="text-xs text-red-400 mt-2">{errorMsg}</p>
         </div>
       </div>
     );

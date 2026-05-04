@@ -121,15 +121,11 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
       return { text };
     },
     async toolStep(args) {
-      const allTools = [
-        ...(args.tools as Anthropic.Tool[]),
-        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-      ] as Anthropic.Tool[];
       const resp = await anthropic.messages.create({
         model,
         max_tokens: 1500,
         system: args.system,
-        tools: allTools,
+        tools: args.tools as Anthropic.Tool[],
         messages: args.messages.map((m) => ({ role: m.role, content: m.content })),
       });
       const text = resp.content
@@ -352,15 +348,11 @@ export async function POST(req: Request) {
         } else {
           // All MAX_TOOL_ROUNDS exhausted with no final text — issue a proper
           // streaming call to wrap up.
-          const allTools = [
-            ...(registry.toAnthropicTools() as Anthropic.Tool[]),
-            { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-          ] as Anthropic.Tool[];
           const stream2 = anthropic.messages.stream({
             model,
             max_tokens: 1500,
             system: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
-            tools: allTools,
+            tools: registry.toAnthropicTools() as Anthropic.Tool[],
             messages: messages.map((m) => ({ role: m.role, content: m.content })),
           });
           for await (const event of stream2) {

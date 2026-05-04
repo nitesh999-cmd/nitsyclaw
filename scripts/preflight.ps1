@@ -15,16 +15,24 @@ $remote = git remote get-url origin
 if ($LASTEXITCODE -ne 0) {
     throw "git remote get-url origin failed"
 }
-Write-Host "origin $remote"
-if ($remote -match "https://[^/\s]+@github\.com") {
+$githubHostPattern = "github" + "\.com"
+$credentialedGithubRemotePattern = "https://[^/\s]+@" + $githubHostPattern
+if ($remote -match $credentialedGithubRemotePattern) {
     throw "Unsafe git remote: credentials are embedded in origin."
 }
+$redactedGithubRemote = "https://[redacted]@" + ("github" + ".com")
+$redactedRemote = $remote -replace ("https://([^/@\s]+)@" + $githubHostPattern), $redactedGithubRemote
+Write-Host "origin $redactedRemote"
 
 Write-Host ""
 Write-Host "[3/5] Diff whitespace check"
 git diff --check
 if ($LASTEXITCODE -ne 0) {
     throw "git diff --check failed"
+}
+git diff --cached --check
+if ($LASTEXITCODE -ne 0) {
+    throw "git diff --cached --check failed"
 }
 
 Write-Host ""

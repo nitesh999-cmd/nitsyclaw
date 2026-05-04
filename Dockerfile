@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+# Install the same pnpm version declared by the root package manager.
+RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 
 # Set up app directory
 WORKDIR /app
@@ -34,8 +34,8 @@ COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/bot/package.json ./apps/bot/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies
-RUN pnpm install --no-frozen-lockfile
+# Install dependencies reproducibly from the committed lockfile.
+RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the source
 COPY . .

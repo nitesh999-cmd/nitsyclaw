@@ -18,6 +18,8 @@ describe("dashboard auth routes", () => {
     const source = readFileSync("apps/dashboard/src/app/api/auth/login/route.ts", "utf8");
 
     expect(source).toContain("clientKeyFromRequest");
+    expect(source).toContain("GLOBAL_LOGIN_FAILURE_KEY");
+    expect(source).toContain("x-vercel-forwarded-for");
     expect(source).toContain("slice(0, 128)");
     expect(source).toContain("replace(/[^\\w:. -]/g");
   });

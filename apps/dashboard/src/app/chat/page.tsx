@@ -1,15 +1,22 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 
-interface Msg { role: "user" | "assistant"; content: string; }
+interface Msg {
+  role: "user" | "assistant";
+  content: string;
+  surface?: "whatsapp" | "dashboard";
+  createdAt?: string;
+}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState("");
   const [recording, setRecording] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
   // Voice OUT (text-to-speech) state — uses native browser Web Speech API,
   // zero latency, zero API key. iOS Apple voices are best; desktop Chrome
   // gets ~200 Google voices; Firefox uses OS voices.
@@ -123,7 +130,10 @@ export default function ChatPage() {
       setInput(t);
     };
     r.onend = () => setRecording(false);
-    r.onerror = () => setRecording(false);
+    r.onerror = () => {
+      setRecording(false);
+      setVoiceError("Microphone is blocked. Allow microphone access for this site, then try again.");
+    };
     recognitionRef.current = r;
   }, []);
 
@@ -141,11 +151,13 @@ export default function ChatPage() {
       }
     } else {
       setInput("");
+      setVoiceError("");
       try {
         r.start();
         setRecording(true);
       } catch {
-        // Already started or permission denied.
+        setRecording(false);
+        setVoiceError("Microphone could not start. Check browser permission and try again.");
       }
     }
   }
@@ -156,12 +168,18 @@ export default function ChatPage() {
     (async () => {
       try {
         const r = await fetch("/api/chat/history?limit=20", { cache: "no-store" });
-        const data = await r.json();
+        const data = await r.json() as { messages?: Msg[]; error?: string };
+        if (!r.ok || data.error) {
+          throw new Error(data.error || `History unavailable (${r.status})`);
+        }
         if (!cancelled && Array.isArray(data.messages)) {
           setMessages(data.messages);
+          setHistoryError("");
         }
-      } catch {
-        // Non-fatal — show empty state.
+      } catch (e) {
+        if (!cancelled) {
+          setHistoryError(e instanceof Error ? e.message : "Unable to load chat history.");
+        }
       } finally {
         if (!cancelled) setLoadingHistory(false);
       }
@@ -370,6 +388,16 @@ export default function ChatPage() {
       <p className="text-xs text-neutral-500 mb-4">
         Same brain as WhatsApp. Voice in (mic) + voice out (Web Speech). Conversations and Memory persisted.
       </p>
+      {historyError ? (
+        <div className="mb-3 border border-amber-900 bg-amber-950/30 p-3 text-sm text-amber-200" role="status">
+          Could not sync recent WhatsApp/dashboard history. New messages still work.
+        </div>
+      ) : null}
+      {voiceError ? (
+        <div className="mb-3 border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+          {voiceError}
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4" data-testid="chat-messages">
         {loadingHistory && (
@@ -387,6 +415,11 @@ export default function ChatPage() {
                 : "bg-neutral-800 text-neutral-100")
             }>
               {m.content}
+              {m.surface ? (
+                <div className="mt-1 text-[10px] opacity-60">
+                  from {m.surface === "whatsapp" ? "WhatsApp" : "Dashboard"}
+                </div>
+              ) : null}
             </div>
             {/* Manual Read-aloud button on assistant bubbles. The streaming
                 TTS path can be silently blocked by Chrome's autoplay policy

@@ -12,6 +12,9 @@ describe("watchdog self-healing contract", () => {
     expect(broom).toContain("--event");
     expect(broom).toContain("restart");
     expect(broom).toContain("Start-Process powershell -WindowStyle Hidden");
+    expect(broom).toContain("-Wait -PassThru");
+    expect(broom).toContain("Confirm-BotRestart");
+    expect(broom).toContain("restart-failed");
     expect(broom.indexOf("Write-WatchdogHeartbeat -Status 'ok' -Event 'tick'")).toBeGreaterThan(
       broom.indexOf("if ($health.LastWriteTime -lt"),
     );

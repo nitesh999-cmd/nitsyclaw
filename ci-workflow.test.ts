@@ -38,4 +38,10 @@ describe("GitHub Actions CI workflow", () => {
       workflow.indexOf("pnpm test:coverage"),
     );
   });
+
+  it("has a Windows lane for PowerShell and package-script regressions", () => {
+    expect(workflow).toContain("runs-on: windows-latest");
+    expect(workflow).toContain("Parse tracked PowerShell scripts");
+    expect(workflow).toContain("pnpm test");
+  });
 });

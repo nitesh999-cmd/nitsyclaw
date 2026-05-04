@@ -26,6 +26,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET() {
   try {
     const db = getDb();
+    const exportedAt = new Date().toISOString();
+    const snapshotId = `export_${exportedAt.replace(/[-:.TZ]/g, "").slice(0, 14)}`;
     const [
       messageRows,
       memoryRows,
@@ -54,7 +56,8 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        exportedAt: new Date().toISOString(),
+        exportedAt,
+        snapshotId,
         format: "nitsyclaw-data-export-v1",
         limits: { perTable: 5000 },
         data: {

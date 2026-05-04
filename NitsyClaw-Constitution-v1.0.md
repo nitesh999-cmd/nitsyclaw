@@ -323,6 +323,16 @@ Every production deploy must have a concrete rollback target and a dry-run-first
 - *Source:* Session 42 — `scripts/vercel-rollback.ps1` and `docs/rollback/production-rollback.md`
 - *Added:* 2026-05-05
 
+### R59 — Private history must not be sent to external web search by default
+Dashboard or bot chat routes that load private cross-surface history MUST NOT attach provider-side web-search tools by default. Web/current-info research must be an explicit tool path with minimal query text, clear user intent, and no full private conversation history unless a future reviewed design says otherwise.
+- *Source:* Session 43 — post-deploy security review of `/api/chat` and `/api/chat/stream`
+- *Added:* 2026-05-05
+
+### R60 — Destructive data controls need transaction, audit, and fresh backup guard
+Any owner-facing destructive data deletion MUST run inside one database transaction, write a sanitized audit row, and require stronger confirmation for full-account deletion. Full deletion requires a recent export snapshot marker plus fresh password re-auth.
+- *Source:* Session 43 — `apps/dashboard/src/app/api/data/delete/route.ts`
+- *Added:* 2026-05-05
+
 ---
 
 ## Fixes log
@@ -377,6 +387,8 @@ Every production deploy must have a concrete rollback target and a dry-run-first
 | 2026-05-05 | Queue had no controlled path from pending item to execution | R56 | Added laptop operator runner with dry-run default, explicit claim/reject modes, verification plan, and unsafe-request rejection |
 | 2026-05-05 | Local watchdog could restart the bot without any hosted dashboard evidence | R57 | Added DB-backed `local-watchdog` heartbeat publisher and `/health` watchdog freshness |
 | 2026-05-05 | Deploys had no checked command-line undo path | R58 | Added dry-run-first Vercel alias rollback helper, rollback manifest, and regression coverage |
+| 2026-05-05 | Dashboard chat could attach provider web search to private cross-surface history | R59 | Removed provider-side web search from dashboard chat routes; future research must use explicit minimal-query tooling |
+| 2026-05-05 | Delete-everything controls could partially delete data without backup proof | R60 | Added transaction, audit row, password re-auth, and recent export snapshot guard |
 
 ---
 

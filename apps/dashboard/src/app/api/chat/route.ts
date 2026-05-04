@@ -92,16 +92,11 @@ function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
     },
 
     async toolStep(args) {
-      // Append Anthropic server-side web_search so the model can fetch current info.
-      const allTools = [
-        ...(args.tools as Anthropic.Tool[]),
-        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-      ] as Anthropic.Tool[];
       const resp = await client.messages.create({
         model,
         max_tokens: 1500,
         system: args.system,
-        tools: allTools,
+        tools: args.tools as Anthropic.Tool[],
         messages: args.messages.map((m) => ({ role: m.role, content: m.content })),
       });
       const text = resp.content

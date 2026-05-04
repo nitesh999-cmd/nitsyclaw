@@ -10,6 +10,8 @@ import { decryptString, isEncryptedString } from "../utils/crypto.js";
 export interface HistoryTurn {
   role: "user" | "assistant";
   content: string;
+  surface?: "whatsapp" | "dashboard";
+  createdAt?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export async function loadCrossSurfaceHistory(
       direction: messages.direction,
       body: messages.body,
       transcript: messages.transcript,
+      surface: messages.surface,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -54,6 +57,8 @@ export async function loadCrossSurfaceHistory(
     .map((r) => ({
       role: (r.direction === "out" ? "assistant" : "user") as "user" | "assistant",
       content: safeDecrypt(r.transcript ?? r.body ?? ""),
+      surface: r.surface,
+      createdAt: r.createdAt.toISOString(),
     }))
     .filter((t) => t.content.trim().length > 0);
 }

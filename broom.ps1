@@ -10,11 +10,15 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 function Write-WatchdogHeartbeat {
     param([string]$Status = 'ok', [string]$Event = 'tick')
     try {
-        Start-Process powershell -WindowStyle Hidden -WorkingDirectory $root -ArgumentList @(
+        $process = Start-Process powershell -WindowStyle Hidden -WorkingDirectory $root -Wait -PassThru -ArgumentList @(
             '-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-NoProfile',
             '-Command',
             "pnpm exec tsx scripts/watchdog-heartbeat.ts --source local-watchdog --status $Status --event $Event *>> '$logDir\watchdog-heartbeat.log'"
-        ) | Out-Null
+        )
+        if ($process.ExitCode -ne 0) {
+            "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: watchdog heartbeat failed exit=$($process.ExitCode) ($Status/$Event)" |
+                Out-File -Append "$logDir\broom.log"
+        }
     } catch {
         "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: failed to spawn watchdog heartbeat ($Status/$Event)" |
             Out-File -Append "$logDir\broom.log"
@@ -70,6 +74,24 @@ function Start-Bot {
     )
 }
 
+function Confirm-BotRestart {
+    param([string]$Reason)
+    for ($i = 0; $i -lt 6; $i++) {
+        Start-Sleep -Seconds 5
+        $running = @(Get-BotRuntimeProcesses)
+        $health = Get-Item -LiteralPath "$logDir\whatsapp-health-last-ok.txt" -ErrorAction SilentlyContinue
+        if ($running.Count -gt 0 -and $health -and $health.LastWriteTime -gt (Get-Date).AddMinutes(-2)) {
+            Write-WatchdogHeartbeat -Status 'ok' -Event 'restart-confirmed'
+            return $true
+        }
+    }
+
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: restart failed health proof -> $Reason" |
+        Out-File -Append "$logDir\broom.log"
+    Write-WatchdogHeartbeat -Status 'error' -Event 'restart-failed'
+    return $false
+}
+
 function Restart-Bot {
     param([object[]]$BotProcesses, [string]$Reason)
     $restartFile = "$logDir\bot-last-restart.txt"
@@ -89,6 +111,7 @@ function Restart-Bot {
     Stop-ProcessTree -Roots $BotProcesses
     Start-Sleep -Seconds 2
     Start-Bot
+    Confirm-BotRestart -Reason $Reason | Out-Null
 }
 
 $bot = @(Get-BotRuntimeProcesses)
@@ -98,6 +121,7 @@ if ($bot.Count -eq 0) {
         Out-File -Append "$logDir\broom.log"
     Write-WatchdogHeartbeat -Status 'restarting' -Event 'dead'
     Start-Bot
+    Confirm-BotRestart -Reason "dead bot launch" | Out-Null
     exit 0
 }
 

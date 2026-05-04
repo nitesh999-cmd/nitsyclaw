@@ -13,7 +13,8 @@ export default async function ConversationsPage() {
   try {
     rows = await load();
   } catch (e: unknown) {
-    errorMsg = e instanceof Error ? e.message : String(e);
+    console.error("[conversations] load failed", e);
+    errorMsg = "Could not load conversations. Check Health.";
   }
 
   if (errorMsg) {
@@ -21,8 +22,8 @@ export default async function ConversationsPage() {
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold">Conversations</h2>
         <div className="p-4 bg-red-950/40 border border-red-900 rounded text-sm">
-          <p className="font-medium text-red-300">Database error</p>
-          <pre className="text-xs text-red-400 mt-2 whitespace-pre-wrap">{errorMsg}</pre>
+          <p className="font-medium text-red-300">Could not load conversations</p>
+          <p className="text-xs text-red-400 mt-2">{errorMsg}</p>
         </div>
       </div>
     );

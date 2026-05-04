@@ -14,7 +14,7 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
 
 ## 2. Dashboard — Vercel
 
-1. `cd apps/dashboard && vercel link`
+1. Link once from the repo root: `vercel link --yes --project nitsyclaw`.
 2. Set env vars in Vercel dashboard:
    - `DATABASE_URL` (pooled)
    - `ANTHROPIC_API_KEY`
@@ -23,15 +23,17 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
    - `WHATSAPP_OWNER_NUMBER`
    - `ENCRYPTION_KEY` (required; no implicit plaintext storage)
    - `QUIET_HOURS_*`, `GOOGLE_*`
-3. `vercel --prod`
-4. Production URL goes into `NEXTAUTH_URL`.
+3. Run `pnpm run release:preflight`.
+4. Commit and push `main`; Vercel Git deploys production from the pushed commit.
+5. Verify with `npx vercel inspect https://nitsyclaw.vercel.app --wait --cwd "<repo-root>"` and `curl.exe -I https://nitsyclaw.vercel.app/health`.
+6. Production URL goes into `NEXTAUTH_URL`.
 
 ## 3. Bot worker — Railway
 
 1. New project → "Deploy from repo" → choose this monorepo.
 2. Service settings:
    - Root: `/`
-   - Build: `pnpm install && pnpm --filter @nitsyclaw/shared build`
+   - Build: Dockerfile at repo root
    - Start: `pnpm --filter @nitsyclaw/bot start`
 3. Add a **persistent volume** mounted at `/app/.wa-session`. Without this, every redeploy forces a QR rescan.
 4. Set env vars (mirror the dashboard plus):

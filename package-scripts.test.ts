@@ -33,4 +33,14 @@ describe("package scripts", () => {
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     );
   });
+
+  test("root bot loop script points at a real bot package script", () => {
+    const botPackage = JSON.parse(
+      readFileSync("apps/bot/package.json", "utf8"),
+    ) as { scripts?: Record<string, string> };
+    const script = rootPackage.scripts?.["bot:loop"] ?? "";
+
+    expect(script).toBe("pnpm --filter @nitsyclaw/bot start");
+    expect(botPackage.scripts?.start).toBeTruthy();
+  });
 });

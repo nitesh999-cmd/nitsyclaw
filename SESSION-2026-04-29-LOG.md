@@ -113,6 +113,17 @@
 - Review agents found and forced fixes for rollback root resolution, alias coverage, DB rollback specificity, watchdog overwrite race, env fallback, and local path privacy.
 - Rollback now restores both `nitsyclaw.vercel.app` and `nitsyclaw-dashboard.vercel.app`.
 
+### 2026-05-05 post-deploy hardening addendum
+
+- Second-pass review agents found deploy blockers after production was live: broken `bot:loop`, stale rollback manifest, private-history web-search exposure, non-atomic data deletion, deploy-doc drift, Docker lockfile drift, preflight remote leak, missing Windows CI, and weak watchdog proof after restart.
+- Fixed the P0/P1 items in code/docs/tests.
+- New safety shape:
+  - dashboard chat no longer injects Anthropic server-side web search into private-history model calls,
+  - data deletion is transactional and audited,
+  - `DELETE EVERYTHING` requires current password plus export snapshot ID,
+  - rollback helper verifies Vercel JSON state and primary alias health before moving all aliases,
+  - CI checks Windows PowerShell scripts.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

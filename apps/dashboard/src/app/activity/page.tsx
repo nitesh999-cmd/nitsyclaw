@@ -1,4 +1,5 @@
 import { getDb, auditLog, messages, reminders, confirmations, expenses } from "@nitsyclaw/shared/db";
+import { redactAuditString, sanitizeAuditPayload } from "@nitsyclaw/shared/db";
 import { desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +21,8 @@ export default async function ActivityPage() {
   let error: string | null = null;
   try {
     data = await loadActivity();
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+  } catch (_e) {
+    error = "Could not load recent activity. Check Health.";
   }
 
   return (
@@ -44,7 +45,7 @@ export default async function ActivityPage() {
                   <div className={row.success ? "text-sm text-emerald-300" : "text-sm text-red-300"}>
                     {row.success ? "success" : "failed"}
                   </div>
-                  <div className="text-xs text-neutral-500">{row.error ?? JSON.stringify(row.output ?? {}).slice(0, 160)}</div>
+                  <div className="text-xs text-neutral-500">{safeAuditSignal(row.error, row.output as Record<string, unknown> | null)}</div>
                   <div className="text-xs text-neutral-500">{new Date(row.createdAt).toLocaleString()}</div>
                 </div>
               ))}
@@ -61,4 +62,9 @@ export default async function ActivityPage() {
       ) : null}
     </div>
   );
+}
+
+function safeAuditSignal(error: string | null, output: Record<string, unknown> | null): string {
+  if (error) return redactAuditString(error);
+  return JSON.stringify(sanitizeAuditPayload(output)).slice(0, 160);
 }

@@ -10,6 +10,7 @@ import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const GLOBAL_LOGIN_FAILURE_KEY = "global:dashboard-login";
 
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
@@ -28,19 +29,29 @@ export async function POST(request: Request): Promise<Response> {
   const user = String(form.get("user") ?? "");
   const password = String(form.get("password") ?? "");
   const next = sanitizeNext(String(form.get("next") ?? "/"));
-  const clientKey = clientKeyFromRequest(request);
+  const clientKey = `ip:${clientKeyFromRequest(request)}`;
 
-  const state = await getDashboardLoginAttemptState(clientKey);
-  if (state.lockedUntilMs && state.lockedUntilMs > Date.now()) {
+  const [clientState, globalState] = await Promise.all([
+    getDashboardLoginAttemptState(clientKey),
+    getDashboardLoginAttemptState(GLOBAL_LOGIN_FAILURE_KEY),
+  ]);
+  const lockedUntilMs = Math.max(clientState.lockedUntilMs ?? 0, globalState.lockedUntilMs ?? 0);
+  if (lockedUntilMs > Date.now()) {
     return redirectToLogin("locked", next, 303);
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
-    const updated = await recordDashboardLoginFailure(clientKey);
-    return redirectToLogin(updated.lockedUntilMs ? "locked" : "invalid", next, 303);
+    const [updatedClient, updatedGlobal] = await Promise.all([
+      recordDashboardLoginFailure(clientKey),
+      recordDashboardLoginFailure(GLOBAL_LOGIN_FAILURE_KEY),
+    ]);
+    return redirectToLogin(updatedClient.lockedUntilMs || updatedGlobal.lockedUntilMs ? "locked" : "invalid", next, 303);
   }
 
-  await clearDashboardLoginAttempts(clientKey);
+  await Promise.all([
+    clearDashboardLoginAttempts(clientKey),
+    clearDashboardLoginAttempts(GLOBAL_LOGIN_FAILURE_KEY),
+  ]);
   const token = await createDashboardSessionToken(expectedUser, expectedPassword ?? "");
   const response = NextResponse.redirect(new URL(next, request.url), 303);
   response.cookies.set(DASHBOARD_SESSION_COOKIE, token, {
@@ -66,9 +77,9 @@ function sanitizeNext(value: string): string {
 
 function clientKeyFromRequest(request: Request): string {
   const raw = (
+    request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
-    request.headers.get("user-agent") ||
     "unknown"
   );
   return raw.replace(/[^\w:. -]/g, "").slice(0, 128) || "unknown";

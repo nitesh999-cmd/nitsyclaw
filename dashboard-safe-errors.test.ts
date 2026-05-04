@@ -32,6 +32,17 @@ describe("dashboard safe user-facing errors", () => {
     }
   });
 
+  test("dashboard chat does not attach Anthropic server-side web search to private history", () => {
+    for (const route of [
+      "apps/dashboard/src/app/api/chat/route.ts",
+      "apps/dashboard/src/app/api/chat/stream/route.ts",
+    ]) {
+      const source = readFileSync(route, "utf8");
+      expect(source, route).not.toContain("web_search_20250305");
+      expect(source, route).not.toContain('name: "web_search"');
+    }
+  });
+
   test("database construction errors do not expose environment shape", () => {
     const source = readFileSync("packages/shared/src/db/client.ts", "utf8");
 
