@@ -298,6 +298,11 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 - *Source:* Session 5e — auto-implementation contract for the daily build agent
 - *Added:* 2026-04-28
 
+### R54 — Operator missions must queue through the durable feature ledger
+Aggressive build-program actions from `/command` MUST write to `feature_requests` with stable `dedupe_key` values instead of spawning invisible work. Repeated mission launches must be idempotent, and the dashboard must show how many of the top operator missions are already in the queue. This keeps overnight "go all in" requests auditable and recoverable without adding a production migration unless the existing ledger is no longer enough.
+- *Source:* Session 38 — `/api/operator/jobs` and top-20 operator mission catalog
+- *Added:* 2026-05-05
+
 ---
 
 ## Fixes log
@@ -347,6 +352,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-04 | Owner export could include historical raw audit payloads and some private GET routes lacked no-store | R51 | Export-time redaction now covers audit/connected accounts; private API route inventory enforces no-store |
 | 2026-05-05 | Dashboard/bot/OAuth failure paths could expose raw provider or DB details; Vercel deploy context missed Google credentials ignore coverage | R52 | Raw failures now stay in server logs; user responses are generic unless a known config error applies; Vercel/Docker ignore policy has regression coverage |
 | 2026-05-05 | New `/command` surface worked but blocked on slow state reads before rendering | R53 | Operator state now has a bounded timeout; the command runner renders even when telemetry degrades |
+| 2026-05-05 | Aggressive "go all in" requests could become invisible or duplicate work | R54 | Added top-20 operator missions, `/api/operator/jobs`, stable dedupe keys, and mission counts on `/command` |
 
 ---
 

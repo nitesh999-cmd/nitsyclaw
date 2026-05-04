@@ -1325,3 +1325,28 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - This is the first concrete step toward NitsyClaw as a command center rather than a passive assistant.
 - It creates a fast path from big product ideas to queued implementation work.
 - It gives one screen for the next serious build tracks: local desktop control, Codex build factory, skills, and self-healing.
+
+---
+
+## 49. Session 38 (2026-05-05) - Operator mission queue
+
+**Goal:** Take `/command` from a prompt surface to a durable build-program launcher.
+
+**What changed:**
+- Added a top-20 operator mission catalog covering self-healing, WhatsApp reliability, job running, personal context, privacy, integrations, daily brief, inbox, approvals, skills, onboarding, observability, trust, command language, mobile, agent workbench, integration health, memory quality, customer instances, and release war room.
+- Added `/api/operator/jobs` as a protected same-origin API for queuing either one mission or the full top-20 mission program.
+- Used the existing `feature_requests` table as the job ledger to avoid an overnight production migration.
+- Added dedupe keys so repeated "Queue All 20" calls do not flood duplicate build tasks.
+- Added operator mission status to `/command`: mission count, operator program block, and queue link.
+- Added regression coverage in `operator-missions.test.ts`, `operator-command-page.test.ts`, `dashboard-mutating-routes.test.ts`, and Playwright `/command` coverage.
+
+**Verification so far:**
+- `pnpm test -- operator-command-page.test.ts operator-missions.test.ts dashboard-mutating-routes.test.ts` passed.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed.
+- `pnpm lint` passed.
+- `pnpm build` passed and showed `/api/operator/jobs` plus `/command` in the Next route output.
+
+**Why this matters:**
+- NitsyClaw now has an explicit product/build program, not just scattered ideas.
+- Big overnight requests can be safely translated into durable queue items.
+- The next worker-agent pass has clear jobs to process, verify, and close.

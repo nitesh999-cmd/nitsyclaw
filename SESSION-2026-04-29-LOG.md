@@ -75,6 +75,14 @@
 - Added navigation and Playwright coverage.
 - The page degrades fast if telemetry is slow, instead of blocking the command path.
 
+### 2026-05-05 operator mission queue addendum
+
+- Added a top-20 operator mission catalog for the next serious NitsyClaw build tracks.
+- Added `/api/operator/jobs` so `/command` can queue one mission or all 20 into the durable `feature_requests` ledger.
+- Added dedupe keys so repeated overnight launches do not flood the backlog with duplicates.
+- Added mission count and operator program visibility to `/command`.
+- Avoided a new production DB migration in this pass; this uses the existing feature queue safely.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

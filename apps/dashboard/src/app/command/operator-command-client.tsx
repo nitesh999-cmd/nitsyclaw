@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { OPERATOR_MISSIONS } from "./operator-missions";
 
 type Mode = "ask" | "feature" | "bug" | "location" | "build";
 
@@ -74,8 +75,10 @@ export function OperatorCommandClient() {
   const [mode, setMode] = useState<Mode>("ask");
   const [input, setInput] = useState("");
   const [reply, setReply] = useState("");
+  const [missionReply, setMissionReply] = useState("");
   const [lastCommand, setLastCommand] = useState("");
   const [busy, setBusy] = useState(false);
+  const [missionBusy, setMissionBusy] = useState("");
   const [error, setError] = useState("");
 
   const prepared = useMemo(() => commandFor(mode, input), [mode, input]);
@@ -111,6 +114,35 @@ export function OperatorCommandClient() {
       setError(e instanceof Error ? e.message : "Command failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function queueMission(action: "queue_mission" | "queue_all", missionId?: string) {
+    if (missionBusy) return;
+
+    setMissionBusy(missionId ?? action);
+    setError("");
+    setMissionReply("");
+
+    try {
+      const res = await fetch("/api/operator/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, missionId }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        reply?: string;
+        queued?: number;
+        existing?: number;
+      };
+      if (!res.ok) {
+        throw new Error(body.reply ?? `Request failed with HTTP ${res.status}`);
+      }
+      setMissionReply(body.reply ?? `Queued ${body.queued ?? 0}; existing ${body.existing ?? 0}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Operator mission failed");
+    } finally {
+      setMissionBusy("");
     }
   }
 
@@ -173,6 +205,46 @@ export function OperatorCommandClient() {
         ))}
       </div>
 
+      <section className="space-y-3 border border-neutral-800 p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs uppercase text-neutral-500">Top 20 operator missions</div>
+            <div className="mt-1 text-sm text-neutral-300">
+              Queue the whole build program as durable dashboard jobs.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => queueMission("queue_all")}
+            disabled={Boolean(missionBusy)}
+            className="border border-neutral-200 px-4 py-2 text-sm text-neutral-100 disabled:border-neutral-800 disabled:text-neutral-600"
+          >
+            {missionBusy === "queue_all" ? "Queuing" : "Queue All 20"}
+          </button>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          {OPERATOR_MISSIONS.map((mission) => (
+            <button
+              key={mission.id}
+              type="button"
+              onClick={() => queueMission("queue_mission", mission.id)}
+              disabled={Boolean(missionBusy)}
+              className="border border-neutral-800 p-3 text-left hover:border-neutral-600 disabled:border-neutral-900 disabled:text-neutral-600"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-sm text-neutral-100">{mission.title}</div>
+                <div className="text-xs text-neutral-500">{mission.severity}</div>
+              </div>
+              <div className="mt-2 text-xs text-neutral-500">
+                {mission.category} / {mission.size}
+              </div>
+              <div className="mt-2 text-xs text-neutral-400">{mission.outcome}</div>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {lastCommand ? (
         <div className="border border-neutral-800 p-4 text-sm">
           <div className="text-xs uppercase text-neutral-500">Last command</div>
@@ -184,6 +256,13 @@ export function OperatorCommandClient() {
         <div className="border border-emerald-900/60 bg-emerald-950/20 p-4 text-sm text-emerald-100">
           <div className="text-xs uppercase text-emerald-500">Result</div>
           <div className="mt-2 whitespace-pre-wrap">{reply}</div>
+        </div>
+      ) : null}
+
+      {missionReply ? (
+        <div className="border border-sky-900/60 bg-sky-950/20 p-4 text-sm text-sky-100">
+          <div className="text-xs uppercase text-sky-500">Mission queue</div>
+          <div className="mt-2 whitespace-pre-wrap">{missionReply}</div>
         </div>
       ) : null}
 

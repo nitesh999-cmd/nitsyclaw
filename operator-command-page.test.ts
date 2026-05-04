@@ -11,7 +11,11 @@ describe("operator command page", () => {
     expect(page).toContain("timeoutOperatorState(3500)");
     expect(page).toContain("pendingConfirmations");
     expect(page).toContain("whatsapp-client");
+    expect(page).toContain("Operator program");
+    expect(page).toContain("OPERATOR_MISSIONS.length");
     expect(client).toContain("/api/chat");
+    expect(client).toContain("/api/operator/jobs");
+    expect(client).toContain("Queue All 20");
     expect(client).toContain("Desktop Gateway");
     expect(client).toContain("Codex Factory");
     expect(client).toContain("Skill Store");

@@ -9,6 +9,7 @@ import {
 } from "@nitsyclaw/shared/db";
 import { desc, eq } from "drizzle-orm";
 import { OperatorCommandClient } from "./operator-command-client";
+import { OPERATOR_MISSIONS } from "./operator-missions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,15 @@ async function loadOperatorState() {
       acc[row.status] = (acc[row.status] ?? 0) + 1;
       return acc;
     }, {}),
+    operatorMissions: queueRows
+      .filter((row) => row.dedupeKey?.startsWith("operator-mission:"))
+      .map((row) => ({
+        id: row.id,
+        description: row.description,
+        status: row.status,
+        severity: row.severity,
+        createdAt: row.createdAt,
+      })),
     heartbeats: heartbeatRows.map((row) => ({
       source: row.source,
       status: row.status,
@@ -77,6 +87,7 @@ export default async function CommandPage() {
 
   const pendingQueue = data?.queueCounts.pending ?? 0;
   const inProgressQueue = data?.queueCounts.in_progress ?? 0;
+  const operatorMissionCount = data?.operatorMissions.length ?? 0;
   const whatsapp = data?.heartbeats.find((row) => row.source === "whatsapp-client");
   const loopGuard = data?.heartbeats.find((row) => row.source === "whatsapp-loop-guard");
 
@@ -95,15 +106,47 @@ export default async function CommandPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-6">
         {metric("Approvals", data?.pendingConfirmations ?? "-", "/confirmations")}
         {metric("Reminders", data?.pendingReminders ?? "-", "/reminders")}
         {metric("Queue", pendingQueue, "/queue?status=pending")}
         {metric("Building", inProgressQueue, "/queue?status=in_progress")}
+        {metric("Missions", `${operatorMissionCount}/${OPERATOR_MISSIONS.length}`, "/queue")}
         {metric("WhatsApp", whatsapp?.status ?? "unknown", "/health")}
       </section>
 
       <OperatorCommandClient />
+
+      <section className="border border-neutral-800 p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs uppercase text-neutral-500">Operator program</div>
+            <div className="mt-1 text-sm text-neutral-300">
+              {operatorMissionCount} of {OPERATOR_MISSIONS.length} top missions are in the durable queue.
+            </div>
+          </div>
+          <a href="/queue" className="text-sm text-sky-300 hover:text-sky-200">
+            Open queue
+          </a>
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-2">
+          {data?.operatorMissions.slice(0, 6).map((mission) => (
+            <div key={mission.id} className="border border-neutral-900 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-neutral-500">{mission.severity ?? "P2"}</div>
+                <div className="text-xs text-neutral-400">{mission.status}</div>
+              </div>
+              <div className="mt-2 line-clamp-2 text-sm text-neutral-300">{mission.description}</div>
+            </div>
+          ))}
+          {operatorMissionCount === 0 ? (
+            <div className="border border-neutral-900 p-3 text-sm text-neutral-500">
+              No operator missions queued yet.
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="border border-neutral-800 p-4">
