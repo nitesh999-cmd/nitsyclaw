@@ -14,6 +14,12 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByRole("heading", { name: "Conversations" })).toBeVisible();
   });
 
+  test("Operator command page", async ({ page }) => {
+    await page.goto("/command");
+    await expect(page.getByRole("heading", { name: "Operator Command" })).toBeVisible();
+    await expect(page.getByTestId("operator-command")).toBeVisible();
+  });
+
   test("Memory page", async ({ page }) => {
     await page.goto("/memory");
     await expect(page.getByRole("heading", { name: "Memory" })).toBeVisible();

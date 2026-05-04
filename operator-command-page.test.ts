@@ -1,0 +1,22 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, test } from "vitest";
+
+describe("operator command page", () => {
+  test("adds a real command surface with aggressive build presets", () => {
+    const page = readFileSync("apps/dashboard/src/app/command/page.tsx", "utf8");
+    const client = readFileSync("apps/dashboard/src/app/command/operator-command-client.tsx", "utf8");
+    const shell = readFileSync("apps/dashboard/src/app/dashboard-shell.tsx", "utf8");
+
+    expect(page).toContain("Operator Command");
+    expect(page).toContain("timeoutOperatorState(3500)");
+    expect(page).toContain("pendingConfirmations");
+    expect(page).toContain("whatsapp-client");
+    expect(client).toContain("/api/chat");
+    expect(client).toContain("Desktop Gateway");
+    expect(client).toContain("Codex Factory");
+    expect(client).toContain("Skill Store");
+    expect(client).toContain("Self-Healing");
+    expect(client).toContain("/addfeature");
+    expect(shell).toContain('href="/command"');
+  });
+});

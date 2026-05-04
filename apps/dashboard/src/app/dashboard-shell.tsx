@@ -17,6 +17,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <h1 className="text-lg font-semibold mb-6">NitsyClaw</h1>
         <nav className="flex flex-col gap-2 text-sm">
           <a className="hover:underline" href="/">Today</a>
+          <a className="hover:underline" href="/command">Command</a>
           <a className="hover:underline" href="/onboarding">Onboarding</a>
           <a className="hover:underline" href="/chat">Chat</a>
           <a className="hover:underline" href="/conversations">Conversations</a>

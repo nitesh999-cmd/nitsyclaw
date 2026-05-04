@@ -67,6 +67,14 @@
 - Vercel/Docker deploy contexts now explicitly exclude local OAuth credentials/tokens and WhatsApp session state, with regression coverage.
 - Current verification before the final post-change release gate: targeted tests, dashboard/bot/shared typecheck, and lint passed.
 
+### 2026-05-05 operator command addendum
+
+- Added `/command` as the first real operator console.
+- It can run direct commands into `/api/chat` and convert rough intent into Feature, Bug, Location, and Build commands.
+- Added aggressive presets for Desktop Gateway, Codex Factory, Skill Store, Self-Healing, War Room, and Queue Push.
+- Added navigation and Playwright coverage.
+- The page degrades fast if telemetry is slow, instead of blocking the command path.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

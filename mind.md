@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-05 (session 36 - gold hardening pass)
+> Updated: 2026-05-05 (session 37 - operator command surface)
 
 ---
 
@@ -1285,3 +1285,43 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 **Remaining risk:**
 - Full post-change `pnpm run release:preflight` still needs to be rerun after this doc update.
 - GitHub push/deploy may still be blocked by local GitHub auth; this repo is already ahead of origin.
+
+---
+
+## 48. Session 37 (2026-05-05) - Operator command surface
+
+**Goal:** Stop treating NitsyClaw like a chat page and give it a sharper operator console for aggressive feature/build control.
+
+**What changed:**
+- Added `/command` as the new Operator Command surface.
+- Added live operator metrics: pending approvals, reminders, pending queue, in-progress queue, WhatsApp status, loop guard, latest message, and latest tool calls.
+- Added a command runner that posts directly to `/api/chat` with modes:
+  - Ask
+  - Feature
+  - Bug
+  - Location
+  - Build
+- Added aggressive command presets:
+  - Desktop Gateway
+  - Codex Factory
+  - Skill Store
+  - Self-Healing
+  - War Room
+  - Queue Push
+- Added `/command` to dashboard navigation.
+- Added a bounded operator-state timeout so slow DB reads never block the command tool from rendering.
+- Added `operator-command-page.test.ts`.
+- Added Playwright coverage for `/command`.
+- Added Constitution R53.
+
+**Verification:**
+- `pnpm test -- operator-command-page.test.ts dashboard-next-config.test.ts` passed.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed.
+- `pnpm run lint` passed.
+- `pnpm build` passed after rerunning sequentially.
+- `$env:CI='true'; pnpm test:e2e` passed: 9 Playwright tests.
+
+**Why this matters:**
+- This is the first concrete step toward NitsyClaw as a command center rather than a passive assistant.
+- It creates a fast path from big product ideas to queued implementation work.
+- It gives one screen for the next serious build tracks: local desktop control, Codex build factory, skills, and self-healing.

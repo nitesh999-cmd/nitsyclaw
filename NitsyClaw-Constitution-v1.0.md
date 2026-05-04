@@ -275,6 +275,11 @@ Dashboard, bot, OAuth, export/delete, and health surfaces must not return raw pr
 - *Source:* 2026-05-05 gold hardening pass — dashboard/bot routes returned raw-ish errors and `.vercelignore` missed `google-credentials.json`
 - *Added:* 2026-05-05
 
+### R53 — Operator surfaces render fast even when state is slow
+Command/control surfaces such as `/command` must render the primary action path quickly even if secondary DB state, heartbeats, audit summaries, or queue counts are slow. Operational state may degrade to "unavailable"; the command runner must still load. Reasoning: an operator page that blocks on status telemetry is not an operator page.
+- *Source:* 2026-05-05 operator command surface — initial `/command` page loaded but blocked for ~24.8s on local state reads, breaking Playwright and operator trust
+- *Added:* 2026-05-05
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -341,6 +346,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-04 | Test-only lint warnings hid future real warning regressions | R50 | Test helpers and tests must stay lint-clean too; explicit `any` requires a named local type or narrow cast |
 | 2026-05-04 | Owner export could include historical raw audit payloads and some private GET routes lacked no-store | R51 | Export-time redaction now covers audit/connected accounts; private API route inventory enforces no-store |
 | 2026-05-05 | Dashboard/bot/OAuth failure paths could expose raw provider or DB details; Vercel deploy context missed Google credentials ignore coverage | R52 | Raw failures now stay in server logs; user responses are generic unless a known config error applies; Vercel/Docker ignore policy has regression coverage |
+| 2026-05-05 | New `/command` surface worked but blocked on slow state reads before rendering | R53 | Operator state now has a bounded timeout; the command runner renders even when telemetry degrades |
 
 ---
 
