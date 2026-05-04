@@ -334,9 +334,16 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold">Chat with NitsyClaw</h2>
+    <div className="nc-page flex h-[calc(100vh-3rem)] max-w-5xl flex-col">
+      <section className="nc-hero mb-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="nc-eyebrow">Live command channel</div>
+            <h2 className="mt-2 text-3xl font-semibold">Chat with NitsyClaw</h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">
+              Same memory as WhatsApp, tuned for quick decisions, build requests, and daily execution.
+            </p>
+          </div>
         {voices.length > 0 && (
           <div className="flex items-center gap-2">
             <button
@@ -344,26 +351,27 @@ export default function ChatPage() {
               onClick={toggleVoiceOut}
               aria-label={voiceOut ? "Mute voice output" : "Unmute voice output"}
               className={
-                "rounded-xl px-3 py-1.5 text-xs transition " +
+                "nc-button min-h-9 px-3 py-1.5 text-xs " +
                 (voiceOut
-                  ? "bg-blue-600 hover:bg-blue-500 text-white"
-                  : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300")
+                  ? "border-cyan-500/70 bg-cyan-400 text-slate-950 hover:bg-cyan-300"
+                  : "border-slate-700 bg-slate-900 text-slate-300")
               }
             >
-              {voiceOut ? "🔊 On" : "🔇 Off"}
+              {voiceOut ? "Voice on" : "Voice off"}
             </button>
             <button
               type="button"
               onClick={() => setShowVoicePicker((v) => !v)}
-              className="rounded-xl px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+              className="nc-button min-h-9 px-3 py-1.5 text-xs"
             >
               Voice
             </button>
           </div>
         )}
-      </div>
+        </div>
+      </section>
       {showVoicePicker && voices.length > 0 && (
-        <div className="mb-4 max-h-64 overflow-auto rounded-xl border border-neutral-800 bg-neutral-950 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
+        <div className="mb-4 grid max-h-64 grid-cols-1 gap-1 overflow-auto border border-slate-800 bg-slate-950 p-2 sm:grid-cols-2">
           {voices
             .slice()
             .sort((a, b) => (a.lang.startsWith("en") === b.lang.startsWith("en") ? a.name.localeCompare(b.name) : a.lang.startsWith("en") ? -1 : 1))
@@ -375,19 +383,16 @@ export default function ChatPage() {
                 className={
                   "text-left text-xs rounded-lg px-3 py-2 border transition " +
                   (selectedVoice === v.name
-                    ? "border-blue-500 bg-blue-950/40"
-                    : "border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900")
+                    ? "border-cyan-500 bg-cyan-950/30"
+                    : "border-slate-800 hover:border-slate-700 hover:bg-slate-900")
                 }
               >
-                <div className="font-medium text-neutral-100">{v.name}</div>
-                <div className="text-[10px] text-neutral-500">{v.lang} {v.localService ? "• system" : "• remote"}</div>
+                <div className="font-medium text-slate-100">{v.name}</div>
+                <div className="text-[10px] text-slate-500">{v.lang} {v.localService ? "- system" : "- remote"}</div>
               </button>
             ))}
         </div>
       )}
-      <p className="text-xs text-neutral-500 mb-4">
-        Same brain as WhatsApp. Voice in (mic) + voice out (Web Speech). Conversations and Memory persisted.
-      </p>
       {historyError ? (
         <div className="mb-3 border border-amber-900 bg-amber-950/30 p-3 text-sm text-amber-200" role="status">
           Could not sync recent WhatsApp/dashboard history. New messages still work.
@@ -399,7 +404,7 @@ export default function ChatPage() {
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4" data-testid="chat-messages">
+      <div className="mb-4 flex-1 space-y-3 overflow-y-auto border border-slate-800 bg-slate-950/35 p-3 pr-2" data-testid="chat-messages">
         {loadingHistory && (
           <p className="text-sm text-neutral-500">Loading conversation history...</p>
         )}
@@ -409,14 +414,14 @@ export default function ChatPage() {
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start items-end gap-1"}>
             <div className={
-              "rounded-2xl px-4 py-2 max-w-[75%] whitespace-pre-wrap text-sm " +
+              "max-w-[82%] whitespace-pre-wrap border px-4 py-2 text-sm shadow-lg shadow-black/10 " +
               (m.role === "user"
-                ? "bg-blue-600 text-white"
-                : "bg-neutral-800 text-neutral-100")
+                ? "border-cyan-400/50 bg-cyan-400 text-slate-950"
+                : "border-slate-800 bg-slate-900 text-slate-100")
             }>
               {m.content}
               {m.surface ? (
-                <div className="mt-1 text-[10px] opacity-60">
+                <div className="mt-1 text-[10px] opacity-70">
                   from {m.surface === "whatsapp" ? "WhatsApp" : "Dashboard"}
                 </div>
               ) : null}
@@ -435,16 +440,16 @@ export default function ChatPage() {
                 }}
                 aria-label="Read aloud"
                 title="Read aloud"
-                className="rounded-full w-7 h-7 flex items-center justify-center text-xs bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-neutral-100 transition shrink-0"
+                className="flex h-8 w-8 shrink-0 items-center justify-center border border-slate-700 bg-slate-950 text-xs text-slate-400 transition hover:border-cyan-500 hover:text-slate-100"
               >
-                🔊
+                R
               </button>
             )}
           </div>
         ))}
         {busy && (
           <div className="flex justify-start">
-            <div className="rounded-2xl px-4 py-2 bg-neutral-800 text-neutral-400 text-sm">â€¦</div>
+            <div className="border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-slate-400">Thinking...</div>
           </div>
         )}
         <div ref={endRef} />
@@ -452,7 +457,7 @@ export default function ChatPage() {
 
       <form
         onSubmit={(e) => { e.preventDefault(); send(); }}
-        className="flex gap-2 border-t border-neutral-800 pt-4"
+        className="flex gap-2 border-t border-slate-800 pt-4"
       >
         {voiceSupported && (
           <button
@@ -461,26 +466,26 @@ export default function ChatPage() {
             disabled={busy}
             aria-label={recording ? "Stop recording" : "Start voice input"}
             className={
-              "rounded-xl px-4 py-2 text-sm transition disabled:opacity-50 " +
+              "nc-button px-4 py-2 text-sm disabled:opacity-50 " +
               (recording
-                ? "bg-red-600 hover:bg-red-500 text-white animate-pulse"
-                : "bg-neutral-800 hover:bg-neutral-700 text-neutral-200")
+                ? "animate-pulse border-red-500 bg-red-500 text-white hover:bg-red-400"
+                : "")
             }
           >
-            {recording ? "● Stop" : "🎤"}
+            {recording ? "Stop" : "Mic"}
           </button>
         )}
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={recording ? "Listening..." : "Type a message..."}
-          className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-neutral-500"
+          className="nc-input min-h-11 flex-1"
           disabled={busy}
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-700 text-white rounded-xl px-5 py-2 text-sm"
+          className="nc-button-primary px-5 py-2 text-sm"
         >
           Send
         </button>

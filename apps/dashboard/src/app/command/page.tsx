@@ -75,9 +75,9 @@ function timeoutOperatorState(ms: number): Promise<null> {
 
 function metric(label: string, value: string | number, href?: string) {
   const body = (
-    <div className="border border-neutral-800 p-4 hover:border-neutral-700">
-      <div className="text-xs uppercase text-neutral-500">{label}</div>
-      <div className="mt-2 text-2xl text-neutral-100">{value}</div>
+    <div className="nc-tile">
+      <div className="nc-eyebrow">{label}</div>
+      <div className="mt-3 text-2xl font-semibold text-slate-100">{value}</div>
     </div>
   );
   return href ? <a href={href}>{body}</a> : body;
@@ -103,13 +103,19 @@ export default async function CommandPage() {
   const loopGuard = data?.heartbeats.find((row) => row.source === "whatsapp-loop-guard");
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold">Operator Command</h2>
-        <p className="max-w-3xl text-sm text-neutral-400">
-          Control surface for hard commands, build requests, bugs, location, approvals, and the next operator upgrades.
-        </p>
-      </div>
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="nc-eyebrow">Execution cockpit</div>
+            <h2 className="mt-2 text-3xl font-semibold">Operator Command</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+              Control surface for hard commands, build requests, bugs, location, approvals, and the next operator upgrades.
+            </p>
+          </div>
+          <a href="/queue" className="nc-button-primary">Open queue</a>
+        </div>
+      </section>
 
       {unavailable ? (
         <div className="border border-red-900/70 bg-red-950/30 p-4 text-sm text-red-100">
@@ -129,45 +135,45 @@ export default async function CommandPage() {
 
       <OperatorCommandClient />
 
-      <section className="border border-neutral-800 p-4">
+      <section className="nc-section">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs uppercase text-neutral-500">Operator program</div>
-            <div className="mt-1 text-sm text-neutral-300">
+            <div className="nc-eyebrow">Operator program</div>
+            <div className="mt-1 text-sm text-slate-300">
               {operatorMissionCount} of {OPERATOR_MISSIONS.length} top missions are in the durable queue.
             </div>
           </div>
-          <a href="/queue" className="text-sm text-sky-300 hover:text-sky-200">
+          <a href="/queue" className="text-sm text-cyan-300 hover:text-cyan-200">
             Open queue
           </a>
         </div>
 
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           {data?.operatorMissions.slice(0, 6).map((mission) => (
-            <div key={mission.id} className="border border-neutral-900 p-3">
+            <div key={mission.id} className="border border-slate-800 bg-slate-950/60 p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-neutral-500">{mission.severity ?? "P2"}</div>
-                <div className="text-xs text-neutral-400">{mission.status}</div>
+                <div className="text-xs text-slate-500">{mission.severity ?? "P2"}</div>
+                <div className="text-xs text-slate-400">{mission.status}</div>
               </div>
-              <div className="mt-2 line-clamp-2 text-sm text-neutral-300">{mission.description}</div>
+              <div className="mt-2 line-clamp-2 text-sm text-slate-300">{mission.description}</div>
             </div>
           ))}
           {operatorMissionCount === 0 ? (
-            <div className="border border-neutral-900 p-3 text-sm text-neutral-500">
+            <div className="border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-500">
               No operator missions queued yet.
             </div>
           ) : null}
         </div>
       </section>
 
-      <section className="border border-neutral-800 p-4">
-        <div className="text-xs uppercase text-neutral-500">Local runner</div>
-        <div className="mt-2 text-sm text-neutral-300">
+      <section className="nc-section">
+        <div className="nc-eyebrow">Local runner</div>
+        <div className="mt-2 text-sm text-slate-300">
           Use the laptop runner for real queue execution. It previews by default and only mutates queue state with an explicit mode.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {["pnpm operator:next", "pnpm operator:claim", "pnpm operator:reject-unsafe"].map((command) => (
-            <code key={command} className="border border-neutral-900 bg-neutral-950 p-3 text-xs text-neutral-200">
+            <code key={command} className="border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200">
               {command}
             </code>
           ))}
@@ -175,24 +181,24 @@ export default async function CommandPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="border border-neutral-800 p-4">
-          <div className="text-xs uppercase text-neutral-500">Loop guard</div>
-          <div className="mt-2 text-sm text-neutral-300">{loopGuard?.status ?? "unknown"}</div>
-          <div className="mt-1 text-xs text-neutral-500">
+        <div className="nc-tile">
+          <div className="nc-eyebrow">Loop guard</div>
+          <div className="mt-2 text-sm text-slate-300">{loopGuard?.status ?? "unknown"}</div>
+          <div className="mt-1 text-xs text-slate-500">
             {loopGuard ? new Date(loopGuard.lastSeenAt).toLocaleString() : "No heartbeat"}
           </div>
         </div>
 
-        <div className="border border-neutral-800 p-4">
-          <div className="text-xs uppercase text-neutral-500">Last message</div>
-          <div className="mt-2 text-sm text-neutral-300">
+        <div className="nc-tile">
+          <div className="nc-eyebrow">Last message</div>
+          <div className="mt-2 text-sm text-slate-300">
             {data?.latestMessage ? new Date(data.latestMessage.createdAt).toLocaleString() : "None"}
           </div>
         </div>
 
-        <div className="border border-neutral-800 p-4">
-          <div className="text-xs uppercase text-neutral-500">Latest tools</div>
-          <div className="mt-2 space-y-1 text-xs text-neutral-400">
+        <div className="nc-tile">
+          <div className="nc-eyebrow">Latest tools</div>
+          <div className="mt-2 space-y-1 text-xs text-slate-400">
             {data?.latestAudit.length
               ? data.latestAudit.map((row) => (
                   <div key={row.id}>

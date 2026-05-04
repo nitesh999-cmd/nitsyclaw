@@ -72,83 +72,82 @@ export default async function HealthPage() {
   ] as const;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Health</h2>
-        <p className="mt-2 text-sm text-neutral-400">
-          Operational status without exposing secrets.
-        </p>
-      </div>
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Operations</div>
+        <h2 className="mt-2 text-3xl font-semibold">Health</h2>
+        <p className="mt-3 max-w-2xl text-sm text-slate-400">Operational status without exposing secrets.</p>
+      </section>
 
-      <div className="divide-y divide-neutral-800 border-y border-neutral-800">
+      <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
         {rows.map(([label, ok, detail]) => (
-          <div key={label} className="grid gap-3 py-3 md:grid-cols-[180px_120px_1fr]">
+          <div key={label} className="grid gap-3 px-4 py-3 md:grid-cols-[180px_120px_1fr]">
             <div className="font-medium">{label}</div>
             <div className={status(ok)}>{ok ? "OK" : "Needs setup"}</div>
-            <div className="text-sm text-neutral-400">{detail}</div>
+            <div className="text-sm text-slate-400">{detail}</div>
           </div>
         ))}
       </div>
 
       {data ? (
         <section className="grid gap-4 md:grid-cols-4">
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Last message</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Last message</div>
             <div className="mt-2 text-sm">{data.lastMessage ? new Date(data.lastMessage.createdAt).toLocaleString() : "None"}</div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Pending reminders</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Pending reminders</div>
             <div className="mt-2 text-2xl">{data.pendingReminders}</div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Pending confirmations</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Pending confirmations</div>
             <div className="mt-2 text-2xl">{data.pendingConfirmations}</div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Feature queue</div>
-            <div className="mt-2 text-sm text-neutral-300">
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Feature queue</div>
+            <div className="mt-2 text-sm text-slate-300">
               {Object.entries(data.queueCounts).map(([k, v]) => `${k}: ${v}`).join(" | ") || "Empty"}
             </div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">WhatsApp client</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">WhatsApp client</div>
             <div className={data.whatsappFreshness === "ok" && data.whatsappHeartbeat?.status === "ok" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
               {data.whatsappHeartbeat?.status ?? data.whatsappFreshness}
             </div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-slate-500">
               {data.whatsappHeartbeat ? new Date(data.whatsappHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Bot scheduler</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Bot scheduler</div>
             <div className={data.schedulerFreshness === "ok" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
               {data.schedulerFreshness}
             </div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-slate-500">
               {data.schedulerHeartbeat ? new Date(data.schedulerHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Local watchdog</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Local watchdog</div>
             <div className={data.watchdogFreshness === "ok" && data.watchdogHeartbeat?.status !== "error" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
               {data.watchdogHeartbeat?.status === "restarting" ? "restarting" : data.watchdogFreshness}
             </div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-slate-500">
               {data.watchdogHeartbeat ? new Date(data.watchdogHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
-          <div className="border border-neutral-800 p-4">
-            <div className="text-xs uppercase text-neutral-500">Reminder sweep</div>
+          <div className="nc-tile">
+            <div className="nc-eyebrow">Reminder sweep</div>
             <div className={data.reminderFreshness === "ok" && data.reminderHeartbeat?.status !== "error" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
               {data.reminderHeartbeat?.status === "error" ? "error" : data.reminderFreshness}
             </div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-slate-500">
               {data.reminderHeartbeat ? new Date(data.reminderHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
             </div>
           </div>
-          <div className="border border-neutral-800 p-4 md:col-span-4">
-            <div className="text-xs uppercase text-neutral-500">Latest tool signal</div>
-            <div className="mt-2 text-sm text-neutral-300">
+          <div className="nc-section md:col-span-4">
+            <div className="nc-eyebrow">Latest tool signal</div>
+            <div className="mt-2 text-sm text-slate-300">
               {data.latestAudit
                 ? `${data.latestAudit.tool} - ${data.latestAudit.success ? "success" : "failed"} - ${new Date(data.latestAudit.createdAt).toLocaleString()}`
                 : "No tool calls logged"}

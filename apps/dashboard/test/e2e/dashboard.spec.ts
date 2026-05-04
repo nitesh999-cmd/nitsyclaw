@@ -44,8 +44,18 @@ test.describe("dashboard routes render", () => {
 
   test("Sidebar navigation", async ({ page }) => {
     await page.goto("/");
+    await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Today/ })).toHaveAttribute("aria-current", "page");
     await page.getByRole("link", { name: "Memory" }).click();
     await expect(page).toHaveURL(/\/memory$/);
+  });
+
+  test("refreshed queue UI exposes status filters and update controls", async ({ page }) => {
+    await page.goto("/queue");
+    await expect(page.getByRole("heading", { name: "Feature Queue" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "pending" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "in progress" })).toBeVisible();
+    await expect(page.locator(".nc-hero")).toBeVisible();
   });
 
   test("blocks cross-origin destructive API posts", async ({ request }) => {

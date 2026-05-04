@@ -7,8 +7,14 @@ export default async function SettingsPage({
 }) {
   const params = await searchParams;
   return (
-    <div className="space-y-8">
-      <h2 className="text-2xl font-semibold">Settings</h2>
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Owner controls</div>
+        <h2 className="mt-2 text-3xl font-semibold">Settings</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+          Privacy, backups, quiet hours, and the controls that make this safe enough for daily use.
+        </p>
+      </section>
 
       {params?.deleted ? (
         <div className="border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-200" role="status">
@@ -27,38 +33,38 @@ export default async function SettingsPage({
         </div>
       ) : null}
 
-      <section data-testid="settings-quiet-hours">
-        <h3 className="text-sm uppercase tracking-wide text-neutral-400 mb-2">Quiet hours</h3>
-        <p className="text-sm text-neutral-300">
-          Configured via env: <code>{process.env.QUIET_HOURS_START ?? "22:00"}</code> →{" "}
+      <section className="nc-section" data-testid="settings-quiet-hours">
+        <h3 className="nc-eyebrow mb-2">Quiet hours</h3>
+        <p className="text-sm text-slate-300">
+          Configured via env: <code>{process.env.QUIET_HOURS_START ?? "22:00"}</code> to{" "}
           <code>{process.env.QUIET_HOURS_END ?? "07:00"}</code>
         </p>
       </section>
 
-      <section data-testid="settings-integrations">
-        <h3 className="text-sm uppercase tracking-wide text-neutral-400 mb-2">Integrations</h3>
-        <ul className="text-sm space-y-1">
-          <li>Google Calendar — {process.env.GOOGLE_CLIENT_ID ? "✅ configured" : "❌ not configured"}</li>
-          <li>Anthropic Claude — {process.env.ANTHROPIC_API_KEY ? "✅ configured" : "❌ not configured"}</li>
-          <li>OpenAI Whisper — {process.env.OPENAI_API_KEY ? "✅ configured" : "❌ not configured"}</li>
+      <section className="nc-section" data-testid="settings-integrations">
+        <h3 className="nc-eyebrow mb-3">Integrations</h3>
+        <ul className="grid gap-2 text-sm md:grid-cols-3">
+          <li className="nc-tile">Google Calendar: {process.env.GOOGLE_CLIENT_ID ? "configured" : "not configured"}</li>
+          <li className="nc-tile">Anthropic Claude: {process.env.ANTHROPIC_API_KEY ? "configured" : "not configured"}</li>
+          <li className="nc-tile">OpenAI Whisper: {process.env.OPENAI_API_KEY ? "configured" : "not configured"}</li>
         </ul>
       </section>
 
-      <section data-testid="settings-export">
-        <h3 className="text-sm uppercase tracking-wide text-neutral-400 mb-2">Backups</h3>
-        <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-300">
+      <section className="nc-section" data-testid="settings-export">
+        <h3 className="nc-eyebrow mb-2">Backups</h3>
+        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
           <span>Daily DB dumps run at 03:00 in the bot worker.</span>
           <a
             href="/api/data/export"
-            className="border border-neutral-700 px-3 py-2 text-xs text-neutral-100 hover:border-neutral-500"
+            className="nc-button-primary"
           >
             Export my data
           </a>
         </div>
       </section>
 
-      <section data-testid="settings-data-controls">
-        <h3 className="text-sm uppercase tracking-wide text-neutral-400 mb-2">Data controls</h3>
+      <section className="nc-section" data-testid="settings-data-controls">
+        <h3 className="nc-eyebrow mb-3">Data controls</h3>
         <div className="grid gap-3 md:grid-cols-2">
           {[
             {
@@ -80,40 +86,40 @@ export default async function SettingsPage({
               placeholder: "Type DELETE EVERYTHING",
             },
           ].map(({ scope, title, detail, placeholder }) => (
-            <form key={scope} action="/api/data/delete" method="post" className="border border-neutral-800 p-4">
+            <form key={scope} action="/api/data/delete" method="post" className="nc-tile">
               <input type="hidden" name="scope" value={scope} />
-              <div className="font-medium text-neutral-200">{title}</div>
-              <p className="mt-2 text-xs text-neutral-500">{detail}</p>
-              <label className="mt-3 block text-xs text-neutral-500" htmlFor={`confirm-${scope}`}>
+              <div className="font-medium text-slate-100">{title}</div>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+              <label className="mt-3 block text-xs text-slate-500" htmlFor={`confirm-${scope}`}>
                 Confirmation phrase
               </label>
               <input
                 id={`confirm-${scope}`}
                 name="confirm"
                 placeholder={placeholder}
-                className="mt-1 w-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                className="nc-input mt-1 w-full"
               />
               {scope === "everything" ? (
                 <>
-                  <label className="mt-3 block text-xs text-neutral-500" htmlFor="exportSnapshotId">
+                  <label className="mt-3 block text-xs text-slate-500" htmlFor="exportSnapshotId">
                     Export snapshot ID
                   </label>
                   <input
                     id="exportSnapshotId"
                     name="exportSnapshotId"
                     placeholder="export_YYYYMMDDHHMMSS"
-                    className="mt-1 w-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                    className="nc-input mt-1 w-full"
                   />
-                  <label className="mt-3 block text-xs text-neutral-500" htmlFor="exportProof">
+                  <label className="mt-3 block text-xs text-slate-500" htmlFor="exportProof">
                     Export proof
                   </label>
                   <textarea
                     id="exportProof"
                     name="exportProof"
                     rows={3}
-                    className="mt-1 w-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                    className="nc-input mt-1 w-full"
                   />
-                  <label className="mt-3 block text-xs text-neutral-500" htmlFor="currentPassword">
+                  <label className="mt-3 block text-xs text-slate-500" htmlFor="currentPassword">
                     Current dashboard password
                   </label>
                   <input
@@ -121,11 +127,11 @@ export default async function SettingsPage({
                     name="currentPassword"
                     type="password"
                     autoComplete="current-password"
-                    className="mt-1 w-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+                    className="nc-input mt-1 w-full"
                   />
                 </>
               ) : null}
-              <button className="mt-3 border border-red-900 px-3 py-2 text-xs text-red-200 hover:border-red-600">
+              <button className="mt-3 inline-flex min-h-10 items-center border border-red-900 px-3 py-2 text-xs font-medium text-red-200 transition-colors hover:border-red-600 hover:bg-red-950/30">
                 Delete
               </button>
             </form>

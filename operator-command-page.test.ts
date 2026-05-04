@@ -24,6 +24,7 @@ describe("operator command page", () => {
     expect(client).toContain("Skill Store");
     expect(client).toContain("Self-Healing");
     expect(client).toContain("/addfeature");
-    expect(shell).toContain('href="/command"');
+    expect(shell).toContain('href: "/command"');
+    expect(shell).toContain('label: "Command"');
   });
 });
