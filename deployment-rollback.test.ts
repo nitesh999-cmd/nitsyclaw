@@ -16,8 +16,10 @@ describe("production rollback path", () => {
     expect(script).toContain("--json");
     expect(script).toContain("ConvertFrom-Json");
     expect(script).toContain('readyState -ne "READY"');
-    expect(script).toContain('curl.exe -sS -I "https://$primaryAlias/api/healthz"');
-    expect(script).toContain('"HTTP/.* 200"');
+    expect(script).toContain('$healthPath = "/api/healthz"');
+    expect(script).toContain('$healthPath = "/login"');
+    expect(script).toContain('curl.exe -sS -I "https://$primaryAlias$healthPath"');
+    expect(script).toContain('"HTTP/.* (200|307)"');
     expect(script).toContain("vercel alias set");
     expect(script).toContain("Restore-Aliases");
     expect(script).toContain("Restoring $ChangedAlias");
@@ -36,6 +38,7 @@ describe("production rollback path", () => {
     expect(doc).toContain("npx vercel inspect https://nitsyclaw.vercel.app");
     expect(doc).toContain("<previous-ready-production-url>");
     expect(doc).toContain("scripts/vercel-rollback.ps1");
+    expect(doc).toContain("older rollback target predates `/api/healthz`");
     expect(doc).toContain("No database schema rollback is required");
   });
 });

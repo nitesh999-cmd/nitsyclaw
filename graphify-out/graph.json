@@ -5677,7 +5677,7 @@
       "label": "Restore-Aliases()",
       "file_type": "code",
       "source_file": "scripts\\vercel-rollback.ps1",
-      "source_location": "L95",
+      "source_location": "L102",
       "id": "scripts_vercel_rollback_restore_aliases",
       "community": 23,
       "norm_label": "restore-aliases()"

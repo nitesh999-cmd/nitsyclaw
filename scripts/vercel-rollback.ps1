@@ -48,6 +48,7 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 $target = $targetJson | ConvertFrom-Json
+$targetText = $target | ConvertTo-Json -Depth 50
 
 if ($target.name -ne $ExpectedProject) {
     Write-Error "Rollback target project mismatch. Expected $ExpectedProject, got $($target.name)."
@@ -67,11 +68,17 @@ if ($targetUrl.TrimEnd("/") -ne $TargetDeploymentUrl.TrimEnd("/")) {
     exit 1
 }
 if (-not [string]::IsNullOrWhiteSpace($ExpectedCommit)) {
-    $targetText = $target | ConvertTo-Json -Depth 50
     if ($targetText -notmatch [regex]::Escape($ExpectedCommit)) {
         Write-Error "Rollback target did not expose expected commit $ExpectedCommit in Vercel inspect metadata."
         exit 1
     }
+}
+
+$healthPath = "/api/healthz"
+$healthStatusPattern = "HTTP/.* 200"
+if ($targetText -notmatch '"path"\s*:\s*"api/healthz"') {
+    $healthPath = "/login"
+    $healthStatusPattern = "HTTP/.* (200|307)"
 }
 
 $currentAliasTargets = @{}
@@ -122,6 +129,7 @@ if ($DryRun) {
     Write-Host ""
     Write-Host "Current $primaryAlias target: $currentUrl"
     Write-Host "Verified rollback target: $TargetDeploymentUrl"
+    Write-Host "Rollback health probe after apply: https://$primaryAlias$healthPath"
     Write-Host "Dry run only. To apply rollback, run:"
     Write-Host "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl `"$TargetDeploymentUrl`" -DryRun:`$false"
     Write-Host ""
@@ -142,8 +150,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 $changedAliases += $primaryAlias
 
-$health = & curl.exe -sS -I "https://$primaryAlias/api/healthz"
-if ($LASTEXITCODE -ne 0 -or ($health -notmatch "HTTP/.* 200") -or ($health -notmatch "Cache-Control: no-store")) {
+$health = & curl.exe -sS -I "https://$primaryAlias$healthPath"
+if ($LASTEXITCODE -ne 0 -or ($health -notmatch $healthStatusPattern) -or ($health -notmatch "Cache-Control: no-store")) {
     Write-Error "Primary alias health check failed. Restoring $primaryAlias to $currentUrl."
     Restore-Aliases -ChangedAliases $changedAliases -PreviousTargets $currentAliasTargets -Root $ProjectRoot
     exit 1

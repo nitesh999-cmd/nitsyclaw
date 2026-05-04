@@ -23,6 +23,8 @@ Dry-run rollback check:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl "<previous-ready-production-url>"
 ```
 
+The helper validates `/api/healthz` for deployments that expose it. If an older rollback target predates `/api/healthz`, it falls back to `/login` and still requires `Cache-Control: no-store`.
+
 Apply rollback:
 
 ```powershell
