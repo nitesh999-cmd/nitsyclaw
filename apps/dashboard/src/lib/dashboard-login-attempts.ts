@@ -40,12 +40,13 @@ export async function getDashboardLoginAttemptState(
 export async function recordDashboardLoginFailure(
   clientKey: string,
   nowMs = Date.now(),
+  maxFailures = DASHBOARD_AUTH_MAX_FAILURES,
 ): Promise<DashboardLoginAttemptState> {
   const current = await getDashboardLoginAttemptState(clientKey, nowMs);
   const failures = current.lockedUntilMs && current.lockedUntilMs > nowMs
     ? current.failures
     : current.failures + 1;
-  const lockedUntilMs = failures >= DASHBOARD_AUTH_MAX_FAILURES
+  const lockedUntilMs = failures >= maxFailures
     ? nowMs + DASHBOARD_AUTH_LOCKOUT_MS
     : undefined;
 

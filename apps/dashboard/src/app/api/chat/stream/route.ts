@@ -45,6 +45,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const NO_STORE = { "Cache-Control": "no-store" };
+const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
+
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : undefined;
@@ -88,8 +91,7 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
         body: JSON.stringify({ model: "text-embedding-3-small", input: text }),
       });
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`OpenAI embedding ${res.status}: ${body.slice(0, 200)}`);
+        throw new Error(`OpenAI embedding failed status=${res.status}`);
       }
       const json = (await res.json()) as { data: Array<{ embedding: number[] }> };
       return json.data[0]?.embedding ?? [];
@@ -178,22 +180,22 @@ export async function POST(req: Request) {
   if (originError) return originError;
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ reply: "Server is missing ANTHROPIC_API_KEY env var." }, { status: 500 });
+    return NextResponse.json({ reply: CHAT_CONFIG_ERROR }, { status: 503, headers: NO_STORE });
   }
   const lengthError = validateContentLength(req.headers.get("content-length"));
   if (lengthError) {
-    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status });
+    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status, headers: NO_STORE });
   }
 
   let rawBody: unknown;
   try {
     rawBody = await req.json();
   } catch {
-    return NextResponse.json({ reply: "Bad request" }, { status: 400 });
+    return NextResponse.json({ reply: "Bad request" }, { status: 400, headers: NO_STORE });
   }
   const parsedBody = validateChatBody(rawBody);
   if (!parsedBody.ok) {
-    return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status });
+    return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status, headers: NO_STORE });
   }
   const last = parsedBody.last;
 
@@ -203,7 +205,7 @@ export async function POST(req: Request) {
     ({ ownerPhone, ownerHash } = getOwnerIdentity());
   } catch (e) {
     const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
-    return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+    return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
   }
 
   // /addfeature shortcut — instant path, no streaming needed.
@@ -242,7 +244,14 @@ export async function POST(req: Request) {
     }
   }
 
-  const { deps, anthropic, model } = buildDashboardDeps();
+  let built: { deps: AgentDeps; anthropic: Anthropic; model: string };
+  try {
+    built = buildDashboardDeps();
+  } catch (e: unknown) {
+    const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
+    return streamSingleEvent({ type: "error", message: configError.reply });
+  }
+  const { deps, anthropic, model } = built;
   const registry = registerAllFeatures({ surface: "dashboard" });
 
   const history = await loadCrossSurfaceHistory(deps.db, ownerHash, 20).catch(() => []);
@@ -402,7 +411,7 @@ export async function POST(req: Request) {
   return new Response(stream, {
     headers: {
       "Content-Type": "application/x-ndjson; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
+      "Cache-Control": "no-store, no-transform",
       "X-Accel-Buffering": "no",
     },
   });

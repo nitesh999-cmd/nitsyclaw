@@ -33,6 +33,14 @@ const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
   : ["--no-sandbox", "--disable-setuid-sandbox", "--single-process", "--no-zygote", "--disable-dev-shm-usage"];
 
+function messageMeta(body: string): string {
+  return `chars=${body.length}`;
+}
+
+function shouldPrintQrToLogs(): boolean {
+  return process.env.NITSYCLAW_PRINT_QR_TO_LOGS === "1" && process.env.NODE_ENV !== "production";
+}
+
 function defaultHealthFilePath(): string {
   const cwd = process.cwd();
   if (cwd.replaceAll("\\", "/").endsWith("/apps/bot")) {
@@ -267,9 +275,11 @@ export class WwebjsClient implements WhatsAppClient {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] QR code received - scan with your phone");
       this.qrPending = true;
-      qrcode.generate(qr, { small: true });
-      const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" + encodeURIComponent(qr);
-      console.log("[wwebjs] QR also available at: " + qrUrl);
+      if (shouldPrintQrToLogs()) {
+        qrcode.generate(qr, { small: true });
+      } else {
+        console.log("[wwebjs] QR payload hidden; set NITSYCLAW_PRINT_QR_TO_LOGS=1 outside production for local setup.");
+      }
       void this.writeHealthHeartbeat("QR_REQUIRED");
       this.emitStatus({ status: "qr_required", qrAvailable: true });
     });
@@ -330,7 +340,7 @@ export class WwebjsClient implements WhatsAppClient {
         }
 
         if (fromMe && this.echoGuard.isOutgoingEcho(body)) {
-          console.log(`[wwebjs] dropped: bot echo body="${body.slice(0, 50)}"`);
+          console.log(`[wwebjs] dropped: bot echo ${messageMeta(body)}`);
           return;
         }
 
@@ -339,7 +349,6 @@ export class WwebjsClient implements WhatsAppClient {
         const fromRaw = envelope.from ?? "";
         const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = envelope.to ?? "";
-        const to = normalizeWhatsAppOwnerId(toRaw);
         if (
           !isOwnerSelfChat({
             from: fromRaw,
@@ -348,18 +357,18 @@ export class WwebjsClient implements WhatsAppClient {
             ownerNumber: this.opts.ownerNumber,
           })
         ) {
-          console.log(`[wwebjs] dropped: not self-chat (from=${from} to=${to})`);
+          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe}`);
           return;
         }
 
-        console.log(`[wwebjs] inbound: from=${from} fromMe=${fromMe} body="${body.slice(0, 50)}"`);
+        console.log(`[wwebjs] inbound: fromMe=${fromMe} ${messageMeta(body)} hasMedia=${m.hasMedia}`);
 
         if (
           this.opts.onlyOwner !== false &&
           fromMe !== true &&
           from !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)
         ) {
-          console.log(`[wwebjs] dropped: from=${from} != owner=${this.opts.ownerNumber}`);
+          console.log("[wwebjs] dropped: non-owner inbound");
           return;
         }
 

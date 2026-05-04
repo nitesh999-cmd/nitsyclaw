@@ -52,11 +52,15 @@ async function main() {
       console.log("mode=no-mutation; add --reject-unsafe to reject this unsafe item");
       return;
     }
-    await setFeatureRequestStatus(db, job.id, {
+    const updated = await setFeatureRequestStatus(db, job.id, {
       status: "rejected",
+      expectedStatus: "pending",
       rejectionReason: plan.rejectionReason,
       completedAt: new Date(),
     });
+    if (!updated) {
+      throw new Error(`operator job ${job.id} was not updated; it may have been claimed or removed`);
+    }
     await logAudit(db, {
       actor: "operator-runner",
       tool: "operator_runner.reject",
@@ -73,10 +77,14 @@ async function main() {
     return;
   }
 
-  await setFeatureRequestStatus(db, job.id, {
+  const updated = await setFeatureRequestStatus(db, job.id, {
     status: "in_progress",
+    expectedStatus: "pending",
     implementationNotes: plan.note,
   });
+  if (!updated) {
+    throw new Error(`operator job ${job.id} was not updated; it may have been claimed or removed`);
+  }
   await logAudit(db, {
     actor: "operator-runner",
     tool: "operator_runner.claim",

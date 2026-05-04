@@ -5,6 +5,7 @@ describe("queue admin controls", () => {
   it("renders update controls on the queue page", () => {
     const source = readFileSync("apps/dashboard/src/app/queue/page.tsx", "utf8");
     expect(source).toContain('action="/api/queue/update"');
+    expect(source).toContain('name="expectedStatus"');
     expect(source).toContain('name="status"');
     expect(source).toContain('value="in_progress"');
     expect(source).toContain('value="rejected"');
@@ -13,9 +14,14 @@ describe("queue admin controls", () => {
 
   it("validates queue update inputs before mutating DB", () => {
     const source = readFileSync("apps/dashboard/src/app/api/queue/update/route.ts", "utf8");
+    const repo = readFileSync("packages/shared/src/db/repo.ts", "utf8");
+
     expect(source).toContain("UUID_PATTERN");
     expect(source).toContain("VALID_STATUSES");
+    expect(source).toContain("expectedStatus");
     expect(source).toContain("setFeatureRequestStatus");
     expect(source).toContain('redirect("/queue")');
+    expect(repo).toContain("expectedStatus");
+    expect(repo).toContain("and(eq(featureRequests.id, id), eq(featureRequests.status, expectedStatus))");
   });
 });

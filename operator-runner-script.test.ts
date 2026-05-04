@@ -15,5 +15,7 @@ describe("operator runner script", () => {
     expect(script).toContain("--claim");
     expect(script).toContain("--dry-run");
     expect(script).toContain("buildOperatorRunPlan");
+    expect(script).toContain('expectedStatus: "pending"');
+    expect(script).toContain("was not updated; it may have been claimed or removed");
   });
 });

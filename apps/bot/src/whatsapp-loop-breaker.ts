@@ -133,6 +133,6 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
   }
 
   private preview(body: string): string {
-    return this.normalize(body).slice(0, 80);
+    return `[message ${this.normalize(body).length} chars]`;
   }
 }

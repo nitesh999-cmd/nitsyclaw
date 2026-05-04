@@ -162,9 +162,20 @@ export async function setFeatureRequestStatus(
     prUrl?: string;
     rejectionReason?: string;
     completedAt?: Date;
+    expectedStatus?: "pending" | "in_progress" | "done" | "rejected";
   },
-): Promise<void> {
-  await db.update(featureRequests).set(patch).where(eq(featureRequests.id, id));
+): Promise<boolean> {
+  const { expectedStatus, ...values } = patch;
+  const rows = await db
+    .update(featureRequests)
+    .set(values)
+    .where(
+      expectedStatus
+        ? and(eq(featureRequests.id, id), eq(featureRequests.status, expectedStatus))
+        : eq(featureRequests.id, id),
+    )
+    .returning({ id: featureRequests.id });
+  return rows.length > 0;
 }
 
 export async function upsertProfileContext(

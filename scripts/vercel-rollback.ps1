@@ -74,17 +74,48 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedCommit)) {
     }
 }
 
-$primaryAlias = $Aliases[0]
-$currentJson = & npx vercel inspect "https://$primaryAlias" --json --wait --cwd $ProjectRoot
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Current production alias inspection failed. Alias was not changed."
-    exit $LASTEXITCODE
+$currentAliasTargets = @{}
+foreach ($Alias in $Aliases) {
+    $aliasJson = & npx vercel inspect "https://$Alias" --json --wait --cwd $ProjectRoot
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Current production alias inspection failed for $Alias. Alias was not changed."
+        exit $LASTEXITCODE
+    }
+    $aliasTarget = $aliasJson | ConvertFrom-Json
+    $currentAliasTargets[$Alias] = "https://$($aliasTarget.url)"
 }
-$current = $currentJson | ConvertFrom-Json
-$currentUrl = "https://$($current.url)"
+
+$primaryAlias = $Aliases[0]
+$currentUrl = $currentAliasTargets[$primaryAlias]
 if ($currentUrl.TrimEnd("/") -eq $TargetDeploymentUrl.TrimEnd("/")) {
     Write-Error "Rollback target is already the current production alias target."
     exit 1
+}
+
+function Restore-Aliases {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$ChangedAliases,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$PreviousTargets,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    foreach ($ChangedAlias in $ChangedAliases) {
+        $PreviousTarget = $PreviousTargets[$ChangedAlias]
+        if ([string]::IsNullOrWhiteSpace($PreviousTarget)) {
+            Write-Error "No previous target recorded for $ChangedAlias; manual alias inspection required."
+            continue
+        }
+        Write-Host "Restoring $ChangedAlias to $PreviousTarget"
+        & npx vercel alias set $PreviousTarget $ChangedAlias --cwd $Root
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to restore $ChangedAlias to $PreviousTarget; manual rollback repair required."
+        }
+    }
 }
 
 if ($DryRun) {
@@ -101,17 +132,20 @@ if ($DryRun) {
     exit 0
 }
 
+$changedAliases = @()
+
 Write-Host "Applying primary rollback alias: $primaryAlias -> $TargetDeploymentUrl"
 & npx vercel alias set $TargetDeploymentUrl $primaryAlias --cwd $ProjectRoot
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Rollback alias update failed for $primaryAlias."
     exit $LASTEXITCODE
 }
+$changedAliases += $primaryAlias
 
-$health = & curl.exe -sS -I "https://$primaryAlias/health"
-if ($LASTEXITCODE -ne 0 -or ($health -notmatch "HTTP/.* 307") -or ($health -notmatch "Cache-Control: no-store")) {
+$health = & curl.exe -sS -I "https://$primaryAlias/api/healthz"
+if ($LASTEXITCODE -ne 0 -or ($health -notmatch "HTTP/.* 200") -or ($health -notmatch "Cache-Control: no-store")) {
     Write-Error "Primary alias health check failed. Restoring $primaryAlias to $currentUrl."
-    & npx vercel alias set $currentUrl $primaryAlias --cwd $ProjectRoot
+    Restore-Aliases -ChangedAliases $changedAliases -PreviousTargets $currentAliasTargets -Root $ProjectRoot
     exit 1
 }
 
@@ -120,9 +154,11 @@ for ($i = 1; $i -lt $Aliases.Count; $i++) {
     Write-Host "Applying rollback alias: $Alias -> $TargetDeploymentUrl"
     & npx vercel alias set $TargetDeploymentUrl $Alias --cwd $ProjectRoot
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Rollback alias update failed for $Alias. Primary alias health was already verified."
+        Write-Error "Rollback alias update failed for $Alias. Restoring changed aliases."
+        Restore-Aliases -ChangedAliases $changedAliases -PreviousTargets $currentAliasTargets -Root $ProjectRoot
         exit $LASTEXITCODE
     }
+    $changedAliases += $Alias
 }
 
 Write-Host "Rollback complete: aliases now point to $TargetDeploymentUrl"

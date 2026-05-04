@@ -104,7 +104,7 @@ describe("WhatsAppLoopBreaker", () => {
     expect(onTrip).toHaveBeenCalledWith(expect.objectContaining({
       reason: "inbound matched recent outbound",
       sendCount: 1,
-      recentOutboundPreviews: ["diagnostic body"],
+      recentOutboundPreviews: ["[message 15 chars]"],
     }));
   });
 });

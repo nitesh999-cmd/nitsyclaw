@@ -28,6 +28,10 @@ function notConfigured(request: NextRequest) {
   }), request);
 }
 
+function isPublicPath(pathname: string): boolean {
+  return pathname === "/api/healthz";
+}
+
 function isAuthPath(pathname: string): boolean {
   return pathname === "/login" || pathname === "/api/auth/login" || pathname === "/api/auth/logout";
 }
@@ -55,7 +59,9 @@ export async function middleware(request: NextRequest) {
     return process.env.NODE_ENV === "production" ? notConfigured(request) : withSecurityHeaders(NextResponse.next(), request);
   }
 
-  if (isAuthPath(request.nextUrl.pathname)) return withSecurityHeaders(NextResponse.next(), request);
+  if (isAuthPath(request.nextUrl.pathname) || isPublicPath(request.nextUrl.pathname)) {
+    return withSecurityHeaders(NextResponse.next(), request);
+  }
 
   const session = request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value;
   if (await verifyDashboardSessionToken(session, dashboardPassword ?? "", dashboardUser)) {

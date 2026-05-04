@@ -42,8 +42,8 @@ export async function POST(req: Request) {
   let form: FormData;
   try {
     form = await req.formData();
-  } catch (e) {
-    console.error("[data/delete] invalid form body", e);
+  } catch {
+    console.error("[data/delete] invalid form body");
     return NextResponse.json(
       { error: "Invalid delete request." },
       { status: 400, headers: NO_STORE },

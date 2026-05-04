@@ -126,6 +126,7 @@ export default async function QueuePage({
               {row.completedAt ? <div>Completed {new Date(row.completedAt).toLocaleString()}</div> : null}
               <form action="/api/queue/update" method="post" className="mt-3 space-y-2">
                 <input type="hidden" name="id" value={row.id} />
+                <input type="hidden" name="expectedStatus" value={row.status} />
                 <select
                   name="status"
                   defaultValue={row.status}

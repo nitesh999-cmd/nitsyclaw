@@ -16,8 +16,11 @@ describe("production rollback path", () => {
     expect(script).toContain("--json");
     expect(script).toContain("ConvertFrom-Json");
     expect(script).toContain('readyState -ne "READY"');
-    expect(script).toContain("curl.exe -sS -I");
+    expect(script).toContain('curl.exe -sS -I "https://$primaryAlias/api/healthz"');
+    expect(script).toContain('"HTTP/.* 200"');
     expect(script).toContain("vercel alias set");
+    expect(script).toContain("Restore-Aliases");
+    expect(script).toContain("Restoring $ChangedAlias");
     expect(script).toContain("nitsyclaw.vercel.app");
     expect(script).toContain("nitsyclaw-dashboard.vercel.app");
     expect(script).not.toMatch(/vercel\s+deploy\s+--prod/i);

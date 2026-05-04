@@ -11,6 +11,8 @@ import { requireSameOrigin } from "../../../../lib/request-origin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const GLOBAL_LOGIN_FAILURE_KEY = "global:dashboard-login";
+const NO_STORE = { "Cache-Control": "no-store" };
+const GLOBAL_LOGIN_MAX_FAILURES = 50;
 
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
@@ -21,26 +23,37 @@ export async function POST(request: Request): Promise<Response> {
   if (!isDashboardAuthConfigured({ nodeEnv: process.env.NODE_ENV, dashboardPassword: expectedPassword })) {
     return new Response("Dashboard auth is not configured", {
       status: 503,
-      headers: { "Cache-Control": "no-store" },
+      headers: NO_STORE,
     });
   }
 
-  const form = await request.formData();
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return new Response("Bad request", { status: 400, headers: NO_STORE });
+  }
   const user = String(form.get("user") ?? "");
   const password = String(form.get("password") ?? "");
   const next = sanitizeNext(String(form.get("next") ?? "/"));
   const clientKey = `ip:${clientKeyFromRequest(request)}`;
 
-  const clientState = await getDashboardLoginAttemptState(clientKey);
-  if (clientState.lockedUntilMs && clientState.lockedUntilMs > Date.now()) {
+  const now = Date.now();
+  const [clientState, globalState] = await Promise.all([
+    getDashboardLoginAttemptState(clientKey, now),
+    getDashboardLoginAttemptState(GLOBAL_LOGIN_FAILURE_KEY, now),
+  ]);
+  if (
+    (clientState.lockedUntilMs && clientState.lockedUntilMs > now) ||
+    (globalState.lockedUntilMs && globalState.lockedUntilMs > now)
+  ) {
     return redirectToLogin("locked", next, 303);
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
-    const globalState = await getDashboardLoginAttemptState(GLOBAL_LOGIN_FAILURE_KEY);
     const [updatedClient, updatedGlobal] = await Promise.all([
       recordDashboardLoginFailure(clientKey),
-      recordDashboardLoginFailure(GLOBAL_LOGIN_FAILURE_KEY),
+      recordDashboardLoginFailure(GLOBAL_LOGIN_FAILURE_KEY, now, GLOBAL_LOGIN_MAX_FAILURES),
     ]);
     return redirectToLogin(
       updatedClient.lockedUntilMs || updatedGlobal.lockedUntilMs || (globalState.lockedUntilMs && globalState.lockedUntilMs > Date.now())

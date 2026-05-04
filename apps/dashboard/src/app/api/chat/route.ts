@@ -36,6 +36,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const NO_STORE = { "Cache-Control": "no-store" };
+const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
+
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : undefined;
@@ -127,8 +130,7 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
         body: JSON.stringify({ model: "text-embedding-3-small", input: text }),
       });
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`OpenAI embedding ${res.status}: ${body.slice(0, 200)}`);
+        throw new Error(`OpenAI embedding failed status=${res.status}`);
       }
       const json = (await res.json()) as { data: Array<{ embedding: number[] }> };
       return json.data[0]?.embedding ?? [];
@@ -179,25 +181,25 @@ export async function POST(req: Request) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { reply: "Server is missing ANTHROPIC_API_KEY env var." },
-      { status: 500 },
+      { reply: CHAT_CONFIG_ERROR },
+      { status: 503, headers: NO_STORE },
     );
   }
 
   const lengthError = validateContentLength(req.headers.get("content-length"));
   if (lengthError) {
-    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status });
+    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status, headers: NO_STORE });
   }
 
   let rawBody: unknown;
   try {
     rawBody = await req.json();
   } catch {
-    return NextResponse.json({ reply: "Bad request" }, { status: 400 });
+    return NextResponse.json({ reply: "Bad request" }, { status: 400, headers: NO_STORE });
   }
   const parsedBody = validateChatBody(rawBody);
   if (!parsedBody.ok) {
-    return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status });
+    return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status, headers: NO_STORE });
   }
   const last = parsedBody.last;
 
@@ -241,13 +243,13 @@ export async function POST(req: Request) {
       } catch (persistErr) {
         const configError = publicConfigErrorOrNull(persistErr);
         if (configError) {
-          return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+          return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
         }
       }
       return NextResponse.json({
         reply,
         meta: { rounds: 0, tools: [{ name: "request_feature", success: true }], featureId: row.id },
-      });
+      }, { headers: NO_STORE });
     }
 
     // Cross-surface history pulled from DB — beats client-supplied history because
@@ -284,7 +286,7 @@ export async function POST(req: Request) {
     } catch (persistErr) {
       const configError = publicConfigErrorOrNull(persistErr);
       if (configError) {
-        return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+        return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
       }
       console.error("[chat] persist failed", persistErr);
       // Non-fatal — still return the reply.
@@ -297,17 +299,17 @@ export async function POST(req: Request) {
         tools: result.toolCalls.map((c) => ({ name: c.name, success: c.success })),
         historyLoaded: history.length,
       },
-    });
+    }, { headers: NO_STORE });
   } catch (e: unknown) {
     const configError = publicConfigErrorOrNull(e);
     if (configError) {
-      return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+      return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
     }
     console.error("[chat] agent failed", e);
     const failure = publicServerError("I hit a server problem while answering. Try again shortly.");
     return NextResponse.json(
       { reply: failure.reply },
-      { status: failure.status },
+      { status: failure.status, headers: NO_STORE },
     );
   }
 }

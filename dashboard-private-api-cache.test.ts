@@ -31,4 +31,13 @@ describe("dashboard private API cache policy", () => {
 
     expect(source).toContain('response.headers.set("Cache-Control", "no-store")');
   });
+
+  test("chat APIs disable caching on private success responses", () => {
+    const chatSource = readFileSync("apps/dashboard/src/app/api/chat/route.ts", "utf8");
+    const streamSource = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
+
+    expect(chatSource).toContain("}, { headers: NO_STORE });");
+    expect(streamSource).toContain('"Cache-Control": "no-store, no-transform"');
+    expect(streamSource).not.toContain('"Cache-Control": "no-cache, no-transform"');
+  });
 });
