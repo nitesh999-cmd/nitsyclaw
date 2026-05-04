@@ -1,11 +1,11 @@
 # Graph Report - NitsyClaw  (2026-05-04)
 
 ## Corpus Check
-- 181 files · ~93,233 words
+- 182 files · ~93,520 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 509 nodes · 1115 edges · 15 communities detected
+- 510 nodes · 1115 edges · 15 communities detected
 - Extraction: 83% EXTRACTED · 17% INFERRED · 0% AMBIGUOUS · INFERRED: 193 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -122,7 +122,7 @@ Nodes (2): Get-DescendantProcessIds(), Stop-ProcessTree()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `getDb()` connect `Community 4` to `Community 1`, `Community 2`, `Community 6`, `Community 8`, `Community 12`?**
-  _High betweenness centrality (0.185) - this node is a cross-community bridge._
+  _High betweenness centrality (0.184) - this node is a cross-community bridge._
 - **Why does `main()` connect `Community 6` to `Community 4`?**
   _High betweenness centrality (0.109) - this node is a cross-community bridge._
 - **Why does `hashPhone()` connect `Community 3` to `Community 0`, `Community 8`, `Community 2`, `Community 7`?**

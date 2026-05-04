@@ -1050,3 +1050,29 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm test` passed: 48 files, 207 tests.
 - `npm run build` passed for bot and dashboard.
 - `python -m graphify update .` rebuilt the graph: 509 nodes, 1115 edges, 68 communities.
+
+---
+
+## 40. Session 29 (2026-05-04) - NWP CI workflow hardening
+
+**Goal:** Continue the NWP build queue by removing a CI failure risk that would block release confidence.
+
+**What changed:**
+- Confirmed the shared-to-bot dynamic import refactor from backlog Priority 1.1 is already present in current code: shared features use `AgentDeps.aggregator`, bot wires real aggregators, and dashboard leaves external account aggregation unavailable.
+- Fixed `.github/workflows/ci.yml` by removing empty `with:` blocks under `pnpm/action-setup@v4`.
+- Added `ci-workflow.test.ts` to guard against empty GitHub Actions `with:` blocks returning.
+- Kept pnpm setup aligned with the root `packageManager` value (`pnpm@10.33.2`) instead of hardcoding a second pnpm version in CI.
+
+**Why:**
+- Empty YAML blocks can break CI before tests run.
+- `pnpm/action-setup` documents that `version` is optional when `package.json` has a `packageManager` field, so one source of truth is enough.
+- Source: https://github.com/pnpm/action-setup
+
+**Verification:**
+- Red first: `npm test -- ci-workflow.test.ts` failed on empty `with:` lines `14` and `35`.
+- Green after fix: `npm test -- ci-workflow.test.ts` passed: 2 tests.
+- `npm test` passed: 49 files, 209 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm run lint` passed with existing warnings only: 0 errors, 115 warnings.
+- `npm run build` passed for bot and dashboard.
+- `python -m graphify update .` rebuilt the graph: 510 nodes, 1115 edges, 69 communities.

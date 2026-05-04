@@ -120,8 +120,8 @@ Touches all 7 pages (`/`, `/chat`, `/conversations`, `/memory`, `/reminders`, `/
 ### 5.1 Rotate exposed API keys
 Mind.md §11 says: ANTHROPIC_API_KEY, OPENAI_API_KEY, Supabase password were pasted in chat earlier. User said "deferred until things get serious". Generate new keys for all three; update Vercel env vars; update local `.env.local`; restart bot.
 
-### 5.2 Fix CI workflow YAML
-`.github/workflows/ci.yml` has empty `with:` blocks (lines 14, 35) after we removed `version: 9` to fix pnpm conflict. Cosmetic fix: remove the bare `with:` lines entirely. Add `packageManager: pnpm@9.12.0` to the action call (which is what pnpm/action-setup uses by default when `version` omitted).
+### 5.2 Fix CI workflow YAML — DONE 2026-05-04 (session 29)
+`.github/workflows/ci.yml` no longer has empty `with:` blocks under `pnpm/action-setup@v4`. The workflow now relies on the existing root `packageManager` field (`pnpm@10.33.2`) in `package.json`, which `pnpm/action-setup` supports when `version` is omitted. Added `ci-workflow.test.ts` so the empty-block regression cannot return silently.
 
 ### 5.3 Add a CLAUDE.md to project root
 Create `C:\Users\Nitesh\projects\NitsyClaw\CLAUDE.md` that imports NWP-CONSTITUTION-v1.2.md plus pointers to mind.md, Constitution, parked tasks, handoff. Means future Claude Code sessions auto-onboard.
