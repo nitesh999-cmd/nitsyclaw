@@ -55,7 +55,8 @@ export default async function HealthPage() {
   try {
     data = await loadHealth();
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    console.error("[health] load failed", e);
+    error = "Health check failed. Check server logs.";
   }
 
   const rows = [

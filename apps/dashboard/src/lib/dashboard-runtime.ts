@@ -17,13 +17,24 @@ export function encryptDashboardText(text: string, env: NodeJS.ProcessEnv = proc
   return encryptForStorage(text, env);
 }
 
-export function publicConfigError(error: unknown): { reply: string; status: number } {
+export function publicConfigErrorOrNull(error: unknown): { reply: string; status: number } | null {
   const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("DATABASE_URL")) {
+    return { reply: "Dashboard database is not configured.", status: 503 };
+  }
   if (message.includes("WHATSAPP_OWNER_NUMBER")) {
     return { reply: "Dashboard owner identity is not configured.", status: 503 };
   }
   if (message.includes("ENCRYPTION_KEY")) {
     return { reply: "Dashboard encryption is not configured.", status: 503 };
   }
-  return { reply: "Dashboard configuration is incomplete.", status: 503 };
+  return null;
+}
+
+export function publicConfigError(error: unknown): { reply: string; status: number } {
+  return publicConfigErrorOrNull(error) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
+}
+
+export function publicServerError(reply = "I hit a server problem. Try again shortly."): { reply: string; status: number } {
+  return { reply, status: 500 };
 }

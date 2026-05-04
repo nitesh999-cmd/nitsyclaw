@@ -19,6 +19,7 @@ logs
 **/.env
 **/.env.*
 google-credentials.json
+google-token*.json
 google-token.json
 google-token-*.json
 ms-token.json

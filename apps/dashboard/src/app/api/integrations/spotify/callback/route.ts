@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity, publicConfigError } from "../../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 import {
   exchangeSpotifyCode,
   getSpotifyProfile,
@@ -40,15 +40,24 @@ export async function GET(req: Request) {
     db = getDb();
     ({ ownerHash } = getOwnerIdentity());
   } catch (e) {
-    const configError = publicConfigError(e);
+    const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return NextResponse.json(
       { ok: false, error: configError.reply },
       { status: configError.status, headers: NO_STORE },
     );
   }
 
-  const token = await exchangeSpotifyCode(code);
-  await saveSpotifyConnection({ db, ownerHash, token, metadata: { connectedAt: new Date().toISOString() } });
+  let token: Awaited<ReturnType<typeof exchangeSpotifyCode>>;
+  try {
+    token = await exchangeSpotifyCode(code);
+    await saveSpotifyConnection({ db, ownerHash, token, metadata: { connectedAt: new Date().toISOString() } });
+  } catch (e) {
+    console.error("[spotify/callback] token exchange or save failed", e);
+    return NextResponse.json(
+      { ok: false, error: "Spotify connection failed. Try connecting again." },
+      { status: 502, headers: NO_STORE },
+    );
+  }
 
   let profile: Record<string, unknown> = {};
   try {

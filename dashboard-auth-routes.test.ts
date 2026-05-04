@@ -14,6 +14,14 @@ describe("dashboard auth routes", () => {
     }
   });
 
+  it("bounds and normalizes durable login lockout keys", () => {
+    const source = readFileSync("apps/dashboard/src/app/api/auth/login/route.ts", "utf8");
+
+    expect(source).toContain("clientKeyFromRequest");
+    expect(source).toContain("slice(0, 128)");
+    expect(source).toContain("replace(/[^\\w:. -]/g");
+  });
+
   it("keeps middleware security headers on protected responses", () => {
     const source = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
 

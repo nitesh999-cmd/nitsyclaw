@@ -23,7 +23,12 @@ import { getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
 import { validateChatBody, validateContentLength } from "../../../../lib/chat-validation";
-import { encryptDashboardText, getOwnerIdentity, publicConfigError } from "../../../../lib/dashboard-runtime";
+import {
+  encryptDashboardText,
+  getOwnerIdentity,
+  publicConfigErrorOrNull,
+  publicServerError,
+} from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 import type {
   AgentDeps,
@@ -201,7 +206,7 @@ export async function POST(req: Request) {
   try {
     ({ ownerPhone, ownerHash } = getOwnerIdentity());
   } catch (e) {
-    const configError = publicConfigError(e);
+    const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return NextResponse.json({ reply: configError.reply }, { status: configError.status });
   }
 
@@ -229,15 +234,15 @@ export async function POST(req: Request) {
         await insertMessage(deps.db, { direction: "in", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(last.content) });
         await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(reply) });
       } catch (persistErr) {
-        const configError = publicConfigError(persistErr);
-        if (configError.status === 503) return streamSingleEvent({ type: "error", message: configError.reply });
+        const configError = publicConfigErrorOrNull(persistErr);
+        if (configError) return streamSingleEvent({ type: "error", message: configError.reply });
       }
       return streamSingleEvent({ type: "done", reply, featureId: row.id });
     } catch (e: unknown) {
-      const configError = publicConfigError(e);
-      if (configError.status === 503) return streamSingleEvent({ type: "error", message: configError.reply });
-      const msg = e instanceof Error ? e.message : String(e);
-      return streamSingleEvent({ type: "error", message: msg });
+      console.error("[chat/stream] addfeature failed", e);
+      const configError = publicConfigErrorOrNull(e);
+      if (configError) return streamSingleEvent({ type: "error", message: configError.reply });
+      return streamSingleEvent({ type: "error", message: publicServerError("I could not queue that feature right now. Try again shortly.").reply });
     }
   }
 
@@ -318,7 +323,7 @@ export async function POST(req: Request) {
               const err = e instanceof Error ? e.message : String(e);
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
               toolResultParts.push(`[tool ${call.name}] error: ${err}`);
-              send({ type: "tool_result", name: call.name, success: false, error: err });
+              send({ type: "tool_result", name: call.name, success: false, error: "Tool failed." });
               await logAudit(deps.db, {
                 actor: "agent",
                 tool: call.name,
@@ -372,8 +377,8 @@ export async function POST(req: Request) {
           await insertMessage(deps.db, { direction: "in", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(last.content) });
           await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(finalText || "(empty reply)") });
         } catch (persistErr) {
-          const configError = publicConfigError(persistErr);
-          if (configError.status === 503) {
+          const configError = publicConfigErrorOrNull(persistErr);
+          if (configError) {
             send({ type: "error", message: configError.reply });
             return;
           }
@@ -389,13 +394,13 @@ export async function POST(req: Request) {
           },
         });
       } catch (e: unknown) {
-        const configError = publicConfigError(e);
-        if (configError.status === 503) {
+        const configError = publicConfigErrorOrNull(e);
+        if (configError) {
           send({ type: "error", message: configError.reply });
           return;
         }
-        const msg = e instanceof Error ? e.message : String(e);
-        send({ type: "error", message: msg });
+        console.error("[chat/stream] stream failed", e);
+        send({ type: "error", message: publicServerError("I hit a server problem while answering. Try again shortly.").reply });
       } finally {
         controller.close();
       }

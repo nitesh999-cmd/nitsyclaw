@@ -65,12 +65,13 @@ function sanitizeNext(value: string): string {
 }
 
 function clientKeyFromRequest(request: Request): string {
-  return (
+  const raw = (
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
     request.headers.get("user-agent") ||
     "unknown"
   );
+  return raw.replace(/[^\w:. -]/g, "").slice(0, 128) || "unknown";
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, getConnectedAccount } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity, publicConfigError } from "../../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export async function GET() {
   try {
     ({ ownerHash } = getOwnerIdentity());
   } catch (e) {
-    const configError = publicConfigError(e);
+    const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return NextResponse.json({
       provider: "spotify",
       configured: true,
@@ -39,11 +39,23 @@ export async function GET() {
     }, { status: configError.status, headers: NO_STORE });
   }
 
-  const db = getDb();
-  const account = await getConnectedAccount(db, {
-    provider: "spotify",
-    ownerHash,
-  });
+  let account: Awaited<ReturnType<typeof getConnectedAccount>>;
+  try {
+    const db = getDb();
+    account = await getConnectedAccount(db, {
+      provider: "spotify",
+      ownerHash,
+    });
+  } catch (e) {
+    console.error("[spotify/status] failed", e);
+    return NextResponse.json({
+      provider: "spotify",
+      configured: true,
+      connected: false,
+      status: "unavailable",
+      error: "Spotify status is unavailable. Check server logs.",
+    }, { status: 500, headers: NO_STORE });
+  }
 
   return NextResponse.json({
     provider: "spotify",

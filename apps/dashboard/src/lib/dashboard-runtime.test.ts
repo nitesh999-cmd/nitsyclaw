@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { encryptDashboardText, getOwnerIdentity, publicConfigError } from "./dashboard-runtime.js";
+import {
+  encryptDashboardText,
+  getOwnerIdentity,
+  publicConfigError,
+  publicConfigErrorOrNull,
+} from "./dashboard-runtime.js";
 
 describe("dashboard runtime guards", () => {
   it("fails closed when owner phone is missing", () => {
@@ -26,5 +31,9 @@ describe("dashboard runtime guards", () => {
       reply: "Dashboard owner identity is not configured.",
       status: 503,
     });
+  });
+
+  it("does not classify ordinary runtime errors as configuration errors", () => {
+    expect(publicConfigErrorOrNull(new Error("Anthropic 529 overloaded"))).toBeNull();
   });
 });

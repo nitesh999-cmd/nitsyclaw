@@ -14,7 +14,12 @@ import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
 import { validateChatBody, validateContentLength } from "../../../lib/chat-validation";
-import { encryptDashboardText, getOwnerIdentity, publicConfigError } from "../../../lib/dashboard-runtime";
+import {
+  encryptDashboardText,
+  getOwnerIdentity,
+  publicConfigErrorOrNull,
+  publicServerError,
+} from "../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../lib/request-origin";
 import type {
   AgentDeps,
@@ -239,8 +244,8 @@ export async function POST(req: Request) {
           body: encryptDashboardText(reply),
         });
       } catch (persistErr) {
-        const configError = publicConfigError(persistErr);
-        if (configError.status === 503) {
+        const configError = publicConfigErrorOrNull(persistErr);
+        if (configError) {
           return NextResponse.json({ reply: configError.reply }, { status: configError.status });
         }
       }
@@ -282,8 +287,8 @@ export async function POST(req: Request) {
         body: encryptDashboardText(replyText),
       });
     } catch (persistErr) {
-      const configError = publicConfigError(persistErr);
-      if (configError.status === 503) {
+      const configError = publicConfigErrorOrNull(persistErr);
+      if (configError) {
         return NextResponse.json({ reply: configError.reply }, { status: configError.status });
       }
       console.error("[chat] persist failed", persistErr);
@@ -299,14 +304,15 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: unknown) {
-    const configError = publicConfigError(e);
-    if (configError.status === 503) {
+    const configError = publicConfigErrorOrNull(e);
+    if (configError) {
       return NextResponse.json({ reply: configError.reply }, { status: configError.status });
     }
-    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[chat] agent failed", e);
+    const failure = publicServerError("I hit a server problem while answering. Try again shortly.");
     return NextResponse.json(
-      { reply: `Agent error: ${msg}` },
-      { status: 500 },
+      { reply: failure.reply },
+      { status: failure.status },
     );
   }
 }

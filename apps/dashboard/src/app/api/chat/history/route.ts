@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@nitsyclaw/shared/db";
 import { loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
-import { getOwnerIdentity, publicConfigError } from "../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +22,8 @@ export async function GET(req: Request) {
     const history = await loadCrossSurfaceHistory(db, ownerHash, limit);
     return NextResponse.json({ messages: history }, { headers: NO_STORE });
   } catch (e: unknown) {
-    const configError = publicConfigError(e);
-    if (configError.status === 503) {
+    const configError = publicConfigErrorOrNull(e);
+    if (configError) {
       return NextResponse.json(
         { messages: [], error: configError.reply },
         { status: configError.status, headers: NO_STORE },

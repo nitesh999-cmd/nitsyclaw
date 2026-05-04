@@ -74,6 +74,11 @@ export class Router {
     pushNotify(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
   }
 
+  private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
+    console.error(`[router] ${label} failed`, error);
+    await this.sendAndPersist(userMessage);
+  }
+
   async handle(msg: InboundMessage): Promise<void> {
     if (msg.from !== this.ownerPhone) return; // R2 — only owner
 
@@ -116,7 +121,7 @@ export class Router {
           `📝 Transcribed. I will reply in English.\n${transcript}`,
         );
       } catch (e) {
-        await this.sendAndPersist(`Couldn't transcribe: ${(e as Error).message}`);
+        await this.sendPublicFailure("voice transcription", "Couldn't transcribe that voice note. I logged it; try again shortly.", e);
         return;
       }
     }
@@ -154,7 +159,7 @@ export class Router {
             `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder", or describe what you want.`,
           );
         } catch (e2) {
-          await this.sendAndPersist(`Couldn't read that image: ${(e2 as Error).message}`);
+          await this.sendPublicFailure("image read", "Couldn't read that image. I logged it; try again shortly.", e2);
         }
       }
       return;
@@ -183,7 +188,7 @@ export class Router {
           `✅ Queued! ID: ${row.id.slice(0, 8)}. Build agent picks it up at next run.`,
         );
       } catch (e) {
-        await this.sendAndPersist(`Couldn't queue: ${(e as Error).message}`);
+        await this.sendPublicFailure("feature queue", "Couldn't queue that feature. I logged it; try again shortly.", e);
       }
       return;
     }
@@ -209,7 +214,7 @@ export class Router {
             : `Location updated: ${out?.location ?? locationShortcut.city}.`,
         );
       } catch (locationError) {
-        await this.sendAndPersist(`Couldn't save location: ${(locationError as Error).message}`);
+        await this.sendPublicFailure("location save", "Couldn't save that location. I logged it; try again shortly.", locationError);
       }
       return;
     }
@@ -230,7 +235,7 @@ export class Router {
           `Logged as bug ${row.id.slice(0, 8)}. I captured it as existing broken behavior, not a new feature.`,
         );
       } catch (bugError) {
-        await this.sendAndPersist(`Couldn't log bug: ${(bugError as Error).message}`);
+        await this.sendPublicFailure("bug queue", "Couldn't log that bug. I logged it; try again shortly.", bugError);
       }
       return;
     }
@@ -250,7 +255,7 @@ export class Router {
             : "No pending feature or bug queue items.",
         );
       } catch (queueError) {
-        await this.sendAndPersist(`Couldn't load feature queue: ${(queueError as Error).message}`);
+        await this.sendPublicFailure("feature queue load", "Couldn't load the feature queue. I logged it; try again shortly.", queueError);
       }
       return;
     }
@@ -281,7 +286,7 @@ export class Router {
         );
         await runDailyBuildAgent(this.deps, this.ownerPhone);
       } catch (e) {
-        await this.sendAndPersist(`Build agent run failed: ${(e as Error).message}`);
+        await this.sendPublicFailure("build agent run", "Build agent run failed. I logged it; try again shortly.", e);
       }
       return;
     }

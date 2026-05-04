@@ -59,6 +59,14 @@
 
 ## What got fixed/built this session (highlights)
 
+### 2026-05-05 gold hardening addendum
+
+- Dashboard chat, streaming chat, health, data export/delete, and Spotify integration paths now return safe user-facing failures instead of raw internal/provider/DB exception text.
+- WhatsApp bot failure paths now log raw errors server-side and reply with short safe messages.
+- Dashboard login lockout keys are bounded and normalized before durable Postgres storage.
+- Vercel/Docker deploy contexts now explicitly exclude local OAuth credentials/tokens and WhatsApp session state, with regression coverage.
+- Current verification before the final post-change release gate: targeted tests, dashboard/bot/shared typecheck, and lint passed.
+
 1. **WhatsApp bot was crashing on every message** — silly bug in self-chat filter (`from` variable not declared). Fixed.
 2. **Same-page across surfaces** — dashboard chat used to deflect "go to WhatsApp" because of version mismatch. Now both run the same agent, share memory, see each other's conversations.
 3. **Smart prompt** — model now answers general knowledge directly instead of saying "I can't help with that". Real web search built in.

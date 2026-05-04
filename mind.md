@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-02 (session 15 - product control plane sprint)
+> Updated: 2026-05-05 (session 36 - gold hardening pass)
 
 ---
 
@@ -1254,3 +1254,34 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm test` passed: 55 files, 225 tests.
 - `npm run build` passed for bot and dashboard.
 - `npm run test:e2e` passed: 8 Playwright tests.
+
+---
+
+## 47. Session 36 (2026-05-05) - Gold hardening pass
+
+**Goal:** Make the current local build safer for personal use and closer to paid-app readiness before the next morning.
+
+**What changed:**
+- Removed raw internal exception messages from dashboard chat, streaming chat, data export/delete, health, and Spotify integration responses.
+- Split known public configuration errors from ordinary runtime failures so overloaded APIs/DB/provider errors do not get mislabelled as "configuration incomplete".
+- Logged raw failures server-side while returning short safe browser/WhatsApp messages to the user.
+- Hardened WhatsApp router failure replies for voice, image, feature queue, location, bug queue, queue listing, and build-agent paths.
+- Removed environment-shape detail from the shared DB constructor error.
+- Bounded and normalized durable dashboard login lockout keys before storing them in Postgres.
+- Added deploy ignore coverage for `google-credentials.json` in `.vercelignore` and stricter token ignore coverage in `.dockerignore`.
+- Added regression tests: `dashboard-safe-errors.test.ts`, `bot-safe-errors.test.ts`, and `release-ignore-policy.test.ts`.
+- Added Constitution R52.
+
+**Verification so far:**
+- `pnpm run release:preflight` passed before changes: lint, typecheck, build, 243 unit tests, 8 Playwright tests, and audit.
+- `pnpm test -- dashboard-safe-errors.test.ts apps/dashboard/src/lib/dashboard-runtime.test.ts dashboard-private-api-cache.test.ts` passed.
+- `pnpm test -- release-ignore-policy.test.ts script-safety.test.ts dashboard-safe-errors.test.ts` passed.
+- `pnpm test -- bot-safe-errors.test.ts apps/bot/test/router.integration.test.ts router-send-failure.test.ts` passed.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed.
+- `pnpm --filter @nitsyclaw/shared typecheck` passed.
+- `pnpm run lint` passed after the hardening edits.
+
+**Remaining risk:**
+- Full post-change `pnpm run release:preflight` still needs to be rerun after this doc update.
+- GitHub push/deploy may still be blocked by local GitHub auth; this repo is already ahead of origin.

@@ -52,25 +52,33 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = getDb();
-  if (scope === "memories") {
-    await db.delete(memories);
-  } else if (scope === "conversations") {
-    await db.delete(messages);
-  } else {
-    await Promise.all([
-      db.delete(auditLog),
-      db.delete(briefs),
-      db.delete(confirmations),
-      db.delete(expenses),
-      db.delete(featureRequests),
-      db.delete(memories),
-      db.delete(messages),
-      db.delete(profileContext),
-      db.delete(reminders),
-      db.delete(connectedAccounts),
-      db.delete(systemHeartbeats),
-    ]);
+  try {
+    const db = getDb();
+    if (scope === "memories") {
+      await db.delete(memories);
+    } else if (scope === "conversations") {
+      await db.delete(messages);
+    } else {
+      await Promise.all([
+        db.delete(auditLog),
+        db.delete(briefs),
+        db.delete(confirmations),
+        db.delete(expenses),
+        db.delete(featureRequests),
+        db.delete(memories),
+        db.delete(messages),
+        db.delete(profileContext),
+        db.delete(reminders),
+        db.delete(connectedAccounts),
+        db.delete(systemHeartbeats),
+      ]);
+    }
+  } catch (e) {
+    console.error("[data/delete] failed", e);
+    return NextResponse.json(
+      { error: "Data deletion failed. Check server logs." },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   return NextResponse.json({
