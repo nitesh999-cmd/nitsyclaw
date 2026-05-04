@@ -33,6 +33,7 @@ function isAuthPath(pathname: string): boolean {
 }
 
 function withSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", "no-store");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "same-origin");

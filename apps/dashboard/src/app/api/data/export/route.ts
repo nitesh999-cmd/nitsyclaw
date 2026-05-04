@@ -14,6 +14,10 @@ import {
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
 import { desc } from "drizzle-orm";
+import {
+  redactAuditExportRows,
+  redactConnectedAccountExportRows,
+} from "../../../../lib/data-export-redaction";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,14 +62,10 @@ export async function GET() {
         expenses: expenseRows,
         briefs: briefRows,
         confirmations: confirmationRows,
-        auditLog: auditRows,
+        auditLog: redactAuditExportRows(auditRows),
         featureRequests: featureRows,
         profileContext: profileRows,
-        connectedAccounts: accountRows.map((row) => ({
-          ...row,
-          accessToken: "[redacted]",
-          refreshToken: row.refreshToken ? "[redacted]" : null,
-        })),
+        connectedAccounts: redactConnectedAccountExportRows(accountRows),
         systemHeartbeats: heartbeatRows,
       },
     },

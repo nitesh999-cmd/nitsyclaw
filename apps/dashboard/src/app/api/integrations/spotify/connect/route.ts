@@ -5,6 +5,8 @@ import { buildSpotifyAuthorizeUrl } from "@nitsyclaw/shared/integrations/spotify
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { "Cache-Control": "no-store" };
+
 function missingEnv(): string[] {
   return ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI"].filter(
     (key) => !process.env[key],
@@ -20,7 +22,7 @@ export async function GET() {
         error: "Spotify is not configured on the server.",
         missing,
       },
-      { status: 503 },
+      { status: 503, headers: NO_STORE },
     );
   }
 
@@ -33,5 +35,6 @@ export async function GET() {
     path: "/",
     maxAge: 10 * 60,
   });
+  res.headers.set("Cache-Control", "no-store");
   return res;
 }

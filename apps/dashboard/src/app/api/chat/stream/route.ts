@@ -420,6 +420,9 @@ function streamSingleEvent(event: Record<string, unknown>): Response {
     },
   });
   return new Response(stream, {
-    headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   });
 }

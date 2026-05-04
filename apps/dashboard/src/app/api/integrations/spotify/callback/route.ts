@@ -10,6 +10,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { "Cache-Control": "no-store" };
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -23,10 +25,13 @@ export async function GET(req: Request) {
     ?.slice("spotify_oauth_state=".length);
 
   if (error) {
-    return NextResponse.json({ ok: false, error }, { status: 400 });
+    return NextResponse.json({ ok: false, error }, { status: 400, headers: NO_STORE });
   }
   if (!code || !state || !cookieState || state !== cookieState) {
-    return NextResponse.json({ ok: false, error: "Invalid Spotify OAuth state." }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "Invalid Spotify OAuth state." },
+      { status: 400, headers: NO_STORE },
+    );
   }
 
   let db;
@@ -36,7 +41,10 @@ export async function GET(req: Request) {
     ({ ownerHash } = getOwnerIdentity());
   } catch (e) {
     const configError = publicConfigError(e);
-    return NextResponse.json({ ok: false, error: configError.reply }, { status: configError.status });
+    return NextResponse.json(
+      { ok: false, error: configError.reply },
+      { status: configError.status, headers: NO_STORE },
+    );
   }
 
   const token = await exchangeSpotifyCode(code);
@@ -58,5 +66,6 @@ export async function GET(req: Request) {
 
   const res = NextResponse.json({ ok: true, provider: "spotify", profile });
   res.cookies.delete("spotify_oauth_state");
+  res.headers.set("Cache-Control", "no-store");
   return res;
 }

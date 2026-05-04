@@ -260,6 +260,16 @@ Runtime files under `apps/*/src` and `packages/*/src` must stay free of lint war
 - *Source:* 2026-05-04 top-five cleanup — removed production-code lint warnings from Microsoft Graph, WhatsApp client, feature registry, receipt expense, email search, and Spotify integration
 - *Added:* 2026-05-04
 
+### R50 — Test code must not carry lint debt
+Test files and test helpers must stay lint-clean too. Explicit `any` in tests requires a named local type, a narrow interface, or a consciously exported fake/test type. Reasoning: warnings in tests train operators to ignore lint output, which hides future production regressions.
+- *Source:* 2026-05-04 test-lint cleanup — removed remaining test-only explicit `any` warnings and typed the fake DB helper
+- *Added:* 2026-05-04
+
+### R51 — Owner exports and private API responses are privacy-safe by default
+Owner data exports may include sensitive tables, but export routes MUST redact credentials, tokens, raw tool inputs/outputs, private message bodies, emails, phone numbers, and sensitive audit errors at response time, including historical rows created before sanitizer improvements. Private dashboard API responses, OAuth/status endpoints, middleware auth gates, and protected-page responses MUST set `Cache-Control: no-store`, and unexpected server errors returned to the browser MUST use user-safe generic wording unless a specific public configuration error is intended.
+- *Source:* 2026-05-04 top-20 hardening batch — `/api/data/export` could still return historical raw audit payloads; private GET routes lacked consistent no-store headers
+- *Added:* 2026-05-04
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -324,6 +334,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-04 | Session auth was missing logout, explicit migration, security headers, and a clean login shell | R48 | Added logout route, auth-attempt SQL migration, middleware security headers, login-shell split, and regression tests |
 | 2026-05-04 | Production runtime files still emitted lint warnings after launch hardening | R49 | Removed production-code warnings; remaining lint warnings are confined to tests |
 | 2026-05-04 | Test-only lint warnings hid future real warning regressions | R50 | Test helpers and tests must stay lint-clean too; explicit `any` requires a named local type or narrow cast |
+| 2026-05-04 | Owner export could include historical raw audit payloads and some private GET routes lacked no-store | R51 | Export-time redaction now covers audit/connected accounts; private API route inventory enforces no-store |
 
 ---
 

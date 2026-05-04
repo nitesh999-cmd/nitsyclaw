@@ -321,7 +321,7 @@ const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
 const TOKEN_RE = /\b(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,}\b/g;
 
-function redactAuditString(value: string): string {
+export function redactAuditString(value: string): string {
   const redacted = value
     .replace(EMAIL_RE, "[redacted:email]")
     .replace(PHONE_RE, "[redacted:phone]")

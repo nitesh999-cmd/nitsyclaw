@@ -9,6 +9,8 @@ import { getOwnerIdentity, publicConfigError } from "../../../../lib/dashboard-r
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { "Cache-Control": "no-store" };
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const rawLimit = parseInt(url.searchParams.get("limit") ?? "20", 10);
@@ -18,13 +20,18 @@ export async function GET(req: Request) {
     const db = getDb();
     const { ownerHash } = getOwnerIdentity();
     const history = await loadCrossSurfaceHistory(db, ownerHash, limit);
-    return NextResponse.json({ messages: history });
+    return NextResponse.json({ messages: history }, { headers: NO_STORE });
   } catch (e: unknown) {
     const configError = publicConfigError(e);
     if (configError.status === 503) {
-      return NextResponse.json({ messages: [], error: configError.reply }, { status: configError.status });
+      return NextResponse.json(
+        { messages: [], error: configError.reply },
+        { status: configError.status, headers: NO_STORE },
+      );
     }
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ messages: [], error: msg }, { status: 500 });
+    return NextResponse.json(
+      { messages: [], error: "Unable to load chat history." },
+      { status: 500, headers: NO_STORE },
+    );
   }
 }

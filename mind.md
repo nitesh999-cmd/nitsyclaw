@@ -1229,3 +1229,28 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `corepack pnpm -r typecheck` passed.
 - `npm test` passed: 53 files, 221 tests.
 - `npm run build` passed for bot and dashboard.
+
+---
+
+## 46. Session 35 (2026-05-04) - Top 20 privacy and private API hardening batch
+
+**Goal:** Build the next 20 launch-readiness items as one targeted privacy/API hardening batch.
+
+**What changed:**
+- Added export-time redaction for historical `audit_log` rows so old raw tool inputs, outputs, emails, phones, message bodies, tokens, and error strings do not leak through `/api/data/export`.
+- Added export-time redaction for connected-account tokens and sensitive metadata.
+- Reused the shared audit sanitizer so future export and audit behavior stay aligned.
+- Added `Cache-Control: no-store` to private GET-style API responses for chat history and Spotify OAuth/status flows.
+- Added `Cache-Control: no-store` at the dashboard middleware security-header layer so auth gates and protected responses cannot be cached.
+- Removed raw internal exception messages from `/api/chat/history`; unexpected failures now return a generic user-safe error.
+- Added `data-export-redaction.test.ts` for historical audit and connected-account export redaction.
+- Added `dashboard-private-api-cache.test.ts` to enforce no-store on private dashboard GET routes, middleware auth gates, and chat-history error wording.
+- Added Constitution R51: owner exports and private API responses must be safe by default.
+
+**Verification:**
+- `npm test -- data-export-redaction.test.ts dashboard-private-api-cache.test.ts` passed: 2 files, 4 tests.
+- `npm run lint` passed with 0 warnings and 0 errors.
+- `corepack pnpm -r typecheck` passed.
+- `npm test` passed: 55 files, 225 tests.
+- `npm run build` passed for bot and dashboard.
+- `npm run test:e2e` passed: 8 Playwright tests.

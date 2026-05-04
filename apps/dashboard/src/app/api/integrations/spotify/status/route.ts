@@ -5,6 +5,8 @@ import { getOwnerIdentity, publicConfigError } from "../../../../../lib/dashboar
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { "Cache-Control": "no-store" };
+
 function configured() {
   return Boolean(
     process.env.SPOTIFY_CLIENT_ID &&
@@ -20,7 +22,7 @@ export async function GET() {
       configured: false,
       connected: false,
       status: "needs_server_env",
-    });
+    }, { headers: NO_STORE });
   }
 
   let ownerHash: string;
@@ -34,7 +36,7 @@ export async function GET() {
       connected: false,
       status: "needs_owner_env",
       error: configError.reply,
-    }, { status: configError.status });
+    }, { status: configError.status, headers: NO_STORE });
   }
 
   const db = getDb();
@@ -51,5 +53,5 @@ export async function GET() {
     expiresAt: account?.expiresAt?.toISOString() ?? null,
     scope: account?.scope ?? null,
     profile: account?.metadata ?? null,
-  });
+  }, { headers: NO_STORE });
 }
