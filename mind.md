@@ -1210,3 +1210,22 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm run lint` passed with 97 warnings, all in test files; production runtime warnings are gone.
 - `npm run build` passed for bot and dashboard.
 - `npm run test:e2e` passed: 8 Playwright tests.
+
+---
+
+## 45. Session 34 (2026-05-04) - Test lint debt cleanup
+
+**Goal:** Build the next highest-leverage quality item after production lint cleanup: make the test suite lint-clean too, so future real warnings are visible.
+
+**What changed:**
+- Typed the shared fake DB helper with `FakeDbRow`, `FakeDbState`, and `FakeDbWithState`.
+- Added `getFakeDbState()` so tests can inspect fake DB state without loose casts.
+- Removed explicit `any` casts from the high-volume router, confirmation rail, Spotify, receipt, voice, reminder, memory, history, personal-list, personal-context, agent-loop, and tool-registry tests.
+- Preserved the same fake DB runtime behavior; this is a test-safety/type-signal change, not a product behavior rewrite.
+- Added Constitution R50: lint-clean means zero warnings, including tests.
+
+**Verification:**
+- `npm run lint` passed with 0 warnings and 0 errors.
+- `corepack pnpm -r typecheck` passed.
+- `npm test` passed: 53 files, 221 tests.
+- `npm run build` passed for bot and dashboard.

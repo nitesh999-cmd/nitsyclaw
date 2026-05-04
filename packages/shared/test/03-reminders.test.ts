@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { planReminder, fireDueReminders } from "../src/features/03-reminders.js";
+import type { FakeDbState, FakeDbWithState } from "./helpers.js";
 import { makeFakeDb } from "./helpers.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 
@@ -25,8 +26,8 @@ describe("planReminder (pure)", () => {
 });
 
 describe("fireDueReminders", () => {
-  let db: any;
-  let state: any;
+  let db: FakeDbWithState;
+  let state: FakeDbState;
   let wa: MockWhatsAppClient;
   beforeEach(() => {
     ({ db, state } = makeFakeDb());

@@ -9,7 +9,7 @@ describe("transcribeAndStore", () => {
       audio: Buffer.from("non-empty"),
       mimetype: "audio/ogg",
       transcriber: fakeTranscriber,
-      db: db as any,
+      db,
     });
     expect(out.transcript).toContain("transcribed");
     expect(state.memories).toHaveLength(1);
@@ -24,7 +24,7 @@ describe("transcribeAndStore", () => {
         audio: Buffer.alloc(0),
         mimetype: "audio/ogg",
         transcriber: fakeTranscriber,
-        db: db as any,
+        db,
       }),
     ).rejects.toThrow(/empty audio/);
   });
@@ -33,7 +33,7 @@ describe("transcribeAndStore", () => {
     const { db } = makeFakeDb();
     const t = { async transcribe() { return "   "; } };
     await expect(
-      transcribeAndStore({ audio: Buffer.from("x"), mimetype: "audio/ogg", transcriber: t, db: db as any }),
+      transcribeAndStore({ audio: Buffer.from("x"), mimetype: "audio/ogg", transcriber: t, db }),
     ).rejects.toThrow(/empty/);
   });
 });

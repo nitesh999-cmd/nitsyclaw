@@ -1,10 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolveConfirmation, registerConfirmationRail } from "../src/features/09-confirmation-rail.js";
 import { ToolRegistry } from "../src/agent/tools.js";
-import { makeAgentDeps, makeFakeDb } from "./helpers.js";
+import { getFakeDbState, makeAgentDeps, makeFakeDb } from "./helpers.js";
 import type { CalendarClient } from "../src/agent/deps.js";
+import type { ToolContext } from "../src/agent/tools.js";
 
 const NOW = new Date("2026-04-25T08:00:00Z");
+type ToolOutput = Record<string, unknown> & {
+  action?: string;
+  calendar?: string;
+  decision?: string;
+  draftCreated?: boolean;
+  draftId?: string;
+  eventId?: string;
+  fallback?: string;
+  playlist?: { id?: string };
+  resolved?: boolean;
+  unavailable?: string;
+};
 
 describe("resolveConfirmation", () => {
   it("approves when reply is 'y' and confirmation pending", async () => {
@@ -17,7 +30,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db: db as any, reply: "yes", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
     expect(out?.decision).toBe("approved");
   });
 
@@ -31,7 +44,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db: db as any, reply: "no", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "no", now: NOW });
     expect(out?.decision).toBe("rejected");
   });
 
@@ -45,19 +58,19 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T07:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db: db as any, reply: "y", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "y", now: NOW });
     expect(out?.decision).toBe("expired");
   });
 
   it("returns null on non-y/n reply", async () => {
     const { db } = makeFakeDb();
-    const out = await resolveConfirmation({ db: db as any, reply: "maybe", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "maybe", now: NOW });
     expect(out).toBeNull();
   });
 
   it("returns null when nothing pending", async () => {
     const { db } = makeFakeDb();
-    const out = await resolveConfirmation({ db: db as any, reply: "y", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "y", now: NOW });
     expect(out).toBeNull();
   });
 
@@ -72,7 +85,7 @@ describe("resolveConfirmation", () => {
       createdAt: NOW,
     });
 
-    const out = await resolveConfirmation({ db: db as any, reply: "yes", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
 
     expect(out).toBeNull();
     expect(state.confirmations[0].status).toBe("pending");
@@ -102,24 +115,24 @@ describe("resolve_confirmation tool — calendar routing", () => {
       createEvent: googleSpy,
       ...(opts.outlookFn ? { createOutlookEvent: opts.outlookFn } : {}),
     };
-    const deps = makeAgentDeps({ db: db as any, calendar });
+    const deps = makeAgentDeps({ db, calendar });
     const registry = new ToolRegistry();
     registerConfirmationRail(registry);
     const tool = registry.get("resolve_confirmation")!;
     return { db, deps, tool, googleSpy };
   }
 
-  const ctx = (deps: ReturnType<typeof makeAgentDeps>) => ({
+  const ctx = (deps: ReturnType<typeof makeAgentDeps>): ToolContext => ({
     deps,
     now: NOW,
     userPhone: "+61000",
-    surface: "whatsapp" as const,
+    timezone: "Australia/Melbourne",
   });
 
   it("routes outlook payload to createOutlookEvent when method exists", async () => {
     const outlookSpy = vi.fn(async () => ({ id: "o1", htmlLink: "https://outlook/o" }));
     const { tool, deps, googleSpy } = setup({ calendarPayload: "outlook", outlookFn: outlookSpy });
-    const out: any = await tool.handler({ reply: "yes" }, ctx(deps) as any);
+    const out = await tool.handler({ reply: "yes" }, ctx(deps)) as ToolOutput;
     expect(outlookSpy).toHaveBeenCalledOnce();
     expect(googleSpy).not.toHaveBeenCalled();
     expect(out.calendar).toBe("outlook");
@@ -128,7 +141,7 @@ describe("resolve_confirmation tool — calendar routing", () => {
 
   it("falls back to Google with note when outlook requested but unavailable on surface", async () => {
     const { tool, deps, googleSpy } = setup({ calendarPayload: "outlook" });
-    const out: any = await tool.handler({ reply: "yes" }, ctx(deps) as any);
+    const out = await tool.handler({ reply: "yes" }, ctx(deps)) as ToolOutput;
     expect(googleSpy).toHaveBeenCalledOnce();
     expect(out.calendar).toBe("google");
     expect(out.fallback).toMatch(/outlook unavailable/i);
@@ -136,7 +149,7 @@ describe("resolve_confirmation tool — calendar routing", () => {
 
   it("defaults to Google when payload omits calendar field", async () => {
     const { tool, deps, googleSpy } = setup({});
-    const out: any = await tool.handler({ reply: "yes" }, ctx(deps) as any);
+    const out = await tool.handler({ reply: "yes" }, ctx(deps)) as ToolOutput;
     expect(googleSpy).toHaveBeenCalledOnce();
     expect(out.calendar).toBe("google");
   });
@@ -160,13 +173,13 @@ describe("resolve_confirmation tool — email draft routing", () => {
     });
     const createDraft = vi.fn(async () => ({ draftId: "draft-1", webLink: "https://mail/draft-1" }));
     const deps = makeAgentDeps({
-      db: db as any,
+      db,
       ...(opts.withAdapter ? { emailDraft: { createDraft } } : {}),
     });
     const registry = new ToolRegistry();
     registerConfirmationRail(registry);
     const tool = registry.get("resolve_confirmation")!;
-    const ctx = {
+    const ctx: ToolContext = {
       deps,
       now: NOW,
       userPhone: "+61000",
@@ -178,7 +191,7 @@ describe("resolve_confirmation tool — email draft routing", () => {
   it("creates a draft through the configured adapter after approval", async () => {
     const { tool, ctx, createDraft } = setup({ withAdapter: true });
 
-    const out: any = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx as any);
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx) as ToolOutput;
 
     expect(createDraft).toHaveBeenCalledOnce();
     expect(out).toMatchObject({
@@ -193,7 +206,7 @@ describe("resolve_confirmation tool — email draft routing", () => {
   it("returns unavailable instead of pretending a draft was created when adapter is missing", async () => {
     const { tool, ctx } = setup({});
 
-    const out: any = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx as any);
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx) as ToolOutput;
 
     expect(out).toMatchObject({
       resolved: true,
@@ -202,7 +215,7 @@ describe("resolve_confirmation tool — email draft routing", () => {
       draftCreated: false,
     });
     expect(out.unavailable).toMatch(/not configured/i);
-    expect((ctx.deps.db as any).__state.confirmations[0].status).toBe("pending");
+    expect(getFakeDbState(ctx.deps.db).confirmations[0].status).toBe("pending");
   });
 
   it("does not create an expired email draft", async () => {
@@ -211,7 +224,7 @@ describe("resolve_confirmation tool — email draft routing", () => {
       expiresAt: new Date("2026-04-25T07:00:00Z"),
     });
 
-    const out: any = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx as any);
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx) as ToolOutput;
 
     expect(createDraft).not.toHaveBeenCalled();
     expect(out).toMatchObject({ resolved: true, decision: "expired", action: "email_create_draft" });

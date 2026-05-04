@@ -3,6 +3,12 @@ import { z } from "zod";
 import { ToolRegistry, zodToJsonSchema } from "../src/agent/tools.js";
 import { registerAllFeatures } from "../src/features/index.js";
 
+type ObjectSchemaOutput = {
+  type?: string;
+  properties: Record<string, unknown>;
+  required?: string[];
+};
+
 describe("ToolRegistry", () => {
   it("registers and retrieves tools", () => {
     const r = new ToolRegistry();
@@ -41,7 +47,7 @@ describe("ToolRegistry", () => {
 
 describe("zodToJsonSchema", () => {
   it("converts object with required and optional", () => {
-    const out: any = zodToJsonSchema(z.object({ a: z.string(), b: z.number().optional() }));
+    const out = zodToJsonSchema(z.object({ a: z.string(), b: z.number().optional() })) as ObjectSchemaOutput;
     expect(out.type).toBe("object");
     expect(out.properties.a).toEqual({ type: "string" });
     expect(out.properties.b).toEqual({ type: "number" });

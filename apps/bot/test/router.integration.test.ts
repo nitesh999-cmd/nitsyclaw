@@ -5,6 +5,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { Router } from "../src/router.js";
 import {
+  getFakeDbState,
   makeAgentDeps,
   fakeLlmWithToolCall,
   fakeImageAnalyzer,
@@ -106,7 +107,7 @@ describe("Router (integration)", () => {
   });
 
   it("requires confirmation id before resolving pending email draft approval", async () => {
-    const state = (deps.db as any).__state;
+    const state = getFakeDbState(deps.db);
     state.confirmations.push({
       id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
       action: "email_create_draft",
@@ -134,7 +135,7 @@ describe("Router (integration)", () => {
   });
 
   it("resolves pending email draft when confirmation id is included", async () => {
-    const state = (deps.db as any).__state;
+    const state = getFakeDbState(deps.db);
     state.confirmations.push({
       id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
       action: "email_create_draft",
@@ -162,7 +163,7 @@ describe("Router (integration)", () => {
   });
 
   it("build status previews the pending queue without running the notifier", async () => {
-    const state = (deps.db as any).__state;
+    const state = getFakeDbState(deps.db);
     state.feature_requests.push({
       id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
       description: "Add Google Photos search",
@@ -186,7 +187,7 @@ describe("Router (integration)", () => {
   });
 
   it("run build triggers the local build-agent notification summary", async () => {
-    const state = (deps.db as any).__state;
+    const state = getFakeDbState(deps.db);
     state.feature_requests.push({
       id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
       description: "Add Google Photos search",

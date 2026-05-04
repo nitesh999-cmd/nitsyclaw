@@ -4,6 +4,10 @@ import { registerScheduleCall } from "../src/features/07-schedule-call.js";
 import { makeAgentDeps } from "./helpers.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 
+type ScheduleCallOutput = {
+  confirmationId?: string;
+};
+
 describe("schedule_call tool", () => {
   it("creates a pending confirmation and DMs the user", async () => {
     const r = new ToolRegistry();
@@ -21,7 +25,7 @@ describe("schedule_call tool", () => {
       },
       { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
     );
-    expect((out as any).confirmationId).toBeTruthy();
+    expect((out as ScheduleCallOutput).confirmationId).toBeTruthy();
     expect(wa.sent.length).toBe(1);
     expect(wa.sent[0].body).toContain("Reply 'y'");
   });

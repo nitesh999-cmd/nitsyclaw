@@ -10,7 +10,7 @@ import { fakeLlmWithToolCall, makeAgentDeps } from "./helpers.js";
 describe("runAgent", () => {
   it("dispatches tool calls and returns final text", async () => {
     const r = new ToolRegistry();
-    let called: any = null;
+    let called: { msg: string } | null = null;
     r.register({
       name: "echo",
       description: "echo input",

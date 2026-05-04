@@ -9,7 +9,7 @@ describe("conversation history search", () => {
   it("finds saved WhatsApp messages by keyword", async () => {
     const deps = makeAgentDeps();
     const userPhone = "+61430008008";
-    await insertMessage(deps.db as any, {
+    await insertMessage(deps.db, {
       direction: "in",
       surface: "whatsapp",
       fromNumber: hashPhone(userPhone),
@@ -31,7 +31,7 @@ describe("conversation history search", () => {
     try {
       const deps = makeAgentDeps();
       const userPhone = "+61430008008";
-      await insertMessage(deps.db as any, {
+      await insertMessage(deps.db, {
         direction: "out",
         surface: "whatsapp",
         fromNumber: hashPhone(userPhone),
@@ -57,14 +57,14 @@ describe("conversation history search", () => {
     try {
       const deps = makeAgentDeps();
       const userPhone = "+61430008008";
-      await insertMessage(deps.db as any, {
+      await insertMessage(deps.db, {
         direction: "in",
         surface: "whatsapp",
         fromNumber: hashPhone(userPhone),
         body: "enc:v1:not-valid-ciphertext",
       });
 
-      const out = await loadCrossSurfaceHistory(deps.db as any, hashPhone(userPhone), 5);
+      const out = await loadCrossSurfaceHistory(deps.db, hashPhone(userPhone), 5);
 
       expect(out[0]?.content).toBe("[unreadable encrypted message]");
       expect(out[0]?.content).not.toContain("not-valid-ciphertext");

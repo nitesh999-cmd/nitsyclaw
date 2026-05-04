@@ -7,6 +7,11 @@ import {
 import { makeFakeDb, fakeImageAnalyzer, makeAgentDeps } from "./helpers.js";
 import { ToolRegistry } from "../src/agent/tools.js";
 
+type LogExpenseOutput = {
+  amountCents?: number;
+  merchant?: string;
+};
+
 describe("categorizeExpense", () => {
   it.each([
     ["Uber receipt", undefined, "transport"],
@@ -29,7 +34,7 @@ describe("processReceiptImage", () => {
       image: Buffer.from("img"),
       mimetype: "image/jpeg",
       analyzer: fakeImageAnalyzer,
-      db: db as any,
+      db,
       now: new Date(),
     });
     expect(out.amount).toBe(250);
@@ -45,7 +50,7 @@ describe("processReceiptImage", () => {
         image: Buffer.from("x"),
         mimetype: "image/jpeg",
         analyzer: noAmount,
-        db: db as any,
+        db,
         now: new Date(),
       }),
     ).rejects.toThrow(/extract amount/);
@@ -58,10 +63,10 @@ describe("log_expense_text tool", () => {
     registerReceiptExpense(r);
     const deps = makeAgentDeps();
     const tool = r.get("log_expense_text")!;
-    const out: any = await tool.handler(
+    const out = await tool.handler(
       { text: "spent 200 on coffee at Starbucks" },
       { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
-    );
+    ) as LogExpenseOutput;
     expect(out.amountCents).toBe(20000);
     expect(out.merchant).toBe("Starbucks");
   });

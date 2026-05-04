@@ -10,27 +10,50 @@ import type {
   Transcriber,
   WebSearcher,
 } from "../src/agent/deps.js";
+import type { DB } from "../src/db/client.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
+
+export type FakeDbRow = Record<string, unknown>;
 
 /**
  * In-memory mini-DB. We deliberately avoid spinning Postgres for unit tests.
  * Integration tests that need real SQL use pg-mem (added in tests that need it).
  */
 export interface FakeDbState {
-  messages: any[];
-  memories: any[];
-  reminders: any[];
-  expenses: any[];
-  briefs: any[];
-  confirmations: any[];
-  auditLog: any[];
-  audit_log: any[];
-  feature_requests: any[];
-  profile_context: any[];
-  connected_accounts: any[];
+  messages: FakeDbRow[];
+  memories: FakeDbRow[];
+  reminders: FakeDbRow[];
+  expenses: FakeDbRow[];
+  briefs: FakeDbRow[];
+  confirmations: FakeDbRow[];
+  auditLog: FakeDbRow[];
+  audit_log: FakeDbRow[];
+  feature_requests: FakeDbRow[];
+  profile_context: FakeDbRow[];
+  connected_accounts: FakeDbRow[];
 }
 
-export function makeFakeDb(): { db: any; state: FakeDbState } {
+export type FakeDbWithState = DB & { __state: FakeDbState };
+
+type FakeConflictTarget = { name?: string };
+type FakeConflictUpdate = { target: FakeConflictTarget; set: FakeDbRow };
+type FakeReturningChain = {
+  returning: () => Promise<FakeDbRow[]>;
+  onConflictDoUpdate: (args: FakeConflictUpdate) => Promise<void>;
+  then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise<unknown>;
+};
+type FakeQueryChain = {
+  where: (cond: unknown) => FakeQueryChain;
+  orderBy: (...cols: unknown[]) => FakeQueryChain;
+  limit: (n: number) => FakeQueryChain;
+  then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise<unknown>;
+};
+
+export function getFakeDbState(db: AgentDeps["db"]): FakeDbState {
+  return (db as FakeDbWithState).__state;
+}
+
+export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
   const state: FakeDbState = {
     messages: [],
     memories: [],
@@ -46,7 +69,7 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
   const insert = (table: keyof FakeDbState) => ({
-    values: (rows: any | any[]) => {
+    values: (rows: FakeDbRow | FakeDbRow[]) => {
       const arr = Array.isArray(rows) ? rows : [rows];
       const inserted = arr.map((r) => ({
         id: crypto.randomUUID(),
@@ -59,80 +82,82 @@ export function makeFakeDb(): { db: any; state: FakeDbState } {
       state[table].push(...inserted);
       return {
         returning: async () => inserted,
-        onConflictDoUpdate: ({ target, set }: any) => {
-          const key = (target as any).name ?? "for_date";
+        onConflictDoUpdate: ({ target, set }: FakeConflictUpdate) => {
+          const key = target.name ?? "for_date";
           for (const row of inserted) {
-            const idx = state[table].findIndex((x: any) => x[key] === (row as any)[key]);
+            const idx = state[table].findIndex((x) => x[key] === row[key]);
             if (idx >= 0) state[table][idx] = { ...state[table][idx], ...set };
             else state[table].push(row);
           }
           return Promise.resolve();
         },
-      };
+      } satisfies Omit<FakeReturningChain, "then">;
     },
   });
 
-  const db: any = {
-    insert: (table: any) => {
+  const db = {
+    insert: (table: unknown) => {
       const name = tableName(table);
       const baseInsert = insert(name);
       return {
-        values: (rows: any) => {
+        values: (rows: FakeDbRow | FakeDbRow[]) => {
           const v = baseInsert.values(rows);
           // Make the chain awaitable in addition to .returning()
-          return Object.assign(v, { then: (r: any) => v.returning().then(r) });
+          return Object.assign(v, { then: (resolve: (rows: FakeDbRow[]) => unknown) => v.returning().then(resolve) });
         },
       };
     },
     select: () => ({
-      from: (table: any) => {
+      from: (table: unknown) => {
         const name = tableName(table);
         const rows = state[name];
         const chain = makeQueryChain(rows);
         return chain;
       },
     }),
-    update: (table: any) => ({
-      set: (patch: any) => ({
-        where: (_cond: any) => {
+    update: (table: unknown) => ({
+      set: (patch: FakeDbRow) => ({
+        where: (_cond: unknown) => {
           const name = tableName(table);
-          state[name].forEach((r: any) => Object.assign(r, patch));
+          state[name].forEach((r) => Object.assign(r, patch));
           const updated = state[name];
           return {
             returning: async () => updated,
-            then: (resolve: any) => Promise.resolve(updated).then(resolve),
+            then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise.resolve(updated).then(resolve),
           };
         },
       }),
     }),
   };
-  db.__state = state;
+  const dbWithState = Object.assign(db, { __state: state }) as unknown as FakeDbWithState;
 
-  return { db, state };
+  return { db: dbWithState, state };
 }
 
-function tableName(table: any): keyof FakeDbState {
+function tableName(table: unknown): keyof FakeDbState {
   // Drizzle table objects expose `_` symbol metadata. We tag tables in schema.ts with names matching the keys.
+  if (typeof table !== "object" || table === null) return "messages";
+  const tableRecord = table as Record<PropertyKey, unknown>;
   const sym = Object.getOwnPropertySymbols(table).find((s) => String(s).includes("Symbol(drizzle:Name)"));
-  if (sym) return (table as any)[sym] as keyof FakeDbState;
+  if (sym) return tableRecord[sym] as keyof FakeDbState;
   // Fallback: most tables expose .name via a plain prop in test mode
-  return (table as any).name ?? "messages";
+  return (tableRecord.name as keyof FakeDbState | undefined) ?? "messages";
 }
 
-function makeQueryChain(rows: any[]) {
+function makeQueryChain(rows: FakeDbRow[]): FakeQueryChain {
   let limit = Infinity;
-  let order = (a: any, b: any) => 0;
-  const where = (_cond: any) => chain;
-  const orderBy = (..._cols: any[]) => chain;
+  const order = (_a: FakeDbRow, _b: FakeDbRow) => 0;
+  const where = (_cond: unknown) => chain;
+  const orderBy = (..._cols: unknown[]) => chain;
   const lim = (n: number) => {
     limit = n;
     return chain;
   };
-  const chain: any = {
+  const chain: FakeQueryChain = {
     where,
     orderBy,
     limit: lim,
-    then: (resolve: any) => Promise.resolve(rows.slice(0, limit).sort(order)).then(resolve),
+    then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise.resolve(rows.slice(0, limit).sort(order)).then(resolve),
   };
   return chain;
 }

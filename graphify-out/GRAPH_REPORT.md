@@ -1,11 +1,11 @@
 # Graph Report - NitsyClaw  (2026-05-04)
 
 ## Corpus Check
-- 194 files · ~97,219 words
+- 194 files · ~97,592 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 544 nodes · 1194 edges · 15 communities detected
+- 545 nodes · 1197 edges · 15 communities detected
 - Extraction: 82% EXTRACTED · 18% INFERRED · 0% AMBIGUOUS · INFERRED: 210 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -39,8 +39,6 @@
 10. `POST()` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `main()` --calls--> `buildAgentDeps()`  [INFERRED]
-  apps\bot\src\index.ts → apps\bot\src\adapters.ts
 - `searchAllGmail()` --calls--> `listGoogleAccounts()`  [INFERRED]
   apps\bot\src\adapters.ts → apps\bot\src\google-auth.ts
 - `runDailyBuildAgent()` --calls--> `encryptForStorage()`  [INFERRED]
@@ -49,16 +47,18 @@
   apps\bot\src\build-agent.ts → packages\shared\src\utils\crypto.ts
 - `main()` --calls--> `getDb()`  [INFERRED]
   apps\bot\src\index.ts → packages\shared\src\db\client.ts
+- `loadToday()` --calls--> `getDb()`  [INFERRED]
+  apps\dashboard\src\app\page.tsx → packages\shared\src\db\client.ts
 
 ## Communities
 
 ### Community 0 - "Community 0"
 Cohesion: 0.06
-Nodes (48): runAgent(), pinMemory(), recallMemory(), ToolRegistry, zodToJsonSchema(), insertExpense(), insertMemory(), searchMemoriesLexical() (+40 more)
+Nodes (52): runAgent(), pinMemory(), recallMemory(), ToolRegistry, zodToJsonSchema(), insertExpense(), insertMemory(), restorePendingConfirmation() (+44 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.07
-Nodes (23): dueReminders(), getSystemHeartbeat(), insertReminder(), logAudit(), markReminderFired(), redactAuditString(), restorePendingConfirmation(), sanitizeAuditPayload() (+15 more)
+Cohesion: 0.08
+Nodes (39): safeDecrypt(), buildSystemPrompt(), getProfileContext(), getSystemHeartbeat(), insertConfirmation(), insertFeatureRequest(), logAudit(), recentMessages() (+31 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.08
@@ -69,20 +69,20 @@ Cohesion: 0.09
 Nodes (24): loadCrossSurfaceHistory(), buildDashboardDeps(), formatLocation(), makeAnthropicLlm(), makeOpenAiEmbedder(), NoopWhatsApp, POST(), GET() (+16 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.11
-Nodes (32): safeDecrypt(), buildSystemPrompt(), getProfileContext(), insertConfirmation(), insertFeatureRequest(), recentMessages(), upsertProfileContext(), haystack() (+24 more)
-
-### Community 5 - "Community 5"
 Cohesion: 0.1
 Nodes (11): isStartupReplay(), WhatsAppEchoGuard, isHealthyWhatsAppState(), isUnhealthyWhatsAppState(), shouldRestartWhatsAppClient(), withTimeout(), isOwnerSelfChat(), normalizeWhatsAppOwnerId() (+3 more)
 
-### Community 6 - "Community 6"
+### Community 5 - "Community 5"
 Cohesion: 0.11
-Nodes (20): getLatestPendingConfirmation(), insertMessage(), listPendingFeatureRequests(), pushNotify(), sendNtfy(), sendWindowsToast(), runDailyBuildAgent(), loadEnv() (+12 more)
+Nodes (31): buildAgentDeps(), fetchAllEventsToday(), fetchAllUnreadEmails(), formatLocation(), makeAnthropicImageAnalyzer(), makeAnthropicLlm(), makeOpenAiEmbedder(), makeOpenAiTranscriber() (+23 more)
+
+### Community 6 - "Community 6"
+Cohesion: 0.12
+Nodes (14): dueReminders(), insertReminder(), markReminderFired(), upsertBrief(), buildRRuleFromText(), fireDueReminders(), planReminder(), buildBrief() (+6 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.14
-Nodes (27): buildAgentDeps(), fetchAllEventsToday(), fetchAllUnreadEmails(), formatLocation(), makeAnthropicImageAnalyzer(), makeAnthropicLlm(), makeOpenAiEmbedder(), makeOpenAiTranscriber() (+19 more)
+Cohesion: 0.15
+Nodes (16): getLatestPendingConfirmation(), insertMessage(), listPendingFeatureRequests(), pushNotify(), sendNtfy(), sendWindowsToast(), runDailyBuildAgent(), parseFeatureRequestShortcut() (+8 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.15
@@ -97,8 +97,8 @@ Cohesion: 0.13
 Nodes (2): FakeWhatsApp, WhatsAppLoopBreaker
 
 ### Community 11 - "Community 11"
-Cohesion: 0.22
-Nodes (11): addExpense(), asCsvUrl(), load(), GET(), csvCell(), normalizeExpenseFilters(), one(), parseDate() (+3 more)
+Cohesion: 0.24
+Nodes (10): asCsvUrl(), load(), GET(), csvCell(), normalizeExpenseFilters(), one(), parseDate(), validateExpenseFilters() (+2 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.53
@@ -123,12 +123,12 @@ Nodes (1): DashboardShell()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `getDb()` connect `Community 2` to `Community 1`, `Community 3`, `Community 6`, `Community 9`, `Community 11`?**
-  _High betweenness centrality (0.231) - this node is a cross-community bridge._
-- **Why does `main()` connect `Community 6` to `Community 2`, `Community 7`?**
-  _High betweenness centrality (0.126) - this node is a cross-community bridge._
-- **Why does `hashPhone()` connect `Community 4` to `Community 0`, `Community 9`, `Community 3`, `Community 6`?**
-  _High betweenness centrality (0.086) - this node is a cross-community bridge._
+- **Why does `getDb()` connect `Community 2` to `Community 0`, `Community 1`, `Community 3`, `Community 5`, `Community 9`, `Community 11`?**
+  _High betweenness centrality (0.250) - this node is a cross-community bridge._
+- **Why does `main()` connect `Community 5` to `Community 2`?**
+  _High betweenness centrality (0.137) - this node is a cross-community bridge._
+- **Why does `hashPhone()` connect `Community 1` to `Community 9`, `Community 3`, `Community 7`?**
+  _High betweenness centrality (0.080) - this node is a cross-community bridge._
 - **Are the 27 inferred relationships involving `getDb()` (e.g. with `main()` and `loadToday()`) actually correct?**
   _`getDb()` has 27 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 20 inferred relationships involving `registerAllFeatures()` (e.g. with `POST()` and `POST()`) actually correct?**

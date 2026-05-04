@@ -10,6 +10,10 @@ import { hashPhone } from "../src/utils/crypto.js";
 import { makeAgentDeps, makeFakeDb } from "./helpers.js";
 
 const key = Buffer.alloc(32, 9).toString("base64");
+type SpotifyToolOutput = {
+  resolved?: boolean;
+  playlist?: { id?: string };
+};
 
 describe("spotify integration", () => {
   const oldEnv = { ...process.env };
@@ -50,7 +54,7 @@ describe("spotify integration", () => {
     const { db } = makeFakeDb();
     const ownerHash = hashPhone("+61430008008");
     await saveSpotifyConnection({
-      db: db as any,
+      db,
       ownerHash,
       token: {
         access_token: "access",
@@ -83,7 +87,7 @@ describe("spotify integration", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const out = await createPrivateSpotifyPlaylist(db as any, ownerHash, {
+    const out = await createPrivateSpotifyPlaylist(db, ownerHash, {
       name: "Nitsy Mix",
       uris: ["spotify:track:1", "bad:track:2"],
     });
@@ -93,10 +97,10 @@ describe("spotify integration", () => {
   });
 
   it("confirmation tool executes spotify playlist creation after yes", async () => {
-    const deps = makeAgentDeps({ db: makeFakeDb().db as any });
+    const deps = makeAgentDeps({ db: makeFakeDb().db });
     const ownerHash = hashPhone("+61430008008");
     await saveSpotifyConnection({
-      db: deps.db as any,
+      db: deps.db,
       ownerHash,
       token: {
         access_token: "access",
@@ -106,7 +110,7 @@ describe("spotify integration", () => {
       },
     });
     await insertConfirmation(
-      deps.db as any,
+      deps.db,
       "spotify_create_playlist",
       { ownerHash, name: "Approved Mix", uris: ["spotify:track:1"] },
       new Date("2026-04-25T09:00:00Z"),
@@ -122,10 +126,10 @@ describe("spotify integration", () => {
     }));
 
     const tool = registerAllFeatures({ surface: "whatsapp" }).get("resolve_confirmation")!;
-    const out: any = await tool.handler(
+    const out = await tool.handler(
       { reply: "yes" },
       { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone },
-    );
+    ) as SpotifyToolOutput;
 
     expect(out.resolved).toBe(true);
     expect(out.playlist.id).toBe("playlist-1");

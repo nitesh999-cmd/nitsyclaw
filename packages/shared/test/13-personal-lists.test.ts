@@ -3,6 +3,11 @@ import { registerPersonalLists } from "../src/features/13-personal-lists.js";
 import { ToolRegistry } from "../src/agent/tools.js";
 import { makeAgentDeps } from "./helpers.js";
 
+type ListOutput = {
+  count?: number;
+  items: Array<{ item?: string; template?: string }>;
+};
+
 describe("personal lists", () => {
   it("saves and lists can't-do items", async () => {
     const deps = makeAgentDeps();
@@ -14,10 +19,10 @@ describe("personal lists", () => {
       { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone },
     );
 
-    const out: any = await registry.get("list_cant_do_items")!.handler(
+    const out = await registry.get("list_cant_do_items")!.handler(
       {},
       { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone },
-    );
+    ) as ListOutput;
 
     expect(out.count).toBe(1);
     expect(out.items[0].item).toContain("unpaid custom website work");
@@ -37,10 +42,10 @@ describe("personal lists", () => {
       { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone },
     );
 
-    const out: any = await registry.get("list_birthday_templates")!.handler(
+    const out = await registry.get("list_birthday_templates")!.handler(
       {},
       { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone },
-    );
+    ) as ListOutput;
 
     expect(out.count).toBe(1);
     expect(out.items[0].template).toContain("client warm");

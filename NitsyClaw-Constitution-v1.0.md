@@ -323,6 +323,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-04 | Basic Auth lockout was process-local and weak under serverless scaling | R47 | Added signed session-cookie middleware and Node/Postgres-backed login-attempt lockout path |
 | 2026-05-04 | Session auth was missing logout, explicit migration, security headers, and a clean login shell | R48 | Added logout route, auth-attempt SQL migration, middleware security headers, login-shell split, and regression tests |
 | 2026-05-04 | Production runtime files still emitted lint warnings after launch hardening | R49 | Removed production-code warnings; remaining lint warnings are confined to tests |
+| 2026-05-04 | Test-only lint warnings hid future real warning regressions | R50 | Test helpers and tests must stay lint-clean too; explicit `any` requires a named local type or narrow cast |
 
 ---
 
