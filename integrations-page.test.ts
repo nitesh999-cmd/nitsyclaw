@@ -7,6 +7,9 @@ describe("dashboard integrations page", () => {
 
     expect(source).toContain('name: "Gmail"');
     expect(source).toContain("confirmation-gated draft requests are available");
+    expect(source).toContain("Selected file/link requests can be queued now");
+    expect(source).toContain("CSV import requests can be queued now");
+    expect(source).toContain("SMS copy and call-prep requests work now");
     expect(source).toContain('status: "Blocked"');
     expect(source).toContain('name: "Facebook birthdays"');
     expect(source).toContain('name: "Social video analysis"');

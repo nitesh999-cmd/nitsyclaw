@@ -62,8 +62,10 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
     title: "Drive and OneDrive",
     status: "needs_setup",
     userPromise:
-      "NitsyClaw can queue file search/import, but broad Drive or OneDrive access needs scoped OAuth and clear user consent.",
-    availableNow: [],
+      "NitsyClaw can queue selected-file import requests, but broad Drive or OneDrive access needs scoped OAuth and clear user consent.",
+    availableNow: [
+      "queue_storage_file_import_request can capture a selected file/link import request.",
+    ],
     needsSetup: [
       "Google Drive OAuth scopes for selected/read-only files.",
       "Microsoft Graph Files.Read.Selected or equivalent least-privilege access.",
@@ -81,7 +83,10 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
     status: "needs_setup",
     userPromise:
       "NitsyClaw can draft call/SMS actions, but server-side phone/SMS needs a provider or phone companion app and legal consent.",
-    availableNow: [],
+    availableNow: [
+      "prepare_sms_draft can produce copyable SMS text.",
+      "queue_phone_call_request can capture a call prep/reminder request.",
+    ],
     needsSetup: [
       "Twilio or another compliant SMS/calling provider, or an Android companion app.",
       "Verified sender numbers and regional messaging compliance.",
@@ -104,6 +109,7 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
       "NitsyClaw must not connect to live bank feeds until an accredited open-banking provider, consent flow, and privacy controls are chosen.",
     availableNow: [
       "Receipt expense extraction is available from user-provided images.",
+      "queue_bank_csv_import_request can capture a CSV/manual statement import request.",
     ],
     needsSetup: [
       "Accredited open-banking/CDR provider or another compliant financial data aggregator.",
@@ -127,6 +133,7 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
       "NitsyClaw can analyze photos the user selects, but broad library search needs Google Photos Picker/API setup and consent.",
     availableNow: [
       "Image receipt extraction exists for uploaded/user-provided images.",
+      "queue_google_photos_import_request can capture a selected-media import request.",
     ],
     needsSetup: [
       "Google Photos Picker or Photos API configuration.",
@@ -147,6 +154,7 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
       "NitsyClaw can manage birthday templates and manual birthday lists, but it cannot promise Facebook birthday scraping or hidden profile access.",
     availableNow: [
       "Birthday message templates can be saved and listed.",
+      "queue_birthday_import_request can capture contacts/calendar/CSV/manual import requests.",
     ],
     needsSetup: [
       "A user-provided birthday source such as contacts/calendar import or manual list.",
@@ -170,6 +178,7 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
     availableNow: [
       "Public web research can summarize accessible public pages.",
       "User-provided screenshots/images can be analyzed through existing image-analysis patterns.",
+      "queue_social_video_analysis_request can capture a public URL or upload analysis request.",
     ],
     needsSetup: [
       "YouTube Data API for richer video/channel/comment metadata.",

@@ -23,6 +23,7 @@ import { registerSpotify } from "./15-spotify.js";
 import { registerPersonalContext } from "./16-personal-context.js";
 import { registerIntegrationCapabilities } from "./17-integration-capabilities.js";
 import { registerEmailDrafts } from "./18-email-drafts.js";
+import { registerIntegrationRequests } from "./19-integration-requests.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -51,6 +52,7 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerSpotify(r);
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
+  registerIntegrationRequests(r);
   return r;
 }
 
@@ -72,3 +74,4 @@ export * from "./15-spotify.js";
 export * from "./16-personal-context.js";
 export * from "./17-integration-capabilities.js";
 export * from "./18-email-drafts.js";
+export * from "./19-integration-requests.js";

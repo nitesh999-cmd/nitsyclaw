@@ -1015,3 +1015,38 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `npm test` passed: 45 files, 200 tests.
 - `npm run build` passed for bot and dashboard.
 - `python -m graphify update .` rebuilt the graph: 500 nodes, 1087 edges, 65 communities.
+
+---
+
+## 39. Session 28 (2026-05-04) - Next 10 safe integration rails
+
+**Goal:** Build the next 10 things from the permission-heavy integration queue without fake access or unsafe approvals.
+
+**What changed:**
+- Registered Feature 19 safe integration request rails.
+- Added `queue_storage_file_import_request` for selected Google Drive/OneDrive files or links.
+- Added `queue_google_photos_import_request` for selected Google Photos media requests.
+- Added `prepare_sms_draft` for copyable SMS drafts; it does not send SMS.
+- Added `queue_phone_call_request` for call prep/reminder requests; it does not place calls.
+- Added `queue_bank_csv_import_request` for the safe bank CSV/manual statement import path.
+- Added `queue_birthday_import_request` for contacts/calendar/CSV/manual birthday import; no Facebook scraping.
+- Added `queue_social_video_analysis_request` for public URL or user-provided upload analysis requests.
+- Updated system prompt guidance so each risky integration routes to the safe request rail.
+- Updated `/help` and `/integrations` copy to show what can be queued now.
+- Moved email draft explicit-id safety into the shared confirmation resolver, so dashboard/chat cannot approve email drafts with plain `yes`.
+- Missing email draft adapters now restore the confirmation to `pending`; approval is not burned.
+- Confirmation dashboard now uses an email-specific redacted summary, including redacted subject.
+
+**Agent critique incorporated:**
+- Register Feature 19; it was dead code before this session.
+- Fix shared confirmation safety, not only WhatsApp router safety.
+- Do not consume an email approval when the adapter is unavailable.
+- Avoid shallow JSON summary for email draft confirmations.
+
+**Verification:**
+- `npm test -- 09-confirmation-rail.test.ts router.integration.test.ts 19-integration-requests.test.ts confirmations-page.test.ts integrations-page.test.ts help-page.test.ts feature-registry-queued.test.ts system-prompt.test.ts integration-capabilities.test.ts` passed: 37 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm run lint` passed with warnings only.
+- `npm test` passed: 48 files, 207 tests.
+- `npm run build` passed for bot and dashboard.
+- `python -m graphify update .` rebuilt the graph: 509 nodes, 1115 edges, 68 communities.

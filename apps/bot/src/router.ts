@@ -330,7 +330,7 @@ export class Router {
           await this.sendAndPersist(
             resolved.draftCreated
               ? `Email draft created in ${resolved.provider ?? "mailbox"}.\nDraft id: ${resolved.draftId ?? "unknown"}`
-              : `Email draft approved, but not created yet: ${resolved.unavailable ?? "email adapter unavailable"}`,
+              : `Email draft not created yet: ${resolved.unavailable ?? "email adapter unavailable"}`,
           );
         } else {
           await this.sendAndPersist(`Confirmation: ${resolved.decision ?? "resolved"}`);

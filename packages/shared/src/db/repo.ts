@@ -123,6 +123,10 @@ export async function setConfirmationStatus(
   await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
 }
 
+export async function restorePendingConfirmation(db: DB, id: string) {
+  await db.update(confirmations).set({ status: "pending" }).where(eq(confirmations.id, id));
+}
+
 export async function getLatestPendingConfirmation(db: DB): Promise<{ id: string; action: string } | null> {
   const [row] = await db
     .select()

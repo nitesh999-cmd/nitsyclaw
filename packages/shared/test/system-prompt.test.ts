@@ -29,6 +29,9 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt({ surface: "whatsapp" });
 
     expect(prompt).toContain("use queue_email_draft_creation");
+    expect(prompt).toContain("use queue_storage_file_import_request");
+    expect(prompt).toContain("use queue_bank_csv_import_request");
+    expect(prompt).toContain("use prepare_sms_draft");
     expect(prompt).toContain("use list_integration_capabilities before promising anything");
     expect(prompt).toContain("Never claim live access to private email sending");
   });

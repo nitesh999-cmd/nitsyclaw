@@ -15,6 +15,13 @@ describe("queued feature registry", () => {
     expect(names).toContain("queue_spotify_playlist_creation");
     expect(names).toContain("list_integration_capabilities");
     expect(names).toContain("queue_email_draft_creation");
+    expect(names).toContain("queue_storage_file_import_request");
+    expect(names).toContain("queue_google_photos_import_request");
+    expect(names).toContain("prepare_sms_draft");
+    expect(names).toContain("queue_phone_call_request");
+    expect(names).toContain("queue_bank_csv_import_request");
+    expect(names).toContain("queue_birthday_import_request");
+    expect(names).toContain("queue_social_video_analysis_request");
 
     expect(names).not.toContain("send_email");
     expect(names).not.toContain("drive_search");
@@ -23,5 +30,7 @@ describe("queued feature registry", () => {
     expect(names).not.toContain("google_photos_search");
     expect(names).not.toContain("facebook_birthdays");
     expect(names).not.toContain("analyze_social_video");
+    expect(names).not.toContain("scan_drive");
+    expect(names).not.toContain("sync_bank_feed");
   });
 });

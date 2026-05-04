@@ -19,8 +19,16 @@ const groups = [
     title: "Email",
     examples: [
       "Search Gmail for Solar Harbour invoice",
+      "Draft an email to Alex about tomorrow's meeting",
       "Show unread emails in the morning brief",
-      "Find emails from Google Calendar",
+    ],
+  },
+  {
+    title: "Files and photos",
+    examples: [
+      "Use this Google Drive link in the next build",
+      "Queue these Google Photos for analysis",
+      "Import this OneDrive file when storage access is ready",
     ],
   },
   {
@@ -55,12 +63,21 @@ const groups = [
       "Show the feature queue",
     ],
   },
+  {
+    title: "Safe external actions",
+    examples: [
+      "Prepare an SMS draft for Sam",
+      "Queue a bank CSV import",
+      "Analyze this public Instagram reel link",
+    ],
+  },
 ];
 
 const safety = [
   "NitsyClaw asks before sending, deleting, scheduling, or changing important things.",
   "Dashboard chat can use tools, but some tools are WhatsApp/local-bot only.",
-  "Phone/SMS, bank feeds, Drive, Photos, and Facebook need real platform permissions before they can work.",
+  "Phone/SMS, bank feeds, Drive, Photos, and Facebook need real platform permissions before live account access can work.",
+  "For risky integrations, NitsyClaw queues selected-file/import/draft requests instead of pretending broad access exists.",
 ];
 
 export default function HelpPage() {

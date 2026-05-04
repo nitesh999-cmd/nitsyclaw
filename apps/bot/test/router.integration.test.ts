@@ -157,8 +157,8 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent.some((m) => m.body.includes("Email draft approved, but not created yet"))).toBe(true);
-    expect(state.confirmations[0].status).toBe("approved");
+    expect(wa.sent.some((m) => m.body.includes("Email draft not created yet"))).toBe(true);
+    expect(state.confirmations[0].status).toBe("pending");
   });
 
   it("build status previews the pending queue without running the notifier", async () => {

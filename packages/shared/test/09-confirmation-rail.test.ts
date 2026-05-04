@@ -60,6 +60,23 @@ describe("resolveConfirmation", () => {
     const out = await resolveConfirmation({ db: db as any, reply: "y", now: NOW });
     expect(out).toBeNull();
   });
+
+  it("does not resolve pending email drafts without an explicit confirmation id", async () => {
+    const { db, state } = makeFakeDb();
+    state.confirmations.push({
+      id: "c1",
+      action: "email_create_draft",
+      payload: { provider: "gmail", to: ["a@example.com"], subject: "S", body: "B" },
+      status: "pending",
+      expiresAt: new Date("2026-04-25T09:00:00Z"),
+      createdAt: NOW,
+    });
+
+    const out = await resolveConfirmation({ db: db as any, reply: "yes", now: NOW });
+
+    expect(out).toBeNull();
+    expect(state.confirmations[0].status).toBe("pending");
+  });
 });
 
 describe("resolve_confirmation tool — calendar routing", () => {
@@ -180,11 +197,12 @@ describe("resolve_confirmation tool — email draft routing", () => {
 
     expect(out).toMatchObject({
       resolved: true,
-      decision: "approved",
+      decision: "pending_adapter",
       action: "email_create_draft",
       draftCreated: false,
     });
     expect(out.unavailable).toMatch(/not configured/i);
+    expect((ctx.deps.db as any).__state.confirmations[0].status).toBe("pending");
   });
 
   it("does not create an expired email draft", async () => {

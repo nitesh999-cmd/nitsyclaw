@@ -65,6 +65,15 @@ function badge(status: string) {
 
 function summarize(payload: Record<string, unknown>) {
   const copy = { ...payload };
+  if (copy.createdFrom === "queue_email_draft_creation") {
+    return JSON.stringify({
+      provider: copy.provider,
+      to: Array.isArray(copy.to) ? `${copy.to.length} recipient(s)` : undefined,
+      cc: Array.isArray(copy.cc) ? `${copy.cc.length} cc recipient(s)` : undefined,
+      bcc: Array.isArray(copy.bcc) ? `${copy.bcc.length} bcc recipient(s)` : undefined,
+      subject: "[redacted]",
+    }).slice(0, 240);
+  }
   if (Array.isArray(copy.uris)) copy.uris = `${copy.uris.length} Spotify tracks`;
   if (copy.ownerHash) copy.ownerHash = "owner";
   for (const key of ["body", "message", "content"]) {

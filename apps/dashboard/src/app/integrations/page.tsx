@@ -78,32 +78,32 @@ async function loadRows(): Promise<IntegrationRow[]> {
     {
       name: "Google Drive",
       status: "Needs setup",
-      detail: "Next safe path is user-selected files via drive.file, not broad Drive scanning.",
+      detail: "Selected file/link requests can be queued now; OAuth file import is next.",
     },
     {
       name: "Google Photos",
       status: "Needs setup",
-      detail: "Next safe path is Picker-selected media, not broad library scraping.",
+      detail: "Selected-media requests can be queued now; Picker import is next.",
     },
     {
       name: "Phone/SMS",
       status: "Needs setup",
-      detail: "Requires Twilio or Android companion. Native iPhone/SMS logs are not exposed.",
+      detail: "SMS copy and call-prep requests work now. Sending/calling needs Twilio or a phone companion.",
     },
     {
       name: "Bank feeds",
       status: "Blocked",
-      detail: "Live feeds need a compliant provider and consent flow. CSV import should come first.",
+      detail: "Live feeds need a compliant provider and consent flow. CSV import requests can be queued now.",
     },
     {
       name: "Facebook birthdays",
       status: "Blocked",
-      detail: "Use contacts, calendar, CSV, or manual birthdays. Do not rely on scraping Facebook.",
+      detail: "Contacts, calendar, CSV, or manual import requests can be queued. Do not rely on scraping Facebook.",
     },
     {
       name: "Social video analysis",
       status: "Partial",
-      detail: "Public links or uploaded media can be analyzed. Deeper comments/metadata need platform APIs.",
+      detail: "Public URL/upload analysis requests can be queued. Deeper comments/metadata need platform APIs.",
     },
   );
 

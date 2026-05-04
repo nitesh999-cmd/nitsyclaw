@@ -6,12 +6,13 @@
 import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { confirmations } from "../db/schema.js";
-import { setConfirmationStatus } from "../db/repo.js";
+import { restorePendingConfirmation, setConfirmationStatus } from "../db/repo.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { DB } from "../db/client.js";
 import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
 
 export type ConfirmationDecision = "approved" | "rejected" | "expired";
+const EXPLICIT_ID_REQUIRED_ACTIONS = new Set(["email_create_draft"]);
 
 /**
  * Resolve a user reply to a pending confirmation.
@@ -41,6 +42,9 @@ export async function resolveConfirmation(args: {
   }
   if (!row) return null;
   if (row.status !== "pending") return null;
+  if (!args.confirmationId && EXPLICIT_ID_REQUIRED_ACTIONS.has(row.action)) {
+    return null;
+  }
 
   let decision: ConfirmationDecision;
   if (row.expiresAt < args.now) decision = "expired";
@@ -147,18 +151,19 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
           body: string;
           replyToMessageId?: string;
         };
-        const draft = await ctx.deps.emailDraft?.createDraft(p);
-        if (!draft) {
+        if (!ctx.deps.emailDraft) {
+          await restorePendingConfirmation(ctx.deps.db, out.id);
           return {
             resolved: true,
-            decision: out.decision,
+            decision: "pending_adapter",
             action: out.action,
             provider: p.provider,
             draftCreated: false,
             unavailable:
-              "Email draft adapter is not configured on this surface yet. Draft content was approved but no mailbox draft was created.",
+              "Email draft adapter is not configured on this surface yet. The confirmation is still pending; approve again after the adapter is available.",
           };
         }
+        const draft = await ctx.deps.emailDraft.createDraft(p);
         return {
           resolved: true,
           decision: out.decision,
