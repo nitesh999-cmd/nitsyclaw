@@ -28,8 +28,8 @@
     "hash": "aa07a316002b4873fbffd9ffab7dc747"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-mutating-routes.test.ts": {
-    "mtime": 1777864499.308116,
-    "hash": "1590289c287254f0e9ff686faf481670"
+    "mtime": 1777866043.01418,
+    "hash": "94da29fa5321649dca42cd7cf995a81a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\data-controls.test.ts": {
     "mtime": 1777808880.450486,
@@ -260,8 +260,8 @@
     "hash": "c84dd0b78c36594a7d8b2581b3a17ab0"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\middleware.ts": {
-    "mtime": 1777808579.5788555,
-    "hash": "9a2adf92debfed5c1f61e268f8ad421a"
+    "mtime": 1777865934.828661,
+    "hash": "e47e5c9a244255a4c42f93374f7918f2"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\layout.tsx": {
     "mtime": 1777663378.4761665,
@@ -274,6 +274,10 @@
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\activity\\page.tsx": {
     "mtime": 1777663508.5731478,
     "hash": "0b4397a6ffafe3935025a2564f5dfa6c"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\auth\\login\\route.ts": {
+    "mtime": 1777865882.7631593,
+    "hash": "6f3b43582e94b826431539a936a120a3"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\chat\\route.ts": {
     "mtime": 1777864562.7108662,
@@ -347,6 +351,10 @@
     "mtime": 1777860667.9916992,
     "hash": "8445367394e364cb2bef668c1beb422c"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\login\\page.tsx": {
+    "mtime": 1777865995.97191,
+    "hash": "4ddedb71422c9b415f9f9ba5717a88d2"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\memory\\page.tsx": {
     "mtime": 1777334211.7044845,
     "hash": "4e2d14ad9718788a128a1d3636982d36"
@@ -383,6 +391,10 @@
     "mtime": 1777808282.9132802,
     "hash": "0d612856ea3acb585daa8ffdca7fc60c"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-login-attempts.ts": {
+    "mtime": 1777865959.7220056,
+    "hash": "3da019d3c8a3d31b1ef427fe397179c2"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-runtime.test.ts": {
     "mtime": 1777808767.6334805,
     "hash": "e12b2581e6809de2d8b7638793af914e"
@@ -390,6 +402,14 @@
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-runtime.ts": {
     "mtime": 1777808797.3448029,
     "hash": "cdebf14875f6c181108d7c8f0900f5a1"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-session.test.ts": {
+    "mtime": 1777865941.6980102,
+    "hash": "cff083a00bea5ee410c1a3a497efc192"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-session.ts": {
+    "mtime": 1777865779.640514,
+    "hash": "5655b41486d474a9c21995973cec5f1e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\expense-pure.ts": {
     "mtime": 1777696088.2104733,
@@ -756,12 +776,12 @@
     "hash": "a3c1bb8201e3b8f7d5bf843adcebc097"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\mind.md": {
-    "mtime": 1777864997.76152,
-    "hash": "0f6a249782e3222b3e21b26010eb9932"
+    "mtime": 1777866094.4064445,
+    "hash": "b8a0c8dad414bc3e09c3a5f4ee3fce81"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\NitsyClaw-Constitution-v1.0.md": {
-    "mtime": 1777864978.9840527,
-    "hash": "ad87457f93afe578301e77c86ae2366e"
+    "mtime": 1777866079.7476642,
+    "hash": "76087c521e420e57003a21b59c3bda51"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\NWP-CONSTITUTION-v1.2.md": {
     "mtime": 1777376206.8622985,

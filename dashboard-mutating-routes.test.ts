@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 const mutatingRoutes = [
+  "apps/dashboard/src/app/api/auth/login/route.ts",
   "apps/dashboard/src/app/api/chat/route.ts",
   "apps/dashboard/src/app/api/chat/stream/route.ts",
   "apps/dashboard/src/app/api/data/delete/route.ts",

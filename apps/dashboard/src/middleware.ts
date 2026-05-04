@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { checkDashboardAuth } from "./lib/dashboard-auth";
+import { isDashboardAuthConfigured } from "./lib/dashboard-auth";
+import { DASHBOARD_SESSION_COOKIE, verifyDashboardSessionToken } from "./lib/dashboard-session";
 
-function unauthorized() {
+function unauthorized(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith("/api/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = new URLSearchParams({ next: request.nextUrl.pathname }).toString();
+    return NextResponse.redirect(url);
+  }
+
   return new NextResponse("Authentication required", {
     status: 401,
     headers: {
-      "WWW-Authenticate": 'Basic realm="NitsyClaw Dashboard", charset="UTF-8"',
       "Cache-Control": "no-store",
-    },
-  });
-}
-
-function locked() {
-  return new NextResponse("Too many authentication attempts", {
-    status: 429,
-    headers: {
-      "Cache-Control": "no-store",
-      "Retry-After": "900",
     },
   });
 }
@@ -31,28 +28,30 @@ function notConfigured() {
   });
 }
 
-function clientKey(request: NextRequest): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    request.headers.get("user-agent") ||
-    "unknown"
-  );
+function isAuthPath(pathname: string): boolean {
+  return pathname === "/login" || pathname === "/api/auth/login";
 }
 
-export function middleware(request: NextRequest) {
-  const result = checkDashboardAuth(request.headers.get("authorization"), {
+export async function middleware(request: NextRequest) {
+  const dashboardPassword = process.env.NITSYCLAW_DASHBOARD_PASSWORD;
+  const dashboardUser = process.env.NITSYCLAW_DASHBOARD_USER || "nitesh";
+  const configured = isDashboardAuthConfigured({
     nodeEnv: process.env.NODE_ENV,
-    dashboardUser: process.env.NITSYCLAW_DASHBOARD_USER,
-    dashboardPassword: process.env.NITSYCLAW_DASHBOARD_PASSWORD,
-  }, {
-    clientKey: clientKey(request),
+    dashboardPassword,
   });
 
-  if (result.ok) return NextResponse.next();
-  if (result.reason === "not-configured") return notConfigured();
-  if (result.reason === "locked") return locked();
-  return unauthorized();
+  if (!configured) {
+    return process.env.NODE_ENV === "production" ? notConfigured() : NextResponse.next();
+  }
+
+  if (isAuthPath(request.nextUrl.pathname)) return NextResponse.next();
+
+  const session = request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value;
+  if (await verifyDashboardSessionToken(session, dashboardPassword ?? "", dashboardUser)) {
+    return NextResponse.next();
+  }
+
+  return unauthorized(request);
 }
 
 export const config = {

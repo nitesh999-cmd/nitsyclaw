@@ -245,6 +245,11 @@ Every dashboard route that mutates state or triggers agent work MUST reject requ
 - *Source:* 2026-05-04 launch-readiness audit — mutating dashboard POST routes had auth but no CSRF/same-origin defense
 - *Added:* 2026-05-04
 
+### R47 — Production dashboard auth uses signed sessions, not browser-cached Basic Auth
+The production dashboard middleware must stay edge-safe and must not import the database client. It should allow only configured auth paths and requests with a valid signed HTTP-only session cookie. Credential checking and lockout accounting belong in a Node runtime route where Postgres is available. Failed login attempts must be stored durably by client key so lockouts survive serverless instance churn. Session tokens must be HMAC-signed with the dashboard password, expire automatically, and become invalid when the dashboard password rotates.
+- *Source:* 2026-05-04 build after launch audit — Basic Auth lockout was in-memory only and browser-cached credentials increased cross-site risk
+- *Added:* 2026-05-04
+
 ### R39 — Streaming clients must degrade visibly, never silently (extends R20)
 Any client that consumes a streaming endpoint MUST guarantee the user sees SOMETHING for every Send action. Concretely for `/chat` consuming `/api/chat/stream`: (a) check `response.ok` and `response.body` before reading; treat 4xx/5xx as a clean Error bubble; (b) log every parsed NDJSON event to console (`console.log("[chat] event: ...")`) so DevTools makes the failure mode observable without server-log access; (c) update the assistant message via reverse-search for the last assistant role rather than `arr[arr.length-1]` (state-ordering races put the user message there sometimes); (d) if the stream completes with zero text deltas AND no `error` event was displayed, AUTOMATICALLY fall back to the non-streaming `/api/chat` endpoint and show its `reply` field — both endpoints run the same agent loop, the streaming one is purely an optimisation. Reasoning: silent failure is worse than visible failure. A user who sees "Error: HTTP 500" or "(empty reply)" can debug; a user who sees their own bubble and nothing else assumes the whole product is broken.
 - *Source:* Session 5n — user reported "no reply" across two Chrome browsers; server-side endpoints all confirmed healthy via curl, but bug couldn't be reproduced without DevTools. Defensive client guards landed before root cause was found.
@@ -305,6 +310,7 @@ A scheduled CCR routine ("NitsyClaw build agent") fires daily and processes ever
 | 2026-05-01 | WhatsApp stopped again with bot process still alive and no fresh bot.log writes | R44 | Broom now restarts only the bot when bot.log is stale for 15 minutes despite a live bot process |
 | 2026-05-01 | WhatsApp could become dead inside a live bot process without `disconnected` recovery | R45 | Adapter now probes active WhatsApp health and recreates the client on repeated probe failures, disconnects, auth failures, or send failures |
 | 2026-05-04 | Mutating dashboard POST routes could be cross-site submitted by a browser with cached Basic Auth | R46 | Added shared same-origin guard, unit coverage for every mutating route, and Playwright hostile-origin destructive POST regression |
+| 2026-05-04 | Basic Auth lockout was process-local and weak under serverless scaling | R47 | Added signed session-cookie middleware and Node/Postgres-backed login-attempt lockout path |
 
 ---
 

@@ -1119,3 +1119,40 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `corepack pnpm install --frozen-lockfile` passed with lockfile up to date.
 - `corepack pnpm audit --audit-level=moderate` passed: no known vulnerabilities.
 - `npm audit --audit-level=moderate` failed against ignored local `package-lock.json`; `package-lock.json` is not tracked and is ignored by `.gitignore`/`.dockerignore`.
+
+---
+
+## 42. Session 31 (2026-05-04) - Dashboard session auth and durable lockout
+
+**Goal:** Remove the remaining high-risk Basic Auth weakness from the launch audit: process-local lockout in a serverless deployment.
+
+**What changed:**
+- Reworked production dashboard middleware to use signed HTTP-only session cookies instead of browser-cached Basic Auth.
+- Added `/login` and `/api/auth/login`.
+- Kept middleware edge-safe: it verifies the signed cookie only and does not import the Postgres client.
+- Added Node runtime login handling where Postgres is available.
+- Added durable `dashboard_auth_attempts` storage via `CREATE TABLE IF NOT EXISTS` in the login-attempt module.
+- Failed login attempts are keyed by client IP/user-agent fallback and lock after 5 failures for 15 minutes.
+- Successful login clears the durable attempt state.
+- Session tokens are HMAC-signed with `NITSYCLAW_DASHBOARD_PASSWORD`, expire after 12 hours, and are invalidated by password rotation.
+- Added session-token tests for valid, tampered, expired, and password-rotated tokens.
+- Updated mutating-route guard inventory to include `/api/auth/login`.
+- Added Constitution R47 for session-cookie auth and durable lockout separation.
+
+**Why:**
+- Basic Auth credentials can be cached by the browser and reused awkwardly across requests.
+- In-memory lockout does not hold across Vercel/serverless instances.
+- Middleware must stay edge-compatible, so durable lockout belongs in the login route rather than middleware.
+
+**Verification:**
+- `npm test -- dashboard-auth.test.ts dashboard-session.test.ts request-origin.test.ts dashboard-mutating-routes.test.ts` passed: 4 files, 18 tests.
+- `npm test -- dashboard-mutating-routes.test.ts dashboard-session.test.ts request-origin.test.ts` passed after adding `/api/auth/login` to the route inventory: 3 files, 9 tests.
+- `npm test` passed: 52 files, 218 tests.
+- `corepack pnpm -r typecheck` passed.
+- `npm run lint` passed with existing warnings only: 0 errors, 115 warnings.
+- `npm run build` passed for bot and dashboard after fixing the Next 15 async `searchParams` page-props shape.
+- `npm run test:e2e` passed: 8 Playwright tests.
+
+**Remaining risk:**
+- Production login path still needs a live post-deploy smoke using the real production dashboard password.
+- GitHub push is still blocked by repository credential permissions.
