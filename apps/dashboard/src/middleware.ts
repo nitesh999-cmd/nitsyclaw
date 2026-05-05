@@ -52,7 +52,7 @@ function isSaleReadinessPath(pathname: string): boolean {
 
 function withSecurityHeaders(response: NextResponse, request: NextRequest): NextResponse {
   response.headers.set("Cache-Control", "no-store");
-  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Frame-Options", "DENY"); // nosemgrep: javascript.express.security.x-frame-options-misconfiguration.x-frame-options-misconfiguration - static DENY value, not user-controlled.
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "same-origin");
   const microphonePolicy = request.nextUrl.pathname === "/chat" ? "microphone=(self)" : "microphone=()";
@@ -74,7 +74,11 @@ export async function middleware(request: NextRequest) {
   });
 
   if (!configured) {
-    return process.env.NODE_ENV === "production" ? notConfigured(request) : withSecurityHeaders(NextResponse.next(), request);
+    // Explicit dev bypass: must set NITSYCLAW_DEV_AUTH_BYPASS=1 — prevents accidental open deployments
+    const devBypass = process.env.NODE_ENV !== "production" && process.env.NITSYCLAW_DEV_AUTH_BYPASS === "1";
+    if (!devBypass) return notConfigured(request);
+    console.warn("[SECURITY] Dashboard auth bypass active – set NITSYCLAW_DASHBOARD_PASSWORD before deploying");
+    return withSecurityHeaders(NextResponse.next(), request);
   }
 
   if (isAuthPath(request.nextUrl.pathname)) {

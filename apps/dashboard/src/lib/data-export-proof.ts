@@ -58,9 +58,15 @@ export function hashSession(sessionToken: string): string {
 }
 
 function exportProofSecret(): string {
-  const secret = process.env.ENCRYPTION_KEY || process.env.NITSYCLAW_DASHBOARD_PASSWORD;
-  if (!secret) throw new Error("Export proof signing secret is not configured");
-  return secret;
+  if (process.env.ENCRYPTION_KEY) return process.env.ENCRYPTION_KEY;
+  if (process.env.NITSYCLAW_DASHBOARD_PASSWORD) {
+    console.warn(
+      "[SECURITY] ENCRYPTION_KEY not set – export proof signed with dashboard password. " +
+      "Set ENCRYPTION_KEY (32+ random bytes) for a dedicated signing secret.",
+    );
+    return process.env.NITSYCLAW_DASHBOARD_PASSWORD;
+  }
+  throw new Error("Export proof signing secret not configured – set ENCRYPTION_KEY");
 }
 
 function sign(value: string, secret: string): string {

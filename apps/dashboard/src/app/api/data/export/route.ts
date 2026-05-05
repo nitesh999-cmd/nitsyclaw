@@ -20,12 +20,16 @@ import {
   redactAuditExportRows,
   redactConnectedAccountExportRows,
 } from "../../../../lib/data-export-redaction";
+import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET(req: Request) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+
   try {
     const db = getDb();
     const exportedAt = new Date().toISOString();

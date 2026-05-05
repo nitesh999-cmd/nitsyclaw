@@ -7,11 +7,15 @@ import {
   normalizeExpenseFilters,
   validateExpenseFilters,
 } from "../../../../lib/expense-utils.js";
+import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+
   const url = new URL(req.url);
   const filters = normalizeExpenseFilters({
     q: url.searchParams.get("q") ?? undefined,

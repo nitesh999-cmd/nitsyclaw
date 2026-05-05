@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@nitsyclaw/shared/db";
 import { loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
+import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,9 @@ export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET(req: Request) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+
   const url = new URL(req.url);
   const rawLimit = parseInt(url.searchParams.get("limit") ?? "20", 10);
   const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
