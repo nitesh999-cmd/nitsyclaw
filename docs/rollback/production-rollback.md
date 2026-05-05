@@ -40,10 +40,10 @@ Verify after rollback:
 
 ```powershell
 npx vercel inspect "<previous-ready-production-url>" --wait --cwd "C:\Users\Nitesh\projects\NitsyClaw"
-curl.exe -I https://nitsyclaw.vercel.app/health
+pnpm release:live-smoke
 ```
 
-Expected `/health` result without a session is `307` to `/login?next=%2Fhealth` with `Cache-Control: no-store`.
+Expected result: live smoke passes against `https://nitsyclaw.vercel.app`. If rolling back to a deployment that predates `/api/healthz`, use the rollback helper's `/login` fallback and then manually verify `/login` returns `200` or `307` with `Cache-Control: no-store`.
 
 Database rollback:
 

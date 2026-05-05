@@ -9,7 +9,7 @@ Per Constitution **R15**, every P0 feature has unit + integration coverage. CI g
                     ╱ ╲
                    ╱   ╲      E2E (Playwright)
                   ╱     ╲     apps/dashboard/test/e2e/dashboard.spec.ts
-                 ╱       ╲    7 specs against the dashboard pages
+                 ╱       ╲    11 specs against the dashboard pages
                 ╱─────────╲
                ╱           ╲
               ╱             ╲ Integration (Vitest)
@@ -39,7 +39,24 @@ pnpm test:watch        # vitest in watch mode
 pnpm test:coverage     # generate coverage/ HTML + lcov
 pnpm test:e2e          # Playwright (auto-starts dashboard)
 pnpm test:e2e --ui     # Playwright UI mode
+pnpm release:live-smoke # smoke-test production after deploy
 ```
+
+## Production smoke
+
+After any production deploy, run:
+
+```powershell
+pnpm release:live-smoke
+```
+
+This checks:
+
+- `/api/healthz` returns `200`, `ok=true`, and `Cache-Control: no-store`
+- `/privacy` and `/terms` are public and no-store
+- `/api/sale-readiness` and `/api/chat/history` reject unauthenticated access with `401`
+- `/login` contains `Personal life admin`
+- `/login` does not contain the old `Personal AI control plane` copy
 
 ## Tagged tests
 

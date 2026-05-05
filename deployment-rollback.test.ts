@@ -39,6 +39,7 @@ describe("production rollback path", () => {
     expect(doc).toContain("<previous-ready-production-url>");
     expect(doc).toContain("scripts/vercel-rollback.ps1");
     expect(doc).toContain("older rollback target predates `/api/healthz`");
+    expect(doc).toContain("pnpm release:live-smoke");
     expect(doc).toContain("No database schema rollback is required");
   });
 });
