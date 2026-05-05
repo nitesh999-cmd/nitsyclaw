@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-05 (session 37 - operator command surface)
+> Updated: 2026-05-05 (session 38 - nuclear DeepSec audit + P1 security fixes)
 
 ---
 
@@ -433,7 +433,34 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 ---
 
-## 17. Session 6 (2026-05-01) — Dashboard auth gate
+## 17. Session 38 (2026-05-05) — Nuclear DeepSec Audit + P1 security fixes
+
+**Audit score:** 7/10 — **SHIP WITH RISKS**
+
+**Commands run:** `pnpm test` (300/300 ✅), `pnpm lint` (✅), `pnpm typecheck` (✅), `pnpm audit` (0 vulns ✅)
+
+**P1 fixes applied (all verified):**
+- `middleware.ts`: dev auth bypass now requires explicit `NITSYCLAW_DEV_AUTH_BYPASS=1` env var (prevents accidental open staging deploys). Also a linter tightened it to `VERCEL_ENV !== "production"` — correct for Vercel.
+- `data-export-proof.ts`: explicit warning log when using dashboard password as HMAC signing fallback instead of `ENCRYPTION_KEY`.
+- `api/chat/history/route.ts`: added `requireSameOrigin` (defense-in-depth on sensitive GET).
+- `api/data/export/route.ts`: added `requireSameOrigin` (all personal data dump).
+- `api/expenses/export/route.ts`: added `requireSameOrigin` (financial CSV).
+- `apps/dashboard/vercel.json`: created with HSTS + framework declaration (was missing entirely).
+
+**⚠ Action required (local dev):** Add `NITSYCLAW_DEV_AUTH_BYPASS=1` to `.env.local` if running without a dashboard password. Or set `NITSYCLAW_DASHBOARD_PASSWORD` for full auth.
+
+**Top remaining actions:**
+1. Set `ENCRYPTION_KEY` (32 random bytes) in Vercel env vars — removes the dashboard-password signing fallback
+2. Move login-attempt tracking from in-memory Map to `dashboardAuthAttempts` DB table (cold-start resets current map)
+3. Verify `NITSYCLAW_DEV_AUTH_BYPASS=1` is NOT set in Vercel env vars
+4. Add `pnpm build` to CI gating (currently only `test:coverage` is in `release:check`)
+5. Run `pnpm test:e2e` against Vercel preview before production deploys
+
+**Full report:** `AUDIT-REPORT-2026-05-05.md` at repo root.
+
+---
+
+## 18. Session 6 (2026-05-01) — Dashboard auth gate
 
 **Goal:** Stop the public Vercel dashboard from exposing private data before any product polish.
 
