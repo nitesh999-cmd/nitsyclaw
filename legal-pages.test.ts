@@ -7,6 +7,7 @@ describe("legal and privacy surfaces", () => {
     const terms = readFileSync("apps/dashboard/src/app/terms/page.tsx", "utf8");
     const shell = readFileSync("apps/dashboard/src/app/dashboard-shell.tsx", "utf8");
     const login = readFileSync("apps/dashboard/src/app/login/page.tsx", "utf8");
+    const layout = readFileSync("apps/dashboard/src/app/layout.tsx", "utf8");
 
     expect(privacy).toContain("What NitsyClaw stores");
     expect(privacy).toContain("What delete does");
@@ -19,6 +20,8 @@ describe("legal and privacy surfaces", () => {
     expect(login).toContain('href="/terms"');
     expect(shell).toContain("Personal life admin");
     expect(shell).not.toContain("Personal AI control plane");
+    expect(layout).toContain("Personal life admin");
+    expect(layout).not.toContain("Personal AI control plane");
     const middleware = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
     expect(middleware).toContain('pathname === "/privacy"');
     expect(middleware).toContain('pathname === "/terms"');
