@@ -1,6 +1,7 @@
 import { getDb, messages, reminders, confirmations, featureRequests, auditLog, getSystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
+import { evaluateSaleReadiness } from "../../lib/sale-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ function status(ok: boolean) {
 export default async function HealthPage() {
   let data: Awaited<ReturnType<typeof loadHealth>> | null = null;
   let error: string | null = null;
+  const saleReadiness = evaluateSaleReadiness();
   try {
     data = await loadHealth();
   } catch (e) {
@@ -69,6 +71,15 @@ export default async function HealthPage() {
     ["OpenAI", Boolean(process.env.OPENAI_API_KEY), process.env.OPENAI_API_KEY ? "Configured" : "Missing env"],
     ["WhatsApp owner", Boolean(process.env.WHATSAPP_OWNER_NUMBER), process.env.WHATSAPP_OWNER_NUMBER ? "Configured" : "Missing env"],
     ["Spotify env", Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET && process.env.SPOTIFY_REDIRECT_URI), "Optional integration"],
+    [
+      "Public sale",
+      saleReadiness.ready,
+      saleReadiness.mode === "public-sale"
+        ? saleReadiness.ready
+          ? "Ready"
+          : `${saleReadiness.blockers.length} blocker(s)`
+        : "Private-owner mode",
+    ],
   ] as const;
 
   return (
