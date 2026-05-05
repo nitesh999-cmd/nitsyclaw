@@ -10,7 +10,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "[2/6] Staged secret/local-file check"
+Write-Host "[2/6] Secret/local-file checks"
 $stagedPaths = @(git diff --cached --name-only)
 if ($LASTEXITCODE -ne 0) {
     throw "git diff --cached --name-only failed"
@@ -37,6 +37,54 @@ foreach ($stagedPath in $stagedPaths) {
     }
 }
 Write-Host "No staged secret/local files detected."
+
+$forbiddenRepoPatterns = @(
+    '.env',
+    '.env.local',
+    '.env.*.local',
+    'google-credentials.json',
+    'google-token*.json',
+    'ms-token.json',
+    '*.sqlite',
+    '*.db'
+)
+$forbiddenRepoPaths = @()
+foreach ($pattern in $forbiddenRepoPatterns) {
+    $matches = @(Get-ChildItem -Path . -Force -File -Recurse -Include $pattern -ErrorAction SilentlyContinue |
+        Where-Object {
+            $fullName = $_.FullName -replace '\\', '/'
+            $fullName -notmatch '/\.git/' -and
+            $fullName -notmatch '/node_modules/' -and
+            $fullName -notmatch '/\.pnpm-store/' -and
+            $fullName -notmatch '/dist/' -and
+            $fullName -notmatch '/\.next/' -and
+            $fullName -notmatch '/coverage/' -and
+            $fullName -notmatch '/playwright-report/' -and
+            $fullName -notmatch '/test-results/' -and
+            $_.Name -ne '.env.local.example'
+        })
+    foreach ($match in $matches) {
+        $forbiddenRepoPaths += $match.FullName
+    }
+}
+$forbiddenSessionDirs = @(Get-ChildItem -Path . -Force -Directory -Recurse -Filter ".wa-session" -ErrorAction SilentlyContinue |
+    Where-Object {
+        $fullName = $_.FullName -replace '\\', '/'
+        $fullName -notmatch '/\.git/' -and
+        $fullName -notmatch '/node_modules/' -and
+        $fullName -notmatch '/\.pnpm-store/' -and
+        $fullName -notmatch '/dist/' -and
+        $fullName -notmatch '/\.next/'
+    })
+foreach ($sessionDir in $forbiddenSessionDirs) {
+    $forbiddenRepoPaths += $sessionDir.FullName
+}
+if ($forbiddenRepoPaths.Count -gt 0) {
+    $externalSecretRoot = if ($env:NITSYCLAW_SECRET_ROOT) { $env:NITSYCLAW_SECRET_ROOT } else { Join-Path $HOME ".nitsyclaw\secrets" }
+    $list = ($forbiddenRepoPaths | Sort-Object -Unique | ForEach-Object { " - $_" }) -join "`n"
+    throw "Local secrets/session files exist inside the repo. Move them to $externalSecretRoot before release:`n$list"
+}
+Write-Host "No repo-local secret/session files detected."
 
 Write-Host ""
 Write-Host "[3/6] Git remote"

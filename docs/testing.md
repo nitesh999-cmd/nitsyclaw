@@ -42,6 +42,8 @@ pnpm test:e2e --ui     # Playwright UI mode
 pnpm release:live-smoke # smoke-test production after deploy
 ```
 
+`pnpm release:preflight` also blocks local secret drift before release. It fails if OAuth tokens, `.env.local`, SQLite/DB files, or WhatsApp session folders are left inside the repo instead of the external secret root.
+
 ## Production smoke
 
 After any production deploy, run:

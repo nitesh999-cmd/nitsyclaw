@@ -91,6 +91,10 @@
     "mtime": 1777774454.356441,
     "hash": "78e2781836f299e1d088323bdaba469d"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\external-env-loader.test.ts": {
+    "mtime": 1777962421.693814,
+    "hash": "41ab1de34eb5a3c025422bb05686a082"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\fix-and-go.ps1": {
     "mtime": 1777334211.7094843,
     "hash": "84c03a515c1827f726d04cc505278208"
@@ -164,8 +168,8 @@
     "hash": "162a47a83833593e892ef9d4af52163a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\playwright.config.ts": {
-    "mtime": 1777905278.7622793,
-    "hash": "294d0008b36d68a72e61169445f83dc0"
+    "mtime": 1777962410.5338266,
+    "hash": "93e6d7276ec5976cd1e44a677ecc34c8"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\provider-revocation.test.ts": {
     "mtime": 1777944429.4553506,
@@ -176,8 +180,8 @@
     "hash": "619e481206bbc6f5c646d88f850d47a8"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\release-ignore-policy.test.ts": {
-    "mtime": 1777948497.254031,
-    "hash": "50a709dd359aac2b8fb346f7481f15de"
+    "mtime": 1777961761.644917,
+    "hash": "9377a292eb15b6053cb656de825d230a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\router-send-failure.test.ts": {
     "mtime": 1777903882.3941271,
@@ -228,16 +232,16 @@
     "hash": "55d267f8060f8c557d27c92a2b486310"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\google-auth.ts": {
-    "mtime": 1777369034.25401,
-    "hash": "5ca0e04dd155911d5d71e801027a9e37"
+    "mtime": 1777961686.7794504,
+    "hash": "20b399d34a8733297136434b67e0643e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\index.ts": {
-    "mtime": 1777903882.3879263,
-    "hash": "09e592723f9ead57d634793855192276"
+    "mtime": 1777961719.2242587,
+    "hash": "55a132ddd257fa990b6f684f5c66740f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\microsoft-auth.ts": {
-    "mtime": 1777334211.6974843,
-    "hash": "626484b9265bd053d30167b4acd29aed"
+    "mtime": 1777961711.3447292,
+    "hash": "283c7842670b65d0e838af76a391992c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\microsoft-graph.ts": {
     "mtime": 1777903882.2165804,
@@ -936,8 +940,8 @@
     "hash": "7d2e63093b740a077892f21369b097f9"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\preflight.ps1": {
-    "mtime": 1777948497.254031,
-    "hash": "2275b542f52c580490ba02106fe85c06"
+    "mtime": 1777961744.006556,
+    "hash": "25381af68638d21eb1f79ec861b88b0a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\vercel-rollback.ps1": {
     "mtime": 1777916100.0865848,
@@ -996,20 +1000,20 @@
     "hash": "d53dd765a97a57e2302e12f65bbfd057"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\release-safety.md": {
-    "mtime": 1777948572.6877263,
-    "hash": "7a8bd98d5a238461a8105ff66db95ea3"
+    "mtime": 1777961989.2456431,
+    "hash": "9d76210716274b440a007216d1438a15"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\spotify-integration.md": {
     "mtime": 1777660967.7034683,
     "hash": "e1975bc9b2b93c99560dc966a110ee7e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\testing.md": {
-    "mtime": 1777948572.6877263,
-    "hash": "028cddef9812229d4b0653f3e76dbd6c"
+    "mtime": 1777961989.2456431,
+    "hash": "ac588d062b876656080cbe2177f93206"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\whatsapp-paths.md": {
-    "mtime": 1777334211.7084844,
-    "hash": "fbb9f64c33f0376c6527dc9291a11186"
+    "mtime": 1777961989.2466471,
+    "hash": "035470cc4949b6b50b3bfd7448d7f66a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\rollback\\production-rollback.md": {
     "mtime": 1777948572.6877263,

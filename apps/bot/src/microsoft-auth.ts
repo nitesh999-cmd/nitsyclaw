@@ -7,15 +7,16 @@
 //
 // Stores tokens at google-style path: ms-token.json (or env MS_TOKEN_JSON for cloud)
 
-import { config as dotenvConfig } from "dotenv";
-import { resolve as resolvePath } from "node:path";
-dotenvConfig({ path: resolvePath(process.cwd(), "../../.env.local") });
+import { readFileSync, writeFileSync } from "node:fs";
+import {
+  firstExistingSecretPath,
+  loadBotDotenv,
+  writableSecretPath,
+} from "./secret-paths.js";
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+loadBotDotenv();
 
-const ROOT = resolve(process.cwd(), "../..");
-const TOKEN_PATH = resolve(ROOT, "ms-token.json");
+const TOKEN_FILE = "ms-token.json";
 
 const SCOPES = [
   "Mail.Read",
@@ -34,17 +35,18 @@ interface MsTokens {
 }
 
 export function hasMsToken(): boolean {
-  return Boolean(process.env.MS_TOKEN_JSON) || existsSync(TOKEN_PATH);
+  return Boolean(process.env.MS_TOKEN_JSON) || Boolean(firstExistingSecretPath(TOKEN_FILE));
 }
 
 function loadMsTokens(): MsTokens | null {
   if (process.env.MS_TOKEN_JSON) return JSON.parse(process.env.MS_TOKEN_JSON);
-  if (existsSync(TOKEN_PATH)) return JSON.parse(readFileSync(TOKEN_PATH, "utf-8"));
+  const tokenPath = firstExistingSecretPath(TOKEN_FILE);
+  if (tokenPath) return JSON.parse(readFileSync(tokenPath, "utf-8"));
   return null;
 }
 
 function saveMsTokens(tokens: MsTokens): void {
-  writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
+  writeFileSync(writableSecretPath(TOKEN_FILE), JSON.stringify(tokens, null, 2));
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -141,7 +143,7 @@ export async function runDeviceCodeAuth(): Promise<void> {
         token_type: pollData.token_type ?? "Bearer",
       };
       saveMsTokens(tokens);
-      console.log(`\nToken saved to ${TOKEN_PATH}`);
+      console.log(`\nToken saved to ${writableSecretPath(TOKEN_FILE)}`);
       console.log("\nFor cloud deploys: copy ms-token.json contents into MS_TOKEN_JSON env var.\n");
       return;
     }

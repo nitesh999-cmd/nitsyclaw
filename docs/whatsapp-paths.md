@@ -57,6 +57,7 @@ Detailed comparison of the two transports OpenClaw supports. Also see Constituti
 - This path is permitted **only** for single-recipient personal use, where Nitesh's own number is both sender and recipient.
 - Mixing Path A and Path B in the same deployment is forbidden.
 - Any plan to onboard a second user requires migrating to Path A first.
+- The local `whatsapp-web.js` session must live outside the repo. Default path: `C:\Users\Nitesh\.nitsyclaw\secrets\.wa-session`, or `NITSYCLAW_SECRET_ROOT\.wa-session` when overridden.
 
 ### Use this path when
 - Building the just-for-me v1.

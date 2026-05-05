@@ -1,7 +1,15 @@
 import { OAuth2Client } from "google-auth-library";
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
 import * as readline from "node:readline";
+import {
+  firstExistingSecretPath,
+  legacyRepoSecretPath,
+  loadBotDotenv,
+  secretRoot,
+  writableSecretPath,
+} from "./secret-paths.js";
+
+loadBotDotenv();
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar",
@@ -10,8 +18,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
 ];
 
-const ROOT = resolve(process.cwd(), "../..");
-const CREDS_PATH = resolve(ROOT, "google-credentials.json");
+const CREDS_FILE = "google-credentials.json";
 
 interface CredsFile {
   installed: { client_id: string; client_secret: string; redirect_uris: string[] };
@@ -21,10 +28,11 @@ function loadCreds(): CredsFile {
   if (process.env.GOOGLE_CREDENTIALS_JSON) {
     return JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
   }
-  if (existsSync(CREDS_PATH)) {
-    return JSON.parse(readFileSync(CREDS_PATH, "utf-8"));
+  const credentialsPath = firstExistingSecretPath(CREDS_FILE);
+  if (credentialsPath) {
+    return JSON.parse(readFileSync(credentialsPath, "utf-8"));
   }
-  throw new Error("No Google credentials. Set GOOGLE_CREDENTIALS_JSON or put google-credentials.json at repo root.");
+  throw new Error(`No Google credentials. Set GOOGLE_CREDENTIALS_JSON or put ${CREDS_FILE} in ${secretRoot()}.`);
 }
 
 /**
@@ -39,25 +47,26 @@ export function listGoogleAccounts(): string[] {
     if (k.startsWith("GOOGLE_TOKEN_JSON_")) labels.push(k.replace("GOOGLE_TOKEN_JSON_", "").toLowerCase());
   }
   // Local file: google-token-<label>.json
-  if (existsSync(ROOT)) {
-    for (const f of readdirSync(ROOT)) {
+  for (const root of [secretRoot(), legacyRepoSecretPath(".")]) {
+    if (!existsSync(root)) continue;
+    for (const f of readdirSync(root)) {
       const m = f.match(/^google-token-([a-z0-9_-]+)\.json$/i);
       if (m && m[1]) labels.push(m[1].toLowerCase());
     }
     // Legacy single-account file = "personal"
-    if (existsSync(resolve(ROOT, "google-token.json")) && !labels.includes("personal")) {
+    if (existsSync(`${root}/google-token.json`) && !labels.includes("personal")) {
       labels.push("personal");
     }
-    // Cloud single-token env var = "personal"
-    if (process.env.GOOGLE_TOKEN_JSON && !labels.includes("personal")) {
-      labels.push("personal");
-    }
+  }
+  // Cloud single-token env var = "personal"
+  if (process.env.GOOGLE_TOKEN_JSON && !labels.includes("personal")) {
+    labels.push("personal");
   }
   return Array.from(new Set(labels));
 }
 
 function tokenPathFor(label: string): string {
-  return resolve(ROOT, `google-token-${label}.json`);
+  return writableSecretPath(`google-token-${label}.json`);
 }
 
 function loadTokenFor(label: string): Record<string, unknown> | null {
@@ -66,10 +75,12 @@ function loadTokenFor(label: string): Record<string, unknown> | null {
   if (label === "personal" && process.env.GOOGLE_TOKEN_JSON) return JSON.parse(process.env.GOOGLE_TOKEN_JSON);
   const path = tokenPathFor(label);
   if (existsSync(path)) return JSON.parse(readFileSync(path, "utf-8"));
+  const legacyLabeled = legacyRepoSecretPath(`google-token-${label}.json`);
+  if (existsSync(legacyLabeled)) return JSON.parse(readFileSync(legacyLabeled, "utf-8"));
   // Legacy fallback
   if (label === "personal") {
-    const legacy = resolve(ROOT, "google-token.json");
-    if (existsSync(legacy)) return JSON.parse(readFileSync(legacy, "utf-8"));
+    const legacy = firstExistingSecretPath("google-token.json");
+    if (legacy) return JSON.parse(readFileSync(legacy, "utf-8"));
   }
   return null;
 }

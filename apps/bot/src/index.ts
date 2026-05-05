@@ -1,9 +1,6 @@
 // NitsyClaw bot worker entry point.
 // Long-running Node process. Designed for Railway. NOT compatible with Vercel.
 
-import { config as dotenvConfig } from "dotenv";
-import { resolve } from "node:path";
-dotenvConfig({ path: resolve(process.cwd(), "../../.env.local") });
 import { loadEnv } from "@nitsyclaw/shared";
 import { getDb, insertFeatureRequest, logAudit, upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
 import { pushNotify } from "@nitsyclaw/shared/notify";
@@ -17,6 +14,9 @@ import { WhatsAppSendMonitor } from "./whatsapp-send-monitor.js";
 import { buildAgentDeps } from "./adapters.js";
 import { Router } from "./router.js";
 import { startScheduler } from "./scheduler.js";
+import { loadBotDotenv, whatsappSessionDir } from "./secret-paths.js";
+
+loadBotDotenv();
 
 async function main() {
   const env = loadEnv();
@@ -24,7 +24,7 @@ async function main() {
   const db = getDb(env.DATABASE_URL ?? env.DATABASE_URL_DIRECT);
 
   const rawWhatsapp = new WwebjsClient({
-    sessionDir: env.WHATSAPP_SESSION_DIR,
+    sessionDir: whatsappSessionDir(env.WHATSAPP_SESSION_DIR),
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
     onStatus: (event) => {
       void upsertSystemHeartbeat(db, {
