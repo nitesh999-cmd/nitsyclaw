@@ -9,6 +9,7 @@ interface IntegrationRow {
   status: "Connected" | "Needs setup" | "Blocked" | "Read-only" | "Local only" | "Partial";
   detail: string;
   action?: { href: string; label: string };
+  disconnectAction?: { action: string; label: string };
 }
 
 async function loadRows(): Promise<IntegrationRow[]> {
@@ -72,6 +73,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     action: spotifyConfigured && !spotifyConnected
       ? { href: "/api/integrations/spotify/connect", label: "Connect Spotify" }
       : undefined,
+    disconnectAction: spotifyConfigured && spotifyConnected
+      ? { action: "/api/integrations/spotify/disconnect", label: "Disconnect Spotify" }
+      : undefined,
   });
 
   rows.push(
@@ -126,7 +130,12 @@ function badge(status: IntegrationRow["status"]) {
   return `rounded border px-2 py-1 text-xs ${cls}`;
 }
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ spotify?: string }>;
+}) {
+  const params = await searchParams;
   const rows = await loadRows();
 
   return (
@@ -138,17 +147,36 @@ export default async function IntegrationsPage() {
         </p>
       </div>
 
+      {params?.spotify === "revoke-failed" ? (
+        <div className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+          Spotify disconnect failed at the provider. The local token is kept so you can retry safely.
+        </div>
+      ) : params?.spotify === "disconnected" ? (
+        <div className="border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-200" role="status">
+          Spotify disconnected.
+        </div>
+      ) : null}
+
       <div className="divide-y divide-neutral-800 border-y border-neutral-800">
         {rows.map((row) => (
           <div key={row.name} className="grid gap-3 py-4 md:grid-cols-[160px_120px_1fr_auto] md:items-center">
             <div className="font-medium">{row.name}</div>
             <div><span className={badge(row.status)}>{row.status}</span></div>
             <div className="text-sm text-neutral-400">{row.detail}</div>
-            {row.action ? (
-              <Link className="text-sm text-sky-300 hover:text-sky-200" href={row.action.href}>
-                {row.action.label}
-              </Link>
-            ) : null}
+            <div className="flex flex-wrap gap-3">
+              {row.action ? (
+                <Link className="text-sm text-sky-300 hover:text-sky-200" href={row.action.href}>
+                  {row.action.label}
+                </Link>
+              ) : null}
+              {row.disconnectAction ? (
+                <form action={row.disconnectAction.action} method="post">
+                  <button className="text-sm text-red-300 hover:text-red-200">
+                    {row.disconnectAction.label}
+                  </button>
+                </form>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>

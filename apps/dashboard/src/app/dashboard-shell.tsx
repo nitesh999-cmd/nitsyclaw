@@ -50,7 +50,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <div className="mb-5 flex items-center justify-between gap-3 lg:block">
           <a href="/" className="block">
             <div className="text-xl font-semibold tracking-normal text-white">NitsyClaw</div>
-            <div className="mt-1 text-xs text-slate-500">Personal AI control plane</div>
+            <div className="mt-1 text-xs text-slate-500">Personal life admin</div>
           </a>
           <a href="/chat" className="nc-button-primary lg:mt-4">Open Chat</a>
         </div>
@@ -90,6 +90,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               Sign out
             </button>
           </form>
+          <div className="flex gap-4 text-xs text-slate-600">
+            <a href="/privacy" className="hover:text-slate-300">Privacy</a>
+            <a href="/terms" className="hover:text-slate-300">Terms</a>
+          </div>
         </nav>
       </aside>
       <main className="flex-1 p-4 md:p-6 xl:p-8">{children}</main>

@@ -10,9 +10,7 @@ import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const GLOBAL_LOGIN_FAILURE_KEY = "global:dashboard-login";
 const NO_STORE = { "Cache-Control": "no-store" };
-const GLOBAL_LOGIN_MAX_FAILURES = 50;
 
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
@@ -37,28 +35,27 @@ export async function POST(request: Request): Promise<Response> {
   const password = String(form.get("password") ?? "");
   const next = sanitizeNext(String(form.get("next") ?? "/"));
   const clientKey = `ip:${clientKeyFromRequest(request)}`;
+  const accountKey = accountKeyFromUser(user, expectedUser);
 
   const now = Date.now();
-  const [clientState, globalState] = await Promise.all([
+  const [clientState, accountState] = await Promise.all([
     getDashboardLoginAttemptState(clientKey, now),
-    getDashboardLoginAttemptState(GLOBAL_LOGIN_FAILURE_KEY, now),
+    getDashboardLoginAttemptState(accountKey, now),
   ]);
   if (
     (clientState.lockedUntilMs && clientState.lockedUntilMs > now) ||
-    (globalState.lockedUntilMs && globalState.lockedUntilMs > now)
+    (accountState.lockedUntilMs && accountState.lockedUntilMs > now)
   ) {
     return redirectToLogin("locked", next, 303);
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
-    const [updatedClient, updatedGlobal] = await Promise.all([
-      recordDashboardLoginFailure(clientKey),
-      recordDashboardLoginFailure(GLOBAL_LOGIN_FAILURE_KEY, now, GLOBAL_LOGIN_MAX_FAILURES),
+    const [updatedClient, updatedAccount] = await Promise.all([
+      recordDashboardLoginFailure(clientKey, now),
+      recordDashboardLoginFailure(accountKey, now),
     ]);
     return redirectToLogin(
-      updatedClient.lockedUntilMs || updatedGlobal.lockedUntilMs || (globalState.lockedUntilMs && globalState.lockedUntilMs > Date.now())
-        ? "locked"
-        : "invalid",
+      updatedClient.lockedUntilMs || updatedAccount.lockedUntilMs ? "locked" : "invalid",
       next,
       303,
     );
@@ -66,7 +63,7 @@ export async function POST(request: Request): Promise<Response> {
 
   await Promise.all([
     clearDashboardLoginAttempts(clientKey),
-    clearDashboardLoginAttempts(GLOBAL_LOGIN_FAILURE_KEY),
+    clearDashboardLoginAttempts(accountKey),
   ]);
   const token = await createDashboardSessionToken(expectedUser, expectedPassword ?? "");
   const response = NextResponse.redirect(new URL(next, request.url), 303);
@@ -99,6 +96,17 @@ function clientKeyFromRequest(request: Request): string {
     "unknown"
   );
   return raw.replace(/[^\w:. -]/g, "").slice(0, 128) || "unknown";
+}
+
+function accountKeyFromUser(user: string, expectedUser: string): string {
+  const normalized = normalizeAccountUser(user);
+  const expected = normalizeAccountUser(expectedUser);
+  if (normalized && normalized === expected) return `account:${expected}`;
+  return `account-submitted:${normalized || "unknown"}`;
+}
+
+function normalizeAccountUser(user: string): string {
+  return user.trim().toLowerCase().replace(/[^\w@.+-]/g, "").slice(0, 128);
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

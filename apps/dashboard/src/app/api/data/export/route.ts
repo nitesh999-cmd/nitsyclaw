@@ -4,6 +4,7 @@ import {
   briefs,
   confirmations,
   connectedAccounts,
+  dashboardAuthAttempts,
   expenses,
   featureRequests,
   getDb,
@@ -42,6 +43,7 @@ export async function GET(req: Request) {
       profileRows,
       accountRows,
       heartbeatRows,
+      dashboardAuthAttemptRows,
     ] = await Promise.all([
       db.select().from(messages).orderBy(desc(messages.createdAt)).limit(5001),
       db.select().from(memories).orderBy(desc(memories.createdAt)).limit(5001),
@@ -54,6 +56,7 @@ export async function GET(req: Request) {
       db.select().from(profileContext).orderBy(desc(profileContext.updatedAt)).limit(5001),
       db.select().from(connectedAccounts).orderBy(desc(connectedAccounts.updatedAt)).limit(5001),
       db.select().from(systemHeartbeats),
+      db.select().from(dashboardAuthAttempts).orderBy(desc(dashboardAuthAttempts.updatedAt)).limit(5001),
     ]);
     const caps = {
       messages: capRows(messageRows, 5000),
@@ -67,6 +70,7 @@ export async function GET(req: Request) {
       profileContext: capRows(profileRows, 5000),
       connectedAccounts: capRows(accountRows, 5000),
       systemHeartbeats: { rows: heartbeatRows, truncated: false },
+      dashboardAuthAttempts: capRows(dashboardAuthAttemptRows, 5000),
     };
     const exportComplete = !Object.values(caps).some((cap) => cap.truncated);
     const counts = Object.fromEntries(
@@ -100,6 +104,7 @@ export async function GET(req: Request) {
           profileContext: caps.profileContext.rows,
           connectedAccounts: redactConnectedAccountExportRows(caps.connectedAccounts.rows),
           systemHeartbeats: caps.systemHeartbeats.rows,
+          dashboardAuthAttempts: redactDashboardAuthAttemptRows(caps.dashboardAuthAttempts.rows),
         },
       },
       {
@@ -116,6 +121,15 @@ export async function GET(req: Request) {
       { status: 500, headers: NO_STORE },
     );
   }
+}
+
+function redactDashboardAuthAttemptRows<T extends { clientKey?: string | null }>(rows: T[]): T[] {
+  return rows.map((row) => ({
+    ...row,
+    clientKey: row.clientKey?.startsWith("account:")
+      ? "account:[redacted]"
+      : "[redacted:client]",
+  }));
 }
 
 function capRows<T>(rows: T[], limit: number): { rows: T[]; truncated: boolean } {

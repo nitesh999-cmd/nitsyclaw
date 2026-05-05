@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isDashboardAuthConfigured } from "./lib/dashboard-auth";
 import { DASHBOARD_SESSION_COOKIE, verifyDashboardSessionToken } from "./lib/dashboard-session";
+import { evaluateSaleReadiness } from "./lib/sale-readiness";
 
 function unauthorized(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith("/api/")) {
@@ -28,12 +29,25 @@ function notConfigured(request: NextRequest) {
   }), request);
 }
 
+function publicSaleNotReady(request: NextRequest) {
+  return withSecurityHeaders(new NextResponse("Public sale mode is not ready", {
+    status: 503,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  }), request);
+}
+
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/api/healthz";
+  return pathname === "/api/healthz" || pathname === "/privacy" || pathname === "/terms";
 }
 
 function isAuthPath(pathname: string): boolean {
   return pathname === "/login" || pathname === "/api/auth/login" || pathname === "/api/auth/logout";
+}
+
+function isSaleReadinessPath(pathname: string): boolean {
+  return pathname === "/api/sale-readiness";
 }
 
 function withSecurityHeaders(response: NextResponse, request: NextRequest): NextResponse {
@@ -48,6 +62,10 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
 }
 
 export async function middleware(request: NextRequest) {
+  if (isPublicPath(request.nextUrl.pathname)) {
+    return withSecurityHeaders(NextResponse.next(), request);
+  }
+
   const dashboardPassword = process.env.NITSYCLAW_DASHBOARD_PASSWORD;
   const dashboardUser = process.env.NITSYCLAW_DASHBOARD_USER || "nitesh";
   const configured = isDashboardAuthConfigured({
@@ -59,12 +77,21 @@ export async function middleware(request: NextRequest) {
     return process.env.NODE_ENV === "production" ? notConfigured(request) : withSecurityHeaders(NextResponse.next(), request);
   }
 
-  if (isAuthPath(request.nextUrl.pathname) || isPublicPath(request.nextUrl.pathname)) {
+  if (isAuthPath(request.nextUrl.pathname)) {
     return withSecurityHeaders(NextResponse.next(), request);
   }
 
   const session = request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value;
   if (await verifyDashboardSessionToken(session, dashboardPassword ?? "", dashboardUser)) {
+    if (isSaleReadinessPath(request.nextUrl.pathname)) {
+      return withSecurityHeaders(NextResponse.next(), request);
+    }
+
+    const saleReadiness = evaluateSaleReadiness();
+    if (saleReadiness.mode === "public-sale" && !saleReadiness.ready) {
+      return publicSaleNotReady(request);
+    }
+
     return withSecurityHeaders(NextResponse.next(), request);
   }
 

@@ -18,11 +18,14 @@ describe("dashboard auth routes", () => {
     const source = readFileSync("apps/dashboard/src/app/api/auth/login/route.ts", "utf8");
 
     expect(source).toContain("clientKeyFromRequest");
-    expect(source).toContain("GLOBAL_LOGIN_FAILURE_KEY");
+    expect(source).toContain("accountKeyFromUser");
+    expect(source).not.toContain("GLOBAL_LOGIN_FAILURE_KEY");
     expect(source).toContain("x-vercel-forwarded-for");
     expect(source).not.toContain("Math.max(clientState.lockedUntilMs");
     expect(source).toContain("slice(0, 128)");
     expect(source).toContain("replace(/[^\\w:. -]/g");
+    expect(source).toContain("account-submitted");
+    expect(source).toContain("normalized && normalized === expected");
   });
 
   it("keeps middleware security headers on protected responses", () => {

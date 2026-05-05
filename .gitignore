@@ -26,6 +26,7 @@ build/
 .vscode/
 .idea/
 .DS_Store
+.claude/settings.local.json
 
 # Tests
 coverage/

@@ -4,6 +4,7 @@ import {
   briefs,
   confirmations,
   connectedAccounts,
+  dashboardAuthAttempts,
   expenses,
   featureRequests,
   getDb,
@@ -13,7 +14,9 @@ import {
   reminders,
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
+import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
 import { sessionTokenFromRequest, verifyExportProof } from "../../../../lib/data-export-proof";
+import { getOwnerIdentity } from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -80,6 +83,13 @@ export async function POST(req: Request) {
 
   try {
     const db = getDb();
+    if (scope === "everything") {
+      const { ownerHash } = getOwnerIdentity();
+      const spotifyDisconnect = await disconnectSpotify(db, ownerHash);
+      if (spotifyDisconnect.revokeError) {
+        return redirectToSettings(req, { deleteError: "provider-revoke", scope });
+      }
+    }
     const started = Date.now();
     const counts = await db.transaction(async (tx) => {
       const deleted: DeleteCounts = {};
@@ -99,6 +109,7 @@ export async function POST(req: Request) {
         deleted.connectedAccounts = (await tx.delete(connectedAccounts).returning({ id: connectedAccounts.id })).length;
         deleted.systemHeartbeats = (await tx.delete(systemHeartbeats).returning({ source: systemHeartbeats.source })).length;
         deleted.briefs = (await tx.delete(briefs).returning({ id: briefs.id })).length;
+        deleted.dashboardAuthAttempts = (await tx.delete(dashboardAuthAttempts).returning({ clientKey: dashboardAuthAttempts.clientKey })).length;
         deleted.auditLog = (await tx.delete(auditLog).returning({ id: auditLog.id })).length;
       }
 

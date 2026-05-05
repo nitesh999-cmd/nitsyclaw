@@ -1,9 +1,10 @@
 import type { DB } from "../db/client.js";
-import { getConnectedAccount, upsertConnectedAccount } from "../db/repo.js";
+import { deleteConnectedAccount, getConnectedAccount, upsertConnectedAccount } from "../db/repo.js";
 import { decryptString, encryptString } from "../utils/crypto.js";
 
 const SPOTIFY_API = "https://api.spotify.com/v1";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+const SPOTIFY_REVOCATION_URL = "https://accounts.spotify.com/oauth2/revoke/v1";
 export const SPOTIFY_SCOPES = [
   "user-top-read",
   "user-read-recently-played",
@@ -274,4 +275,53 @@ export async function createPrivateSpotifyPlaylist(
     url: playlist.external_urls?.spotify,
     added: uris.length,
   };
+}
+
+export async function disconnectSpotify(
+  db: DB,
+  ownerHash: string,
+): Promise<{ existed: boolean; revoked: boolean; revokeError?: string }> {
+  const account = await getConnectedAccount(db, {
+    provider: "spotify",
+    ownerHash,
+    accountLabel: "default",
+  });
+  if (!account) return { existed: false, revoked: false };
+
+  let revoked = false;
+  let revokeError: string | undefined;
+  for (const encryptedToken of [account.accessToken, account.refreshToken].filter((token): token is string => Boolean(token))) {
+    try {
+      await revokeSpotifyToken(dec(encryptedToken));
+      revoked = true;
+    } catch (error) {
+      revokeError = error instanceof Error ? error.message : "Spotify token revoke failed";
+    }
+  }
+
+  if (revokeError) {
+    return { existed: true, revoked, revokeError };
+  }
+
+  await deleteConnectedAccount(db, {
+    provider: "spotify",
+    ownerHash,
+    accountLabel: "default",
+  });
+  return { existed: true, revoked, revokeError };
+}
+
+async function revokeSpotifyToken(token: string): Promise<void> {
+  const body = new URLSearchParams({ token });
+  const resp = await fetch(SPOTIFY_REVOCATION_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${basicAuth()}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  if (!resp.ok) {
+    throw new Error(`Spotify revoke failed: ${resp.status}`);
+  }
 }

@@ -18,4 +18,12 @@ describe("dashboard mutating routes", () => {
       expect(source, route).toContain("requireSameOrigin");
     }
   });
+
+  it("disables caching in state-changing API handlers", () => {
+    for (const route of mutatingRoutes) {
+      const source = readFileSync(route, "utf8");
+      expect(source, route).toContain("Cache-Control");
+      expect(source, route).toContain("no-store");
+    }
+  });
 });

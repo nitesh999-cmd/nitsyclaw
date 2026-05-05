@@ -22,6 +22,7 @@ export const maxDuration = 30;
 
 const MAX_BATCH = 20;
 const MAX_NEXT_50 = 50;
+const NO_STORE = { "Cache-Control": "no-store" };
 
 type QueueAction = "queue_mission" | "queue_all" | "queue_next_50";
 
@@ -45,12 +46,12 @@ export async function POST(request: Request): Promise<Response> {
   try {
     rawBody = (await request.json()) as QueueBody;
   } catch {
-    return NextResponse.json({ reply: "Bad request" }, { status: 400 });
+    return NextResponse.json({ reply: "Bad request" }, { status: 400, headers: NO_STORE });
   }
 
   const action = rawBody.action;
   if (action !== "queue_mission" && action !== "queue_all" && action !== "queue_next_50") {
-    return NextResponse.json({ reply: "Invalid operator job action" }, { status: 400 });
+    return NextResponse.json({ reply: "Invalid operator job action" }, { status: 400, headers: NO_STORE });
   }
 
   let jobs: OperatorQueueJob[] = [];
@@ -64,7 +65,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (jobs.length === 0) {
-    return NextResponse.json({ reply: "Unknown operator mission" }, { status: 400 });
+    return NextResponse.json({ reply: "Unknown operator mission" }, { status: 400, headers: NO_STORE });
   }
 
   try {
@@ -105,19 +106,22 @@ export async function POST(request: Request): Promise<Response> {
 
     const queued = results.filter((result) => result.status === "queued").length;
     const existing = results.length - queued;
-    return NextResponse.json({
-      reply: `Operator jobs ready. Queued ${queued}; already existed ${existing}.`,
-      queued,
-      existing,
-      results,
-    });
+    return NextResponse.json(
+      {
+        reply: `Operator jobs ready. Queued ${queued}; already existed ${existing}.`,
+        queued,
+        existing,
+        results,
+      },
+      { headers: NO_STORE },
+    );
   } catch (e) {
     const configError = publicConfigErrorOrNull(e);
     if (configError) {
-      return NextResponse.json({ reply: configError.reply }, { status: configError.status });
+      return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
     }
     console.error("[operator-jobs] enqueue failed", e);
-    return NextResponse.json({ reply: "Operator jobs failed to queue." }, { status: 500 });
+    return NextResponse.json({ reply: "Operator jobs failed to queue." }, { status: 500, headers: NO_STORE });
   }
 }
 

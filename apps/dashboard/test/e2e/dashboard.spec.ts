@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test";
 test.describe("dashboard routes render", () => {
   test("Login page has polished owner-gated entry", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: "Personal AI control plane" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Personal life admin" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     await expect(page.locator(".nc-hero")).toBeVisible();
   });

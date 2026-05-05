@@ -26,10 +26,15 @@ describe("dashboard login route", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("keeps global lockout above the per-client threshold", () => {
+  it("does not use a shared global login lockout that can block every user", () => {
     const source = readFileSync("apps/dashboard/src/app/api/auth/login/route.ts", "utf8");
 
-    expect(source).toContain("GLOBAL_LOGIN_MAX_FAILURES = 50");
-    expect(source).toContain("recordDashboardLoginFailure(GLOBAL_LOGIN_FAILURE_KEY, now, GLOBAL_LOGIN_MAX_FAILURES)");
+    expect(source).not.toContain("GLOBAL_LOGIN_FAILURE_KEY");
+    expect(source).not.toContain("updatedGlobal");
+    expect(source).not.toContain("globalState");
+    expect(source).toContain("accountKeyFromUser");
+    expect(source).toContain("account-submitted");
+    expect(source).toContain("accountKeyFromUser(user, expectedUser)");
+    expect(source).toContain("recordDashboardLoginFailure(accountKey");
   });
 });

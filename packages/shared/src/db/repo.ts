@@ -264,6 +264,27 @@ export async function getConnectedAccount(
   return row ?? null;
 }
 
+export async function deleteConnectedAccount(
+  db: DB,
+  args: {
+    provider: ConnectedAccount["provider"];
+    ownerHash: string;
+    accountLabel?: string;
+  },
+): Promise<boolean> {
+  const rows = await db
+    .delete(connectedAccounts)
+    .where(
+      and(
+        eq(connectedAccounts.provider, args.provider),
+        eq(connectedAccounts.ownerHash, args.ownerHash),
+        eq(connectedAccounts.accountLabel, args.accountLabel ?? "default"),
+      ),
+    )
+    .returning({ id: connectedAccounts.id });
+  return rows.length > 0;
+}
+
 export async function upsertSystemHeartbeat(
   db: DB,
   args: {

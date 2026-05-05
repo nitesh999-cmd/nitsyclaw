@@ -13,7 +13,7 @@ export default async function LoginPage({
         <div className="flex flex-col justify-between gap-10">
           <div>
             <div className="nc-eyebrow">NitsyClaw</div>
-            <h2 className="mt-3 text-4xl font-semibold">Personal AI control plane</h2>
+            <h2 className="mt-3 text-4xl font-semibold">Personal life admin</h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-400">
               Private dashboard for chat, WhatsApp memory, approvals, reminders, queue execution, and owner data controls.
             </p>
@@ -63,6 +63,10 @@ export default async function LoginPage({
               Sign in
             </button>
           </form>
+          <div className="mt-5 flex gap-4 text-xs text-slate-500">
+            <a href="/privacy" className="hover:text-slate-300">Privacy</a>
+            <a href="/terms" className="hover:text-slate-300">Terms</a>
+          </div>
         </div>
       </section>
     </div>

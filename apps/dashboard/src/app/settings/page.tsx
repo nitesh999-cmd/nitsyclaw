@@ -1,11 +1,14 @@
 // Settings page — quiet hours, integrations, and owner data controls.
 
+import { evaluateSaleReadiness } from "../../lib/sale-readiness";
+
 export default async function SettingsPage({
   searchParams,
 }: {
   searchParams?: Promise<{ deleted?: string; deleteError?: string; scope?: string }>;
 }) {
   const params = await searchParams;
+  const saleReadiness = evaluateSaleReadiness();
   return (
     <div className="nc-page">
       <section className="nc-hero">
@@ -27,8 +30,10 @@ export default async function SettingsPage({
             ? `Type the exact confirmation phrase for ${plainScope(params.scope ?? "")}.`
             : params.deleteError === "reauth"
               ? "Enter your current dashboard password before deleting everything."
-              : params.deleteError === "export"
+            : params.deleteError === "export"
                 ? "Export your data first, then paste the snapshot ID and export proof from the download."
+                : params.deleteError === "provider-revoke"
+                  ? "A connected provider could not be disconnected. Retry before deleting everything."
             : "Delete request was not recognised."}
         </div>
       ) : null}
@@ -48,6 +53,22 @@ export default async function SettingsPage({
           <li className="nc-tile">Anthropic Claude: {process.env.ANTHROPIC_API_KEY ? "configured" : "not configured"}</li>
           <li className="nc-tile">OpenAI Whisper: {process.env.OPENAI_API_KEY ? "configured" : "not configured"}</li>
         </ul>
+      </section>
+
+      <section className="nc-section" data-testid="settings-sale-readiness">
+        <h3 className="nc-eyebrow mb-2">Launch readiness</h3>
+        <div className="text-sm text-slate-300">
+          <div className="font-medium text-slate-100">
+            {saleReadiness.ready ? "Ready for public sale" : "Not ready for public sale"}
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Mode: {saleReadiness.mode}. This must stay blocked until multi-user auth, tenant isolation,
+            provider delete/revoke, and legal/privacy copy are verified.
+          </p>
+          <a href="/api/sale-readiness" className="mt-3 inline-flex text-xs font-medium text-cyan-200">
+            View readiness JSON
+          </a>
+        </div>
       </section>
 
       <section className="nc-section" data-testid="settings-export">
@@ -82,7 +103,7 @@ export default async function SettingsPage({
             {
               scope: "everything",
               title: "Delete everything",
-              detail: "Requires a fresh export snapshot and your dashboard password. External provider data is not deleted.",
+              detail: "Requires a fresh export snapshot and your dashboard password. Connected providers are disconnected first; if local deletion then fails, reconnect that provider after retrying cleanup.",
               placeholder: "Type DELETE EVERYTHING",
             },
           ].map(({ scope, title, detail, placeholder }) => (
