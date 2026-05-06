@@ -1,10 +1,10 @@
 // node-cron schedules for: morning brief (with multi-account email + calendar),
-// due reminders, memory pruner, and local build-agent notification.
+// due reminders, memory pruner, confirmation expiry pruner, and local build-agent notification.
 
 import cron from "node-cron";
 import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
-import { upsertSystemHeartbeat, pruneOldMessages } from "@nitsyclaw/shared/db";
+import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
@@ -113,10 +113,15 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
   tasks.push(
     cron.schedule(MEMORY_PRUNER_CRON, async () => {
       try {
-        const cutoff = new Date(Date.now() - PRUNE_MESSAGES_DAYS * 24 * 60 * 60 * 1000);
+        const now = opts.deps.now();
+        const cutoff = new Date(now.getTime() - PRUNE_MESSAGES_DAYS * 24 * 60 * 60 * 1000);
         await pruneOldMessages(opts.deps.db, cutoff);
         console.log(`[cron:prune] pruned messages older than ${PRUNE_MESSAGES_DAYS} days (cutoff: ${cutoff.toISOString()})`);
+        const expired = await pruneExpiredConfirmations(opts.deps.db, now);
+        if (expired > 0) console.log(`[cron:prune] expired ${expired} confirmation(s)`);
+        await writeHeartbeat("memory-pruner", { lastRun: now.toISOString() });
       } catch (e) {
+        await writeHeartbeat("memory-pruner", { error: e instanceof Error ? e.message : String(e) }, "error").catch(() => {});
         console.error("[cron:prune] error", e);
       }
     }),

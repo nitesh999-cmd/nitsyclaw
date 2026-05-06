@@ -291,6 +291,19 @@ export async function deleteConnectedAccount(
   return rows.length > 0;
 }
 
+/**
+ * Mark all pending confirmations whose expiresAt is before `now` as expired.
+ * Returns count of rows updated.
+ */
+export async function pruneExpiredConfirmations(db: DB, now: Date = new Date()): Promise<number> {
+  const rows = await db
+    .update(confirmations)
+    .set({ status: "expired" })
+    .where(and(eq(confirmations.status, "pending"), lt(confirmations.expiresAt, now)))
+    .returning({ id: confirmations.id });
+  return rows.length;
+}
+
 export async function upsertSystemHeartbeat(
   db: DB,
   args: {

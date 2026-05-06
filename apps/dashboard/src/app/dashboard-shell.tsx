@@ -9,7 +9,7 @@ const navGroups = [
     items: [
       { href: "/", label: "Today", mark: "Home" },
       { href: "/chat", label: "Ask", mark: "Talk" },
-      { href: "/command", label: "Plan", mark: "Do" },
+      { href: "/command", label: "Command", mark: "Do" },
       { href: "/confirmations", label: "Decisions", mark: "Yes" },
     ],
   },
@@ -21,6 +21,14 @@ const navGroups = [
       { href: "/memory", label: "Saved notes", mark: "Keep" },
       { href: "/conversations", label: "Messages", mark: "Log" },
       { href: "/queue", label: "Requests", mark: "Build" },
+    ],
+  },
+  {
+    label: "Explore",
+    items: [
+      { href: "/search", label: "Search", mark: "Find" },
+      { href: "/stats", label: "Stats", mark: "Data" },
+      { href: "/profile", label: "Profile", mark: "Me" },
     ],
   },
   {
@@ -106,8 +114,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <a href="/" className="flex items-center gap-3">
           <span className="nc-brand-mark">N</span>
           <span>
-            <span className="block text-sm font-semibold text-stone-950">NitsyClaw</span>
-            <span className="block text-xs text-stone-500">Home admin</span>
+            <span className="block text-sm font-semibold text-slate-100">NitsyClaw</span>
+            <span className="block text-xs text-slate-500">Home admin</span>
           </span>
         </a>
         <a href="/chat" aria-label="Open Chat" className="nc-button-primary min-h-9 px-3 text-xs">Ask</a>
@@ -118,8 +126,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           <a href="/" className="flex items-center gap-3">
             <span className="nc-brand-mark">N</span>
             <span>
-              <span className="block text-lg font-semibold tracking-normal text-stone-950">NitsyClaw</span>
-              <span className="mt-0.5 block text-xs text-stone-500">Personal life admin</span>
+              <span className="block text-lg font-semibold tracking-normal text-slate-100">NitsyClaw</span>
+              <span className="mt-0.5 block text-xs text-slate-500">Personal life admin</span>
             </span>
           </a>
           <div className="mt-4 grid grid-cols-2 gap-2">
@@ -131,7 +139,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <nav className="flex-1 space-y-5 overflow-y-auto text-sm">
           {navGroups.map((group) => (
             <div key={group.label}>
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-normal text-stone-500">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-normal text-slate-600">
                 {group.label}
               </div>
               <div className="grid grid-cols-1 gap-1">
@@ -146,7 +154,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                         "nc-nav-link " + (active ? "nc-nav-link-active" : "nc-nav-link-idle")
                       }
                     >
-                      <span className={active ? "w-10 text-[10px] font-semibold text-[#8e3f24]" : "w-10 text-[10px] font-semibold text-stone-400"}>{item.mark}</span>
+                      <span className={active ? "w-10 text-[10px] font-semibold text-[#d8b75d]" : "w-10 text-[10px] font-semibold text-slate-600"}>{item.mark}</span>
                       <span className="truncate">{item.label}</span>
                     </a>
                   );
@@ -155,21 +163,21 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           ))}
 
-          <form action="/api/auth/logout" method="post" className="border-t border-stone-200 pt-4">
-            <button className="text-left text-sm text-stone-500 transition-colors hover:text-stone-950" type="submit">
+          <form action="/api/auth/logout" method="post" className="border-t border-slate-700/60 pt-4">
+            <button className="text-left text-sm text-slate-500 transition-colors hover:text-slate-200" type="submit">
               Sign out
             </button>
           </form>
-          <div className="flex gap-4 text-xs text-stone-400">
-            <a href="/privacy" className="hover:text-stone-700">Privacy</a>
-            <a href="/terms" className="hover:text-stone-700">Terms</a>
+          <div className="flex gap-4 text-xs text-slate-600">
+            <a href="/privacy" className="hover:text-slate-300">Privacy</a>
+            <a href="/terms" className="hover:text-slate-300">Terms</a>
           </div>
         </nav>
       </aside>
 
       <main className="flex-1 p-4 pb-24 md:p-6 lg:pb-8 xl:p-8">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-stone-200 bg-[#fbf8f2]/95 shadow-[0_-12px_30px_rgba(64,43,20,0.08)] backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-slate-700/60 bg-slate-900/95 shadow-[0_-4px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl lg:hidden">
         {mobileNavItems.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
@@ -179,7 +187,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               aria-current={active ? "page" : undefined}
               className={
                 "flex flex-1 flex-col items-center gap-1 py-3 text-[10px] font-medium transition-colors " +
-                (active ? "text-[#8e3f24]" : "text-stone-500 hover:text-stone-900")
+                (active ? "text-[#d8b75d]" : "text-slate-500 hover:text-slate-100")
               }
             >
               {item.icon}

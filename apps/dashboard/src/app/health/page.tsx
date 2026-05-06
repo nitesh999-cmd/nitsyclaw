@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getDb, messages, reminders, confirmations, featureRequests, auditLog, getSystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
@@ -17,6 +18,7 @@ async function loadHealth() {
     watchdogHeartbeat,
     schedulerHeartbeat,
     reminderHeartbeat,
+    prunerHeartbeat,
   ] = await Promise.all([
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
     db.select().from(reminders).where(eq(reminders.status, "pending")).limit(25),
@@ -27,6 +29,7 @@ async function loadHealth() {
     getSystemHeartbeat(db, "local-watchdog"),
     getSystemHeartbeat(db, "bot-scheduler"),
     getSystemHeartbeat(db, "reminder-sweep"),
+    getSystemHeartbeat(db, "memory-pruner"),
   ]);
   const queueCounts = queueRows.reduce<Record<string, number>>((acc, row) => {
     acc[row.status] = (acc[row.status] ?? 0) + 1;
@@ -47,11 +50,43 @@ async function loadHealth() {
     schedulerFreshness: classifyHeartbeat(schedulerHeartbeat, new Date()),
     reminderHeartbeat,
     reminderFreshness: classifyHeartbeat(reminderHeartbeat, new Date()),
+    prunerHeartbeat,
+    prunerFreshness: classifyHeartbeat(prunerHeartbeat, new Date(), 26 * 60 * 60 * 1000), // daily — stale after 26h
   };
 }
 
 function status(ok: boolean) {
   return ok ? "text-emerald-300" : "text-red-300";
+}
+
+function HeartbeatTile({
+  label,
+  freshness,
+  heartbeat,
+  stale,
+  reconnectCta,
+}: {
+  label: string;
+  freshness: string;
+  heartbeat: { lastSeenAt: Date; status: string } | null;
+  stale?: boolean;
+  reconnectCta?: ReactNode;
+}) {
+  const ok = freshness === "ok" && heartbeat?.status !== "error";
+  return (
+    <div className="nc-tile">
+      <div className="nc-eyebrow">{label}</div>
+      <div className={ok ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
+        {heartbeat?.status === "restarting" ? "restarting" : heartbeat?.status === "error" ? "error" : freshness}
+      </div>
+      <div className="mt-1 text-xs text-slate-500">
+        {heartbeat ? new Date(heartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
+      </div>
+      {(stale || !ok) && reconnectCta ? (
+        <div className="mt-2">{reconnectCta}</div>
+      ) : null}
+    </div>
+  );
 }
 
 export default async function HealthPage() {
@@ -82,6 +117,8 @@ export default async function HealthPage() {
     ],
   ] as const;
 
+  const whatsappStale = data ? data.whatsappFreshness !== "ok" || data.whatsappHeartbeat?.status !== "ok" : false;
+
   return (
     <div className="nc-page">
       <section className="nc-hero">
@@ -89,6 +126,20 @@ export default async function HealthPage() {
         <h2 className="mt-2 text-3xl font-semibold">Health</h2>
         <p className="mt-3 max-w-2xl text-sm text-slate-400">Operational status without exposing secrets.</p>
       </section>
+
+      {whatsappStale && (
+        <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-amber-300">WhatsApp client appears disconnected</p>
+              <p className="mt-1 text-xs text-amber-400/70">Last heartbeat is stale or status is not OK. Restart the bot process to reconnect.</p>
+            </div>
+            <a href="/api/healthz" className="nc-button min-h-8 px-3 text-xs">
+              Check /healthz
+            </a>
+          </div>
+        </div>
+      )}
 
       <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
         {rows.map(([label, ok, detail]) => (
@@ -106,56 +157,51 @@ export default async function HealthPage() {
             <div className="nc-eyebrow">Last message</div>
             <div className="mt-2 text-sm">{data.lastMessage ? new Date(data.lastMessage.createdAt).toLocaleString() : "None"}</div>
           </div>
-          <div className="nc-tile">
+          <a href="/reminders" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
             <div className="nc-eyebrow">Pending reminders</div>
             <div className="mt-2 text-2xl">{data.pendingReminders}</div>
-          </div>
-          <div className="nc-tile">
+          </a>
+          <a href="/confirmations" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
             <div className="nc-eyebrow">Pending confirmations</div>
             <div className="mt-2 text-2xl">{data.pendingConfirmations}</div>
-          </div>
-          <div className="nc-tile">
+          </a>
+          <a href="/queue" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
             <div className="nc-eyebrow">Feature queue</div>
             <div className="mt-2 text-sm text-slate-300">
               {Object.entries(data.queueCounts).map(([k, v]) => `${k}: ${v}`).join(" | ") || "Empty"}
             </div>
-          </div>
-          <div className="nc-tile">
-            <div className="nc-eyebrow">WhatsApp client</div>
-            <div className={data.whatsappFreshness === "ok" && data.whatsappHeartbeat?.status === "ok" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
-              {data.whatsappHeartbeat?.status ?? data.whatsappFreshness}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {data.whatsappHeartbeat ? new Date(data.whatsappHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
-            </div>
-          </div>
-          <div className="nc-tile">
-            <div className="nc-eyebrow">Bot scheduler</div>
-            <div className={data.schedulerFreshness === "ok" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
-              {data.schedulerFreshness}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {data.schedulerHeartbeat ? new Date(data.schedulerHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
-            </div>
-          </div>
-          <div className="nc-tile">
-            <div className="nc-eyebrow">Local watchdog</div>
-            <div className={data.watchdogFreshness === "ok" && data.watchdogHeartbeat?.status !== "error" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
-              {data.watchdogHeartbeat?.status === "restarting" ? "restarting" : data.watchdogFreshness}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {data.watchdogHeartbeat ? new Date(data.watchdogHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
-            </div>
-          </div>
-          <div className="nc-tile">
-            <div className="nc-eyebrow">Reminder sweep</div>
-            <div className={data.reminderFreshness === "ok" && data.reminderHeartbeat?.status !== "error" ? "mt-2 text-emerald-300" : "mt-2 text-red-300"}>
-              {data.reminderHeartbeat?.status === "error" ? "error" : data.reminderFreshness}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {data.reminderHeartbeat ? new Date(data.reminderHeartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
-            </div>
-          </div>
+          </a>
+
+          <HeartbeatTile
+            label="WhatsApp client"
+            freshness={data.whatsappFreshness}
+            heartbeat={data.whatsappHeartbeat}
+            stale={whatsappStale}
+            reconnectCta={
+              <span className="text-xs text-amber-400">Restart bot to reconnect</span>
+            }
+          />
+          <HeartbeatTile
+            label="Bot scheduler"
+            freshness={data.schedulerFreshness}
+            heartbeat={data.schedulerHeartbeat}
+          />
+          <HeartbeatTile
+            label="Local watchdog"
+            freshness={data.watchdogFreshness}
+            heartbeat={data.watchdogHeartbeat}
+          />
+          <HeartbeatTile
+            label="Reminder sweep"
+            freshness={data.reminderFreshness}
+            heartbeat={data.reminderHeartbeat}
+          />
+          <HeartbeatTile
+            label="Memory pruner"
+            freshness={data.prunerFreshness}
+            heartbeat={data.prunerHeartbeat}
+          />
+
           <div className="nc-section md:col-span-4">
             <div className="nc-eyebrow">Latest tool signal</div>
             <div className="mt-2 text-sm text-slate-300">

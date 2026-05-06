@@ -1,5 +1,6 @@
 import { getDb, auditLog, messages, reminders, confirmations, expenses } from "@nitsyclaw/shared/db";
 import { redactAuditString, sanitizeAuditPayload } from "@nitsyclaw/shared/db";
+import { relativeTime } from "@nitsyclaw/shared/utils";
 import { desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,9 @@ export default async function ActivityPage() {
                     {row.success ? "success" : "failed"}
                   </div>
                   <div className="text-xs text-slate-500">{safeAuditSignal(row.error, row.output as Record<string, unknown> | null)}</div>
-                  <div className="text-xs text-slate-500">{new Date(row.createdAt).toLocaleString()}</div>
+                  <div className="text-xs text-slate-500" title={new Date(row.createdAt).toLocaleString()}>
+                    {relativeTime(new Date(row.createdAt))}
+                  </div>
                 </div>
               ))}
             </div>

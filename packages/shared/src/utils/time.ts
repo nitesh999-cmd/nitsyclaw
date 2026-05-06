@@ -90,5 +90,32 @@ export function isInQuietHours(now: Date, timezone: string, startHHMM: string, e
   return minutes >= start || minutes < end;
 }
 
+/**
+ * Human-readable relative time string.
+ * e.g. "2 minutes ago", "in 3 days", "just now"
+ */
+export function relativeTime(date: Date, now: Date = new Date()): string {
+  const diffMs = date.getTime() - now.getTime();
+  const absSec = Math.round(Math.abs(diffMs) / 1000);
+  const past = diffMs < 0;
+
+  let label: string;
+  if (absSec < 60) {
+    label = absSec <= 5 ? "just now" : `${absSec} seconds`;
+  } else if (absSec < 3600) {
+    const m = Math.round(absSec / 60);
+    label = `${m} minute${m !== 1 ? "s" : ""}`;
+  } else if (absSec < 86400) {
+    const h = Math.round(absSec / 3600);
+    label = `${h} hour${h !== 1 ? "s" : ""}`;
+  } else {
+    const d = Math.round(absSec / 86400);
+    label = `${d} day${d !== 1 ? "s" : ""}`;
+  }
+
+  if (label === "just now") return label;
+  return past ? `${label} ago` : `in ${label}`;
+}
+
 // re-export commonly used date helpers
 export { startOfDay, addDays, addMinutes, addHours, parse };

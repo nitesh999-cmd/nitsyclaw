@@ -1,5 +1,5 @@
 import { getDb, messages } from "@nitsyclaw/shared/db";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +8,33 @@ interface MessageMetadata {
   masked?: string;
 }
 
-export default async function ConversationsPage() {
+type Direction = "in" | "out" | "all";
+
+async function load(direction: Direction) {
+  const db = getDb();
+  const query = db.select().from(messages);
+  if (direction === "in") {
+    return query.where(eq(messages.direction, "in")).orderBy(desc(messages.createdAt)).limit(100);
+  }
+  if (direction === "out") {
+    return query.where(eq(messages.direction, "out")).orderBy(desc(messages.createdAt)).limit(100);
+  }
+  return query.orderBy(desc(messages.createdAt)).limit(100);
+}
+
+export default async function ConversationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ dir?: string }>;
+}) {
+  const params = await (searchParams ?? Promise.resolve({} as { dir?: string }));
+  const rawDir = params.dir ?? "all";
+  const direction: Direction = rawDir === "in" ? "in" : rawDir === "out" ? "out" : "all";
+
   let rows: Awaited<ReturnType<typeof load>> = [];
   let errorMsg: string | null = null;
   try {
-    rows = await load();
+    rows = await load(direction);
   } catch (e: unknown) {
     logDashboardLoadError("conversations", e);
     errorMsg = "Could not load conversations. Check Health.";
@@ -25,7 +47,7 @@ export default async function ConversationsPage() {
           <div className="nc-eyebrow">Message ledger</div>
           <h2 className="mt-2 text-3xl font-semibold">Conversations</h2>
         </section>
-        <div className="border border-red-900 bg-red-950/40 p-4 text-sm">
+        <div className="rounded-xl border border-red-900 bg-red-950/40 p-4 text-sm">
           <p className="font-medium text-red-300">Could not load conversations</p>
           <p className="text-xs text-red-400 mt-2">{errorMsg}</p>
         </div>
@@ -42,9 +64,26 @@ export default async function ConversationsPage() {
           Last {rows.length} messages. Body content is encrypted at rest and not displayed here.
         </p>
       </section>
+
+      <div className="flex gap-2 text-sm">
+        {(["all", "in", "out"] as Direction[]).map((d) => (
+          <a
+            key={d}
+            href={d === "all" ? "/conversations" : `/conversations?dir=${d}`}
+            aria-current={direction === d ? "page" : undefined}
+            className={
+              "nc-button " +
+              (direction === d ? "border-[#d8b75d] bg-[#d8b75d]/10 text-[#d8b75d]" : "")
+            }
+          >
+            {d === "all" ? "All" : d === "in" ? "Inbound" : "Outbound"}
+          </a>
+        ))}
+      </div>
+
       {rows.length === 0 ? (
         <section className="nc-section">
-          <p className="nc-muted">No messages yet.</p>
+          <p className="nc-muted">No messages{direction !== "all" ? ` (${direction})` : ""} yet.</p>
         </section>
       ) : (
         <table className="w-full border-y border-slate-800 bg-slate-950/35 text-sm" data-testid="conversations-table">
@@ -80,9 +119,4 @@ export default async function ConversationsPage() {
       )}
     </div>
   );
-}
-
-async function load() {
-  const db = getDb();
-  return db.select().from(messages).orderBy(desc(messages.createdAt)).limit(100);
 }
