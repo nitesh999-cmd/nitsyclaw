@@ -39,7 +39,13 @@ function publicSaleNotReady(request: NextRequest) {
 }
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/api/healthz" || pathname === "/privacy" || pathname === "/terms";
+  return (
+    pathname === "/api/healthz" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/manifest.json" ||
+    pathname === "/icon.svg"
+  );
 }
 
 function isAuthPath(pathname: string): boolean {

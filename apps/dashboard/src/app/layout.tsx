@@ -7,7 +7,7 @@ import { DashboardShell } from "./dashboard-shell";
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
 
 export const viewport: Viewport = {
-  themeColor: "#090b0f",
+  themeColor: "#fffaf2",
 };
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "NitsyClaw",
   },
 };

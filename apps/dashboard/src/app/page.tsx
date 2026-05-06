@@ -3,6 +3,10 @@ import { getDb } from "@nitsyclaw/shared/db";
 import { reminders, expenses, briefs, confirmations, featureRequests, messages } from "@nitsyclaw/shared/db";
 import { eq, gte, desc } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
+const DEFAULT_TODAY_TIMEOUT_MS = 2_500;
+
 async function loadToday() {
   const db = getDb();
   const today = new Date();
@@ -12,7 +16,7 @@ async function loadToday() {
     db.select().from(expenses).where(gte(expenses.occurredAt, today)).orderBy(desc(expenses.occurredAt)).limit(10),
     db.select().from(briefs).orderBy(desc(briefs.createdAt)).limit(1),
     db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(10),
-    db.select().from(featureRequests).limit(100),
+    db.select().from(featureRequests).where(eq(featureRequests.status, "pending")).limit(50),
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
   ]);
   return {
@@ -25,6 +29,42 @@ async function loadToday() {
   };
 }
 
+type TodayData = Awaited<ReturnType<typeof loadToday>>;
+
+async function loadTodayWithTimeout(): Promise<TodayData> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutMs = todayTimeoutMs();
+  const fallback = new Promise<TodayData>((resolve) => {
+    timeout = setTimeout(() => {
+      console.error("[dashboard] today data load timed out; rendering safe empty state", { timeoutMs });
+      resolve(emptyTodayData());
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([loadToday(), fallback]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function emptyTodayData(): TodayData {
+  return {
+    pendingReminders: [],
+    recentExpenses: [],
+    latestBrief: null,
+    pendingConfirmations: [],
+    queueRows: [],
+    lastMessage: null,
+  };
+}
+
+function todayTimeoutMs(): number {
+  const parsed = Number(process.env.NITSYCLAW_TODAY_TIMEOUT_MS);
+  if (Number.isFinite(parsed) && parsed >= 500 && parsed <= 8_000) return parsed;
+  return DEFAULT_TODAY_TIMEOUT_MS;
+}
+
 function timeGreeting(): string {
   const tz = process.env.TIMEZONE ?? "UTC";
   const hour = Number(new Date().toLocaleString("en-AU", { timeZone: tz, hour: "numeric", hour12: false }));
@@ -35,9 +75,9 @@ function timeGreeting(): string {
 
 export default async function TodayPage() {
   const greeting = timeGreeting();
-  let data: Awaited<ReturnType<typeof loadToday>>;
+  let data: TodayData;
   try {
-    data = await loadToday();
+    data = await loadTodayWithTimeout();
   } catch {
     return (
       <div className="nc-page">

@@ -14,6 +14,10 @@ describe("legal and privacy surfaces", () => {
     expect(privacy).toContain("Provider accounts");
     expect(terms).toContain("Private beta terms");
     expect(terms).toContain("Not financial, legal, medical, or emergency advice");
+    expect(privacy).not.toContain("text-white");
+    expect(terms).not.toContain("text-white");
+    expect(privacy).not.toContain("text-slate-200");
+    expect(terms).not.toContain("text-slate-200");
     expect(shell).toContain('href="/privacy"');
     expect(shell).toContain('href="/terms"');
     expect(login).toContain('href="/privacy"');
