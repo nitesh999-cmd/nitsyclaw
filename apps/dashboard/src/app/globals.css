@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f6f1e8;
-  --bg-soft: #fbf8f2;
+  --bg: #f3eadc;
+  --bg-soft: #fbf6ec;
   --panel: #fffdf8;
   --panel-warm: #f9f0df;
-  --line: #e5dccb;
-  --line-strong: #d3c5ad;
-  --muted: #756b5d;
+  --line: #dacbb6;
+  --line-strong: #bda98e;
+  --muted: #5f564a;
   --fg: #241f19;
-  --accent: #b85c38;
-  --accent-dark: #8e3f24;
+  --accent: #a94d2e;
+  --accent-dark: #76321d;
   --accent-soft: #fff0e7;
   --ok: #246b52;
   --warn: #a35f00;
@@ -29,8 +29,8 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.92), transparent 28rem),
-    linear-gradient(180deg, #fffaf2 0%, #f4ecdf 46%, #eadfce 100%);
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.96), transparent 28rem),
+    linear-gradient(180deg, #fff9ef 0%, #f1e5d4 48%, #e2d2bd 100%);
   color: var(--fg);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -55,11 +55,11 @@ textarea {
   }
 
   .nc-sidebar {
-    @apply hidden border-r border-stone-200/90 bg-[#fbf8f2]/90 p-4 shadow-[8px_0_30px_rgba(64,43,20,0.04)] backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-72 lg:flex-col;
+    @apply hidden border-r border-stone-300/90 bg-[#fbf6ec]/95 p-4 shadow-[8px_0_30px_rgba(64,43,20,0.08)] backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-72 lg:flex-col;
   }
 
   .nc-mobile-topbar {
-    @apply sticky top-0 z-50 flex min-h-16 items-center justify-between border-b border-stone-200/90 bg-[#fbf8f2]/95 px-4 backdrop-blur-xl lg:hidden;
+    @apply sticky top-0 z-50 flex min-h-16 items-center justify-between border-b border-stone-300/90 bg-[#fbf6ec]/95 px-4 backdrop-blur-xl lg:hidden;
   }
 
   .nc-page {
@@ -67,11 +67,11 @@ textarea {
   }
 
   .nc-hero {
-    @apply rounded-2xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_24px_70px_rgba(70,48,23,0.09)] md:p-7;
+    @apply rounded-2xl border border-stone-300 bg-[#fffdf8] p-5 shadow-[0_24px_70px_rgba(70,48,23,0.12)] md:p-7;
   }
 
   .nc-section {
-    @apply rounded-2xl border border-stone-200 bg-[#fffdf8]/95 p-4 shadow-[0_16px_40px_rgba(70,48,23,0.055)] md:p-5;
+    @apply rounded-2xl border border-stone-300 bg-[#fffdf8]/95 p-4 shadow-[0_16px_40px_rgba(70,48,23,0.075)] md:p-5;
   }
 
   .nc-panel-soft {
@@ -79,7 +79,7 @@ textarea {
   }
 
   .nc-tile {
-    @apply rounded-xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_10px_28px_rgba(70,48,23,0.045)] transition-colors hover:border-[#b85c38]/40 hover:bg-white;
+    @apply rounded-xl border border-stone-300 bg-[#fffdf8] p-4 shadow-[0_10px_28px_rgba(70,48,23,0.065)] transition-colors hover:border-[#a94d2e]/50 hover:bg-white;
   }
 
   .nc-eyebrow {
@@ -95,7 +95,7 @@ textarea {
   }
 
   .nc-button-primary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-[#8e3f24] bg-[#b85c38] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(184,92,56,0.22)] transition-colors hover:bg-[#8e3f24] disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-200 disabled:text-stone-500;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-[#76321d] bg-[#a94d2e] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(169,77,46,0.25)] transition-colors hover:bg-[#76321d] disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-200 disabled:text-stone-500;
   }
 
   .nc-input {
@@ -224,4 +224,46 @@ textarea {
 .bg-neutral-800,
 .bg-neutral-950 {
   background-color: #fffdf8 !important;
+}
+
+.text-amber-100,
+.text-amber-200,
+.text-amber-300,
+.text-amber-400 {
+  color: #8a4700 !important;
+}
+
+.text-orange-300,
+.text-orange-400 {
+  color: #984117 !important;
+}
+
+.text-emerald-100,
+.text-emerald-200,
+.text-emerald-300,
+.text-emerald-400,
+.text-sky-100,
+.text-sky-200,
+.text-sky-300,
+.text-sky-400,
+.text-cyan-100,
+.text-cyan-200,
+.text-cyan-300,
+.text-cyan-400 {
+  color: #1f6b55 !important;
+}
+
+.bg-amber-950\/20,
+.bg-amber-950\/30,
+.bg-emerald-950\/30,
+.bg-sky-950\/30,
+.bg-cyan-950\/30 {
+  background-color: #fff7e7 !important;
+}
+
+.border-amber-700\/40,
+.border-emerald-900,
+.border-sky-900,
+.border-cyan-900 {
+  border-color: #c9ad7b !important;
 }

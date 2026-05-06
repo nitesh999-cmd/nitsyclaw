@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 export function LoginForm({ next }: { next: string }) {
@@ -33,10 +34,28 @@ export function LoginForm({ next }: { next: string }) {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (!pending) {
+      setSlow(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSlow(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, [pending]);
 
   return (
-    <button className="nc-button-primary w-full" type="submit" disabled={pending} aria-busy={pending}>
-      {pending ? "Signing in..." : "Sign in"}
-    </button>
+    <>
+      <button className="nc-button-primary w-full" type="submit" disabled={pending} aria-busy={pending}>
+        {pending ? "Checking access..." : "Sign in"}
+      </button>
+      {slow ? (
+        <p className="text-xs leading-5 text-stone-600" role="status">
+          Still checking the dashboard. If this sits here, refresh and try once more.
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -12,7 +12,10 @@ describe("package scripts", () => {
     ) as { scripts?: Record<string, string> };
 
     expect(dashboardPackage.scripts?.typecheck).toBe(
-      "next typegen && tsc --noEmit",
+      "next typegen && node ../../scripts/next-typegen-dev.mjs",
+    );
+    expect(readFileSync("scripts/next-typegen-dev.mjs", "utf8")).toContain(
+      "Next route typegen did not create",
     );
   });
 

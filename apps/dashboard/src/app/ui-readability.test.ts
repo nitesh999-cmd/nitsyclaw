@@ -10,5 +10,8 @@ describe("dashboard readability", () => {
     expect(css).toContain(".text-slate-400");
     expect(css).toContain(".bg-slate-900\\/40");
     expect(css).toContain(".border-slate-800");
+    expect(css).toContain(".text-amber-300");
+    expect(css).toContain(".text-emerald-300");
+    expect(css).toContain(".bg-amber-950\\/20");
   });
 });

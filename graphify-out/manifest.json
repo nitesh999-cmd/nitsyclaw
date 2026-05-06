@@ -8,8 +8,8 @@
     "hash": "e3b4fdc0cbd9d600337046ce53d91199"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\bot-location-env.test.ts": {
-    "mtime": 1777903882.3921227,
-    "hash": "57c50e7f8c8b9e77bb3994921a22f708"
+    "mtime": 1778065027.1620944,
+    "hash": "1aa25d65010bd987532958ec272467a6"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\bot-safe-errors.test.ts": {
     "mtime": 1777903882.4540067,
@@ -20,28 +20,28 @@
     "hash": "4f8a565b202d1bd438c1c26651b35305"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\ci-workflow.test.ts": {
-    "mtime": 1777910045.4158905,
-    "hash": "c03c8a1aaf3cb564019817b18c8dd46f"
+    "mtime": 1778061063.8532612,
+    "hash": "4cac5bee8c62e339fcab0990e86b8325"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\confirmations-page.test.ts": {
     "mtime": 1777903882.0054226,
     "hash": "ada3c25c417d6d58e0e23b1d24292212"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-auth-routes.test.ts": {
-    "mtime": 1777972870.8210936,
-    "hash": "c36d2cc977af3afd6198d753fba92194"
+    "mtime": 1778059122.2466152,
+    "hash": "8863f881f56d919ae0ec4dbd95c26c4b"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-debug-page.test.ts": {
-    "mtime": 1777969248.51495,
-    "hash": "b69c883f86cf264b9c75201b8189cdeb"
+    "mtime": 1778062916.7129612,
+    "hash": "9b6f6e3ec95fcdc0d33b18db3da8507f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-health-page.test.ts": {
     "mtime": 1777969254.0407073,
     "hash": "45bb4ba5969611f216a8403538d01146"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-healthz-route.test.ts": {
-    "mtime": 1777915574.7621877,
-    "hash": "fc3eba31aef4c56de6b00d143079cc99"
+    "mtime": 1778059122.2476168,
+    "hash": "e2b17f75e04e6be4c850cf0c5acc0de0"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-mutating-routes.test.ts": {
     "mtime": 1777943625.2751577,
@@ -52,8 +52,8 @@
     "hash": "46b4ebea1020d4ac93084f8e271b4db6"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-private-api-cache.test.ts": {
-    "mtime": 1777915234.2186203,
-    "hash": "ff38ec9a112bb7f9d717832d69009912"
+    "mtime": 1778059122.2476168,
+    "hash": "c6efcd9b2f5a1b52a99f6a4f5e594130"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-redteam-routes.test.ts": {
     "mtime": 1777907084.2564046,
@@ -64,12 +64,12 @@
     "hash": "2c3d14f5256783ff743310fd9b52e70c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-sale-mode-failclosed.test.ts": {
-    "mtime": 1777944957.8995793,
-    "hash": "d1b09e6adec4947666c1891e39b761b1"
+    "mtime": 1778059122.2486155,
+    "hash": "78a0a93c4d850866258238115dfd3d43"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\dashboard-sale-readiness-route.test.ts": {
-    "mtime": 1777944957.8995793,
-    "hash": "74eacaffbf31eef6b4c8c6e368ced506"
+    "mtime": 1778059122.2486155,
+    "hash": "46f708453d1e88bcb763b72a0022841a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\data-controls.test.ts": {
     "mtime": 1777944957.8995793,
@@ -86,6 +86,10 @@
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\deployment-rollback.test.ts": {
     "mtime": 1777948572.6887257,
     "hash": "63ea410d16b82699435ee0b53a8f733c"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs-go-live-without-nitesh.test.ts": {
+    "mtime": 1778075362.3400989,
+    "hash": "6b7f61f7b04623e7854c5e1e1cbb5c50"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\eslint.config.mjs": {
     "mtime": 1777774454.356441,
@@ -104,8 +108,8 @@
     "hash": "33eef4d7b3b6c44b2da1553a6dcd5349"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\help-page.test.ts": {
-    "mtime": 1777903882.0109258,
-    "hash": "20ea3b60e0dad9b8654b207ed7e5a38e"
+    "mtime": 1778058208.8361576,
+    "hash": "c47c9c5673ceb1fee9f64dea4c81976c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\integrations-page.test.ts": {
     "mtime": 1777903882.0119295,
@@ -116,8 +120,8 @@
     "hash": "1a3493dbd9d24018dbeaf3c87f4c17d2"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\legal-pages.test.ts": {
-    "mtime": 1777945192.5327516,
-    "hash": "823b1a238c3cc0e4cd8085c02c1ee34d"
+    "mtime": 1778059122.2486155,
+    "hash": "680af9fddf994512583fd1197b1d903a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\live-smoke-script.test.ts": {
     "mtime": 1777948572.6887257,
@@ -140,12 +144,12 @@
     "hash": "0cfea6cd8e3b0e41178e22c4e374456e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\operator-command-page.test.ts": {
-    "mtime": 1777911665.350581,
-    "hash": "bf095a336b4aa1bdd14745e6256f5cdb"
+    "mtime": 1778046473.1899948,
+    "hash": "b4fbfb570f2dd17f250fcfd943bf7dfa"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\operator-jobs-api.test.ts": {
-    "mtime": 1777906728.3617992,
-    "hash": "3e0cbd0997df87c7e360629c66c90156"
+    "mtime": 1778046473.1899948,
+    "hash": "7a29dfd0172103566d95ec2704821db5"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\operator-missions.test.ts": {
     "mtime": 1777906141.7085593,
@@ -156,32 +160,32 @@
     "hash": "66f2279cafb61d7812cead8fb2b8c8ff"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\operator-runner-script.test.ts": {
-    "mtime": 1777915754.8816552,
-    "hash": "6a9c0214cb2b7c24fcc7238bd4013810"
+    "mtime": 1778058340.90325,
+    "hash": "9ec8edbae67471def8e57395e38782af"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\operator-runner.test.ts": {
     "mtime": 1777907553.690794,
     "hash": "9ff4c2e33e60be38bdf007263cebbd6e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\package-scripts.test.ts": {
-    "mtime": 1777973470.603906,
-    "hash": "13c05a2ce2ac70da65500c1ef93a7c07"
+    "mtime": 1778064571.3390758,
+    "hash": "bcb1b5f1cfc102b6b16beeeef2e57485"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\playwright-config.test.ts": {
     "mtime": 1777972863.1549418,
     "hash": "6b6b9b6d42407582f5dd448986848b1c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\playwright.config.ts": {
-    "mtime": 1777972857.0349793,
-    "hash": "5a621c90dfe9d9dca252355dafeee14c"
+    "mtime": 1778059261.4736187,
+    "hash": "83a3c4b8ad3de02fbd462cf09226201c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\provider-revocation.test.ts": {
     "mtime": 1777944429.4553506,
     "hash": "0658585d1974eb4fcaa00b1c6400436f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\queue-controls.test.ts": {
-    "mtime": 1777915763.3584702,
-    "hash": "619e481206bbc6f5c646d88f850d47a8"
+    "mtime": 1778058208.8361576,
+    "hash": "b74454e95cacc99efe2624d40e370fcc"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\release-ignore-policy.test.ts": {
     "mtime": 1777972402.4053185,
@@ -219,13 +223,17 @@
     "mtime": 1777915395.648486,
     "hash": "85d3078f63e34df4f9856da8a3a0cbfd"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\adapters.test.ts": {
+    "mtime": 1778060352.3283179,
+    "hash": "029b5364c4f0b26046035115e4ad0449"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\adapters.ts": {
-    "mtime": 1777972470.9053185,
-    "hash": "21fb907f1d421a189618735747deab10"
+    "mtime": 1778060613.708552,
+    "hash": "3c309a982ab1d79d3401b26add055c64"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\build-agent.ts": {
-    "mtime": 1777808850.8879173,
-    "hash": "270ffd56dd39cd2acef7642922e93317"
+    "mtime": 1778033361.4131355,
+    "hash": "4db1005e395f67995a9c93126e2619fe"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\feature-shortcut.test.ts": {
     "mtime": 1777700866.6378748,
@@ -240,32 +248,36 @@
     "hash": "20b399d34a8733297136434b67e0643e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\index.ts": {
-    "mtime": 1777961719.2242587,
-    "hash": "55a132ddd257fa990b6f684f5c66740f"
+    "mtime": 1778064985.6110482,
+    "hash": "7ebb2631cad69e9b56f723b2a8f01e44"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\microsoft-auth.ts": {
-    "mtime": 1777961711.3447292,
-    "hash": "283c7842670b65d0e838af76a391992c"
+    "mtime": 1777976645.912655,
+    "hash": "4cbf68b0fa7ca0f5536acd086a1ebb7b"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\microsoft-graph.ts": {
-    "mtime": 1777903882.2165804,
-    "hash": "cf16378d0b8a4811688faaee2d9f6cb3"
+    "mtime": 1777976651.8781385,
+    "hash": "6c29c3b85651c258a1efe245f66201b2"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\notify-all.ts": {
+    "mtime": 1777976861.3681664,
+    "hash": "60a9fba3d1632728fc512a6edde609f5"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\personal-command-shortcuts.test.ts": {
-    "mtime": 1777812352.8756342,
-    "hash": "9679778181bf8bcb095ac9a70068d0e7"
+    "mtime": 1778041758.0067263,
+    "hash": "6dbbea8f75599326868e0d78d88ba263"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\personal-command-shortcuts.ts": {
-    "mtime": 1777812341.6099336,
-    "hash": "67f0f3719ca7a0c57f1c77db76b035a3"
+    "mtime": 1778041842.3882506,
+    "hash": "fca4103565dc7a9642aea857843a6008"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\router.ts": {
-    "mtime": 1777972480.246156,
-    "hash": "e0228653431d63e448b6020071e96b19"
+    "mtime": 1778041974.2151864,
+    "hash": "d1c90a80b1536a2e866661126e5483c5"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\scheduler.ts": {
-    "mtime": 1777695040.8449838,
-    "hash": "d97f5d13b78355ad9249c9bf8046b80a"
+    "mtime": 1778042819.5600061,
+    "hash": "1e2a74396131ae4b03db2538f35d89f4"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\whatsapp-echo-guard.test.ts": {
     "mtime": 1777698313.6057549,
@@ -292,32 +304,28 @@
     "hash": "b0376add61b74f980d14c4cc09d8b96b"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\whatsapp-presence.test.ts": {
-    "mtime": 1777697403.0752993,
-    "hash": "9dd2c5c3d7f8cee211ed512960b95eb8"
+    "mtime": 1778064532.8687258,
+    "hash": "b50b126f5740014cf949dbd35195339f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\whatsapp-presence.ts": {
-    "mtime": 1777697228.9683545,
-    "hash": "de0081a9e14e7060743e6ab814e429da"
+    "mtime": 1778064980.7498653,
+    "hash": "bb2e595b3ccfe61638f892ce3255ca0f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\whatsapp-send-monitor.ts": {
     "mtime": 1777903882.3889267,
     "hash": "7118dcc24901031ae838e815d1bea9e1"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\wwebjs-client.ts": {
-    "mtime": 1777972487.1772368,
-    "hash": "c148be52d8d3feb8ae428cf06453ed0c"
-  },
-  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\yahoo-imap.ts": {
-    "mtime": 1777353907.8845415,
-    "hash": "49e7b2ea8e39ac1232b538d44943bd20"
+    "mtime": 1778064973.9510982,
+    "hash": "dfffe5b6a1af3862182f39f9403025e6"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\src\\types\\qrcode-terminal.d.ts": {
     "mtime": 1777636789.768517,
     "hash": "aac2d57da0b7b8a0c067744637cc7828"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\test\\router.integration.test.ts": {
-    "mtime": 1777903882.2741523,
-    "hash": "a5c59a76a9a345affa898ab01c299960"
+    "mtime": 1778041806.6506343,
+    "hash": "74b37daf8010ef2654fb7acaa64d7804"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\bot\\test\\whatsapp-health.test.ts": {
     "mtime": 1777903882.3909278,
@@ -328,8 +336,8 @@
     "hash": "f4995d13f487aad8dfb172b5b0f4f281"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\next-env.d.ts": {
-    "mtime": 1777334211.7004845,
-    "hash": "90426577ad8f38459f3e566411c85589"
+    "mtime": 1778076538.8399103,
+    "hash": "c3b5d5b1226bfbe2ccabda5dda93cb1f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\next.config.js": {
     "mtime": 1777890636.955934,
@@ -343,33 +351,61 @@
     "mtime": 1777334211.7064846,
     "hash": "c84dd0b78c36594a7d8b2581b3a17ab0"
   },
-  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\middleware.ts": {
-    "mtime": 1777972849.0967536,
-    "hash": "d5d3abab6b15fb6cb50ad5e762d85861"
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\middleware-public-assets.test.ts": {
+    "mtime": 1778059122.2466152,
+    "hash": "0d89cfbc7c70c7c50b8446ae492f285a"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\proxy.ts": {
+    "mtime": 1778059106.1373062,
+    "hash": "0852d532a56a4027a7af4ac13b801f36"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\dashboard-shell.tsx": {
-    "mtime": 1777944429.4543512,
-    "hash": "0859e2fba9e2c6287cd9b233bc79de59"
+    "mtime": 1778043800.2063468,
+    "hash": "aafc9fa4ab4940924ac3e0ee0d1d9f94"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\error.tsx": {
+    "mtime": 1778036252.1087773,
+    "hash": "1d2a277f41621af93460b862598e8d2c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\layout.tsx": {
-    "mtime": 1777945192.5327516,
-    "hash": "ebf68ef17569ceb752992fccdbcea45f"
+    "mtime": 1778043800.2063468,
+    "hash": "82e6489f0e06b1c08628c307c1141bb5"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\loading.tsx": {
+    "mtime": 1778043800.2063468,
+    "hash": "1bd13e97cedaabb0ba41429bfebfbc58"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\not-found.tsx": {
+    "mtime": 1778036254.6088579,
+    "hash": "dcaae4f7c7a9c4cefc993a5101f60b76"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\page.tsx": {
-    "mtime": 1777911561.3707547,
-    "hash": "afafa4e210bb2f1ceaee7bebe02209f9"
+    "mtime": 1778043846.8779187,
+    "hash": "0c8d02d3f235a9b3f54a48d2c96255fd"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\today-performance.test.ts": {
+    "mtime": 1778043846.8779187,
+    "hash": "3ee6b9bf831afea9000c777aef310805"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\ui-readability.test.ts": {
+    "mtime": 1778043704.5539472,
+    "hash": "5a56878d0344e69ab4d280cfc456a612"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\activity\\page.tsx": {
-    "mtime": 1777911954.5631728,
-    "hash": "67b035b450a05f599d9acb0b6f58f0d6"
+    "mtime": 1778042874.6209342,
+    "hash": "99293057ba7f1bbeee5ade59ca37e6e3"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\auth\\login\\route-timeout.test.ts": {
+    "mtime": 1778062506.0331984,
+    "hash": "79c16482b595eb70303a3f30567921ea"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\auth\\login\\route.test.ts": {
     "mtime": 1777944429.4553506,
     "hash": "fbf4deabb93a30f4a38d02f4776dd998"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\auth\\login\\route.ts": {
-    "mtime": 1777944429.45235,
-    "hash": "b4c113d5684b4f010a859036d05846d8"
+    "mtime": 1778062506.032198,
+    "hash": "50803f16b39444a0af6159458c4cd471"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\auth\\logout\\route.ts": {
     "mtime": 1777903882.1715322,
@@ -380,8 +416,8 @@
     "hash": "c90f22b5b7228c4f32f87daccad85892"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\chat\\route.ts": {
-    "mtime": 1777915217.082953,
-    "hash": "1b482dfbd8e6c545006201f133c8555f"
+    "mtime": 1778063083.4504,
+    "hash": "32bf0b57b3a5f7f15cdf03b0dea2295f"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\chat\\history\\route.ts": {
     "mtime": 1777972540.8919747,
@@ -392,8 +428,8 @@
     "hash": "175a570270e045465107a08248651df2"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\chat\\stream\\route.ts": {
-    "mtime": 1777915223.726058,
-    "hash": "fb6997e18958195a1b7633417baedfbf"
+    "mtime": 1778063098.7210784,
+    "hash": "9fb16138d47ca736fb00a5964cdef2f1"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\data\\delete\\route.ts": {
     "mtime": 1777944429.4533522,
@@ -424,32 +460,40 @@
     "hash": "79d6cb16616553c2c644839752706934"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\integrations\\spotify\\status\\route.ts": {
-    "mtime": 1777903882.452007,
-    "hash": "1394e527597e8eba71c527c0f3f175fb"
+    "mtime": 1778033366.4798427,
+    "hash": "3a8e10d1b41f517b0557b6d4718af7dd"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\operator\\jobs\\route.ts": {
-    "mtime": 1777943613.45187,
-    "hash": "262bed92ca133ed068bc548953bbd61b"
+    "mtime": 1778063083.4504,
+    "hash": "0fb0e0fe81af95c1a0fd71056c2de773"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\queue\\update\\route.test.ts": {
     "mtime": 1777915778.9021566,
     "hash": "89493962131333b1ecddc9f893cdcb88"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\queue\\update\\route.ts": {
-    "mtime": 1777915707.4164941,
-    "hash": "48f72db184e6c101d4750cee731fc97b"
+    "mtime": 1778063083.4513996,
+    "hash": "cc8357117e21a1bed9277b7fafd4491b"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\sale-readiness\\route.ts": {
-    "mtime": 1777943450.5636792,
-    "hash": "574ef9fba5b2db84d2cbe75e5aa2cd31"
+    "mtime": 1778033355.4052522,
+    "hash": "903dade6c53d8f25fd72371ba2714348"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\search\\route.ts": {
+    "mtime": 1778042483.1593847,
+    "hash": "13c206828c656a990f62764b7b7a689b"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\api\\stats\\route.ts": {
+    "mtime": 1778042605.2974734,
+    "hash": "0805cd43b7e3810843f80d8058225b23"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\chat\\page.tsx": {
-    "mtime": 1777911278.6699436,
-    "hash": "82588683861b8fa754546a6811d854d0"
+    "mtime": 1778041189.4344387,
+    "hash": "8a269317759d2c83b685d3158b617126"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\command\\operator-command-client.tsx": {
-    "mtime": 1777906887.283524,
-    "hash": "94a7144f9954bf4e9dd38063fb56194f"
+    "mtime": 1778046851.895142,
+    "hash": "d11bc8a67564d1aa961528b152bac67c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\command\\operator-missions.ts": {
     "mtime": 1777906063.9035501,
@@ -460,68 +504,92 @@
     "hash": "005fa099ebebf0c0112ccd747e121401"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\command\\page.tsx": {
-    "mtime": 1777973366.8703823,
-    "hash": "a6ee2f1810f2dfae13ba00bbd8dba48d"
+    "mtime": 1778046851.8939495,
+    "hash": "960768cc774fa7c36b958868d3c6fb56"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\confirmations\\page.tsx": {
-    "mtime": 1777903882.0034232,
-    "hash": "1165557247c24ee381f43bcf990639d3"
+    "mtime": 1778041065.6584046,
+    "hash": "1339444d11909ba33b647a71f4679e5a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\conversations\\page.tsx": {
-    "mtime": 1777973373.893638,
-    "hash": "52bcd013086b8b036616dc8df9e60f04"
+    "mtime": 1778042842.9866455,
+    "hash": "ee02c7182233d4f37ae55815c289e2f8"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\debug\\page.tsx": {
-    "mtime": 1777969210.5207503,
-    "hash": "3a440e904530c762420ae1c1625e4d81"
+    "mtime": 1778062916.7129612,
+    "hash": "27d4e0a299e886dbbd351a4cb54cfb57"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\expenses\\page.tsx": {
-    "mtime": 1777973380.2739823,
-    "hash": "b6bac26ea0ff39537ac3f1b66b26598e"
+    "mtime": 1778039383.6841793,
+    "hash": "33d8108020f5efacffa0809d62a0cc54"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\health\\page.tsx": {
-    "mtime": 1777973808.0572214,
-    "hash": "334d162150b9a8572ba22167e57ddb16"
+    "mtime": 1778042810.3974192,
+    "hash": "315af3c9e7888ab0c0aabfee9e24040e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\help\\page.tsx": {
-    "mtime": 1777903882.0044224,
-    "hash": "a3ab0f6fb03c5e15631985d711567732"
+    "mtime": 1778058288.722623,
+    "hash": "ec7cb1cc9960269fa20780d8181fe1db"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\integrations\\page.tsx": {
-    "mtime": 1777944429.4533522,
-    "hash": "b16eb890d8a9afda6dfd85bab7c453aa"
+    "mtime": 1778039314.3839054,
+    "hash": "6a28b9fed360a3b40f112f9777b4d720"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\login\\login-form.tsx": {
+    "mtime": 1778043800.2053483,
+    "hash": "f70cd5377b1878a7b069ca62375f8c9b"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\login\\page.tsx": {
-    "mtime": 1777944957.8975787,
-    "hash": "7cad542aa5b28f2565d54166e883aab4"
+    "mtime": 1778044038.2782996,
+    "hash": "acd4922d8d268ec55cf312bac3f187a9"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\memory\\page.tsx": {
-    "mtime": 1777911912.018308,
-    "hash": "aecec7c55c9b497f1ecfa0ecb9891d1c"
+    "mtime": 1778042844.0669928,
+    "hash": "90616300ba07fe9fa21f348eeabc54d8"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\onboarding\\page.tsx": {
-    "mtime": 1777774454.353442,
-    "hash": "2314e626f49b839c509076e89f8b2e86"
+    "mtime": 1778039353.173385,
+    "hash": "26594eda3259ede3861bc64aeb2638f0"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\privacy\\page.tsx": {
-    "mtime": 1777944957.8985808,
-    "hash": "10b78b7e3bc3584977212a4c5a5adb8e"
+    "mtime": 1778044038.2782996,
+    "hash": "5760aaba318c937acf9205115760e4e3"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\profile\\page.tsx": {
+    "mtime": 1778042683.3433666,
+    "hash": "473a44fde6acf4c28d83c42a1abb8f95"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\queue\\page.tsx": {
-    "mtime": 1777915715.7596474,
-    "hash": "74a150796b1e1a0b38c89b1d159ca8fc"
+    "mtime": 1778058288.723624,
+    "hash": "ce69a66c6e3827de7ba00e7810233283"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\reminders\\page.tsx": {
-    "mtime": 1777973397.2914405,
-    "hash": "d9464e573b88a4203866e8a10bcacf43"
+    "mtime": 1778039410.0162704,
+    "hash": "e00a7e81373f126932f6326cdb514a8d"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\search\\page.tsx": {
+    "mtime": 1778042527.9811785,
+    "hash": "45f45198806ce0f31bda31a7d4dbc3d8"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\settings\\page.tsx": {
     "mtime": 1777944957.8985808,
     "hash": "2b705b2af537edf9568e4f16abe5fe8a"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\stats\\page.tsx": {
+    "mtime": 1778042696.6026237,
+    "hash": "3b008fdf7e7678fe71c61903ccb7eac5"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\app\\terms\\page.tsx": {
-    "mtime": 1777943824.3764436,
-    "hash": "849b2003f428777b5a533b5daaef6b03"
+    "mtime": 1778044038.2782996,
+    "hash": "0c7798c5791b8ea7f75621c3d6dbe115"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\chat-quick-actions.test.ts": {
+    "mtime": 1778035040.8313167,
+    "hash": "1f2a5f02b2d9141b76a4276b7fd94204"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\chat-quick-actions.ts": {
+    "mtime": 1778035072.0041072,
+    "hash": "1fc95ae250baac221111d51a1ee010b5"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\chat-validation.test.ts": {
     "mtime": 1777774454.354441,
@@ -539,9 +607,21 @@
     "mtime": 1777808282.9132802,
     "hash": "0d612856ea3acb585daa8ffdca7fc60c"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-login-attempts.test.ts": {
+    "mtime": 1777982013.7286842,
+    "hash": "5cfeeced1bcfb3ecef07d98b9c224f72"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-login-attempts.ts": {
-    "mtime": 1777915359.2995274,
-    "hash": "2a2e051a3d8cfe0c541f1202ac0c788b"
+    "mtime": 1777982045.418147,
+    "hash": "3c55547f5a2bca7c9c255ca22d29f340"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-rate-limit.test.ts": {
+    "mtime": 1778063067.2043724,
+    "hash": "65e34f9a2cfecb139db042a6c8993faf"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-rate-limit.ts": {
+    "mtime": 1778063067.2023716,
+    "hash": "02c6994e4214be6e4b4e36e17335a177"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\dashboard-runtime.test.ts": {
     "mtime": 1777973360.3061485,
@@ -560,12 +640,12 @@
     "hash": "e250ec848b71a9af66b5d4d1770ac3aa"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\data-export-proof.test.ts": {
-    "mtime": 1777910858.1465073,
-    "hash": "63d0776a40bc78e29799a7a78c101620"
+    "mtime": 1778062506.0331984,
+    "hash": "897e000f5200077ba6a304d0a4d5853e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\data-export-proof.ts": {
-    "mtime": 1777972525.0135343,
-    "hash": "150854f29679901645adfda39098aced"
+    "mtime": 1778062506.0331984,
+    "hash": "5b979855c221967f9c6377b38fb8636a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\src\\lib\\data-export-redaction.ts": {
     "mtime": 1777903882.3353121,
@@ -600,8 +680,8 @@
     "hash": "280dc74a2d8463aabdd5c54a7d542922"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\test\\e2e\\dashboard.spec.ts": {
-    "mtime": 1777973569.7147439,
-    "hash": "c0677438c21fd954b67ff19aab98cc1d"
+    "mtime": 1778058712.058123,
+    "hash": "a29557ef18cdba78dc2a9f86ead9c871"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\drizzle.config.ts": {
     "mtime": 1777334211.715484,
@@ -644,8 +724,8 @@
     "hash": "939317544c645596017e544a02835129"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\env.ts": {
-    "mtime": 1777700949.4284656,
-    "hash": "b970ede47ff39e30c74dcd2531baf5a0"
+    "mtime": 1778064966.5737615,
+    "hash": "00e9a7e72d0c95d6d3f9f07c2c9e64b4"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\index.ts": {
     "mtime": 1777334211.746491,
@@ -672,8 +752,8 @@
     "hash": "f24ba7193d8f273078fbdac0f7fb373e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\agent\\system-prompt.ts": {
-    "mtime": 1777903882.0139296,
-    "hash": "f55cb0601f3800f565ea264e6a866cdd"
+    "mtime": 1778063896.0008624,
+    "hash": "54be092f0bddca3e1a629748cb75d252"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\agent\\tools.ts": {
     "mtime": 1777660677.4808512,
@@ -688,8 +768,8 @@
     "hash": "41660443f69b8bd095775bf23e6f35db"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\db\\repo.ts": {
-    "mtime": 1777943676.6968682,
-    "hash": "27e6531a57658b7cf5f0057779bb8ac6"
+    "mtime": 1778042385.915654,
+    "hash": "2bafffafc2908dcb2645f89efb9fbb48"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\db\\schema.ts": {
     "mtime": 1777903882.1810367,
@@ -720,16 +800,16 @@
     "hash": "2764810792867e5f7155fa0cacfce58e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\07-schedule-call.ts": {
-    "mtime": 1777392356.1696222,
-    "hash": "227b6347c17fd257cbc2f8d05e52b545"
+    "mtime": 1778036931.7428212,
+    "hash": "9a40b1aa92ddde8244d74d05b3e32627"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\08-web-research.ts": {
     "mtime": 1777334211.7434914,
     "hash": "f57a46d845d1c6c6e668324d93899565"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\09-confirmation-rail.ts": {
-    "mtime": 1777903882.0149298,
-    "hash": "1282a93deef8801225ef8284214eb543"
+    "mtime": 1778036921.8442557,
+    "hash": "625b30d2fcfb826a7ec23764dba564e4"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\10-receipt-expense.ts": {
     "mtime": 1777903882.2250898,
@@ -752,8 +832,8 @@
     "hash": "61f35de3ce8d432fac465e53fb74e07e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\15-spotify.ts": {
-    "mtime": 1777660416.6299026,
-    "hash": "78405ee864f848a0a9643a4e934bf3a2"
+    "mtime": 1778036938.421304,
+    "hash": "b68f14c61e570f3899169b063e5b85c0"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\16-personal-context.ts": {
     "mtime": 1777703248.0922744,
@@ -771,9 +851,25 @@
     "mtime": 1777903882.0169296,
     "hash": "6609eb27ea62cb49f00d2f4a754094e5"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\20-life-admin-intake.ts": {
+    "mtime": 1777981718.2076905,
+    "hash": "8cd6c0213fbb03f54aae3c47deacc263"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\21-home-assistants.ts": {
+    "mtime": 1778041994.4858449,
+    "hash": "95b5fe320ac772fae20b11de11f40f58"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\22-personal-os.ts": {
+    "mtime": 1778063680.9648519,
+    "hash": "4631d1e91b343e7bc86a59879759512e"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\23-memory-ops.ts": {
+    "mtime": 1778063914.939316,
+    "hash": "ecc4f98c80525e9c0a62de81c5f1ed3d"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\features\\index.ts": {
-    "mtime": 1777903882.2260897,
-    "hash": "57c0e22bcfc5d8b4eeed7d43c13d410b"
+    "mtime": 1778063896.0008624,
+    "hash": "128bb1bf0a3f0942ae4fb4cddcc9163e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\integrations\\spotify.ts": {
     "mtime": 1777944429.45235,
@@ -791,21 +887,25 @@
     "mtime": 1777907612.2165356,
     "hash": "71d515b7a97ca832f423abc357bca653"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\search\\serper.ts": {
+    "mtime": 1778044637.4845035,
+    "hash": "ba3548184fb8b4e5474d1e09b42f3165"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\utils\\crypto.ts": {
     "mtime": 1777972455.5623107,
     "hash": "f3084069313dd07c62a50bf9db11c4f4"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\utils\\index.ts": {
-    "mtime": 1777334211.7474933,
-    "hash": "2b9be94ef18b55317066f60a1f9482db"
+    "mtime": 1778060613.7075522,
+    "hash": "b3218a8ab663d4e3cc60d1006c17f99c"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\utils\\parse.ts": {
     "mtime": 1777334211.7474933,
     "hash": "d4f707729364700ea08536ccbd2a9f24"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\utils\\time.ts": {
-    "mtime": 1777334211.7474933,
-    "hash": "98176fd08c615f6fa5b10829131b5bfc"
+    "mtime": 1778042378.8711188,
+    "hash": "63e8e18c799b45549f43ac58e3fb1231"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\src\\whatsapp\\client.ts": {
     "mtime": 1777334211.7484899,
@@ -844,16 +944,16 @@
     "hash": "7a4f89a3494c1ff697c2aa03f55362b3"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\07-schedule-call.test.ts": {
-    "mtime": 1777903882.2836587,
-    "hash": "a073b8941112cedac3a2274eba6f8834"
+    "mtime": 1778037312.1243887,
+    "hash": "faf25057205b5670de60c72642f725c8"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\08-web-research.test.ts": {
     "mtime": 1777334211.7524924,
     "hash": "2875329dc14e6352a55841cc46dd9fa2"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\09-confirmation-rail.test.ts": {
-    "mtime": 1777903882.284659,
-    "hash": "58433a9a620adaf4d4442fc17e2afd22"
+    "mtime": 1778036859.8468664,
+    "hash": "6c9a80b8d43dcf5f68e8b928eee9deea"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\10-receipt-expense.test.ts": {
     "mtime": 1777903882.2856584,
@@ -872,8 +972,8 @@
     "hash": "b54c62d1b34372d545f834db280dee3e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\15-spotify.test.ts": {
-    "mtime": 1777903882.2876585,
-    "hash": "322b21c75f981a4414f158fbde44bcc7"
+    "mtime": 1778036882.8567848,
+    "hash": "5264d9c74038226a234b32ad9f8ae23a"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\18-email-drafts.test.ts": {
     "mtime": 1777903881.9577613,
@@ -883,13 +983,29 @@
     "mtime": 1777903882.0189302,
     "hash": "4ea679c947dee9623c4c108d82fa654c"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\20-life-admin-intake.test.ts": {
+    "mtime": 1777981665.5143487,
+    "hash": "2160caf4fdd89ce328dcbc0710b510a8"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\21-home-assistants.test.ts": {
+    "mtime": 1778041789.8473735,
+    "hash": "c2267bca30bb8b307da849bc6f5ac8f0"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\22-personal-os.test.ts": {
+    "mtime": 1778063680.9658518,
+    "hash": "32bd3afe6169cb43730d531fb8a91145"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\23-memory-ops.test.ts": {
+    "mtime": 1778063896.0008624,
+    "hash": "c7842b6166198210e6ba94a15321d086"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\agent-loop.test.ts": {
     "mtime": 1777903882.2886589,
     "hash": "b561f634eadded1d290ba15ed5f5af78"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\env.test.ts": {
-    "mtime": 1777700921.2127192,
-    "hash": "7d6e8ee5e2c471bf813d88e203c65d99"
+    "mtime": 1778064994.7179623,
+    "hash": "97bf05fcff472731338c01147c4d708d"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\feature-registry-queued.test.ts": {
     "mtime": 1777903882.0189302,
@@ -912,8 +1028,8 @@
     "hash": "5c6aafdc6252f249f4e3f5f08038d0c3"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\system-prompt.test.ts": {
-    "mtime": 1777903882.0199294,
-    "hash": "1362d51bc39d6f468b3b2a60fe5555a6"
+    "mtime": 1778063896.001863,
+    "hash": "2b9295d25d3a45c2760dd1c61bfe21fb"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\packages\\shared\\test\\tools-registry.test.ts": {
     "mtime": 1777903882.2906582,
@@ -935,13 +1051,17 @@
     "mtime": 1777334211.756498,
     "hash": "2dd9bc57a423dd528a25a86d4f7c9d50"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\audit-doctor.ps1": {
+    "mtime": 1778064556.555616,
+    "hash": "45c2f3a11427a14156f314d758cddb52"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\live-smoke.ps1": {
     "mtime": 1777948462.210203,
     "hash": "8d756bddf2393eff4d646f80281b7f63"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\operator-runner.ts": {
-    "mtime": 1777915722.6382446,
-    "hash": "7d2e63093b740a077892f21369b097f9"
+    "mtime": 1778058356.6190462,
+    "hash": "9a490be4847b9391445a4eac7f1d545e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\preflight.ps1": {
     "mtime": 1777972362.1272006,
@@ -971,33 +1091,37 @@
     "mtime": 1777909106.2063932,
     "hash": "6843b5be33f67571eb32791495fe3b0f"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\scripts\\zap-baseline.ps1": {
+    "mtime": 1778061063.8522637,
+    "hash": "2ae486c8ab9bee0150a018a953a87024"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\AGENTS.md": {
-    "mtime": 1777971838.187105,
-    "hash": "7a15d3f09f45cd37d26d836cc3b111c9"
+    "mtime": 1777974898.6632602,
+    "hash": "4185e64284f3c4daec75e07561ac73b0"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\AUDIT-REPORT-2026-05-05.md": {
-    "mtime": 1777972641.5406818,
-    "hash": "5b1b145871f339bbe454d06ebf4cf45d"
+    "mtime": 1778065053.145357,
+    "hash": "b4edc3730892ed0acbc8d33db31b1ce2"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\AUDIT_STANDARD.md": {
-    "mtime": 1777971838.188105,
-    "hash": "42904fe11355e3a8c46bc9100cbc1a26"
+    "mtime": 1778036316.3414931,
+    "hash": "391a84f98807f81b542c676e2363b8ab"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\CLAUDE-CODE-BACKLOG.md": {
     "mtime": 1777903882.0513453,
     "hash": "ca2f3e980ab68067d4deb9f018efce28"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\CLAUDE.md": {
-    "mtime": 1777971838.187105,
-    "hash": "468539580e8b261bd4362a6bec059363"
+    "mtime": 1777974898.6642632,
+    "hash": "275d9d00289f4dc04624948d026b6ef1"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\HANDOFF-TO-CLAUDE-CODE.md": {
     "mtime": 1777368630.0826645,
     "hash": "a3c1bb8201e3b8f7d5bf843adcebc097"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\mind.md": {
-    "mtime": 1777973101.693479,
-    "hash": "6c4a5a06535cb45cb32691a246dc70e9"
+    "mtime": 1778042941.1810427,
+    "hash": "d4a2348cf46d88dc9f2371f89fb9d2e0"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\NitsyClaw-Constitution-v1.0.md": {
     "mtime": 1777910898.1509233,
@@ -1015,6 +1139,10 @@
     "mtime": 1777803496.1888604,
     "hash": "7b466a96842bfe71cb02b59aa1b7859d"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\PROJECT_MAP.md": {
+    "mtime": 1777974898.7024076,
+    "hash": "378eafc163f8c87019e7c4b70b76f2d5"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\README.md": {
     "mtime": 1777334211.6929777,
     "hash": "a2115eadff698dd76734efa88eb62a7f"
@@ -1023,21 +1151,33 @@
     "mtime": 1777910898.1499236,
     "hash": "58f3b78a07cd2807b34658a376208c3a"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\UI_STANDARD.md": {
+    "mtime": 1777975038.7030413,
+    "hash": "daaceff0bc4a38824ed7ea2f3a2afa8f"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\deploy.md": {
     "mtime": 1777909912.3456292,
     "hash": "d53dd765a97a57e2302e12f65bbfd057"
   },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\go-live-without-nitesh.md": {
+    "mtime": 1778065011.8535962,
+    "hash": "09f0850f6f2ee8fbbcb7fe4b66be4989"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\nitsyclaw-feature-batches.md": {
+    "mtime": 1778063896.001863,
+    "hash": "cba04df37271bf460abc915dae5e5d10"
+  },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\release-safety.md": {
-    "mtime": 1777973491.362384,
-    "hash": "d0d54f24a92fc30833e0e4b313525457"
+    "mtime": 1778075345.026534,
+    "hash": "477ed0f92d69bd888df091951a0b1a43"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\spotify-integration.md": {
     "mtime": 1777660967.7034683,
     "hash": "e1975bc9b2b93c99560dc966a110ee7e"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\testing.md": {
-    "mtime": 1777961989.2456431,
-    "hash": "ac588d062b876656080cbe2177f93206"
+    "mtime": 1778076192.3969133,
+    "hash": "6a2d021d89af2569cb5c24e390a779dd"
   },
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\docs\\whatsapp-paths.md": {
     "mtime": 1777961989.2466471,
@@ -1074,5 +1214,17 @@
   "C:\\Users\\Nitesh\\projects\\NitsyClaw\\ideas\\06-p0-shortlist.md": {
     "mtime": 1777334211.7124844,
     "hash": "900dc9e7191c0f5a79b4c10eff65d0b7"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\public\\icon.svg": {
+    "mtime": 1778036254.9499314,
+    "hash": "e68af83a51f6aa6faaa79aa0a62c0360"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\output\\playwright\\nitsyclaw-login-desktop.png": {
+    "mtime": 1777991048.5894547,
+    "hash": "c7a3f7b8302ccd4f3ad278bc6b513ee7"
+  },
+  "C:\\Users\\Nitesh\\projects\\NitsyClaw\\output\\playwright\\nitsyclaw-login-mobile.png": {
+    "mtime": 1777991049.2433097,
+    "hash": "46313e9f73845a382c0612454740f078"
   }
 }

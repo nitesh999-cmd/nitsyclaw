@@ -30,19 +30,21 @@ async function loadToday() {
 }
 
 type TodayData = Awaited<ReturnType<typeof loadToday>>;
+type TodayState = TodayData & { dataUnavailable: boolean };
 
-async function loadTodayWithTimeout(): Promise<TodayData> {
+async function loadTodayWithTimeout(): Promise<TodayState> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const timeoutMs = todayTimeoutMs();
-  const fallback = new Promise<TodayData>((resolve) => {
+  const fallback = new Promise<TodayState>((resolve) => {
     timeout = setTimeout(() => {
       console.error("[dashboard] today data load timed out; rendering safe empty state", { timeoutMs });
-      resolve(emptyTodayData());
+      resolve({ ...emptyTodayData(), dataUnavailable: true });
     }, timeoutMs);
   });
 
   try {
-    return await Promise.race([loadToday(), fallback]);
+    const loaded = loadToday().then((data) => ({ ...data, dataUnavailable: false }));
+    return await Promise.race([loaded, fallback]);
   } finally {
     if (timeout) clearTimeout(timeout);
   }
@@ -75,7 +77,7 @@ function timeGreeting(): string {
 
 export default async function TodayPage() {
   const greeting = timeGreeting();
-  let data: TodayData;
+  let data: TodayState;
   try {
     data = await loadTodayWithTimeout();
   } catch {
@@ -138,6 +140,12 @@ export default async function TodayPage() {
           </div>
         </div>
       </section>
+
+      {data.dataUnavailable ? (
+        <div className="rounded-xl border border-[#d9875f] bg-[#fff2ed] p-4 text-sm leading-6 text-[#6f2e18]" role="status">
+          Live dashboard data is taking too long to load. I am showing a safe temporary view instead of pretending the day is empty.
+        </div>
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-4">
         <a href="/confirmations" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">

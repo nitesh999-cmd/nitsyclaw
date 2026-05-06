@@ -10,5 +10,7 @@ describe("today dashboard performance guard", () => {
     expect(source).toContain("loadTodayWithTimeout");
     expect(source).toContain("Promise.race");
     expect(source).toContain("emptyTodayData");
+    expect(source).toContain("dataUnavailable");
+    expect(source).toContain("instead of pretending the day is empty");
   });
 });

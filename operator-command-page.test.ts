@@ -19,6 +19,7 @@ describe("operator command page", () => {
     expect(client).toContain("/api/operator/jobs");
     expect(client).toContain("What this page does");
     expect(client).toContain("Queuing does not build, run code, or deploy by itself");
+    expect(client).toContain("This is the planning desk");
     expect(client).toContain("Queue Top 20 requests");
     expect(client).toContain("Queue Next 50 requests");
     expect(client).toContain("Desktop Gateway");
