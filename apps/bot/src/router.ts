@@ -8,6 +8,8 @@ import {
   registerAllFeatures,
   transcribeAndStore,
   processReceiptImage,
+  analyzeLifeAdminIntake,
+  extractDocumentTextFromMedia,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import {
@@ -17,7 +19,7 @@ import {
   listPendingFeatureRequests,
 } from "@nitsyclaw/shared/db";
 import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
-import { pushNotify } from "@nitsyclaw/shared/notify";
+import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
   parseBuildAgentShortcut,
@@ -71,12 +73,24 @@ export class Router {
     } catch (e) {
       console.error("[router] failed to persist outbound", e);
     }
-    pushNotify(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
+    notifyAll(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
   }
 
   private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
-    console.error(`[router] ${label} failed`, error);
+    console.error("[router] handler failed", { label }, error);
     await this.sendAndPersist(userMessage);
+  }
+
+  private formatLifeAdminIntakeReply(result: ReturnType<typeof analyzeLifeAdminIntake>): string {
+    const facts = result.keyFacts.slice(0, 4).map((fact) => `- ${fact.label}: ${fact.value}`);
+    const action = result.suggestedActions[0];
+    const lines = [
+      `${result.title}: ${result.safePreview}`,
+      ...facts,
+      action ? `Next: ${action.label}.` : undefined,
+      result.warnings[0],
+    ].filter((line): line is string => Boolean(line));
+    return lines.join("\n");
   }
 
   async handle(msg: InboundMessage): Promise<void> {
@@ -161,6 +175,38 @@ export class Router {
         } catch (e2) {
           await this.sendPublicFailure("image read", "Couldn't read that image. I logged it; try again shortly.", e2);
         }
+      }
+      return;
+    }
+
+    // 2.25. Document uploads get an honest intake response. We use metadata and
+    // any provided caption/text, but do not claim PDF/OCR parsing yet.
+    if (msg.mediaType === "document") {
+      try {
+        const media = msg.downloadMedia ? await msg.downloadMedia() : undefined;
+        const extracted = media
+          ? await extractDocumentTextFromMedia({
+              data: media.data,
+              filename: media.filename,
+              mimetype: media.mimetype,
+            })
+          : undefined;
+        const extractedWarning = extracted && !extracted.supported ? extracted.reason : undefined;
+        const documentText = [effectiveText, extracted?.text].filter((part) => part?.trim()).join("\n\n");
+        const result = analyzeLifeAdminIntake({
+          text: documentText,
+          mediaType: "document",
+          filename: media?.filename,
+          mimetype: media?.mimetype,
+          now: this.deps.now(),
+        });
+        const reply = this.formatLifeAdminIntakeReply({
+          ...result,
+          warnings: [...result.warnings, ...(extractedWarning ? [extractedWarning] : [])],
+        });
+        await this.sendAndPersist(reply);
+      } catch (documentError) {
+        await this.sendPublicFailure("document intake", "I received the document, but couldn't inspect it safely. Try pasting the key text or uploading a screenshot.", documentError);
       }
       return;
     }
@@ -375,7 +421,7 @@ export class Router {
         } catch (e) {
           console.error("[router] failed to persist reply_to_user outbound", e);
         }
-        pushNotify(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
+        notifyAll(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
       }
     } else if (result.finalText.trim()) {
       await this.sendAndPersist(result.finalText);

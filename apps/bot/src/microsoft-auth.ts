@@ -21,6 +21,7 @@ const TOKEN_FILE = "ms-token.json";
 const SCOPES = [
   "Mail.Read",
   "Mail.ReadWrite",
+  "Mail.Send",
   "Calendars.Read",
   "Calendars.ReadWrite",
   "User.Read",

@@ -110,6 +110,49 @@ export async function fetchMsEventsToday(_timezone: string): Promise<MsEvent[]> 
   }
 }
 
+export interface SendMailArgs {
+  to: string;
+  subject: string;
+  /** Plain-text body. Sent as HTML with newlines converted to <br>. */
+  body: string;
+}
+
+/**
+ * Send an email via Microsoft Graph /me/sendMail.
+ * Requires Mail.Send scope — re-run `pnpm ms:auth` after adding the scope.
+ */
+export async function sendMail(args: SendMailArgs): Promise<void> {
+  if (!hasMsToken()) {
+    throw new Error("Outlook not authenticated. Run 'pnpm ms:auth' to connect.");
+  }
+  const htmlBody = args.body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  const payload = {
+    message: {
+      subject: args.subject,
+      body: { contentType: "HTML", content: htmlBody },
+      toRecipients: [{ emailAddress: { address: args.to } }],
+    },
+    saveToSentItems: false,
+  };
+  const token = await getMsAccessToken();
+  const resp = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  // 202 Accepted = sent; anything else is an error
+  if (!resp.ok) {
+    throw new Error(`Graph POST /me/sendMail failed: ${resp.status} ${await resp.text()}`);
+  }
+}
+
 export async function fetchMsUnread(limit = 5): Promise<MsUnreadEmail[]> {
   if (!hasMsToken()) return [];
   const path = `/me/mailFolders/inbox/messages?$filter=isRead eq false&$orderby=receivedDateTime desc&$top=${limit}&$select=from,subject,receivedDateTime,bodyPreview`;
