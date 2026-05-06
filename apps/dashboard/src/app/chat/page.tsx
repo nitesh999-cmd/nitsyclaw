@@ -341,7 +341,7 @@ export default function ChatPage() {
           <div>
             <div className="nc-eyebrow">Home help</div>
             <h2 className="mt-2 text-3xl font-semibold">Chat with NitsyClaw</h2>
-            <p className="mt-2 max-w-2xl text-sm text-stone-600">
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">
               Ask for help with messages, bills, calls, travel days, renewals, and the small things that pile up.
             </p>
           </div>
@@ -408,10 +408,10 @@ export default function ChatPage() {
       <section aria-labelledby="quick-actions-title" className="mb-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 id="quick-actions-title" className="text-sm font-semibold text-stone-950">
+            <h3 id="quick-actions-title" className="text-sm font-semibold text-slate-200">
               Quick starts
             </h3>
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-slate-500">
               Tap one, add your details, then send.
             </p>
           </div>
@@ -423,29 +423,29 @@ export default function ChatPage() {
               key={action.id}
               type="button"
               onClick={() => setInput(action.prompt)}
-              className="rounded-xl border border-stone-200 bg-[#fffdf8] p-3 text-left transition hover:border-[#b85c38] hover:bg-[#fbf4ea] focus:outline-none focus:ring-2 focus:ring-[#b85c38]/30"
+              className="rounded-xl border border-slate-700 bg-slate-800/60 p-3 text-left transition hover:border-[#d8b75d]/60 hover:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-[#d8b75d]/30"
             >
-              <span className="block text-sm font-semibold text-stone-950">{action.label}</span>
-              <span className="mt-1 block text-xs leading-5 text-stone-500">{action.helper}</span>
+              <span className="block text-sm font-semibold text-slate-100">{action.label}</span>
+              <span className="mt-1 block text-xs leading-5 text-slate-400">{action.helper}</span>
             </button>
           ))}
         </div>
       </section>
 
-      <div className="mb-4 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-stone-200 bg-[#fffdf8]/85 p-3 pr-2 shadow-sm" data-testid="chat-messages">
+      <div className="mb-4 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-3 pr-2" data-testid="chat-messages">
         {loadingHistory && (
-          <p className="text-sm text-stone-500">Loading conversation history...</p>
+          <p className="text-sm text-slate-500">Loading conversation history...</p>
         )}
         {!loadingHistory && messages.length === 0 && (
-          <p className="text-sm text-stone-500">Start typing below, or pick a quick start.</p>
+          <p className="text-sm text-slate-500">Start typing below, or pick a quick start.</p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start items-end gap-1"}>
             <div className={
-              "max-w-[82%] whitespace-pre-wrap border px-4 py-2 text-sm shadow-lg shadow-black/10 " +
+              "max-w-[82%] whitespace-pre-wrap border px-4 py-2 text-sm " +
               (m.role === "user"
-                ? "rounded-2xl border-[#b85c38]/40 bg-[#b85c38] text-white"
-                : "rounded-2xl border-stone-200 bg-white text-stone-900")
+                ? "rounded-2xl border-[#d8b75d]/40 bg-[#d8b75d] text-slate-950"
+                : "rounded-2xl border-slate-700 bg-slate-800 text-slate-200")
             }>
               {m.content}
               {m.surface ? (
@@ -477,7 +477,7 @@ export default function ChatPage() {
         ))}
         {busy && (
           <div className="flex justify-start">
-            <div className="rounded-2xl border border-stone-200 bg-white px-4 py-2 text-sm text-stone-500">Thinking...</div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-500">Thinking...</div>
           </div>
         )}
         <div ref={endRef} />

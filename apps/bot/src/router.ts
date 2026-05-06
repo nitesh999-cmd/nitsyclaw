@@ -12,13 +12,43 @@ import {
   checkMessageBeforeSending,
   cleanMessyNote,
   comparePersonalOptions,
+  createEmergencyCard,
+  createHabitPlan,
+  createHomeInventory,
+  createLeaveHomeChecklist,
+  createMedicineList,
+  createMoveChecklist,
+  createHouseholdChoreSplit,
+  createPetCarePlan,
+  createShoppingList,
   draftWarmReply,
+  draftSchoolNote,
+  extractBillSummary,
   extractActionItemsFromText,
   extractDocumentTextFromMedia,
   extractRenewalWatch,
+  planHomeMaintenance,
+  planAppointmentPrep,
+  planCarTripPrep,
+  planCleaningSprint,
+  planGuestPrep,
+  planMealIdeas,
+  planPackingList,
   planPhoneCallScript,
+  planLostItemSearch,
+  planPasswordReset,
   planTravelDay,
+  planWeekend,
+  prepareBillDispute,
+  prepareDecisionMemo,
   prepareFirmComplaint,
+  prepareReturnPlan,
+  prepareSymptomNote,
+  reviewSubscriptions,
+  splitBudget,
+  suggestKidActivity,
+  suggestGiftIdeas,
+  trackWarranty,
   triageLifeAdminNote,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
@@ -183,6 +213,252 @@ export class Router {
           commitments,
         });
         return `${result.title}\n- ${result.checklist.join("\n- ")}`;
+      }
+      case "bill-summary": {
+        const result = extractBillSummary({ text: shortcut.text });
+        return [
+          "Bill summary",
+          `Provider: ${result.provider}`,
+          result.amount ? `Amount: ${result.amount}` : undefined,
+          result.dueDate ? `Due: ${result.dueDate}` : undefined,
+          `Next: ${result.nextAction}`,
+        ].filter((line): line is string => Boolean(line)).join("\n");
+      }
+      case "return-plan": {
+        const result = prepareReturnPlan({
+          item: first || "the item",
+          purchaseInfo: second || undefined,
+          issue: third || shortcut.text,
+        });
+        return `Return plan\n${result.summary}\n- ${result.steps.join("\n- ")}\nMessage:\n${result.message}`;
+      }
+      case "subscription-check": {
+        const result = reviewSubscriptions({ text: shortcut.text });
+        const lines = result.items.map((item, index) => {
+          const bits = [item.amount, item.cadence, item.reviewDate].filter(Boolean).join(", ");
+          return `${index + 1}. ${item.name}${bits ? ` (${bits})` : ""}: ${item.action}`;
+        });
+        return lines.length ? `Subscriptions\n${lines.join("\n")}` : "No subscriptions found. Try: subscription check: Netflix $22 monthly.";
+      }
+      case "chore-split": {
+        const people = first.split(",").map((part) => part.trim()).filter(Boolean);
+        const chores = (second || shortcut.text).split(",").map((part) => part.trim()).filter(Boolean);
+        const result = createHouseholdChoreSplit({ people, chores });
+        const lines = Object.entries(result.assignments).map(([person, items]) => `${person}: ${items.join(", ") || "rest"}`);
+        return lines.length ? `Chore split\n${lines.join("\n")}` : "Add people and chores like: chore split: Nitesh, Sam | dishes, bins";
+      }
+      case "emergency-card": {
+        const contacts = fourth ? [fourth] : undefined;
+        const result = createEmergencyCard({
+          name: first || "Me",
+          phone: second || undefined,
+          notes: third ? [third] : undefined,
+          contacts,
+        });
+        return `Emergency card\n${result.card}`;
+      }
+      case "meal-ideas": {
+        const ingredients = first.split(",").map((part) => part.trim()).filter(Boolean);
+        const result = planMealIdeas({
+          ingredients: ingredients.length ? ingredients : shortcut.text.split(",").map((part) => part.trim()).filter(Boolean),
+          preference: second || undefined,
+        });
+        return `Meal ideas\n- ${result.ideas.join("\n- ")}\nMaybe add: ${result.shoppingGaps.join(", ")}`;
+      }
+      case "shopping-list": {
+        const result = createShoppingList({
+          items: shortcut.text.split(",").map((part) => part.trim()).filter(Boolean),
+        });
+        const lines = Object.entries(result.groups)
+          .filter(([, items]) => items.length > 0)
+          .map(([group, items]) => `${group}: ${items.join(", ")}`);
+        return lines.length ? `Shopping list\n${lines.join("\n")}` : "No shopping items found. Try: shopping list: milk, eggs, bananas.";
+      }
+      case "pack-list": {
+        const days = Number((second || "").match(/\d+/)?.[0] ?? "1");
+        const result = planPackingList({
+          destination: first || shortcut.text,
+          days,
+          commitments: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.items.join("\n- ")}`;
+      }
+      case "appointment-prep": {
+        const result = planAppointmentPrep({
+          provider: first || "appointment",
+          concern: second || shortcut.text,
+          goals: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `Appointment prep\n${result.opening}\nQuestions:\n- ${result.questions.join("\n- ")}\nBring:\n- ${result.bring.join("\n- ")}`;
+      }
+      case "decision-memo": {
+        const result = prepareDecisionMemo({
+          decision: first || shortcut.text,
+          facts: shortcut.parts.slice(1).filter(Boolean),
+        });
+        return `Decision memo\n${result.memo}\nNext: ${result.nextStep}`;
+      }
+      case "home-inventory": {
+        const items = (second || shortcut.text).split(",").map((part) => part.trim()).filter(Boolean);
+        const result = createHomeInventory({
+          area: first || "Home",
+          items,
+        });
+        return `Home inventory\n${result.title}\n- ${result.items.join("\n- ")}`;
+      }
+      case "maintenance-plan": {
+        const result = planHomeMaintenance({
+          item: first || "home item",
+          issue: second || shortcut.text,
+          urgency: third || undefined,
+        });
+        return `Maintenance plan\n${result.summary}\n- ${result.steps.join("\n- ")}`;
+      }
+      case "gift-ideas": {
+        const result = suggestGiftIdeas({
+          person: first || "them",
+          budget: second || undefined,
+          interests: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `Gift ideas for ${result.person}${result.budget ? ` (${result.budget})` : ""}\n- ${result.ideas.join("\n- ")}`;
+      }
+      case "weekend-plan": {
+        const result = planWeekend({
+          location: first || "home",
+          weather: second || undefined,
+          constraints: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.plan.join("\n- ")}`;
+      }
+      case "budget-split": {
+        const result = splitBudget({
+          amount: first || "$0",
+          people: second.split(",").map((part) => part.trim()).filter(Boolean),
+          note: third || undefined,
+        });
+        const lines = result.shares.map((share) => `${share.person}: ${share.amount}`);
+        return `Budget split\nTotal: ${result.totalCents ? `$${(result.totalCents / 100).toFixed(2)}` : "$0.00"}${result.note ? ` (${result.note})` : ""}\n- ${lines.join("\n- ")}`;
+      }
+      case "habit-plan": {
+        const result = createHabitPlan({
+          habit: first || shortcut.text,
+          time: second || undefined,
+          trigger: third || undefined,
+        });
+        return `Habit plan\n${result.plan}\n- ${result.steps.join("\n- ")}`;
+      }
+      case "lost-item": {
+        const result = planLostItemSearch({
+          item: first || shortcut.text,
+          lastSeen: second || undefined,
+          places: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.steps.join("\n- ")}`;
+      }
+      case "school-note": {
+        const result = draftSchoolNote({
+          child: first || "my child",
+          reason: second || shortcut.text,
+          date: third || undefined,
+        });
+        return `School note\n${result.note}`;
+      }
+      case "pet-care": {
+        const result = createPetCarePlan({
+          pet: first || "Pet",
+          routine: second ? second.split(",").map((part) => part.trim()).filter(Boolean) : [shortcut.text],
+          dates: third || undefined,
+        });
+        return `${result.title}\n- ${result.checklist.join("\n- ")}`;
+      }
+      case "password-reset-plan": {
+        const result = planPasswordReset({
+          account: first || "account",
+          issue: second || undefined,
+        });
+        return `Password reset plan\n- ${result.steps.join("\n- ")}\n${result.warning}`;
+      }
+      case "leave-home-checklist": {
+        const result = createLeaveHomeChecklist({
+          duration: first || shortcut.text,
+          risks: second ? second.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.items.join("\n- ")}`;
+      }
+      case "car-trip-prep": {
+        const result = planCarTripPrep({
+          destination: first || shortcut.text,
+          passengers: second ? second.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+          needs: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.checklist.join("\n- ")}`;
+      }
+      case "medicine-list": {
+        const result = createMedicineList({
+          person: first || "Me",
+          medicines: second ? second.split(",").map((part) => part.trim()).filter(Boolean) : [shortcut.text],
+          notes: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `Medicine list\n${result.card}\n${result.warning}`;
+      }
+      case "symptom-note": {
+        const result = prepareSymptomNote({
+          concern: first || shortcut.text,
+          duration: second || undefined,
+          symptoms: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+          questions: fourth ? fourth.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `Symptom note\n${result.summary}\nQuestions:\n- ${result.questions.join("\n- ")}\n${result.warning}`;
+      }
+      case "bill-dispute": {
+        const result = prepareBillDispute({
+          provider: first || "the provider",
+          amount: second || undefined,
+          issue: third || shortcut.text,
+        });
+        return `Bill dispute\n- ${result.steps.join("\n- ")}\nMessage:\n${result.message}`;
+      }
+      case "guest-prep": {
+        const result = planGuestPrep({
+          guests: first || "guests",
+          arrival: second || undefined,
+          needs: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.checklist.join("\n- ")}`;
+      }
+      case "kid-activity": {
+        const result = suggestKidActivity({
+          child: first || "child",
+          age: second || undefined,
+          time: third || undefined,
+          constraints: fourth ? fourth.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.activities.join("\n- ")}`;
+      }
+      case "cleaning-plan": {
+        const minutes = Number((second || "").match(/\d+/)?.[0] ?? "20");
+        const result = planCleaningSprint({
+          area: first || shortcut.text,
+          minutes,
+          priorities: third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined,
+        });
+        return `${result.title}\n- ${result.steps.join("\n- ")}`;
+      }
+      case "move-checklist": {
+        const result = createMoveChecklist({
+          from: first || "old home",
+          to: second || "new home",
+          date: third || undefined,
+        });
+        return `${result.title}\n- ${result.checklist.join("\n- ")}`;
+      }
+      case "warranty-tracker": {
+        const result = trackWarranty({
+          item: first || shortcut.text,
+          purchaseDate: second || undefined,
+          warranty: third || undefined,
+        });
+        return `Warranty tracker\n${result.summary}\n- ${result.steps.join("\n- ")}`;
       }
     }
   }

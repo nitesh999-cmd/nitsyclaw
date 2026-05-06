@@ -372,4 +372,97 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).not.toContain("4111111111111111");
     expect(wa.sent[0].body).toContain("********1111");
   });
+
+  it("bill summary shortcut replies directly without the model loop", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "bill summary: AGL electricity bill $240.50 due 18 May 2026",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Bill summary");
+    expect(wa.sent[0].body).toContain("$240.50");
+    expect(wa.sent[0].body).toContain("2026-05-18");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("emergency card shortcut masks phone numbers before replying", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "emergency card: Nitesh | 0430008008 | asthma | Mum 0400000000",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Emergency card");
+    expect(wa.sent[0].body).toContain("********8008");
+    expect(wa.sent[0].body).toContain("********0000");
+    expect(wa.sent[0].body).not.toContain("0430008008");
+    expect(wa.sent[0].body).not.toContain("0400000000");
+  });
+
+  it("budget split shortcut replies directly without the model loop", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "budget split: $120 | Nitesh, Sam, Maya | dinner",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Budget split");
+    expect(wa.sent[0].body).toContain("Total: $120.00");
+    expect(wa.sent[0].body).toContain("Nitesh: $40.00");
+    expect(wa.sent[0].body).toContain("Sam: $40.00");
+    expect(wa.sent[0].body).toContain("Maya: $40.00");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("password reset shortcut gives safe steps without asking for secrets", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "password reset plan: Gmail | cannot login",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Password reset plan");
+    expect(wa.sent[0].body).toContain("official Gmail recovery page");
+    expect(wa.sent[0].body).toContain("Do not send passwords or codes to anyone");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("leave home shortcut replies directly without the model loop", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "leave home checklist: overnight | heater, back door",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Leave home checklist");
+    expect(wa.sent[0].body).toContain("Lock doors");
+    expect(wa.sent[0].body).toContain("heater");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("medicine list shortcut replies with a medical safety warning", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "medicine list: Nitesh | Ventolin 2 puffs, Vitamin D | keep inhaler nearby",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Medicine list");
+    expect(wa.sent[0].body).toContain("Ventolin 2 puffs");
+    expect(wa.sent[0].body).toContain("doctor or pharmacist");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
 });

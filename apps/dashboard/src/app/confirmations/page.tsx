@@ -59,7 +59,7 @@ function badge(status: string) {
         ? "border-emerald-500/40 text-emerald-300"
         : status === "rejected"
           ? "border-red-500/40 text-red-300"
-          : "border-neutral-700 text-neutral-300";
+          : "border-slate-700 text-slate-400";
   return `rounded border px-2 py-1 text-xs ${cls}`;
 }
 
@@ -94,48 +94,68 @@ export default async function ConfirmationsPage() {
     error = e instanceof Error ? e.message : String(e);
   }
 
+  const pending = rows.filter((r) => r.status === "pending");
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Confirmations</h2>
-        <p className="mt-2 text-sm text-neutral-400">
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Safety gate</div>
+        <h2 className="mt-2 text-3xl font-semibold">Confirmations</h2>
+        <p className="mt-3 text-sm text-slate-400">
           Important actions wait here. Reply yes/no in WhatsApp or chat to resolve the latest pending action.
+          {pending.length > 0 && (
+            <span className="ml-2 rounded border border-amber-500/40 px-2 py-0.5 text-xs text-amber-300">
+              {pending.length} pending
+            </span>
+          )}
         </p>
-      </div>
+      </section>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? (
+        <div className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">{error}</div>
+      ) : null}
 
-      <div className="divide-y divide-neutral-800 border-y border-neutral-800">
-        {rows.map((row) => (
-          <div key={row.id} className="grid gap-3 py-4 md:grid-cols-[120px_180px_1fr_180px_160px]">
-            <div><span className={badge(row.status)}>{row.status}</span></div>
-            <div className="text-sm">{row.action}</div>
-            <div className="text-xs text-neutral-400">{summarize(row.payload as Record<string, unknown>)}</div>
-            <div className="text-xs text-neutral-500">
-              <div>{new Date(row.createdAt).toLocaleString()}</div>
-              <div>Expires {new Date(row.expiresAt).toLocaleString()}</div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {row.status === "pending" && row.action === "spotify_create_playlist" ? (
-                <form action={approveSpotifyConfirmation}>
-                  <input type="hidden" name="id" value={row.id} />
-                  <button className="border border-emerald-800 px-2 py-1 text-xs text-emerald-300 hover:border-emerald-500">
-                    Approve
-                  </button>
-                </form>
-              ) : null}
-              {row.status === "pending" ? (
-                <form action={rejectConfirmation}>
-                  <input type="hidden" name="id" value={row.id} />
-                  <button className="border border-red-900 px-2 py-1 text-xs text-red-300 hover:border-red-600">
-                    Reject
-                  </button>
-                </form>
-              ) : null}
-            </div>
+      {rows.length === 0 ? (
+        <section className="nc-section">
+          <p className="nc-muted">No confirmations yet. Important actions will appear here.</p>
+        </section>
+      ) : (
+        <section className="nc-section">
+          <div className="divide-y divide-slate-800 border-y border-slate-800">
+            {rows.map((row) => (
+              <div key={row.id} className="grid gap-3 py-4 md:grid-cols-[120px_180px_1fr_180px_160px] md:items-start">
+                <div><span className={badge(row.status)}>{row.status}</span></div>
+                <div className="text-sm text-slate-200">{row.action}</div>
+                <div className="text-xs text-slate-500 break-all">{summarize(row.payload as Record<string, unknown>)}</div>
+                <div className="text-xs text-slate-500">
+                  <div>{new Date(row.createdAt).toLocaleString()}</div>
+                  <div className={row.expiresAt < new Date() ? "text-red-400" : ""}>
+                    Expires {new Date(row.expiresAt).toLocaleString()}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {row.status === "pending" && row.action === "spotify_create_playlist" ? (
+                    <form action={approveSpotifyConfirmation}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <button className="rounded border border-emerald-800/60 px-3 py-1 text-xs text-emerald-300 hover:border-emerald-500 hover:bg-emerald-950/30">
+                        Approve
+                      </button>
+                    </form>
+                  ) : null}
+                  {row.status === "pending" ? (
+                    <form action={rejectConfirmation}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <button className="rounded border border-red-900/60 px-3 py-1 text-xs text-red-300 hover:border-red-600 hover:bg-red-950/30">
+                        Reject
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
+      )}
     </div>
   );
 }

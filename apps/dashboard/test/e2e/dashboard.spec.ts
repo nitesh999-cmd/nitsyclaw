@@ -79,7 +79,7 @@ test.describe("dashboard routes render", () => {
   test("Sidebar navigation", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Today/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Home Today" })).toHaveAttribute("aria-current", "page");
     await page.getByRole("link", { name: "Saved notes" }).click();
     await expect(page).toHaveURL(/\/memory$/);
   });

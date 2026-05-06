@@ -52,6 +52,9 @@ export default async function TodayPage() {
   const pendingQueue = data.queueRows.filter((row) => row.status === "pending").length;
   const topReminder = data.pendingReminders[0] ?? null;
   const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length + pendingQueue;
+  const todayTotal = data.recentExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const overdue = data.pendingReminders.filter((r) => r.fireAt < new Date());
+
   return (
     <div className="nc-page">
       <section className="nc-hero overflow-hidden">
@@ -61,7 +64,7 @@ export default async function TodayPage() {
             <h2 className="mt-2 max-w-3xl text-3xl font-semibold leading-tight md:text-5xl">
               {greeting}. Life admin, sorted.
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
               A calm daily view for decisions, reminders, spending, and the little things that should not slip.
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
@@ -70,26 +73,26 @@ export default async function TodayPage() {
             </div>
           </div>
 
-          <div className="nc-panel-soft">
+          <div className="rounded-xl border border-slate-700/60 bg-slate-800/50 p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="nc-eyebrow">Needs attention</div>
-                <div className="mt-2 text-5xl font-semibold text-stone-950">{attentionCount}</div>
+                <div className="mt-2 text-5xl font-semibold text-slate-100">{attentionCount}</div>
               </div>
               <a href="/confirmations" className="nc-button min-h-9 px-3 text-xs">Review</a>
             </div>
-            <div className="mt-4 grid gap-2 text-xs text-stone-600">
-              <div className="flex justify-between border-t border-stone-300/80 pt-2">
+            <div className="mt-4 grid gap-2 text-xs text-slate-400">
+              <div className="flex justify-between border-t border-slate-700/80 pt-2">
                 <span>Approvals</span>
-                <span className="font-semibold text-stone-950">{data.pendingConfirmations.length}</span>
+                <span className="font-semibold text-slate-100">{data.pendingConfirmations.length}</span>
               </div>
-              <div className="flex justify-between border-t border-stone-300/80 pt-2">
-                <span>Reminders</span>
-                <span className="font-semibold text-stone-950">{data.pendingReminders.length}</span>
+              <div className="flex justify-between border-t border-slate-700/80 pt-2">
+                <span>Reminders{overdue.length > 0 && <span className="ml-1 text-red-400">({overdue.length} overdue)</span>}</span>
+                <span className="font-semibold text-slate-100">{data.pendingReminders.length}</span>
               </div>
-              <div className="flex justify-between border-t border-stone-300/80 pt-2">
+              <div className="flex justify-between border-t border-slate-700/80 pt-2">
                 <span>Requests</span>
-                <span className="font-semibold text-stone-950">{pendingQueue}</span>
+                <span className="font-semibold text-slate-100">{pendingQueue}</span>
               </div>
             </div>
           </div>
@@ -97,27 +100,31 @@ export default async function TodayPage() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <a href="/confirmations" className="nc-tile">
+        <a href="/confirmations" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
           <div className="nc-eyebrow">Approvals</div>
-          <div className="mt-3 text-3xl font-semibold">{data.pendingConfirmations.length}</div>
-          <div className="mt-2 text-xs text-stone-500">Need a decision</div>
+          <div className="mt-3 text-3xl font-semibold text-slate-100">{data.pendingConfirmations.length}</div>
+          <div className="mt-2 text-xs text-slate-500">Need a decision</div>
         </a>
-        <a href="/reminders" className="nc-tile">
+        <a href="/reminders" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
           <div className="nc-eyebrow">Reminders</div>
-          <div className="mt-3 text-3xl font-semibold">{data.pendingReminders.length}</div>
-          <div className="mt-2 text-xs text-stone-500">Coming up</div>
-        </a>
-        <a href="/queue" className="nc-tile">
-          <div className="nc-eyebrow">Requests</div>
-          <div className="mt-3 text-3xl font-semibold">{pendingQueue}</div>
-          <div className="mt-2 text-xs text-stone-500">Waiting to be built</div>
-        </a>
-        <a href="/activity" className="nc-tile">
-          <div className="nc-eyebrow">Last activity</div>
-          <div className="mt-3 text-sm text-stone-800">
-            {data.lastMessage ? new Date(data.lastMessage.createdAt).toLocaleString() : "None"}
+          <div className="mt-3 text-3xl font-semibold text-slate-100">{data.pendingReminders.length}</div>
+          <div className={`mt-2 text-xs ${overdue.length > 0 ? "text-red-400" : "text-slate-500"}`}>
+            {overdue.length > 0 ? `${overdue.length} overdue` : "Coming up"}
           </div>
-          <div className="mt-2 text-xs text-stone-500">Latest message</div>
+        </a>
+        <a href="/queue" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+          <div className="nc-eyebrow">Requests</div>
+          <div className="mt-3 text-3xl font-semibold text-slate-100">{pendingQueue}</div>
+          <div className="mt-2 text-xs text-slate-500">Waiting to be built</div>
+        </a>
+        <a href="/expenses" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+          <div className="nc-eyebrow">Today&apos;s spend</div>
+          <div className="mt-3 text-xl font-semibold text-slate-100">
+            {data.recentExpenses.length > 0 ? `AUD ${(todayTotal / 100).toFixed(2)}` : "—"}
+          </div>
+          <div className="mt-2 text-xs text-slate-500">
+            {data.recentExpenses.length > 0 ? `${data.recentExpenses.length} items` : "Nothing logged"}
+          </div>
         </a>
       </section>
 
@@ -125,14 +132,14 @@ export default async function TodayPage() {
         <div className="nc-section" data-testid="today-brief">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="nc-eyebrow">Latest brief</h3>
-            <a href="/chat" className="text-xs font-semibold text-[#8e3f24] hover:text-stone-950">Refresh</a>
+            <a href="/chat" className="text-xs font-semibold text-[#d8b75d] hover:text-[#f1d58a]">Refresh</a>
           </div>
           {data.latestBrief ? (
-            <pre className="whitespace-pre-wrap rounded-xl border border-stone-200 bg-[#fbf8f2] p-4 text-sm leading-6 text-stone-800">{data.latestBrief.body}</pre>
+            <pre className="whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm leading-6 text-slate-300">{data.latestBrief.body}</pre>
           ) : (
             <div className="nc-empty">
               <p>No brief yet.</p>
-              <a href="/chat" className="mt-3 inline-flex text-sm font-semibold text-[#8e3f24] hover:text-stone-950">
+              <a href="/chat" className="mt-3 inline-flex text-sm font-semibold text-[#d8b75d] hover:text-[#f1d58a]">
                 Create today&apos;s brief
               </a>
             </div>
@@ -141,11 +148,11 @@ export default async function TodayPage() {
 
         <div className="nc-section">
           <h3 className="nc-eyebrow">Next up</h3>
-          <div className="mt-3 rounded-xl border border-stone-200 bg-[#fbf8f2] p-4">
-            <div className="text-sm font-semibold text-stone-950">
+          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <div className={`text-sm font-semibold ${topReminder && topReminder.fireAt < new Date() ? "text-red-300" : "text-slate-100"}`}>
               {topReminder ? topReminder.text : "Nothing urgent scheduled"}
             </div>
-            <div className="mt-2 text-xs text-stone-500">
+            <div className="mt-2 text-xs text-slate-500">
               {topReminder ? new Date(topReminder.fireAt).toLocaleString() : "Use reminders when something must not slip."}
             </div>
           </div>
@@ -162,12 +169,17 @@ export default async function TodayPage() {
           <p className="nc-empty">Nothing scheduled. Add reminders from WhatsApp or Ask when something matters.</p>
         ) : (
           <ul className="space-y-1 text-sm">
-            {data.pendingReminders.map((r) => (
-              <li key={r.id} className="grid gap-1 border-b border-stone-200 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                <span className="font-medium text-stone-950">{r.text}</span>
-                <span className="text-xs text-stone-500">{new Date(r.fireAt).toLocaleString()}</span>
-              </li>
-            ))}
+            {data.pendingReminders.map((r) => {
+              const isOverdue = r.fireAt < new Date();
+              return (
+                <li key={r.id} className="grid gap-1 border-b border-slate-800 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <span className={`font-medium ${isOverdue ? "text-red-300" : "text-slate-200"}`}>{r.text}</span>
+                  <span className={`text-xs ${isOverdue ? "text-red-400" : "text-slate-500"}`}>
+                    {isOverdue ? "Overdue · " : ""}{new Date(r.fireAt).toLocaleString()}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -179,11 +191,11 @@ export default async function TodayPage() {
         ) : (
           <ul className="space-y-1 text-sm">
             {data.recentExpenses.map((e) => (
-              <li key={e.id} className="grid gap-1 border-b border-stone-200 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                <span>
-                  {e.merchant ?? "Unknown"} <span className="text-stone-500">({e.category})</span>
+              <li key={e.id} className="grid gap-1 border-b border-slate-800 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <span className="text-slate-200">
+                  {e.merchant ?? "Unknown"} <span className="text-slate-500">({e.category})</span>
                 </span>
-                <span>
+                <span className="font-medium text-slate-100">
                   {e.currency} {(e.amount / 100).toFixed(2)}
                 </span>
               </li>

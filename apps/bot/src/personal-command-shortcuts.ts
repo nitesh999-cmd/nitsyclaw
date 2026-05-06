@@ -25,7 +25,37 @@ export type HomeAssistantShortcutKind =
   | "complaint"
   | "check-message"
   | "travel-day"
-  | "triage-admin";
+  | "triage-admin"
+  | "bill-summary"
+  | "return-plan"
+  | "subscription-check"
+  | "chore-split"
+  | "emergency-card"
+  | "meal-ideas"
+  | "shopping-list"
+  | "pack-list"
+  | "appointment-prep"
+  | "decision-memo"
+  | "home-inventory"
+  | "maintenance-plan"
+  | "gift-ideas"
+  | "weekend-plan"
+  | "budget-split"
+  | "habit-plan"
+  | "lost-item"
+  | "school-note"
+  | "pet-care"
+  | "password-reset-plan"
+  | "leave-home-checklist"
+  | "car-trip-prep"
+  | "medicine-list"
+  | "symptom-note"
+  | "bill-dispute"
+  | "guest-prep"
+  | "kid-activity"
+  | "cleaning-plan"
+  | "move-checklist"
+  | "warranty-tracker";
 
 export interface HomeAssistantShortcut {
   kind: HomeAssistantShortcutKind;
@@ -118,6 +148,36 @@ const HOME_SHORTCUTS: Array<{ kind: HomeAssistantShortcutKind; pattern: RegExp }
   { kind: "check-message", pattern: /^(?:check\s+before\s+send|check\s+before\s+i\s+send|message\s+check)\s*:\s+(.+)$/is },
   { kind: "travel-day", pattern: /^(?:travel\s+day|plan\s+travel\s+day)\s*:\s+(.+)$/is },
   { kind: "triage-admin", pattern: /^(?:sort\s+admin|sort\s+life\s+admin|triage\s+admin)\s*:\s+(.+)$/is },
+  { kind: "bill-summary", pattern: /^(?:bill\s+summary|summarise\s+bill|summarize\s+bill)\s*:\s+(.+)$/is },
+  { kind: "return-plan", pattern: /^(?:return\s+plan|warranty\s+plan|refund\s+plan)\s*:\s+(.+)$/is },
+  { kind: "subscription-check", pattern: /^(?:subscription\s+check|subscriptions|check\s+subscriptions)\s*:\s+(.+)$/is },
+  { kind: "chore-split", pattern: /^(?:chore\s+split|split\s+chores|house\s+jobs)\s*:\s+(.+)$/is },
+  { kind: "emergency-card", pattern: /^(?:emergency\s+card|emergency\s+info|medical\s+card)\s*:\s+(.+)$/is },
+  { kind: "meal-ideas", pattern: /^(?:meal\s+ideas|what\s+can\s+i\s+cook|cook\s+with)\s*:\s+(.+)$/is },
+  { kind: "shopping-list", pattern: /^(?:shopping\s+list|sort\s+shopping|groceries)\s*:\s+(.+)$/is },
+  { kind: "pack-list", pattern: /^(?:pack\s+list|packing\s+list|what\s+to\s+pack)\s*:\s+(.+)$/is },
+  { kind: "appointment-prep", pattern: /^(?:appointment\s+prep|prep\s+appointment|doctor\s+prep)\s*:\s+(.+)$/is },
+  { kind: "decision-memo", pattern: /^(?:decision\s+memo|help\s+me\s+decide|decision\s+note)\s*:\s+(.+)$/is },
+  { kind: "home-inventory", pattern: /^(?:home\s+inventory|inventory|where\s+is\s+this)\s*:\s+(.+)$/is },
+  { kind: "maintenance-plan", pattern: /^(?:maintenance\s+plan|home\s+maintenance|fix\s+plan)\s*:\s+(.+)$/is },
+  { kind: "gift-ideas", pattern: /^(?:gift\s+ideas|gift\s+plan|present\s+ideas)\s*:\s+(.+)$/is },
+  { kind: "weekend-plan", pattern: /^(?:weekend\s+plan|plan\s+weekend|family\s+weekend)\s*:\s+(.+)$/is },
+  { kind: "budget-split", pattern: /^(?:budget\s+split|split\s+cost|split\s+bill)\s*:\s+(.+)$/is },
+  { kind: "habit-plan", pattern: /^(?:habit\s+plan|build\s+habit|tiny\s+habit)\s*:\s+(.+)$/is },
+  { kind: "lost-item", pattern: /^(?:lost\s+item|find\s+lost|find\s+my)\s*:\s+(.+)$/is },
+  { kind: "school-note", pattern: /^(?:school\s+note|absence\s+note|sick\s+note)\s*:\s+(.+)$/is },
+  { kind: "pet-care", pattern: /^(?:pet\s+care|pet\s+plan|animal\s+care)\s*:\s+(.+)$/is },
+  { kind: "password-reset-plan", pattern: /^(?:password\s+reset\s+plan|reset\s+password\s+plan|account\s+recovery\s+plan)\s*:\s+(.+)$/is },
+  { kind: "leave-home-checklist", pattern: /^(?:leave\s+home\s+checklist|leaving\s+home|house\s+exit\s+check)\s*:\s+(.+)$/is },
+  { kind: "car-trip-prep", pattern: /^(?:car\s+trip\s+prep|road\s+trip\s+prep|drive\s+prep)\s*:\s+(.+)$/is },
+  { kind: "medicine-list", pattern: /^(?:medicine\s+list|medication\s+list|meds\s+list)\s*:\s+(.+)$/is },
+  { kind: "symptom-note", pattern: /^(?:symptom\s+note|doctor\s+note\s+prep|health\s+note)\s*:\s+(.+)$/is },
+  { kind: "bill-dispute", pattern: /^(?:bill\s+dispute|dispute\s+bill|challenge\s+bill)\s*:\s+(.+)$/is },
+  { kind: "guest-prep", pattern: /^(?:guest\s+prep|visitor\s+prep|guests\s+coming)\s*:\s+(.+)$/is },
+  { kind: "kid-activity", pattern: /^(?:kid\s+activity|kids\s+activity|child\s+activity)\s*:\s+(.+)$/is },
+  { kind: "cleaning-plan", pattern: /^(?:cleaning\s+plan|cleaning\s+sprint|tidy\s+room)\s*:\s+(.+)$/is },
+  { kind: "move-checklist", pattern: /^(?:move\s+checklist|moving\s+checklist|house\s+move)\s*:\s+(.+)$/is },
+  { kind: "warranty-tracker", pattern: /^(?:warranty\s+tracker|track\s+warranty|warranty\s+note)\s*:\s+(.+)$/is },
 ];
 
 export function parseHomeAssistantShortcut(text: string): HomeAssistantShortcut | null {
