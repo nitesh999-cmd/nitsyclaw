@@ -35,7 +35,10 @@ describe("dashboard auth routes", () => {
     expect(source).toContain('"X-Frame-Options", "DENY"');
     expect(source).toContain('"X-Content-Type-Options", "nosniff"');
     expect(source).toContain('"Referrer-Policy", "same-origin"');
-    expect(source).toContain('"Content-Security-Policy", "frame-ancestors');
+    expect(source).toContain('"Content-Security-Policy"');
+    expect(source).toContain("default-src 'self'");
+    expect(source).toContain("frame-ancestors 'none'");
+    expect(source).toContain("object-src 'none'");
   });
 
   it("keeps unconfigured dashboard auth bypass out of Vercel production", () => {

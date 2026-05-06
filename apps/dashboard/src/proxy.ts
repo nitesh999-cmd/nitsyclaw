@@ -63,7 +63,20 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
   response.headers.set("Referrer-Policy", "same-origin");
   const microphonePolicy = request.nextUrl.pathname === "/chat" ? "microphone=(self)" : "microphone=()";
   response.headers.set("Permissions-Policy", `camera=(), ${microphonePolicy}, geolocation=()`);
-  response.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+  response.headers.set("Content-Security-Policy", [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "connect-src 'self' https://*.vercel-insights.com https://*.vercel-scripts.com",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+  ].join("; "));
   return response;
 }
 

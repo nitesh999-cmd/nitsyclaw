@@ -28,7 +28,7 @@ This is the safe work an operator can do while Nitesh is away from the desk.
 
 - Docker is not installed/running locally, so OWASP ZAP baseline is not verified on this machine.
 - Windows symlink privilege is unavailable, so local Vercel prebuilt packaging is blocked on this machine.
-- The repo has a large uncommitted working tree. Review and commit in clean chunks before deployment.
+- The repo must stay clean before deployment. Run `git status -sb` before push/deploy and stop if unrelated files appear.
 - Public multi-user sale still needs account separation, onboarding, billing, support, and legal/privacy controls.
 
 ## Current safest next command set

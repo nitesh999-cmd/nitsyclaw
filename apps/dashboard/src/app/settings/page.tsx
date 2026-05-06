@@ -57,17 +57,29 @@ export default async function SettingsPage({
 
       <section className="nc-section" data-testid="settings-sale-readiness">
         <h3 className="nc-eyebrow mb-2">Launch readiness</h3>
-        <div className="text-sm text-slate-300">
-          <div className="font-medium text-slate-100">
-            {saleReadiness.ready ? "Ready for public sale" : "Not ready for public sale"}
+        <div className="grid gap-3 text-sm md:grid-cols-[180px_180px_1fr]">
+          <ScoreTile label="Ready for me" score={saleReadiness.privateUseScore} />
+          <ScoreTile label="Ready for customers" score={saleReadiness.publicSaleScore} />
+          <div>
+            <div className="font-medium text-stone-950">
+              {saleReadiness.ready ? "Ready to sell" : "Not ready to sell yet"}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-stone-600">
+              Personal use checks the basics needed for your own daily system. Customer use stays capped until
+              customer accounts, separate customer data, disconnect/delete controls, and reviewed legal pages are real.
+            </p>
+            <ul className="mt-3 space-y-1 text-xs leading-5 text-stone-700">
+              {[...saleReadiness.privateUseBlockers, ...saleReadiness.blockers].slice(0, 5).map((blocker) => (
+                <li key={blocker}>- {plainReadinessItem(blocker)}</li>
+              ))}
+            </ul>
+            <details className="mt-3 text-xs text-stone-600">
+              <summary className="cursor-pointer font-medium text-[#76321d]">Advanced status</summary>
+              <a href="/api/sale-readiness" className="mt-2 inline-flex font-medium text-[#76321d]">
+                View technical readiness JSON
+              </a>
+            </details>
           </div>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            Mode: {saleReadiness.mode}. This must stay blocked until multi-user auth, tenant isolation,
-            provider delete/revoke, and legal/privacy copy are verified.
-          </p>
-          <a href="/api/sale-readiness" className="mt-3 inline-flex text-xs font-medium text-cyan-200">
-            View readiness JSON
-          </a>
         </div>
       </section>
 
@@ -168,4 +180,31 @@ function plainScope(scope: string): string {
   if (scope === "conversations") return "conversations";
   if (scope === "everything") return "everything";
   return "selected data";
+}
+
+function plainReadinessItem(item: string): string {
+  const map: Record<string, string> = {
+    "owner dashboard password is missing or too weak": "Set a strong owner password",
+    "database URL is missing or invalid": "Connect the database properly",
+    "AI provider key is not configured": "Connect at least one AI provider",
+    "storage encryption key is missing or invalid": "Set a valid storage encryption key",
+    "owner WhatsApp number is missing or invalid": "Set your WhatsApp number in international format",
+    "multi-user auth is not verified": "Add customer accounts",
+    "tenant isolation is not verified": "Keep each customer's data separate",
+    "provider-side delete/revoke is not verified": "Let customers disconnect and delete connected services",
+    "legal/privacy copy is not verified": "Finish reviewed privacy, terms, and support pages",
+    "code-level tenant isolation is not implemented": "Enforce customer data separation in code",
+    "session-bound user identity is not implemented": "Tie every request to the logged-in customer",
+  };
+  return map[item] ?? item;
+}
+
+function ScoreTile({ label, score }: { label: string; score: number }) {
+  const tone = score >= 9 ? "text-[#246b52]" : score >= 6 ? "text-[#8a4700]" : "text-[#9f2f22]";
+  return (
+    <div className="rounded-xl border border-stone-300 bg-[#fffdf8] p-4">
+      <div className="text-xs font-semibold uppercase text-[#8e3f24]">{label}</div>
+      <div className={`mt-2 text-3xl font-semibold ${tone}`}>{score}/10</div>
+    </div>
+  );
 }

@@ -24,7 +24,7 @@ describe("go-live without Nitesh runbook", () => {
   test("records current machine and public-sale blockers", () => {
     expect(source).toContain("Docker is not installed/running locally");
     expect(source).toContain("Windows symlink privilege is unavailable");
-    expect(source).toContain("large uncommitted working tree");
+    expect(source).toContain("Run `git status -sb` before push/deploy");
     expect(source).toContain("Public multi-user sale still needs account separation");
   });
 });

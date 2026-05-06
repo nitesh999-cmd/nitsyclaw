@@ -39,7 +39,8 @@ describe("data controls", () => {
     expect(settings).toContain("Connected providers are disconnected first");
     expect(settings).toContain("if local deletion then fails");
     expect(settings).toContain("/api/sale-readiness");
-    expect(settings).toContain("Not ready for public sale");
+    expect(settings).toContain("Not ready to sell yet");
+    expect(settings).toContain("Ready for customers");
     expect(exportRoute).toContain("snapshotId");
     expect(exportRoute).toContain("exportProof");
     expect(exportRoute).toContain("exportComplete");
