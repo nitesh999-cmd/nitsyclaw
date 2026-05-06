@@ -9,6 +9,14 @@ const envBoolean = z.preprocess((value) => {
   return value;
 }, z.coerce.boolean());
 
+const encryptionKey = z.string().min(1).refine((value) => {
+  try {
+    return Buffer.from(value, "base64").length === 32;
+  } catch {
+    return false;
+  }
+}, "must be 32 bytes encoded as base64");
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   TIMEZONE: z.string().default("Australia/Melbourne"),
@@ -22,11 +30,13 @@ const envSchema = z.object({
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-6"),
   OPENAI_API_KEY: z.string().optional(),
   TRANSCRIPTION_MODEL: z.string().default("whisper-1"),
+  SERPER_API_KEY: z.string().optional(),
   DATABASE_URL: z.string().min(1),
   DATABASE_URL_DIRECT: z.string().optional().optional(),
   WHATSAPP_SESSION_DIR: z.string().default(".wa-session"),
   WHATSAPP_OWNER_NUMBER: z.string().min(1),
-  ENCRYPTION_KEY: z.string().optional(),
+  NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS: z.coerce.number().min(0).max(3_600_000).default(60_000),
+  ENCRYPTION_KEY: encryptionKey,
   DAILY_LLM_BUDGET_USD: z.coerce.number().default(5),
   ENABLE_HEARTBEAT: envBoolean.default(true),
   ENABLE_WEB_RESEARCH: envBoolean.default(true),

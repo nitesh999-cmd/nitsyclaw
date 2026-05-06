@@ -4,10 +4,7 @@ export const dynamic = "force-dynamic";
 
 function debugEnabled(): boolean {
   if (process.env.NITSYCLAW_ENABLE_DEBUG !== "1") return false;
-  if (process.env.NODE_ENV === "production") {
-    return process.env.NITSYCLAW_DEBUG_BREAK_GLASS === "1";
-  }
-  return true;
+  return process.env.NODE_ENV !== "production";
 }
 
 function hasDatabaseUrl(): boolean {
@@ -25,7 +22,7 @@ export default function DebugPage() {
         <div className="nc-eyebrow">Developer</div>
         <h2 className="mt-2 text-3xl font-semibold">Runtime Diagnostics</h2>
         <p className="mt-3 text-sm text-slate-400">
-          Debug mode is enabled. Safe configuration status at{" "}
+          Debug mode is enabled for local development only. Safe configuration status at{" "}
           <a href="/health" className="font-medium text-[#d8b75d] hover:text-[#f1d58a]">Health</a>.
         </p>
       </section>

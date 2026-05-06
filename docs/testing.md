@@ -2,6 +2,14 @@
 
 Per Constitution **R15**, every P0 feature has unit + integration coverage. CI gates: 70% lines, 65% branches.
 
+Current verified gate from the latest local preflight:
+
+- `pnpm run release:preflight` passes.
+- Vitest coverage: 102 files, 418 tests.
+- Playwright E2E: 12 dashboard specs.
+- Semgrep: 0 findings.
+- `pnpm audit --audit-level=moderate`: no known vulnerabilities.
+
 ## Pyramid
 
 ```
@@ -9,7 +17,7 @@ Per Constitution **R15**, every P0 feature has unit + integration coverage. CI g
                     ╱ ╲
                    ╱   ╲      E2E (Playwright)
                   ╱     ╲     apps/dashboard/test/e2e/dashboard.spec.ts
-                 ╱       ╲    11 specs against the dashboard pages
+                 ╱       ╲    12 specs against the dashboard pages
                 ╱─────────╲
                ╱           ╲
               ╱             ╲ Integration (Vitest)
@@ -23,13 +31,12 @@ Per Constitution **R15**, every P0 feature has unit + integration coverage. CI g
       ╱_____________________________╲
 ```
 
-## Counts (session 1)
+## Current counts
 
 | Layer | Files | Tests |
 |---|---|---|
-| Unit | 14 | ~70 |
-| Integration | 2 | ~10 |
-| E2E | 1 | 7 |
+| Unit + integration | 102 | 418 |
+| E2E | 1 | 12 |
 
 ## Running
 
@@ -40,9 +47,12 @@ pnpm test:coverage     # generate coverage/ HTML + lcov
 pnpm test:e2e          # Playwright (auto-starts dashboard)
 pnpm test:e2e --ui     # Playwright UI mode
 pnpm release:live-smoke # smoke-test production after deploy
+pnpm run audit:doctor   # check local Docker, Vercel CLI, symlink, and live health blockers
 ```
 
 `pnpm release:preflight` also blocks local secret drift before release. It fails if OAuth tokens, `.env.local`, SQLite/DB files, or WhatsApp session folders are left inside the repo instead of the external secret root.
+
+`pnpm run audit:doctor` is intentionally stricter about machine readiness. It fails if Docker is missing or Windows symlink privilege blocks local Vercel prebuilt packaging.
 
 ## Production smoke
 

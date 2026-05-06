@@ -17,5 +17,7 @@ describe("operator runner script", () => {
     expect(script).toContain("buildOperatorRunPlan");
     expect(script).toContain('expectedStatus: "pending"');
     expect(script).toContain("was not updated; it may have been claimed or removed");
+    expect(script).toContain("Operator runner cannot read queued work because DATABASE_URL is not configured");
+    expect(script).toContain("Copy the dashboard DATABASE_URL into .env.local");
   });
 });

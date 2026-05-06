@@ -43,8 +43,8 @@ test.describe("dashboard routes render", () => {
     await page.goto("/command");
     await expect(page.getByRole("heading", { name: "Operator Command" })).toBeVisible();
     await expect(page.getByTestId("operator-command")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Queue All 20" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Queue Next 50" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Queue Top 20 requests" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Queue Next 50 requests" })).toBeVisible();
   });
 
   test("Memory page", async ({ page }) => {

@@ -7,7 +7,7 @@ describe("dashboard login route timeout handling", () => {
     vi.unstubAllEnvs();
   });
 
-  it("does not block valid password login when attempt storage hangs", async () => {
+  it("fails closed when attempt storage hangs", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NITSYCLAW_DASHBOARD_PASSWORD", "secret");
     vi.stubEnv("NITSYCLAW_DASHBOARD_USER", "nitesh");
@@ -34,8 +34,8 @@ describe("dashboard login route timeout handling", () => {
     }));
 
     expect(Date.now() - started).toBeLessThan(500);
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://nitsyclaw.vercel.app/");
-    expect(response.headers.get("set-cookie")).toContain("nitsyclaw_dashboard_session=");
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe("Login protection is temporarily unavailable. Please try again shortly.");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });

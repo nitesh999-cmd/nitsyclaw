@@ -44,4 +44,21 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("Parse tracked PowerShell scripts");
     expect(workflow).toContain("pnpm test");
   });
+
+  it("has a Linux Vercel packaging gate for main branch releases", () => {
+    expect(workflow).toContain("vercel-build:");
+    expect(workflow).toContain("node-version: 20.11.1");
+    expect(workflow).toContain("VERCEL_TOKEN");
+    expect(workflow).toContain("VERCEL_ORG_ID");
+    expect(workflow).toContain("VERCEL_PROJECT_ID");
+    expect(workflow).toContain("pnpm exec vercel build --yes --token");
+  });
+
+  it("has an OWASP ZAP baseline gate against a local dashboard", () => {
+    expect(workflow).toContain("zap-baseline:");
+    expect(workflow).toContain("Start dashboard for ZAP");
+    expect(workflow).toContain("next dev --webpack -p 3101");
+    expect(workflow).toContain("Run OWASP ZAP baseline");
+    expect(workflow).toContain("zap-report.html");
+  });
 });

@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent } from "./microsoft-graph.js";
+import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/utils";
 import type {
   AgentDeps,
   CalendarClient,
@@ -242,6 +243,8 @@ export interface BotConfigEnv {
   ANTHROPIC_MODEL: string;
   OPENAI_API_KEY?: string;
   TRANSCRIPTION_MODEL: string;
+  SERPER_API_KEY?: string;
+  ENABLE_WEB_RESEARCH?: boolean;
   TIMEZONE: string;
   HOME_CITY?: string;
   HOME_REGION?: string;
@@ -270,12 +273,18 @@ export function buildAgentDeps(args: {
     ? makeOpenAiEmbedder(args.env.OPENAI_API_KEY)
     : { async embed() { return []; } };
   const imageAnalyzer = makeAnthropicImageAnalyzer(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL);
+  const webSearch =
+    args.env.ENABLE_WEB_RESEARCH === false
+      ? noopWebSearch
+      : args.env.SERPER_API_KEY
+        ? makeSerperSearch(args.env.SERPER_API_KEY)
+        : stubWebSearch;
   return {
     db: args.db,
     whatsapp: args.whatsapp,
     llm,
     transcriber,
-    webSearch: stubWebSearch,
+    webSearch,
     calendar: realCalendar,
     aggregator: {
       fetchAllEventsToday,

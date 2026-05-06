@@ -16,9 +16,11 @@
     "release:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     "release:vercel-build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
     "release:live-smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live-smoke.ps1",
+    "audit:doctor": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit-doctor.ps1",
     "security:semgrep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/semgrep-scan.ps1",
     "security:audit": "pnpm audit --audit-level=moderate",
     "security:snyk": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/snyk-scan.ps1",
+    "security:zap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zap-baseline.ps1",
     "security:deep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/security-deep.ps1",
     "operator:next": "pnpm exec tsx scripts/operator-runner.ts --dry-run",
     "operator:claim": "pnpm exec tsx scripts/operator-runner.ts --claim",
@@ -46,7 +48,7 @@
     "vitest": "^2.1.0"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=20.9.0",
     "pnpm": ">=9.0.0"
   },
   "pnpm": {

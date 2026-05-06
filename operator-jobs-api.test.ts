@@ -12,6 +12,6 @@ describe("operator jobs API", () => {
     expect(source).toContain("operator-next-50:");
     expect(source).toContain("findExistingMissionJob");
     expect(source).toContain("publicConfigErrorOrNull");
+    expect(source).toContain("This does not run code or deploy by itself");
   });
 });
-

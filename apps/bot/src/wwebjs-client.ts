@@ -27,7 +27,10 @@ import {
 } from "./whatsapp-health.js";
 import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
 import { WhatsAppEchoGuard, isStartupReplay } from "./whatsapp-echo-guard.js";
-import { markPresenceUnavailable } from "./whatsapp-presence.js";
+import {
+  markPresenceUnavailable,
+  parsePresenceUnavailableIntervalMs,
+} from "./whatsapp-presence.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
@@ -58,6 +61,7 @@ export interface WwebjsOptions {
   initializeTimeoutMs?: number;
   restartBackoffMs?: number;
   maxConsecutiveHealthFailures?: number;
+  presenceUnavailableIntervalMs?: number;
   healthFilePath?: string;
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
 }
@@ -70,6 +74,7 @@ export class WwebjsClient implements WhatsAppClient {
   private readyPromise: Promise<void>;
   private readyResolvers: Array<() => void> = [];
   private healthProbe?: NodeJS.Timeout;
+  private presenceUnavailableProbe?: NodeJS.Timeout;
   private readyWatchdog?: NodeJS.Timeout;
   private restarting?: Promise<void>;
   private stopped = false;
@@ -81,6 +86,7 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly initializeTimeoutMs: number;
   private readonly restartBackoffMs: number;
   private readonly maxConsecutiveHealthFailures: number;
+  private readonly presenceUnavailableIntervalMs: number;
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
 
@@ -90,6 +96,9 @@ export class WwebjsClient implements WhatsAppClient {
     this.initializeTimeoutMs = opts.initializeTimeoutMs ?? 45_000;
     this.restartBackoffMs = opts.restartBackoffMs ?? 10_000;
     this.maxConsecutiveHealthFailures = opts.maxConsecutiveHealthFailures ?? 2;
+    this.presenceUnavailableIntervalMs = parsePresenceUnavailableIntervalMs(
+      opts.presenceUnavailableIntervalMs,
+    );
     this.healthFilePath = opts.healthFilePath ?? defaultHealthFilePath();
     this.readyPromise = this.newReadyPromise();
 
@@ -131,6 +140,15 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.healthProbeIntervalMs <= 0) return;
     if (this.healthProbe) clearInterval(this.healthProbe);
     this.healthProbe = setInterval(() => void this.probeHealth(), this.healthProbeIntervalMs);
+  }
+
+  private startPresenceUnavailableProbe(): void {
+    if (this.presenceUnavailableIntervalMs <= 0) return;
+    if (this.presenceUnavailableProbe) clearInterval(this.presenceUnavailableProbe);
+    this.presenceUnavailableProbe = setInterval(
+      () => void this.markUnavailable("WhatsApp periodic presence unavailable"),
+      this.presenceUnavailableIntervalMs,
+    );
   }
 
   private async writeHealthHeartbeat(state: string): Promise<void> {
@@ -238,6 +256,10 @@ export class WwebjsClient implements WhatsAppClient {
         clearInterval(this.healthProbe);
         this.healthProbe = undefined;
       }
+      if (this.presenceUnavailableProbe) {
+        clearInterval(this.presenceUnavailableProbe);
+        this.presenceUnavailableProbe = undefined;
+      }
       if (this.readyWatchdog) {
         clearTimeout(this.readyWatchdog);
         this.readyWatchdog = undefined;
@@ -297,6 +319,7 @@ export class WwebjsClient implements WhatsAppClient {
       this.emitStatus({ status: "ready" });
       void this.markUnavailable("WhatsApp presence after ready");
       this.startHealthProbe();
+      this.startPresenceUnavailableProbe();
     });
     this.client.on("change_state", (state: unknown) => {
       if (!isCurrentGeneration()) return;
@@ -438,6 +461,7 @@ export class WwebjsClient implements WhatsAppClient {
     this.stopped = true;
     this.emitStatus({ status: "stopped" });
     if (this.healthProbe) clearInterval(this.healthProbe);
+    if (this.presenceUnavailableProbe) clearInterval(this.presenceUnavailableProbe);
     if (this.readyWatchdog) clearTimeout(this.readyWatchdog);
     this.client.removeAllListeners();
     await this.markUnavailable("WhatsApp presence before destroy");

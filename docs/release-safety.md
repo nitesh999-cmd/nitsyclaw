@@ -29,9 +29,12 @@ This command verifies the remote, checks staged files, checks repo-local secret/
 ```powershell
 pnpm run security:deep
 pnpm run security:snyk
+pnpm run audit:doctor
 ```
 
 `security:deep` runs Semgrep with UTF-8 output enabled and then runs `pnpm audit --audit-level=moderate`. `security:snyk` is an extra authenticated scan; if it fails with an auth error, run `snyk auth` or set `SNYK_TOKEN`, then retry.
+
+`audit:doctor` checks the local release machine for Docker/ZAP readiness, Vercel CLI access, Windows symlink privilege, `curl.exe`, and the live health endpoint. It is allowed to fail when the machine is missing Docker or symlink privilege; that is a machine blocker, not a code failure.
 
 ## Live smoke
 

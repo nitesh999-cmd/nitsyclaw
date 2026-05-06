@@ -80,24 +80,87 @@ const safety = [
   "For risky integrations, NitsyClaw queues selected-file/import/draft requests instead of pretending broad access exists.",
 ];
 
+const websiteMap = [
+  {
+    title: "Today",
+    href: "/",
+    description: "Today is the daily home base: reminders, requests, approvals, spending, and what needs attention.",
+  },
+  {
+    title: "Chat",
+    href: "/chat",
+    description: "Chat is where you ask NitsyClaw for help in normal language.",
+  },
+  {
+    title: "Command",
+    href: "/command",
+    description: "Command is the planning desk for operator missions, build requests, and quick admin commands.",
+  },
+  {
+    title: "Queue",
+    href: "/queue",
+    description: "Queue is the build/request backlog. It stores work; it does not auto-build or auto-deploy.",
+  },
+  {
+    title: "Confirmations",
+    href: "/confirmations",
+    description: "Confirmations is where risky actions wait for approval before anything important changes.",
+  },
+  {
+    title: "Reminders",
+    href: "/reminders",
+    description: "Reminders shows scheduled personal tasks and follow-ups.",
+  },
+  {
+    title: "Memory",
+    href: "/memory",
+    description: "Memory shows saved personal notes and facts NitsyClaw can reuse.",
+  },
+  {
+    title: "Health",
+    href: "/health",
+    description: "Health shows WhatsApp and system status so you can see what is working.",
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    description: "Settings holds privacy, export, and delete controls.",
+  },
+];
+
 export default function HelpPage() {
   return (
     <div className="nc-page">
       <section className="nc-hero">
         <div className="nc-eyebrow">Usage guide</div>
         <h2 className="mt-2 text-3xl font-semibold">What Can I Ask?</h2>
-        <p className="mt-3 text-sm text-slate-400">
+        <p className="mt-3 text-sm leading-6 text-stone-700">
           Use normal language. These examples are rails, not commands you must memorize.
         </p>
+      </section>
+
+      <section className="nc-section">
+        <div className="nc-eyebrow">Website map</div>
+        <div className="mt-2 text-sm leading-6 text-stone-700">
+          Start with Today for daily use, Chat for questions, Command for planning, and Queue for saved build requests.
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {websiteMap.map((item) => (
+            <a key={item.title} href={item.href} className="rounded-xl border border-stone-200 bg-white p-4 transition-colors hover:border-[#b85c38]">
+              <div className="text-sm font-semibold text-stone-950">{item.title}</div>
+              <div className="mt-2 text-xs leading-5 text-stone-700">{item.description}</div>
+            </a>
+          ))}
+        </div>
       </section>
 
       <section className="nc-section grid gap-4 md:grid-cols-2">
         {groups.map((group) => (
           <div key={group.title} className="nc-tile">
-            <h3 className="font-medium text-slate-100">{group.title}</h3>
-            <ul className="mt-3 space-y-2 text-sm text-slate-300">
+            <h3 className="font-medium text-stone-950">{group.title}</h3>
+            <ul className="mt-3 space-y-2 text-sm">
               {group.examples.map((example) => (
-                <li key={example} className="border-l-2 border-[#d8b75d]/40 pl-3 text-slate-400">{example}</li>
+                <li key={example} className="border-l-2 border-[#b85c38]/40 pl-3 text-stone-700">{example}</li>
               ))}
             </ul>
           </div>
@@ -106,10 +169,10 @@ export default function HelpPage() {
 
       <section className="nc-section">
         <h3 className="nc-eyebrow mb-3">Safety model</h3>
-        <ul className="space-y-2 text-sm text-slate-400">
+        <ul className="space-y-2 text-sm text-stone-700">
           {safety.map((line) => (
             <li key={line} className="flex gap-2">
-              <span className="mt-0.5 text-[#d8b75d]/60 shrink-0">—</span>
+              <span className="mt-0.5 shrink-0 text-[#b85c38]/70">-</span>
               <span>{line}</span>
             </li>
           ))}

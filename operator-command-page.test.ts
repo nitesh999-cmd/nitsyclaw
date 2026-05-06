@@ -17,8 +17,10 @@ describe("operator command page", () => {
     expect(page).toContain("pnpm operator:claim");
     expect(client).toContain("/api/chat");
     expect(client).toContain("/api/operator/jobs");
-    expect(client).toContain("Queue All 20");
-    expect(client).toContain("Queue Next 50");
+    expect(client).toContain("What this page does");
+    expect(client).toContain("Queuing does not build, run code, or deploy by itself");
+    expect(client).toContain("Queue Top 20 requests");
+    expect(client).toContain("Queue Next 50 requests");
     expect(client).toContain("Desktop Gateway");
     expect(client).toContain("Codex Factory");
     expect(client).toContain("Skill Store");

@@ -26,7 +26,7 @@ describe("legal and privacy surfaces", () => {
     expect(shell).not.toContain("Personal AI control plane");
     expect(layout).toContain("Personal life admin");
     expect(layout).not.toContain("Personal AI control plane");
-    const middleware = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
+    const middleware = readFileSync("apps/dashboard/src/proxy.ts", "utf8");
     expect(middleware).toContain('pathname === "/privacy"');
     expect(middleware).toContain('pathname === "/terms"');
   });

@@ -10,10 +10,10 @@ describe("dashboard debug page", () => {
     expect(source).not.toContain("tail (last 20)");
   });
 
-  test("requires a production break-glass flag before debug can render", () => {
+  test("cannot render in production even with debug env flags", () => {
     const source = readFileSync("apps/dashboard/src/app/debug/page.tsx", "utf8");
 
-    expect(source).toContain('process.env.NODE_ENV === "production"');
-    expect(source).toContain("NITSYCLAW_DEBUG_BREAK_GLASS");
+    expect(source).toContain('process.env.NODE_ENV !== "production"');
+    expect(source).not.toContain("NITSYCLAW_DEBUG_BREAK_GLASS");
   });
 });

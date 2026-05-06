@@ -26,6 +26,7 @@ async function main() {
   const rawWhatsapp = new WwebjsClient({
     sessionDir: whatsappSessionDir(env.WHATSAPP_SESSION_DIR),
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
+    presenceUnavailableIntervalMs: env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS,
     onStatus: (event) => {
       void upsertSystemHeartbeat(db, {
         source: "whatsapp-client",
@@ -79,6 +80,8 @@ async function main() {
       ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
       OPENAI_API_KEY: env.OPENAI_API_KEY,
       TRANSCRIPTION_MODEL: env.TRANSCRIPTION_MODEL,
+      SERPER_API_KEY: env.SERPER_API_KEY,
+      ENABLE_WEB_RESEARCH: env.ENABLE_WEB_RESEARCH,
       TIMEZONE: env.TIMEZONE,
       HOME_CITY: env.HOME_CITY,
       HOME_REGION: env.HOME_REGION,

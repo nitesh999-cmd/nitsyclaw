@@ -14,6 +14,7 @@ import {
 } from "../../../command/operator-missions";
 import { OPERATOR_NEXT_50, type OperatorRoadmapItem } from "../../../command/operator-roadmap";
 import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
+import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -41,6 +42,14 @@ interface QueueResult {
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
   if (originError) return originError;
+
+  const rateLimit = checkDashboardRateLimit(request, { scope: "operator-jobs", limit: 10, windowMs: 60_000 });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { reply: "Too many operator queue requests. Please wait a moment and try again." },
+      { status: 429, headers: { ...NO_STORE, ...dashboardRateLimitHeaders(rateLimit) } },
+    );
+  }
 
   let rawBody: QueueBody;
   try {
@@ -108,7 +117,7 @@ export async function POST(request: Request): Promise<Response> {
     const existing = results.length - queued;
     return NextResponse.json(
       {
-        reply: `Operator jobs ready. Queued ${queued}; already existed ${existing}.`,
+        reply: `Operator jobs saved into Requests. Queued ${queued}; already existed ${existing}. This does not run code or deploy by itself.`,
         queued,
         existing,
         results,

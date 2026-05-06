@@ -26,8 +26,8 @@ describe("dashboard private API cache policy", () => {
     expect(source).not.toContain("e instanceof Error ? e.message");
   });
 
-  test("middleware disables caching on auth gates and protected responses", () => {
-    const source = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
+  test("proxy disables caching on auth gates and protected responses", () => {
+    const source = readFileSync("apps/dashboard/src/proxy.ts", "utf8");
 
     expect(source).toContain('response.headers.set("Cache-Control", "no-store")');
   });

@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 describe("dashboard sale readiness route", () => {
   test("exposes a protected no-store sale-readiness gate", () => {
     const route = readFileSync("apps/dashboard/src/app/api/sale-readiness/route.ts", "utf8");
-    const middleware = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
+    const middleware = readFileSync("apps/dashboard/src/proxy.ts", "utf8");
 
     expect(route).toContain("evaluateSaleReadiness");
     expect(route).toContain("Cache-Control");

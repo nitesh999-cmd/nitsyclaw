@@ -41,15 +41,12 @@ export async function POST(request: Request): Promise<Response> {
   const loginKeys = [clientKey, accountKey];
 
   const now = Date.now();
-  const unlockedState: DashboardLoginAttemptState = { failures: 0 };
-  const unlockedStates: Record<string, DashboardLoginAttemptState> = Object.fromEntries(
-    loginKeys.map((key) => [key, unlockedState]),
-  );
   const states = await withAuthAttemptTimeout(
     getDashboardLoginAttemptStates(loginKeys, now),
-    unlockedStates,
     "load login attempt state",
   );
+  if (!states) return authProtectionUnavailable();
+
   const clientState = states[clientKey] ?? { failures: 0 };
   const accountState = states[accountKey] ?? { failures: 0 };
   if (
@@ -64,14 +61,15 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
-    const [updatedClient, updatedAccount] = await withAuthAttemptTimeout(
+    const updatedStates = await withAuthAttemptTimeout(
       Promise.all([
         recordDashboardLoginFailure(clientKey, now),
         recordDashboardLoginFailure(accountKey, now),
       ]),
-      [clientState, accountState],
       "record login failure",
     );
+    if (!updatedStates) return authProtectionUnavailable();
+    const [updatedClient, updatedAccount] = updatedStates;
     return redirectToLogin(
       updatedClient.lockedUntilMs || updatedAccount.lockedUntilMs ? "locked" : "invalid",
       next,
@@ -81,7 +79,6 @@ export async function POST(request: Request): Promise<Response> {
 
   void withAuthAttemptTimeout(
     clearDashboardLoginAttemptsForKeys(loginKeys),
-    undefined,
     "clear login attempts",
   );
   const token = await createDashboardSessionToken(expectedUser, expectedPassword ?? "");
@@ -134,24 +131,31 @@ function authAttemptTimeoutMs(): number {
   return DEFAULT_AUTH_ATTEMPT_TIMEOUT_MS;
 }
 
+function authProtectionUnavailable(): Response {
+  return new Response("Login protection is temporarily unavailable. Please try again shortly.", {
+    status: 503,
+    headers: NO_STORE,
+  });
+}
+
 function latestLockUntil(...states: DashboardLoginAttemptState[]): number {
   return Math.max(...states.map((state) => state.lockedUntilMs ?? 0));
 }
 
-async function withAuthAttemptTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+async function withAuthAttemptTimeout<T>(promise: Promise<T>, label: string): Promise<T | undefined> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<T>((resolve) => {
+  const timeoutPromise = new Promise<undefined>((resolve) => {
     timeout = setTimeout(() => {
-      console.error("[dashboard-auth] operation timed out; continuing with fallback", { label });
-      resolve(fallback);
+      console.error("[dashboard-auth] operation timed out; failing closed", { label });
+      resolve(undefined);
     }, authAttemptTimeoutMs());
   });
 
   try {
     return await Promise.race([
       promise.catch((error) => {
-        console.error("[dashboard-auth] operation failed; continuing with fallback", { label, error });
-        return fallback;
+        console.error("[dashboard-auth] operation failed; failing closed", { label, error });
+        return undefined;
       }),
       timeoutPromise,
     ]);

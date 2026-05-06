@@ -67,7 +67,7 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
   return response;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (isPublicPath(request.nextUrl.pathname)) {
     return withSecurityHeaders(NextResponse.next(), request);
   }

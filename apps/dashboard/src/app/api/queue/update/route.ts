@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDb, setFeatureRequestStatus } from "@nitsyclaw/shared/db";
+import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -18,6 +19,14 @@ function cleanText(value: FormDataEntryValue | null): string | undefined {
 export async function POST(request: Request): Promise<never | Response> {
   const originError = requireSameOrigin(request);
   if (originError) return originError;
+
+  const rateLimit = checkDashboardRateLimit(request, { scope: "queue-update", limit: 60, windowMs: 60_000 });
+  if (!rateLimit.allowed) {
+    return new Response("Too many queue updates. Please wait a moment and try again.", {
+      status: 429,
+      headers: { ...NO_STORE, ...dashboardRateLimitHeaders(rateLimit) },
+    });
+  }
 
   let form: FormData;
   try {

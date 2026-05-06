@@ -5,6 +5,24 @@
 
 ---
 
+## 2026-05-06 Fix Pass Addendum
+
+Follow-up hardening completed against the remaining audit risks:
+
+- Login attempt tracking is DB-backed and the login route now fails closed if attempt-state load or failure recording times out/fails. Evidence: `pnpm run release:preflight` passed after updating `apps/dashboard/src/app/api/auth/login/route.ts` and `apps/dashboard/src/app/api/auth/login/route-timeout.test.ts`.
+- Export/delete proof signing now requires `ENCRYPTION_KEY`; it no longer falls back to `NITSYCLAW_DASHBOARD_PASSWORD`. Evidence: `apps/dashboard/src/lib/data-export-proof.test.ts` covers missing `ENCRYPTION_KEY`.
+- Shared environment loading now requires `ENCRYPTION_KEY` to be a valid 32-byte base64 key. Evidence: `packages/shared/test/env.test.ts`.
+- System prompt profile values are marked as untrusted configuration data and stripped of control/special prompt-breaking characters before interpolation. Evidence: `packages/shared/test/system-prompt.test.ts` covers control-character stripping.
+- `/debug` is now local-development only and cannot be enabled in production with a break-glass flag. Evidence: `dashboard-debug-page.test.ts`.
+- High-risk dashboard APIs now have app-level throttles in addition to auth: `/api/chat`, `/api/chat/stream`, `/api/operator/jobs`, and `/api/queue/update`. Evidence: `apps/dashboard/src/lib/dashboard-rate-limit.test.ts`.
+- Snyk was run successfully on 2026-05-06: 8 projects tested, no vulnerable paths found.
+- ZAP baseline remains UNVERIFIED locally because Docker is unavailable on this machine. The repo now includes `scripts/zap-baseline.ps1` and a CI ZAP baseline gate.
+- Vercel local artifact packaging remains UNVERIFIED locally because Windows symlink privilege is unavailable. The dashboard `next build --webpack` fallback passed, and CI now includes a Vercel build gate requiring Vercel secrets.
+
+Current ship decision after this fix pass: **SHIP WITH RISKS**, mostly environment/operations risks rather than known code-gate failures.
+
+---
+
 ## 1. Release Readiness Score
 
 **7 / 10**
@@ -198,3 +216,32 @@ Not run: `vercel build` (requires Vercel CLI + project link), `snyk test` (not i
 4. **Add `pnpm run build` to CI** — `pnpm test:coverage` runs in `release:check` but not a standalone build check. A broken Next.js page would slip through unit tests.
 
 5. **Run `pnpm test:e2e`** against a live Vercel preview before each production deploy — critical user flows (login, export, delete) need browser-level verification.
+
+---
+
+## 2026-05-06 Audit Fix Addendum
+
+### Fixes completed
+
+- Added periodic WhatsApp `sendPresenceUnavailable()` heartbeat so the bot keeps pushing WhatsApp Web presence back to unavailable while connected. This reduces the chance that contacts see Nitesh as online when the bot is only running in the background.
+- Added `NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS` to `.env.local.example`. Default is 60 seconds; `0` disables the heartbeat.
+- Added validated env wiring for `NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS` so invalid values fail early.
+- Added `pnpm run audit:doctor` to make machine blockers explicit before release/security audit work.
+- Added regression tests for WhatsApp presence interval parsing and presence failure handling.
+- Added `docs/go-live-without-nitesh.md` to separate autonomous safe work from actions that need Nitesh.
+- Verified live production smoke against `https://nitsyclaw.vercel.app`.
+
+### Commands run
+
+| Command | Result |
+|---|---|
+| `pnpm test apps/bot/src/whatsapp-presence.test.ts apps/bot/src/whatsapp-echo-guard.test.ts package-scripts.test.ts` | PASS: 17 tests |
+| `pnpm test packages/shared/test/env.test.ts apps/bot/src/whatsapp-presence.test.ts bot-location-env.test.ts wwebjs-client-regression.test.ts` | PASS: 13 tests |
+| `pnpm -r typecheck` | PASS |
+| `pnpm run release:live-smoke` | PASS |
+| `pnpm run audit:doctor` | FAIL: Docker missing; Windows symlink privilege unavailable |
+
+### Remaining blockers
+
+- OWASP ZAP baseline still needs Docker installed/running.
+- Local Vercel prebuilt packaging still needs Windows Developer Mode, elevated PowerShell, or CI/Linux.

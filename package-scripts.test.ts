@@ -34,6 +34,12 @@ describe("package scripts", () => {
     );
   });
 
+  test("Playwright starts Next 16 dev server with the selected bundler", () => {
+    const source = readFileSync("playwright.config.ts", "utf8");
+
+    expect(source).toContain("next dev --webpack -p 3101");
+  });
+
   test("Vercel build gate uses the checked PowerShell wrapper", () => {
     expect(rootPackage.scripts?.["release:vercel-build"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
@@ -42,6 +48,18 @@ describe("package scripts", () => {
     const source = readFileSync("scripts/vercel-build.ps1", "utf8");
     expect(source).toContain("Test-WindowsSymlinkPrivilege");
     expect(source).toContain("vercel build --yes");
+  });
+
+  test("audit doctor checks machine blockers before external security gates", () => {
+    expect(rootPackage.scripts?.["audit:doctor"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit-doctor.ps1",
+    );
+
+    const source = readFileSync("scripts/audit-doctor.ps1", "utf8");
+    expect(source).toContain("docker info");
+    expect(source).toContain("Test-WindowsSymlinkPrivilege");
+    expect(source).toContain("vercel");
+    expect(source).toContain("/api/healthz");
   });
 
   test("deep security gate runs Semgrep and pnpm audit", () => {
@@ -73,6 +91,18 @@ describe("package scripts", () => {
     const source = readFileSync("scripts/snyk-scan.ps1", "utf8");
     expect(source).toContain("snyk test --all-projects --severity-threshold=medium");
     expect(source).toContain("SNYK_TOKEN");
+  });
+
+  test("ZAP baseline gate is explicit and requires Docker", () => {
+    expect(rootPackage.scripts?.["security:zap"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zap-baseline.ps1",
+    );
+
+    const source = readFileSync("scripts/zap-baseline.ps1", "utf8");
+    expect(source).toContain("Get-Command docker");
+    expect(source).toContain("ghcr.io/zaproxy/zaproxy:stable");
+    expect(source).toContain("host.docker.internal:host-gateway");
+    expect(source).toContain("zap-baseline.py");
   });
 
   test("root bot loop script points at a real bot package script", () => {

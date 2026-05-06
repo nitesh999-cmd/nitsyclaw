@@ -97,9 +97,20 @@ async function main() {
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`operator-runner failed: ${message}`);
+  console.error(formatOperatorRunnerError(message));
   process.exitCode = 1;
 });
+
+function formatOperatorRunnerError(message: string): string {
+  if (message.includes("DATABASE_URL")) {
+    return [
+      "operator-runner failed: Operator runner cannot read queued work because DATABASE_URL is not configured.",
+      "Copy the dashboard DATABASE_URL into .env.local or apps/dashboard/.env.local, then rerun pnpm operator:next.",
+      "No queue state was changed.",
+    ].join("\n");
+  }
+  return `operator-runner failed: ${message}`;
+}
 
 function loadLocalEnv(paths: string[]): void {
   for (const path of paths) {

@@ -20,6 +20,7 @@ import {
   publicConfigErrorOrNull,
   publicServerError,
 } from "../../../lib/dashboard-runtime";
+import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../lib/request-origin";
 import type {
   AgentDeps,
@@ -178,6 +179,14 @@ function buildDashboardDeps(): AgentDeps {
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+
+  const rateLimit = checkDashboardRateLimit(req, { scope: "dashboard-chat", limit: 30, windowMs: 60_000 });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { reply: "Too many chat requests. Please wait a moment and try again." },
+      { status: 429, headers: { ...NO_STORE, ...dashboardRateLimitHeaders(rateLimit) } },
+    );
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(

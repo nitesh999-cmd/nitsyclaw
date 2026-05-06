@@ -28,21 +28,21 @@ async function loadQueueCounts() {
 function badge(status: string) {
   const cls =
     status === "done"
-      ? "border-emerald-500/40 bg-emerald-950/30 text-emerald-300"
+      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
       : status === "in_progress"
-        ? "border-sky-500/40 bg-sky-950/30 text-sky-300"
+        ? "border-sky-300 bg-sky-50 text-sky-800"
         : status === "rejected"
-          ? "border-red-500/40 bg-red-950/30 text-red-300"
-          : "border-slate-700 bg-slate-800 text-slate-300";
+          ? "border-red-300 bg-red-50 text-red-800"
+          : "border-stone-300 bg-white text-stone-700";
   return `nc-pill ${cls}`;
 }
 
 function severityColor(severity: string | null) {
-  if (!severity) return "text-slate-500";
+  if (!severity) return "text-stone-600";
   if (severity === "P0" || severity === "critical") return "text-red-400";
   if (severity === "P1") return "text-orange-400";
   if (severity === "P2") return "text-amber-400";
-  return "text-slate-500";
+  return "text-stone-600";
 }
 
 export default async function QueuePage({
@@ -70,15 +70,15 @@ export default async function QueuePage({
           <div>
             <div className="nc-eyebrow">Home requests</div>
             <h2 className="mt-2 text-3xl font-semibold">Feature Queue</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-              Requests captured from WhatsApp and the dashboard. Use <code className="text-[#d8b75d]">/addfeature your idea</code> to add one.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-700">
+              Requests captured from WhatsApp and the dashboard. Queue is a holding area, not an auto-deploy button. Use <code className="font-semibold text-[#8e3f24]">/addfeature your idea</code> to add one.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             {["pending", "in_progress", "done", "rejected"].map((status) => (
-              <a key={status} href={`/queue?status=${status}`} className="nc-tile min-w-28 p-3 hover:border-[#d8b75d]/40 transition-colors">
+              <a key={status} href={`/queue?status=${status}`} className="nc-tile min-w-28 p-3 transition-colors hover:border-[#b85c38]/40">
                 <div className="nc-eyebrow">{status.replace("_", " ")}</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-100">{counts[status] ?? 0}</div>
+                <div className="mt-2 text-2xl font-semibold text-stone-950">{counts[status] ?? 0}</div>
               </a>
             ))}
           </div>
@@ -86,10 +86,28 @@ export default async function QueuePage({
       </section>
 
       {error ? (
-        <div className="rounded-xl border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
-          Queue is unavailable right now.
+        <div className="rounded-xl border border-[#e29a82] bg-[#fff2ed] p-4 text-sm leading-6 text-[#7a2f1a]" role="alert">
+          Queue data is not available right now. Check the dashboard database connection before changing request status.
         </div>
       ) : null}
+
+      <section className="nc-section">
+        <div className="nc-eyebrow">How queued work becomes real</div>
+        <div className="mt-2 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <div className="text-sm font-semibold text-stone-950">1. Capture</div>
+            <div className="mt-2 text-xs leading-5 text-stone-700">WhatsApp, Chat, Command, or /addfeature saves the request here.</div>
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <div className="text-sm font-semibold text-stone-950">2. Claim</div>
+            <div className="mt-2 text-xs leading-5 text-stone-700">Operator runner claims one safe item and marks it in progress.</div>
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <div className="text-sm font-semibold text-stone-950">3. Verify</div>
+            <div className="mt-2 text-xs leading-5 text-stone-700">Code changes still need tests, review, and an intentional deploy.</div>
+          </div>
+        </div>
+      </section>
 
       <div className="flex flex-wrap gap-2 text-sm">
         {["all", "pending", "in_progress", "done", "rejected"].map((status) => (
@@ -99,7 +117,7 @@ export default async function QueuePage({
             aria-current={activeStatus === status ? "page" : undefined}
             className={
               "nc-button capitalize " +
-              (activeStatus === status ? "border-[#d8b75d] bg-[#d8b75d]/10 text-[#d8b75d]" : "")
+              (activeStatus === status ? "border-[#b85c38] bg-[#fff2ed] text-[#8e3f24]" : "")
             }
           >
             {status.replace("_", " ")}
@@ -107,38 +125,38 @@ export default async function QueuePage({
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/30">
+      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
         {rows.length === 0 ? (
           <div className="px-4 py-10">
             <div className="nc-empty">No feature requests match this filter.</div>
           </div>
         ) : (
           rows.map((row) => (
-            <div key={row.id} className="grid gap-4 border-b border-slate-800 px-4 py-4 last:border-b-0 md:grid-cols-[120px_90px_100px_1fr_240px]">
+            <div key={row.id} className="grid gap-4 border-b border-stone-200 px-4 py-4 last:border-b-0 md:grid-cols-[120px_90px_100px_1fr_240px]">
               <div>
                 <span className={badge(row.status)}>{row.status}</span>
-                <div className="mt-2 text-xs text-slate-600">{row.id.slice(0, 8)}</div>
+                <div className="mt-2 text-xs text-stone-500">{row.id.slice(0, 8)}</div>
               </div>
               <div className={`text-sm ${severityColor(row.severity)}`}>{row.severity ?? row.size ?? "-"}</div>
-              <div className="text-sm text-slate-400">
+              <div className="text-sm text-stone-700">
                 <div>{row.source}</div>
-                <div className="mt-1 text-xs text-slate-500">{row.type}</div>
+                <div className="mt-1 text-xs text-stone-500">{row.type}</div>
               </div>
               <div>
-                <div className="text-sm leading-6 text-slate-200">{row.description}</div>
+                <div className="text-sm leading-6 text-stone-900">{row.description}</div>
                 {row.prUrl ? (
-                  <a className="mt-1 block text-xs font-semibold text-[#d8b75d] hover:text-[#f1d58a]" href={row.prUrl}>
+                  <a className="mt-1 block text-xs font-semibold text-[#8e3f24] hover:text-[#b85c38]" href={row.prUrl}>
                     PR / deploy link
                   </a>
                 ) : null}
                 {row.implementationNotes ? (
-                  <div className="mt-1 text-xs text-slate-500">{row.implementationNotes}</div>
+                  <div className="mt-1 text-xs text-stone-600">{row.implementationNotes}</div>
                 ) : null}
                 {row.rejectionReason ? (
                   <div className="mt-1 text-xs text-red-400">{row.rejectionReason}</div>
                 ) : null}
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-stone-600">
                 <div>Created {new Date(row.createdAt).toLocaleString()}</div>
                 {row.completedAt ? <div>Completed {new Date(row.completedAt).toLocaleString()}</div> : null}
                 <form action="/api/queue/update" method="post" className="mt-3 space-y-2">

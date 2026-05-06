@@ -29,6 +29,7 @@ import {
   publicConfigErrorOrNull,
   publicServerError,
 } from "../../../../lib/dashboard-runtime";
+import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 import type {
   AgentDeps,
@@ -178,6 +179,14 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+
+  const rateLimit = checkDashboardRateLimit(req, { scope: "dashboard-chat-stream", limit: 30, windowMs: 60_000 });
+  if (!rateLimit.allowed) {
+    return streamSingleEvent(
+      { type: "error", message: "Too many chat requests. Please wait a moment and try again." },
+      { status: 429, headers: dashboardRateLimitHeaders(rateLimit) },
+    );
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ reply: CHAT_CONFIG_ERROR }, { status: 503, headers: NO_STORE });
@@ -417,7 +426,7 @@ export async function POST(req: Request) {
   });
 }
 
-function streamSingleEvent(event: Record<string, unknown>): Response {
+function streamSingleEvent(event: Record<string, unknown>, init?: ResponseInit): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -426,9 +435,11 @@ function streamSingleEvent(event: Record<string, unknown>): Response {
     },
   });
   return new Response(stream, {
+    ...init,
     headers: {
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "Cache-Control": "no-store",
+      ...init?.headers,
     },
   });
 }

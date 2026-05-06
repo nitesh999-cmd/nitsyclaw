@@ -191,3 +191,37 @@ textarea {
 .text-red-400 {
   color: #9f2f22 !important;
 }
+
+.text-neutral-50,
+.text-neutral-100,
+.text-neutral-200,
+.text-neutral-300 {
+  color: #241f19 !important;
+}
+
+.text-neutral-400,
+.text-neutral-500,
+.text-neutral-600 {
+  color: #5f564a !important;
+}
+
+.text-neutral-700,
+.text-neutral-800,
+.text-neutral-900,
+.text-neutral-950 {
+  color: #241f19 !important;
+}
+
+.border-neutral-100,
+.border-neutral-200,
+.border-neutral-600,
+.border-neutral-800,
+.border-neutral-900 {
+  border-color: #d8cbb8 !important;
+}
+
+.bg-neutral-100,
+.bg-neutral-800,
+.bg-neutral-950 {
+  background-color: #fffdf8 !important;
+}

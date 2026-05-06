@@ -12,8 +12,11 @@ describe("bot location env wiring", () => {
       "CURRENT_CITY",
       "CURRENT_REGION",
       "CURRENT_COUNTRY",
+      "SERPER_API_KEY",
+      "ENABLE_WEB_RESEARCH",
     ]) {
       expect(source).toContain(`${key}: env.${key}`);
     }
+    expect(source).toContain("presenceUnavailableIntervalMs: env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS");
   });
 });

@@ -48,7 +48,7 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "corepack pnpm --filter @nitsyclaw/dashboard exec next dev -p 3101",
+    command: "corepack pnpm --filter @nitsyclaw/dashboard exec next dev --webpack -p 3101",
     env: {
       ...process.env,
       NITSYCLAW_DEV_AUTH_BYPASS: "1",

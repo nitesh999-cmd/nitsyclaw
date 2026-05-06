@@ -28,8 +28,8 @@ describe("dashboard auth routes", () => {
     expect(source).toContain("normalized && normalized === expected");
   });
 
-  it("keeps middleware security headers on protected responses", () => {
-    const source = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
+  it("keeps proxy security headers on protected responses", () => {
+    const source = readFileSync("apps/dashboard/src/proxy.ts", "utf8");
 
     expect(source).toContain("withSecurityHeaders");
     expect(source).toContain('"X-Frame-Options", "DENY"');
@@ -39,7 +39,7 @@ describe("dashboard auth routes", () => {
   });
 
   it("keeps unconfigured dashboard auth bypass out of Vercel production", () => {
-    const source = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
+    const source = readFileSync("apps/dashboard/src/proxy.ts", "utf8");
 
     expect(source).toContain("NITSYCLAW_DEV_AUTH_BYPASS");
     expect(source).toContain('process.env.VERCEL_ENV !== "production"');

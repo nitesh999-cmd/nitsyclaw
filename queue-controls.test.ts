@@ -10,6 +10,9 @@ describe("queue admin controls", () => {
     expect(source).toContain('value="in_progress"');
     expect(source).toContain('value="rejected"');
     expect(source).toContain('name="note"');
+    expect(source).toContain("Queue is a holding area, not an auto-deploy button");
+    expect(source).toContain("How queued work becomes real");
+    expect(source).toContain("Operator runner claims one safe item");
   });
 
   it("validates queue update inputs before mutating DB", () => {

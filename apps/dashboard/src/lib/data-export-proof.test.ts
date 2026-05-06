@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createExportProof, hashSession, verifyExportProof } from "./data-export-proof";
 
 describe("data export proof", () => {
@@ -70,4 +70,20 @@ describe("data export proof", () => {
       secret,
     })).toBeNull();
   });
+
+  it("requires ENCRYPTION_KEY when no explicit secret is passed", () => {
+    vi.stubEnv("NITSYCLAW_DASHBOARD_PASSWORD", "dashboard-password");
+    vi.stubEnv("ENCRYPTION_KEY", "");
+
+    expect(() => createExportProof({
+      snapshotId: "export_20260505021500",
+      exportedAt,
+      complete: true,
+      counts: { messages: 2 },
+      sessionHash: hashSession(sessionToken),
+    })).toThrow(/ENCRYPTION_KEY/);
+  });
 });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });

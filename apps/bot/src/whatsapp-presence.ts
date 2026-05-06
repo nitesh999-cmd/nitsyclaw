@@ -2,6 +2,18 @@ export interface PresenceClient {
   sendPresenceUnavailable(): Promise<void>;
 }
 
+export const DEFAULT_PRESENCE_UNAVAILABLE_INTERVAL_MS = 60_000;
+
+export function parsePresenceUnavailableIntervalMs(value: string | number | undefined): number {
+  if (value === undefined) return DEFAULT_PRESENCE_UNAVAILABLE_INTERVAL_MS;
+  if (typeof value === "string" && value.trim() === "") return DEFAULT_PRESENCE_UNAVAILABLE_INTERVAL_MS;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 3_600_000) {
+    return DEFAULT_PRESENCE_UNAVAILABLE_INTERVAL_MS;
+  }
+  return Math.floor(parsed);
+}
+
 export async function markPresenceUnavailable(
   client: PresenceClient,
   timeoutMs: number,
