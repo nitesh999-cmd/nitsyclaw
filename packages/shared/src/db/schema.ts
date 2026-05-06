@@ -267,7 +267,7 @@ export const commandJobs = pgTable(
     ownerHash: text("owner_hash").notNull().default("owner"),
     command: text("command").notNull(),
     status: text("status", {
-      enum: ["received", "working", "needs_approval", "done", "failed", "retrying"],
+      enum: ["received", "working", "needs_clarification", "needs_approval", "done", "failed", "retrying"],
     }).notNull().default("received"),
     riskLevel: text("risk_level", { enum: ["safe", "approval_required"] }).notNull().default("safe"),
     receiptText: text("receipt_text").notNull(),

@@ -731,16 +731,19 @@ export class Router {
       const reply = /^(y|yes|approve|confirm|ok|okay)\b/i.test(effectiveText.trim())
         ? "yes"
         : "no";
+      let canResolveConfirmation = true;
       if (!confirmationId) {
         const latest = await getLatestPendingConfirmation(this.deps.db);
-        if (latest && confirmationNeedsExplicitId(latest.action)) {
+        if (!latest) {
+          canResolveConfirmation = false;
+        } else if (confirmationNeedsExplicitId(latest.action)) {
           await this.sendAndPersist(
             `${confirmationActionLabel(latest.action)} need the confirmation id. Reply ${reply} ${latest.id} to resolve this safely.`,
           );
           return;
         }
       }
-      const out = confirmationTool
+      const out = canResolveConfirmation && confirmationTool
         ? await confirmationTool.handler(
             { reply, ...(confirmationId ? { confirmationId } : {}) },
             {
@@ -790,7 +793,7 @@ export class Router {
       sourceExternalId: msg.id,
     });
     await this.sendAndPersist(commandJob.receiptText);
-    if (commandJob.status === "needs_approval") return;
+    if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;
 
     try {
       await markCommandJobWorking(this.deps.db, commandJob.id);

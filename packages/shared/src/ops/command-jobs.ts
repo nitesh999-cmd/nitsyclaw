@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { DB } from "../db/client.js";
 import { commandJobs, type CommandJob } from "../db/schema.js";
+import { analyzePersonalPaIntent, isRiskyPersonalPaAction } from "./personal-pa-intent.js";
 
 export type CommandJobSource = "whatsapp" | "dashboard";
 export type CommandJobStatus = CommandJob["status"];
@@ -19,9 +20,15 @@ export async function createCommandJob(
   db: DB,
   input: CreateCommandJobInput,
 ): Promise<CommandJob> {
-  const riskLevel = isRiskyCommand(input.command) ? "approval_required" : "safe";
-  const status: CommandJobStatus = riskLevel === "approval_required" ? "needs_approval" : "received";
-  const receiptText = buildReceiptText(status);
+  const intent = analyzePersonalPaIntent(input.command);
+  const riskLevel = intent.kind === "approval_required" ? "approval_required" : "safe";
+  const status: CommandJobStatus =
+    intent.kind === "approval_required"
+      ? "needs_approval"
+      : intent.kind === "needs_clarification"
+        ? "needs_clarification"
+        : "received";
+  const receiptText = intent.userFacingText;
 
   const [row] = await db
     .insert(commandJobs)
@@ -117,6 +124,9 @@ function updateCommandJob(
 }
 
 export function buildReceiptText(status: CommandJobStatus): string {
+  if (status === "needs_clarification") {
+    return "What is the main thing you want me to help with right now?";
+  }
   if (status === "needs_approval") {
     return "Saved. Needs your approval before I act.";
   }
@@ -124,7 +134,7 @@ export function buildReceiptText(status: CommandJobStatus): string {
 }
 
 export function isRiskyCommand(command: string): boolean {
-  return /\b(send|message|text|email|call|delete|remove|pay|spend|buy|purchase|post|publish|deploy|production|refund|transfer|cancel|book)\b/i.test(command);
+  return isRiskyPersonalPaAction(command);
 }
 
 function publicErrorMessage(error: unknown): string {

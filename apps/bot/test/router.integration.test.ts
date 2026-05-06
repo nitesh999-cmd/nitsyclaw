@@ -109,6 +109,25 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("asks for clarification instead of running unclear emotional speech", async () => {
+    await router.handle({
+      id: "x-clarify",
+      from: OWNER,
+      body: "I can't deal with this anymore, this is too much",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-clarify",
+      status: "needs_clarification",
+    });
+    expect(wa.sent[0].body).toContain("What is the main thing");
+    expect(wa.sent.find((m) => m.body === "ack")).toBeFalsy();
+  });
+
   it("voice note → transcribed and acknowledged", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,

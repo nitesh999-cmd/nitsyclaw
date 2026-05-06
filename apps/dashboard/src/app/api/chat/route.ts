@@ -232,7 +232,7 @@ export async function POST(req: Request) {
       status: commandJob.status,
       receiptText: commandJob.receiptText,
     };
-    if (commandJob.status === "needs_approval") {
+    if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
       return NextResponse.json({
         reply: commandJob.receiptText,
         meta: { rounds: 0, tools: [], commandJob: commandJobMeta },

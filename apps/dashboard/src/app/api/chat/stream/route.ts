@@ -240,7 +240,7 @@ export async function POST(req: Request) {
         ownerHash,
         command: last.content,
       });
-      if (commandJob.status === "needs_approval") {
+      if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
         return streamSingleEvent({
           type: "receipt",
           id: commandJob.id,
@@ -288,7 +288,7 @@ export async function POST(req: Request) {
     command: last.content,
   });
 
-  if (commandJob.status === "needs_approval") {
+  if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
     return streamSingleEvent({
       type: "receipt",
       id: commandJob.id,

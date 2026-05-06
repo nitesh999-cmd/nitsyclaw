@@ -43,6 +43,20 @@ describe("command execution jobs", () => {
     expect(job.receiptText).toContain("Needs your approval");
   });
 
+  it("stores unclear emotional commands as clarification jobs instead of running them", async () => {
+    const { db } = makeFakeDb();
+
+    const job = await createCommandJob(db, {
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "I can't deal with this anymore, this is too much",
+    });
+
+    expect(job.status).toBe("needs_clarification");
+    expect(job.riskLevel).toBe("safe");
+    expect(job.receiptText).toContain("What is the main thing");
+  });
+
   it("records failures as retrying first, then failed after retry budget is exhausted", async () => {
     const { db } = makeFakeDb();
     const job = await createCommandJob(db, {
