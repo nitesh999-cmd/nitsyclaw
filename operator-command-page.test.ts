@@ -11,7 +11,7 @@ describe("operator command page", () => {
     expect(page).toContain("timeoutOperatorState(3500)");
     expect(page).toContain("pendingConfirmations");
     expect(page).toContain("whatsapp-client");
-    expect(page).toContain("Operator program");
+    expect(page).toContain("Home upgrades");
     expect(page).toContain("OPERATOR_MISSIONS.length");
     expect(page).toContain("pnpm operator:next");
     expect(page).toContain("pnpm operator:claim");

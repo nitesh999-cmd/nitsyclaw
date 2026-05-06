@@ -10,6 +10,14 @@ describe("dashboard health page", () => {
     expect(source).toContain("whatsappFreshness");
   });
 
+  test("surfaces public-sale readiness without exposing secrets", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain("evaluateSaleReadiness");
+    expect(source).toContain("Public sale");
+    expect(source).toContain("blocker(s)");
+  });
+
   test("does not expose WhatsApp QR payloads", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 

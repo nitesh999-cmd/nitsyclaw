@@ -47,7 +47,7 @@ export async function runDailyBuildAgent(
       title: "NitsyClaw: features pending",
       tags: ["gear"],
       priority: "default",
-      click: "https://nitsyclaw.vercel.app",
+      click: process.env.DASHBOARD_URL ?? "https://nitsyclaw.vercel.app",
     },
   ).catch(() => {});
 

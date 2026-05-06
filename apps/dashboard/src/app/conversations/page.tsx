@@ -1,5 +1,6 @@
 import { getDb, messages } from "@nitsyclaw/shared/db";
 import { desc } from "drizzle-orm";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function ConversationsPage() {
   try {
     rows = await load();
   } catch (e: unknown) {
-    console.error("[conversations] load failed", e);
+    logDashboardLoadError("conversations", e);
     errorMsg = "Could not load conversations. Check Health.";
   }
 

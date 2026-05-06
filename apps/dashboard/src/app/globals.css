@@ -3,47 +3,63 @@
 @tailwind utilities;
 
 :root {
-  --bg: #08090b;
-  --panel: #0f141a;
-  --panel-2: #151b22;
-  --line: #27303a;
-  --muted: #9aa4b2;
-  --fg: #f8fafc;
-  --accent: #d8b75d;
-  --accent-2: #52d6a3;
-  --accent-3: #7dd3fc;
-  --warn: #f59e0b;
+  --bg: #f6f1e8;
+  --bg-soft: #fbf8f2;
+  --panel: #fffdf8;
+  --panel-warm: #f9f0df;
+  --line: #e5dccb;
+  --line-strong: #d3c5ad;
+  --muted: #756b5d;
+  --fg: #241f19;
+  --accent: #b85c38;
+  --accent-dark: #8e3f24;
+  --accent-soft: #fff0e7;
+  --ok: #246b52;
+  --warn: #a35f00;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
 
 body {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(16, 21, 28, 0.96), rgba(8, 9, 11, 1) 46%),
-    linear-gradient(90deg, rgba(216, 183, 93, 0.035), rgba(125, 211, 252, 0.018), transparent 42%),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 88px),
-    var(--bg);
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.86), transparent 28rem),
+    linear-gradient(180deg, #fbf8f2 0%, #f6f1e8 44%, #efe6d7 100%);
   color: var(--fg);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background: rgba(216, 183, 93, 0.28);
+  background: rgba(184, 92, 56, 0.22);
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
 }
 
 @layer components {
   .nc-shell {
-    @apply min-h-screen bg-transparent text-slate-100 lg:flex;
+    @apply min-h-screen text-stone-950 lg:flex;
   }
 
   .nc-sidebar {
-    @apply hidden border-r border-white/10 bg-zinc-950/90 p-4 backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-72 lg:flex-col;
+    @apply hidden border-r border-stone-200/90 bg-[#fbf8f2]/90 p-4 shadow-[8px_0_30px_rgba(64,43,20,0.04)] backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-72 lg:flex-col;
   }
 
   .nc-mobile-topbar {
-    @apply sticky top-0 z-50 flex min-h-16 items-center justify-between border-b border-white/10 bg-zinc-950/95 px-4 backdrop-blur-xl lg:hidden;
+    @apply sticky top-0 z-50 flex min-h-16 items-center justify-between border-b border-stone-200/90 bg-[#fbf8f2]/95 px-4 backdrop-blur-xl lg:hidden;
   }
 
   .nc-page {
@@ -51,54 +67,62 @@ body {
   }
 
   .nc-hero {
-    @apply rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl md:p-6;
+    @apply rounded-2xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_24px_70px_rgba(70,48,23,0.09)] md:p-7;
   }
 
   .nc-section {
-    @apply rounded-lg border border-white/10 bg-slate-950/65 p-4 shadow-xl shadow-black/10 backdrop-blur md:p-5;
+    @apply rounded-2xl border border-stone-200 bg-[#fffdf8]/95 p-4 shadow-[0_16px_40px_rgba(70,48,23,0.055)] md:p-5;
+  }
+
+  .nc-panel-soft {
+    @apply rounded-2xl border border-stone-200 bg-[#f9f0df] p-4;
   }
 
   .nc-tile {
-    @apply rounded-lg border border-white/10 bg-slate-950/70 p-4 shadow-sm shadow-black/10 transition-colors hover:border-amber-300/50 hover:bg-slate-900/90;
+    @apply rounded-xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_10px_28px_rgba(70,48,23,0.045)] transition-colors hover:border-[#b85c38]/40 hover:bg-white;
   }
 
   .nc-eyebrow {
-    @apply text-xs font-semibold uppercase tracking-normal text-amber-300;
+    @apply text-xs font-semibold uppercase tracking-normal text-[#8e3f24];
   }
 
   .nc-muted {
-    @apply text-sm text-slate-400;
+    @apply text-sm leading-6 text-stone-600;
   }
 
   .nc-button {
-    @apply inline-flex min-h-10 items-center justify-center rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-amber-300/50 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-300 bg-[#fffdf8] px-4 py-2 text-sm font-semibold text-stone-900 shadow-sm transition-colors hover:border-[#b85c38]/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .nc-button-primary {
-    @apply inline-flex min-h-10 items-center justify-center rounded-md border border-amber-200/60 bg-amber-300 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-lg shadow-amber-300/10 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500;
+    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-[#8e3f24] bg-[#b85c38] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(184,92,56,0.22)] transition-colors hover:bg-[#8e3f24] disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-200 disabled:text-stone-500;
   }
 
   .nc-input {
-    @apply rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-amber-300;
+    @apply rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-[#b85c38] focus:ring-2 focus:ring-[#b85c38]/15;
   }
 
   .nc-pill {
-    @apply inline-flex min-h-7 items-center rounded-md border border-white/10 bg-slate-900 px-2.5 text-xs font-medium text-slate-300;
+    @apply inline-flex min-h-7 items-center rounded-full border border-stone-300 bg-white px-3 text-xs font-semibold text-stone-700;
   }
 
   .nc-brand-mark {
-    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-amber-300/40 bg-amber-300/10 text-sm font-semibold text-amber-200;
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#b85c38]/30 bg-[#fff0e7] text-sm font-bold text-[#8e3f24] shadow-sm;
   }
 
   .nc-nav-link {
-    @apply flex min-h-10 items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors;
+    @apply flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium transition-colors;
   }
 
   .nc-nav-link-active {
-    @apply border-amber-300/45 bg-amber-300/10 text-amber-100;
+    @apply border-[#b85c38]/30 bg-[#fff0e7] text-[#8e3f24] shadow-sm;
   }
 
   .nc-nav-link-idle {
-    @apply border-transparent text-slate-400 hover:border-white/10 hover:bg-white/[0.045] hover:text-slate-100;
+    @apply border-transparent text-stone-600 hover:border-stone-200 hover:bg-white hover:text-stone-950;
+  }
+
+  .nc-empty {
+    @apply rounded-xl border border-dashed border-stone-300 bg-[#fbf8f2] p-4 text-sm leading-6 text-stone-600;
   }
 }

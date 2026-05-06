@@ -28,12 +28,12 @@ async function loadQueueCounts() {
 function badge(status: string) {
   const cls =
     status === "done"
-      ? "border-emerald-500/40 text-emerald-300"
+      ? "border-emerald-700/30 bg-emerald-50 text-emerald-800"
       : status === "in_progress"
-        ? "border-sky-500/40 text-sky-300"
+        ? "border-sky-700/30 bg-sky-50 text-sky-800"
         : status === "rejected"
-          ? "border-red-500/40 text-red-300"
-          : "border-slate-700 text-slate-300";
+          ? "border-red-700/30 bg-red-50 text-red-800"
+          : "border-stone-300 bg-white text-stone-700";
   return `nc-pill ${cls}`;
 }
 
@@ -60,16 +60,16 @@ export default async function QueuePage({
       <section className="nc-hero">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="nc-eyebrow">Build intake</div>
+            <div className="nc-eyebrow">Home requests</div>
             <h2 className="mt-2 text-3xl font-semibold">Feature Queue</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-              Requests captured from WhatsApp and dashboard. Use `/addfeature your idea` to add one.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
+              Requests captured from WhatsApp and the dashboard. Use `/addfeature your idea` to add one.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             {["pending", "in_progress", "done", "rejected"].map((status) => (
               <div key={status} className="nc-tile min-w-28 p-3">
-                <div className="text-[11px] uppercase text-slate-500">{status.replace("_", " ")}</div>
+                <div className="text-[11px] uppercase text-stone-500">{status.replace("_", " ")}</div>
                 <div className="mt-1 text-2xl font-semibold">{counts[status] ?? 0}</div>
               </div>
             ))}
@@ -78,7 +78,7 @@ export default async function QueuePage({
       </section>
 
       {error ? (
-        <div className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
           Queue is unavailable right now.
         </div>
       ) : null}
@@ -91,7 +91,7 @@ export default async function QueuePage({
             aria-current={activeStatus === status ? "page" : undefined}
             className={
               "nc-button capitalize " +
-              (activeStatus === status ? "border-cyan-500/70 bg-cyan-400/10 text-cyan-100" : "")
+              (activeStatus === status ? "border-[#8e3f24] bg-[#fff0e7] text-[#8e3f24]" : "")
             }
           >
             {status.replace("_", " ")}
@@ -99,29 +99,29 @@ export default async function QueuePage({
         ))}
       </div>
 
-      <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/35">
+      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-[#fffdf8] shadow-[0_16px_40px_rgba(70,48,23,0.055)]">
         {rows.map((row) => (
-          <div key={row.id} className="grid gap-4 px-4 py-4 md:grid-cols-[120px_90px_100px_1fr_240px]">
+          <div key={row.id} className="grid gap-4 border-b border-stone-200 px-4 py-4 last:border-b-0 md:grid-cols-[120px_90px_100px_1fr_240px]">
             <div>
               <span className={badge(row.status)}>{row.status}</span>
-              <div className="mt-2 text-xs text-slate-500">{row.id.slice(0, 8)}</div>
+              <div className="mt-2 text-xs text-stone-500">{row.id.slice(0, 8)}</div>
             </div>
-            <div className="text-sm text-slate-400">{row.size}</div>
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-stone-600">{row.size}</div>
+            <div className="text-sm text-stone-600">
               <div>{row.source}</div>
               <div className="mt-1 text-xs">{row.type}</div>
             </div>
             <div>
-              <div className="text-sm leading-6 text-slate-100">{row.description}</div>
-              {row.prUrl ? <a className="mt-1 block text-xs text-cyan-300 hover:text-cyan-200" href={row.prUrl}>PR / deploy link</a> : null}
+              <div className="text-sm leading-6 text-stone-900">{row.description}</div>
+              {row.prUrl ? <a className="mt-1 block text-xs font-semibold text-[#8e3f24] hover:text-stone-950" href={row.prUrl}>PR / deploy link</a> : null}
               {row.implementationNotes ? (
-                <div className="mt-1 text-xs text-slate-500">{row.implementationNotes}</div>
+                <div className="mt-1 text-xs text-stone-500">{row.implementationNotes}</div>
               ) : null}
               {row.rejectionReason ? (
-                <div className="mt-1 text-xs text-red-300">{row.rejectionReason}</div>
+                <div className="mt-1 text-xs text-red-700">{row.rejectionReason}</div>
               ) : null}
             </div>
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-stone-500">
               <div>Created {new Date(row.createdAt).toLocaleString()}</div>
               {row.completedAt ? <div>Completed {new Date(row.completedAt).toLocaleString()}</div> : null}
               <form action="/api/queue/update" method="post" className="mt-3 space-y-2">
@@ -153,7 +153,9 @@ export default async function QueuePage({
           </div>
         ))}
         {rows.length === 0 ? (
-          <div className="px-4 py-10 text-sm text-slate-500">No feature requests match this filter.</div>
+          <div className="px-4 py-10">
+            <div className="nc-empty">No feature requests match this filter.</div>
+          </div>
         ) : null}
       </div>
     </div>

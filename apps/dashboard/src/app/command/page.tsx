@@ -11,6 +11,7 @@ import { desc, eq } from "drizzle-orm";
 import { OperatorCommandClient } from "./operator-command-client";
 import { OPERATOR_MISSIONS } from "./operator-missions";
 import { OPERATOR_NEXT_50 } from "./operator-roadmap";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ function metric(label: string, value: string | number, href?: string) {
   const body = (
     <div className="nc-tile">
       <div className="nc-eyebrow">{label}</div>
-      <div className="mt-3 text-2xl font-semibold text-slate-100">{value}</div>
+      <div className="mt-3 text-2xl font-semibold text-stone-950">{value}</div>
     </div>
   );
   return href ? <a href={href}>{body}</a> : body;
@@ -91,7 +92,7 @@ export default async function CommandPage() {
     data = await Promise.race([loadOperatorState(), timeoutOperatorState(3500)]);
     unavailable = data === null;
   } catch (e) {
-    console.error("[command] load failed", e);
+    logDashboardLoadError("command", e);
     unavailable = true;
   }
 
@@ -107,18 +108,18 @@ export default async function CommandPage() {
       <section className="nc-hero">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="nc-eyebrow">Execution cockpit</div>
+            <div className="nc-eyebrow">Home plan</div>
             <h2 className="mt-2 text-3xl font-semibold">Operator Command</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-              Control surface for hard commands, build requests, bugs, location, approvals, and the next operator upgrades.
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
+              A simple place to check requests, bugs, approvals, WhatsApp health, and what should be handled next.
             </p>
           </div>
-          <a href="/queue" className="nc-button-primary">Open queue</a>
+          <a href="/queue" className="nc-button-primary">Open requests</a>
         </div>
       </section>
 
       {unavailable ? (
-        <div className="border border-red-900/70 bg-red-950/30 p-4 text-sm text-red-100">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           Command state is unavailable. Check server logs.
         </div>
       ) : null}
@@ -138,29 +139,29 @@ export default async function CommandPage() {
       <section className="nc-section">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="nc-eyebrow">Operator program</div>
-            <div className="mt-1 text-sm text-slate-300">
+            <div className="nc-eyebrow">Home upgrades</div>
+            <div className="mt-1 text-sm text-stone-600">
               {operatorMissionCount} of {OPERATOR_MISSIONS.length} top missions are in the durable queue.
             </div>
           </div>
-          <a href="/queue" className="text-sm text-cyan-300 hover:text-cyan-200">
-            Open queue
+          <a href="/queue" className="text-sm font-semibold text-[#8e3f24] hover:text-stone-950">
+            Open requests
           </a>
         </div>
 
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           {data?.operatorMissions.slice(0, 6).map((mission) => (
-            <div key={mission.id} className="border border-slate-800 bg-slate-950/60 p-3">
+            <div key={mission.id} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-slate-500">{mission.severity ?? "P2"}</div>
-                <div className="text-xs text-slate-400">{mission.status}</div>
+                <div className="text-xs text-stone-500">{mission.severity ?? "P2"}</div>
+                <div className="text-xs text-stone-500">{mission.status}</div>
               </div>
-              <div className="mt-2 line-clamp-2 text-sm text-slate-300">{mission.description}</div>
+              <div className="mt-2 line-clamp-2 text-sm text-stone-800">{mission.description}</div>
             </div>
           ))}
           {operatorMissionCount === 0 ? (
-            <div className="border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-500">
-              No operator missions queued yet.
+            <div className="nc-empty">
+              No home upgrades queued yet.
             </div>
           ) : null}
         </div>
@@ -168,12 +169,12 @@ export default async function CommandPage() {
 
       <section className="nc-section">
         <div className="nc-eyebrow">Local runner</div>
-        <div className="mt-2 text-sm text-slate-300">
+        <div className="mt-2 text-sm text-stone-600">
           Use the laptop runner for real queue execution. It previews by default and only mutates queue state with an explicit mode.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {["pnpm operator:next", "pnpm operator:claim", "pnpm operator:reject-unsafe"].map((command) => (
-            <code key={command} className="border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200">
+            <code key={command} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3 text-xs text-stone-800">
               {command}
             </code>
           ))}
@@ -183,22 +184,22 @@ export default async function CommandPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="nc-tile">
           <div className="nc-eyebrow">Loop guard</div>
-          <div className="mt-2 text-sm text-slate-300">{loopGuard?.status ?? "unknown"}</div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-2 text-sm text-stone-800">{loopGuard?.status ?? "unknown"}</div>
+          <div className="mt-1 text-xs text-stone-500">
             {loopGuard ? new Date(loopGuard.lastSeenAt).toLocaleString() : "No heartbeat"}
           </div>
         </div>
 
         <div className="nc-tile">
           <div className="nc-eyebrow">Last message</div>
-          <div className="mt-2 text-sm text-slate-300">
+          <div className="mt-2 text-sm text-stone-800">
             {data?.latestMessage ? new Date(data.latestMessage.createdAt).toLocaleString() : "None"}
           </div>
         </div>
 
         <div className="nc-tile">
           <div className="nc-eyebrow">Latest tools</div>
-          <div className="mt-2 space-y-1 text-xs text-slate-400">
+          <div className="mt-2 space-y-1 text-xs text-stone-600">
             {data?.latestAudit.length
               ? data.latestAudit.map((row) => (
                   <div key={row.id}>

@@ -38,3 +38,17 @@ export function publicConfigError(error: unknown): { reply: string; status: numb
 export function publicServerError(reply = "I hit a server problem. Try again shortly."): { reply: string; status: number } {
   return { reply, status: 500 };
 }
+
+export function logDashboardLoadError(scope: string, error: unknown): void {
+  const configError = publicConfigErrorOrNull(error);
+  if (configError) {
+    console.warn("[dashboard] expected configuration miss", {
+      scope,
+      reply: configError.reply,
+      status: configError.status,
+    });
+    return;
+  }
+
+  console.error("[dashboard] load failed", { scope }, error);
+}

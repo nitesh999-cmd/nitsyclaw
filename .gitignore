@@ -56,3 +56,4 @@ apps/dashboard/tsconfig.tsbuildinfo
 
 # Graphify local cache is regenerated; commit graph outputs, not per-file cache blobs.
 graphify-out/cache/
+.env*.local

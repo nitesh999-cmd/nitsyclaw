@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { getDb, insertReminder, reminders } from "@nitsyclaw/shared/db";
 import { parseRelativeTime } from "@nitsyclaw/shared/utils";
 import { desc, eq } from "drizzle-orm";
+import { logDashboardLoadError, publicConfigErrorOrNull } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -61,14 +62,14 @@ export default async function RemindersPage() {
   try {
     rows = await load();
   } catch (e: unknown) {
-    console.error("[Reminders] DB error:", e);
-    const message = e instanceof Error ? e.message : String(e);
+    logDashboardLoadError("reminders", e);
+    const message = publicConfigErrorOrNull(e)?.reply ?? "Reminders are unavailable. Check Health.";
     return (
       <div className="p-6 max-w-2xl mx-auto">
         <h1 className="text-2xl font-semibold mb-4">Reminders</h1>
         <div className="p-4 bg-red-50 border border-red-200 rounded">
           <p className="text-sm font-medium text-red-900">Database error</p>
-          <pre className="text-xs text-red-700 mt-2 whitespace-pre-wrap">{message}</pre>
+          <p className="text-xs text-red-700 mt-2">{message}</p>
         </div>
       </div>
     );

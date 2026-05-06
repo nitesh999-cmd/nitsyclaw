@@ -6,6 +6,7 @@ import {
   expenseWhere,
   normalizeExpenseFilters,
 } from "../../lib/expense-utils.js";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ export default async function ExpensesPage({
   try {
     rows = await load(filters);
   } catch (e: unknown) {
-    console.error("[expenses] load failed", e);
+    logDashboardLoadError("expenses", e);
     errorMsg = "Could not load expenses. Check Health.";
   }
 

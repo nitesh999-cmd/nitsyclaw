@@ -49,8 +49,12 @@ export default defineConfig({
   ],
   webServer: {
     command: "corepack pnpm --filter @nitsyclaw/dashboard exec next dev -p 3101",
+    env: {
+      ...process.env,
+      NITSYCLAW_DEV_AUTH_BYPASS: "1",
+    },
     port: 3101,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
     timeout: 60_000,
   },
 });

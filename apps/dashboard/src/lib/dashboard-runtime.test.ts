@@ -1,12 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   encryptDashboardText,
   getOwnerIdentity,
+  logDashboardLoadError,
   publicConfigError,
   publicConfigErrorOrNull,
 } from "./dashboard-runtime.js";
 
 describe("dashboard runtime guards", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("fails closed when owner phone is missing", () => {
     expect(() => getOwnerIdentity({} as NodeJS.ProcessEnv)).toThrow(/WHATSAPP_OWNER_NUMBER/);
   });
@@ -35,5 +40,37 @@ describe("dashboard runtime guards", () => {
 
   it("does not classify ordinary runtime errors as configuration errors", () => {
     expect(publicConfigErrorOrNull(new Error("Anthropic 529 overloaded"))).toBeNull();
+  });
+
+  it("logs expected config misses as controlled warnings", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logDashboardLoadError("health", new Error("DATABASE_URL is missing"));
+
+    expect(warn).toHaveBeenCalledWith(
+      "[dashboard] expected configuration miss",
+      expect.objectContaining({
+        scope: "health",
+        reply: "Dashboard database is not configured.",
+        status: 503,
+      }),
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("logs unexpected runtime failures as errors", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("Anthropic 529 overloaded");
+
+    logDashboardLoadError("command", cause);
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[dashboard] load failed",
+      { scope: "command" },
+      cause,
+    );
   });
 });

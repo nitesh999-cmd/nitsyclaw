@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { isDashboardAuthConfigured } from "../../../../lib/dashboard-auth";
 import {
-  clearDashboardLoginAttempts,
-  getDashboardLoginAttemptState,
+  clearDashboardLoginAttemptsForKeys,
+  getDashboardLoginAttemptStates,
   recordDashboardLoginFailure,
 } from "../../../../lib/dashboard-login-attempts";
+import type { DashboardLoginAttemptState } from "../../../../lib/dashboard-login-attempts";
 import { createDashboardSessionToken, DASHBOARD_SESSION_COOKIE } from "../../../../lib/dashboard-session";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
+const DEFAULT_AUTH_ATTEMPT_TIMEOUT_MS = 800;
 
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
@@ -36,12 +38,20 @@ export async function POST(request: Request): Promise<Response> {
   const next = sanitizeNext(String(form.get("next") ?? "/"));
   const clientKey = `ip:${clientKeyFromRequest(request)}`;
   const accountKey = accountKeyFromUser(user, expectedUser);
+  const loginKeys = [clientKey, accountKey];
 
   const now = Date.now();
-  const [clientState, accountState] = await Promise.all([
-    getDashboardLoginAttemptState(clientKey, now),
-    getDashboardLoginAttemptState(accountKey, now),
-  ]);
+  const unlockedState: DashboardLoginAttemptState = { failures: 0 };
+  const unlockedStates: Record<string, DashboardLoginAttemptState> = Object.fromEntries(
+    loginKeys.map((key) => [key, unlockedState]),
+  );
+  const states = await withAuthAttemptTimeout(
+    getDashboardLoginAttemptStates(loginKeys, now),
+    unlockedStates,
+    "load login attempt state",
+  );
+  const clientState = states[clientKey] ?? { failures: 0 };
+  const accountState = states[accountKey] ?? { failures: 0 };
   if (
     (clientState.lockedUntilMs && clientState.lockedUntilMs > now) ||
     (accountState.lockedUntilMs && accountState.lockedUntilMs > now)
@@ -50,10 +60,14 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
-    const [updatedClient, updatedAccount] = await Promise.all([
-      recordDashboardLoginFailure(clientKey, now),
-      recordDashboardLoginFailure(accountKey, now),
-    ]);
+    const [updatedClient, updatedAccount] = await withAuthAttemptTimeout(
+      Promise.all([
+        recordDashboardLoginFailure(clientKey, now),
+        recordDashboardLoginFailure(accountKey, now),
+      ]),
+      [clientState, accountState],
+      "record login failure",
+    );
     return redirectToLogin(
       updatedClient.lockedUntilMs || updatedAccount.lockedUntilMs ? "locked" : "invalid",
       next,
@@ -61,10 +75,11 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  await Promise.all([
-    clearDashboardLoginAttempts(clientKey),
-    clearDashboardLoginAttempts(accountKey),
-  ]);
+  void withAuthAttemptTimeout(
+    clearDashboardLoginAttemptsForKeys(loginKeys),
+    undefined,
+    "clear login attempts",
+  );
   const token = await createDashboardSessionToken(expectedUser, expectedPassword ?? "");
   const response = NextResponse.redirect(new URL(next, request.url), 303);
   response.cookies.set(DASHBOARD_SESSION_COOKIE, token, {
@@ -107,6 +122,34 @@ function accountKeyFromUser(user: string, expectedUser: string): string {
 
 function normalizeAccountUser(user: string): string {
   return user.trim().toLowerCase().replace(/[^\w@.+-]/g, "").slice(0, 128);
+}
+
+function authAttemptTimeoutMs(): number {
+  const parsed = Number(process.env.NITSYCLAW_AUTH_ATTEMPT_TIMEOUT_MS);
+  if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 5_000) return parsed;
+  return DEFAULT_AUTH_ATTEMPT_TIMEOUT_MS;
+}
+
+async function withAuthAttemptTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeout = setTimeout(() => {
+      console.error(`[dashboard-auth] ${label} timed out; continuing with fallback`);
+      resolve(fallback);
+    }, authAttemptTimeoutMs());
+  });
+
+  try {
+    return await Promise.race([
+      promise.catch((error) => {
+        console.error(`[dashboard-auth] ${label} failed; continuing with fallback`, error);
+        return fallback;
+      }),
+      timeoutPromise,
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

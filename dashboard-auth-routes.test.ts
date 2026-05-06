@@ -38,6 +38,14 @@ describe("dashboard auth routes", () => {
     expect(source).toContain('"Content-Security-Policy", "frame-ancestors');
   });
 
+  it("keeps unconfigured dashboard auth bypass out of Vercel production", () => {
+    const source = readFileSync("apps/dashboard/src/middleware.ts", "utf8");
+
+    expect(source).toContain("NITSYCLAW_DEV_AUTH_BYPASS");
+    expect(source).toContain('process.env.VERCEL_ENV !== "production"');
+    expect(source).not.toContain('process.env.NODE_ENV !== "production" && process.env.NITSYCLAW_DEV_AUTH_BYPASS');
+  });
+
   it("does not render dashboard navigation on the login page shell", () => {
     const source = readFileSync("apps/dashboard/src/app/dashboard-shell.tsx", "utf8");
 

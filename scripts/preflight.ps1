@@ -26,7 +26,8 @@ $forbiddenStagedPatterns = @(
     '\.db$',
     '(^|/)\.env$',
     '(^|/)\.env\..*\.local$',
-    '(^|/)\.env\.local$'
+    '(^|/)\.env\.local$',
+    '(^|/)package-lock\.json$'
 )
 foreach ($stagedPath in $stagedPaths) {
     $normalizedPath = $stagedPath -replace '\\', '/'
@@ -46,7 +47,8 @@ $forbiddenRepoPatterns = @(
     'google-token*.json',
     'ms-token.json',
     '*.sqlite',
-    '*.db'
+    '*.db',
+    'package-lock.json'
 )
 $forbiddenRepoPaths = @()
 foreach ($pattern in $forbiddenRepoPatterns) {

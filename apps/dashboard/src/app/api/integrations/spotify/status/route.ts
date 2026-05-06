@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, getConnectedAccount } from "@nitsyclaw/shared/db";
 import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
+import { requireSameOrigin } from "../../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,9 @@ function configured() {
   );
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   if (!configured()) {
     return NextResponse.json({
       provider: "spotify",

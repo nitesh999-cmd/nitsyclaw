@@ -174,7 +174,7 @@ export class WwebjsClient implements WhatsAppClient {
       }, this.initializeTimeoutMs);
     } catch (e) {
       if (this.stopped) return;
-      console.error(`[wwebjs] initialize failed (${reason}); retrying after ${this.restartBackoffMs}ms`, e);
+      console.error("[wwebjs] initialize failed; retrying", { reason, restartBackoffMs: this.restartBackoffMs }, e);
       this.emitStatus({ status: "restarting", reason: `initialize failed: ${String(e)}` });
       this.client.removeAllListeners();
       await this.client.destroy().catch((destroyError: unknown) => {
@@ -207,10 +207,10 @@ export class WwebjsClient implements WhatsAppClient {
       this.emitStatus({ status: "health_ok", state: String(state) });
     } catch (e) {
       this.consecutiveHealthFailures += 1;
-      console.error(
-        `[wwebjs] health probe failed (${this.consecutiveHealthFailures}/${this.maxConsecutiveHealthFailures})`,
-        e,
-      );
+      console.error("[wwebjs] health probe failed", {
+        consecutiveHealthFailures: this.consecutiveHealthFailures,
+        maxConsecutiveHealthFailures: this.maxConsecutiveHealthFailures,
+      }, e);
       this.emitStatus({
         status: "health_failed",
         reason: String(e),

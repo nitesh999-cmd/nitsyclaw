@@ -8,6 +8,7 @@ const secretPatterns = [
   "google-token*.json",
   "ms-token.json",
   "**/.wa-session",
+  "package-lock.json",
 ] as const;
 
 describe("release ignore policy", () => {
@@ -36,5 +37,6 @@ describe("release ignore policy", () => {
     expect(source).toContain("\\.sqlite$");
     expect(source).toContain("\\.db$");
     expect(source).toContain("\\.env\\.local$");
+    expect(source).toContain("package-lock\\.json");
   });
 });

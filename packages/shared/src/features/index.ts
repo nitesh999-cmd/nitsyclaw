@@ -23,6 +23,8 @@ import { registerPersonalContext } from "./16-personal-context.js";
 import { registerIntegrationCapabilities } from "./17-integration-capabilities.js";
 import { registerEmailDrafts } from "./18-email-drafts.js";
 import { registerIntegrationRequests } from "./19-integration-requests.js";
+import { registerLifeAdminIntake } from "./20-life-admin-intake.js";
+import { registerHomeAssistants } from "./21-home-assistants.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -52,6 +54,8 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
   registerIntegrationRequests(r);
+  registerLifeAdminIntake(r);
+  registerHomeAssistants(r);
   return r;
 }
 
@@ -74,3 +78,5 @@ export * from "./16-personal-context.js";
 export * from "./17-integration-capabilities.js";
 export * from "./18-email-drafts.js";
 export * from "./19-integration-requests.js";
+export * from "./20-life-admin-intake.js";
+export * from "./21-home-assistants.js";

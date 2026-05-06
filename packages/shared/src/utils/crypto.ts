@@ -7,6 +7,8 @@ import {
 
 const ALGO = "aes-256-gcm";
 const PREFIX = "enc:v1:";
+const IV_LENGTH_BYTES = 12;
+const AUTH_TAG_LENGTH_BYTES = 16;
 
 /**
  * Mask a phone number for logs (R6). Keeps last 4 digits.
@@ -42,8 +44,8 @@ function getKey(envKey?: string): Buffer {
  */
 export function encryptString(plain: string, envKey?: string): string {
   const key = getKey(envKey);
-  const iv = randomBytes(12);
-  const cipher = createCipheriv(ALGO, key, iv);
+  const iv = randomBytes(IV_LENGTH_BYTES);
+  const cipher = createCipheriv(ALGO, key, iv, { authTagLength: AUTH_TAG_LENGTH_BYTES });
   const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return `${PREFIX}${Buffer.concat([iv, tag, enc]).toString("base64")}`;
@@ -63,10 +65,16 @@ export function decryptString(payload: string, envKey?: string): string {
   const key = getKey(envKey);
   const cipherPayload = isEncryptedString(payload) ? payload.slice(PREFIX.length) : payload;
   const buf = Buffer.from(cipherPayload, "base64");
-  const iv = buf.subarray(0, 12);
-  const tag = buf.subarray(12, 28);
-  const enc = buf.subarray(28);
-  const decipher = createDecipheriv(ALGO, key, iv);
+  if (buf.length <= IV_LENGTH_BYTES + AUTH_TAG_LENGTH_BYTES) {
+    throw new Error("Encrypted payload is malformed");
+  }
+  const iv = buf.subarray(0, IV_LENGTH_BYTES);
+  const tag = buf.subarray(IV_LENGTH_BYTES, IV_LENGTH_BYTES + AUTH_TAG_LENGTH_BYTES);
+  const enc = buf.subarray(IV_LENGTH_BYTES + AUTH_TAG_LENGTH_BYTES);
+  if (iv.length !== IV_LENGTH_BYTES || tag.length !== AUTH_TAG_LENGTH_BYTES) {
+    throw new Error("Encrypted payload is malformed");
+  }
+  const decipher = createDecipheriv(ALGO, key, iv, { authTagLength: AUTH_TAG_LENGTH_BYTES });
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
 }

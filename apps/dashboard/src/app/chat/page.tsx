@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { CHAT_QUICK_ACTIONS } from "../../lib/chat-quick-actions";
 
 interface Msg {
   role: "user" | "assistant";
@@ -338,10 +339,10 @@ export default function ChatPage() {
       <section className="nc-hero mb-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="nc-eyebrow">Live command channel</div>
+            <div className="nc-eyebrow">Home help</div>
             <h2 className="mt-2 text-3xl font-semibold">Chat with NitsyClaw</h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Same memory as WhatsApp, tuned for quick decisions, build requests, and daily execution.
+            <p className="mt-2 max-w-2xl text-sm text-stone-600">
+              Ask for help with messages, bills, calls, travel days, renewals, and the small things that pile up.
             </p>
           </div>
         {voices.length > 0 && (
@@ -404,20 +405,47 @@ export default function ChatPage() {
         </div>
       ) : null}
 
-      <div className="mb-4 flex-1 space-y-3 overflow-y-auto border border-slate-800 bg-slate-950/35 p-3 pr-2" data-testid="chat-messages">
+      <section aria-labelledby="quick-actions-title" className="mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 id="quick-actions-title" className="text-sm font-semibold text-stone-950">
+              Quick starts
+            </h3>
+            <p className="mt-1 text-xs text-stone-500">
+              Tap one, add your details, then send.
+            </p>
+          </div>
+          <span className="nc-pill">10 home helpers</span>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {CHAT_QUICK_ACTIONS.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => setInput(action.prompt)}
+              className="rounded-xl border border-stone-200 bg-[#fffdf8] p-3 text-left transition hover:border-[#b85c38] hover:bg-[#fbf4ea] focus:outline-none focus:ring-2 focus:ring-[#b85c38]/30"
+            >
+              <span className="block text-sm font-semibold text-stone-950">{action.label}</span>
+              <span className="mt-1 block text-xs leading-5 text-stone-500">{action.helper}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="mb-4 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-stone-200 bg-[#fffdf8]/85 p-3 pr-2 shadow-sm" data-testid="chat-messages">
         {loadingHistory && (
-          <p className="text-sm text-neutral-500">Loading conversation history...</p>
+          <p className="text-sm text-stone-500">Loading conversation history...</p>
         )}
         {!loadingHistory && messages.length === 0 && (
-          <p className="text-sm text-neutral-500">Start typing below. Try: <code>what's on my plate today</code></p>
+          <p className="text-sm text-stone-500">Start typing below, or pick a quick start.</p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start items-end gap-1"}>
             <div className={
               "max-w-[82%] whitespace-pre-wrap border px-4 py-2 text-sm shadow-lg shadow-black/10 " +
               (m.role === "user"
-                ? "border-cyan-400/50 bg-cyan-400 text-slate-950"
-                : "border-slate-800 bg-slate-900 text-slate-100")
+                ? "rounded-2xl border-[#b85c38]/40 bg-[#b85c38] text-white"
+                : "rounded-2xl border-stone-200 bg-white text-stone-900")
             }>
               {m.content}
               {m.surface ? (
@@ -449,7 +477,7 @@ export default function ChatPage() {
         ))}
         {busy && (
           <div className="flex justify-start">
-            <div className="border border-slate-800 bg-slate-900 px-4 py-2 text-sm text-slate-400">Thinking...</div>
+            <div className="rounded-2xl border border-stone-200 bg-white px-4 py-2 text-sm text-stone-500">Thinking...</div>
           </div>
         )}
         <div ref={endRef} />

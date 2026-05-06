@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
 
   if (!configured) {
     // Explicit dev bypass: must set NITSYCLAW_DEV_AUTH_BYPASS=1 — prevents accidental open deployments
-    const devBypass = process.env.NODE_ENV !== "production" && process.env.NITSYCLAW_DEV_AUTH_BYPASS === "1";
+    const devBypass = process.env.VERCEL_ENV !== "production" && process.env.NITSYCLAW_DEV_AUTH_BYPASS === "1";
     if (!devBypass) return notConfigured(request);
     console.warn("[SECURITY] Dashboard auth bypass active – set NITSYCLAW_DASHBOARD_PASSWORD before deploying");
     return withSecurityHeaders(NextResponse.next(), request);

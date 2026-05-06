@@ -14,6 +14,7 @@ NitsyClaw releases must be boring and reversible.
 - Local bot secrets belong in `C:\Users\Nitesh\.nitsyclaw\secrets` by default, or in `NITSYCLAW_SECRET_ROOT` when that environment variable is set.
 - After a production deploy, run `pnpm release:live-smoke` before calling the deploy good.
 - Emergency rollback scripts may mutate Vercel aliases only after a dry run verifies the target deployment. They must not deploy new code or mutate git.
+- Semgrep and `pnpm audit` are part of the default release gate. Snyk is separate because it requires external authentication.
 
 ## Local preflight
 
@@ -22,6 +23,15 @@ pnpm release:preflight
 ```
 
 This command verifies the remote, checks staged files, checks repo-local secret/session drift, checks whitespace, runs the full release gate, and prints final status. It does not stage, commit, push, or deploy.
+
+## Security gates
+
+```powershell
+pnpm run security:deep
+pnpm run security:snyk
+```
+
+`security:deep` runs Semgrep with UTF-8 output enabled and then runs `pnpm audit --audit-level=moderate`. `security:snyk` is an extra authenticated scan; if it fails with an auth error, run `snyk auth` or set `SNYK_TOKEN`, then retry.
 
 ## Live smoke
 

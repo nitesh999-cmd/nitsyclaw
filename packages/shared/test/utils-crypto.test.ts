@@ -59,6 +59,12 @@ describe("encrypt/decrypt", () => {
     expect(() => decryptString(cipher, otherKey)).toThrow();
   });
 
+  it("rejects malformed ciphertext before decrypting", () => {
+    const tinyPayload = Buffer.from("too-short").toString("base64");
+
+    expect(() => decryptString(`enc:v1:${tinyPayload}`, key)).toThrow(/malformed/);
+  });
+
   it("rejects bad key length", () => {
     expect(() => encryptString("x", Buffer.from("short").toString("base64"))).toThrow(/32 bytes/);
   });

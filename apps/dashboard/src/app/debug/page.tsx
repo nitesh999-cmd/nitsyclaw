@@ -2,8 +2,16 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+function debugEnabled(): boolean {
+  if (process.env.NITSYCLAW_ENABLE_DEBUG !== "1") return false;
+  if (process.env.NODE_ENV === "production") {
+    return process.env.NITSYCLAW_DEBUG_BREAK_GLASS === "1";
+  }
+  return true;
+}
+
 export default function DebugPage() {
-  if (process.env.NITSYCLAW_ENABLE_DEBUG !== "1") {
+  if (!debugEnabled()) {
     notFound();
   }
 

@@ -3,6 +3,7 @@ import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
+  parseHomeAssistantShortcut,
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
 
@@ -55,5 +56,24 @@ describe("personal command shortcuts", () => {
       "whatsapp loop came back",
     );
     expect(parseBugReportShortcut("fix whatsapp loop")).toBeNull();
+  });
+
+  it("parses ten home assistant shortcuts", () => {
+    expect(parseHomeAssistantShortcut("next steps: pay bill. call dentist")?.kind).toBe("sort-actions");
+    expect(parseHomeAssistantShortcut("tidy note: remember car rego maybe due")?.kind).toBe("clean-note");
+    expect(parseHomeAssistantShortcut("reply draft: Maya | Sunday lunch invite | decline kindly")?.kind).toBe("draft-reply");
+    expect(parseHomeAssistantShortcut("choose: internet plan | Cheap plan; low price; slow upload | Reliable plan; stable; better support | reliability")?.kind).toBe("compare-options");
+    expect(parseHomeAssistantShortcut("call script: Energy retailer | ask for better rate | been customer 3 years")?.kind).toBe("call-script");
+    expect(parseHomeAssistantShortcut("renewal watch: Netflix renews on 18 May 2026")?.kind).toBe("renewal-watch");
+    expect(parseHomeAssistantShortcut("complaint: Example Energy | unexplained $86 fee | remove the fee")?.kind).toBe("complaint");
+    expect(parseHomeAssistantShortcut("check before send: I am furious. My card is 4111111111111111")?.kind).toBe("check-message");
+    expect(parseHomeAssistantShortcut("travel day: Melbourne Airport | 2026-05-09 | flight at 8:30am, park car, take passport")?.kind).toBe("travel-day");
+    expect(parseHomeAssistantShortcut("sort admin: pay rates, book car service, save passport number")?.kind).toBe("triage-admin");
+  });
+
+  it("does not parse ordinary short messages as home assistant shortcuts", () => {
+    expect(parseHomeAssistantShortcut("hello")).toBeNull();
+    expect(parseHomeAssistantShortcut("what is my weather today")).toBeNull();
+    expect(parseHomeAssistantShortcut("pay bill tomorrow")).toBeNull();
   });
 });

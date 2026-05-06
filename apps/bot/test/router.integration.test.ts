@@ -22,6 +22,31 @@ describe("Router (integration)", () => {
   let router: Router;
   let oldEncryptionKey: string | undefined;
 
+  function makeSimplePdf(textLines: string[]): Buffer {
+    const textOps = textLines
+      .map((line, index) => `${index === 0 ? "" : "0 -24 Td\n"}(${line.replace(/[()\\]/g, "\\$&")}) Tj`)
+      .join("\n");
+    const stream = `BT\n/F1 18 Tf\n72 720 Td\n${textOps}\nET`;
+    const objects = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+      `<< /Length ${Buffer.byteLength(stream, "utf8")} >>\nstream\n${stream}\nendstream`,
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ];
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+    objects.forEach((body, index) => {
+      offsets.push(Buffer.byteLength(pdf, "utf8"));
+      pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+    });
+    const xrefOffset = Buffer.byteLength(pdf, "utf8");
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+    pdf += `trailer\n<< /Root 1 0 R /Size ${objects.length + 1} >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    return Buffer.from(pdf, "utf8");
+  }
+
   beforeEach(() => {
     oldEncryptionKey = process.env.ENCRYPTION_KEY;
     process.env.ENCRYPTION_KEY = generateKey();
@@ -93,6 +118,71 @@ describe("Router (integration)", () => {
       downloadMedia: async () => ({ data: Buffer.from("img"), mimetype: "image/jpeg" }),
     });
     expect(wa.sent[0].body).toMatch(/Logged INR 250/);
+  });
+
+  it("unsupported PDF-like upload gets an honest extraction fallback", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "document",
+      downloadMedia: async () => ({
+        data: Buffer.from("%PDF-1.4"),
+        mimetype: "application/pdf",
+        filename: "energy-bill.pdf",
+      }),
+    });
+
+    expect(wa.sent[0].body).toContain("Document received");
+    expect(wa.sent[0].body).toContain("energy-bill.pdf");
+    expect(wa.sent[0].body).toContain("PDF/OCR parsing still needs to be wired");
+  });
+
+  it("selectable-text PDF upload is extracted and analyzed before replying", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "document",
+      downloadMedia: async () => ({
+        data: makeSimplePdf([
+          "AGL Energy electricity bill",
+          "Amount due $248.60",
+          "Due date 17 May 2026",
+        ]),
+        mimetype: "application/pdf",
+        filename: "bill.pdf",
+      }),
+    });
+
+    expect(wa.sent[0].body).toContain("Energy bill");
+    expect(wa.sent[0].body).toContain("Amount due: AUD 248.60");
+    expect(wa.sent[0].body).toContain("Due date: 2026-05-17");
+  });
+
+  it("text document upload is extracted and analyzed before replying", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "document",
+      downloadMedia: async () => ({
+        data: Buffer.from("AGL Energy electricity bill\nAmount due $248.60\nDue date 17 May 2026"),
+        mimetype: "text/plain",
+        filename: "bill.txt",
+      }),
+    });
+
+    expect(wa.sent[0].body).toContain("Energy bill");
+    expect(wa.sent[0].body).toContain("Amount due: AUD 248.60");
+    expect(wa.sent[0].body).toContain("Due date: 2026-05-17");
+    expect(wa.sent[0].body).toContain("Next: Compare this bill.");
   });
 
   it("'yes' reply with no pending falls through to the agent", async () => {

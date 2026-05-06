@@ -345,7 +345,7 @@ export async function fetchAllUnreadEmails(perAccountLimit = 5): Promise<Aggrega
           snippet: detail.data.snippet ?? undefined,
         });
       }
-    } catch (err) { console.error(`[email] Gmail/${label} failed:`, err); }
+    } catch (err) { console.error("[email] Gmail fetch failed", { label }, err); }
   }
   try { out.push(...(await fetchMsUnread(perAccountLimit))); } catch (err) { console.error("[email] M365 failed:", err); }
   // Yahoo skipped (parked, see session 2 / mind.md §6).
@@ -387,7 +387,7 @@ export async function searchAllGmail(query: string, perAccountLimit = 5): Promis
         });
       }
     } catch (err) {
-      console.error(`[email] Gmail/${label} search failed:`, err);
+      console.error("[email] Gmail search failed", { label }, err);
     }
   }
 
@@ -419,7 +419,7 @@ export async function fetchAllEventsToday(timezone: string): Promise<AggregatedE
           start: new Date(e.start?.dateTime ?? e.start?.date ?? Date.now()),
         });
       }
-    } catch (err) { console.error(`[cal] Google/${label} failed:`, err); }
+    } catch (err) { console.error("[cal] Google fetch failed", { label }, err); }
   }
   try {
     const ms = await fetchMsEventsToday(timezone);

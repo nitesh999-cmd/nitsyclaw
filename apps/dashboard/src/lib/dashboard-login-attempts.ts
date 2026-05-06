@@ -9,32 +9,55 @@ export interface DashboardLoginAttemptState {
   lockedUntilMs?: number;
 }
 
+let ensureDashboardAuthAttemptsTablePromise: Promise<void> | undefined;
+
 export async function getDashboardLoginAttemptState(
   clientKey: string,
   nowMs = Date.now(),
 ): Promise<DashboardLoginAttemptState> {
+  const states = await getDashboardLoginAttemptStates([clientKey], nowMs);
+  return states[clientKey] ?? { failures: 0 };
+}
+
+export async function getDashboardLoginAttemptStates(
+  clientKeys: string[],
+  nowMs = Date.now(),
+): Promise<Record<string, DashboardLoginAttemptState>> {
+  const uniqueKeys = Array.from(new Set(clientKeys.filter(Boolean)));
+  if (uniqueKeys.length === 0) return {};
+
   const db = getDb();
   await ensureDashboardAuthAttemptsTable();
+  const keyList = sql.join(uniqueKeys.map((key) => sql`${key}`), sql`, `);
   const result = await db.execute(sql`
-    SELECT failures, locked_until
+    SELECT client_key, failures, locked_until
     FROM dashboard_auth_attempts
-    WHERE client_key = ${clientKey}
-    LIMIT 1
+    WHERE client_key IN (${keyList})
   `);
-  const rows = result as unknown as Array<{ failures?: number; locked_until?: Date | string | null }>;
-  const row = rows[0];
-  if (!row) return { failures: 0 };
+  const rows = result as unknown as Array<{
+    client_key?: string;
+    failures?: number;
+    locked_until?: Date | string | null;
+  }>;
+  const states = Object.fromEntries(uniqueKeys.map((key) => [key, { failures: 0 }])) as Record<string, DashboardLoginAttemptState>;
 
-  const lockedUntilMs = row.locked_until ? new Date(row.locked_until).getTime() : undefined;
-  if (lockedUntilMs && lockedUntilMs <= nowMs) {
-    await clearDashboardLoginAttempts(clientKey);
-    return { failures: 0 };
+  const expiredKeys: string[] = [];
+  for (const row of rows) {
+    if (!row.client_key) continue;
+    const lockedUntilMs = row.locked_until ? new Date(row.locked_until).getTime() : undefined;
+    if (lockedUntilMs && lockedUntilMs <= nowMs) {
+      expiredKeys.push(row.client_key);
+      states[row.client_key] = { failures: 0 };
+      continue;
+    }
+    states[row.client_key] = {
+      failures: Number(row.failures ?? 0),
+      lockedUntilMs,
+    };
   }
 
-  return {
-    failures: Number(row.failures ?? 0),
-    lockedUntilMs,
-  };
+  if (expiredKeys.length > 0) await clearDashboardLoginAttemptsForKeys(expiredKeys);
+  return states;
 }
 
 export async function recordDashboardLoginFailure(
@@ -65,12 +88,28 @@ export async function recordDashboardLoginFailure(
 }
 
 export async function clearDashboardLoginAttempts(clientKey: string): Promise<void> {
+  await clearDashboardLoginAttemptsForKeys([clientKey]);
+}
+
+export async function clearDashboardLoginAttemptsForKeys(clientKeys: string[]): Promise<void> {
+  const uniqueKeys = Array.from(new Set(clientKeys.filter(Boolean)));
+  if (uniqueKeys.length === 0) return;
+
   const db = getDb();
   await ensureDashboardAuthAttemptsTable();
-  await db.execute(sql`DELETE FROM dashboard_auth_attempts WHERE client_key = ${clientKey}`);
+  const keyList = sql.join(uniqueKeys.map((key) => sql`${key}`), sql`, `);
+  await db.execute(sql`DELETE FROM dashboard_auth_attempts WHERE client_key IN (${keyList})`);
 }
 
 async function ensureDashboardAuthAttemptsTable(): Promise<void> {
+  ensureDashboardAuthAttemptsTablePromise ??= createDashboardAuthAttemptsTable().catch((error) => {
+    ensureDashboardAuthAttemptsTablePromise = undefined;
+    throw error;
+  });
+  await ensureDashboardAuthAttemptsTablePromise;
+}
+
+async function createDashboardAuthAttemptsTable(): Promise<void> {
   const db = getDb();
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS dashboard_auth_attempts (
@@ -80,4 +119,8 @@ async function ensureDashboardAuthAttemptsTable(): Promise<void> {
       updated_at timestamp with time zone NOT NULL DEFAULT NOW()
     )
   `);
+}
+
+export function resetDashboardLoginAttemptTableCacheForTests(): void {
+  ensureDashboardAuthAttemptsTablePromise = undefined;
 }
