@@ -254,6 +254,42 @@ export const dashboardAuthAttempts = pgTable("dashboard_auth_attempts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Durable command execution jobs.
+ * Every human command from WhatsApp or dashboard lands here before work starts,
+ * so commands get receipts, retries, approval gates, and visible status.
+ */
+export const commandJobs = pgTable(
+  "command_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    source: text("source", { enum: ["whatsapp", "dashboard"] }).notNull(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    command: text("command").notNull(),
+    status: text("status", {
+      enum: ["received", "working", "needs_approval", "done", "failed", "retrying"],
+    }).notNull().default("received"),
+    riskLevel: text("risk_level", { enum: ["safe", "approval_required"] }).notNull().default("safe"),
+    receiptText: text("receipt_text").notNull(),
+    resultText: text("result_text"),
+    error: text("error"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    sourceMessageId: uuid("source_message_id"),
+    sourceExternalId: text("source_external_id"),
+    dedupeKey: text("dedupe_key"),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index("command_jobs_status_idx").on(t.status, t.createdAt),
+    ownerStatusIdx: index("command_jobs_owner_status_idx").on(t.ownerHash, t.status, t.createdAt),
+    dedupeIdx: index("command_jobs_dedupe_idx").on(t.dedupeKey),
+  }),
+);
+
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Memory = typeof memories.$inferSelect;
@@ -274,3 +310,5 @@ export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;
 export type NewSystemHeartbeat = typeof systemHeartbeats.$inferInsert;
 export type DashboardAuthAttempt = typeof dashboardAuthAttempts.$inferSelect;
+export type CommandJob = typeof commandJobs.$inferSelect;
+export type NewCommandJob = typeof commandJobs.$inferInsert;

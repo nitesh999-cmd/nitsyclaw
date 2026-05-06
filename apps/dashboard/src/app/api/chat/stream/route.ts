@@ -22,6 +22,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import {
+  completeCommandJob,
+  createCommandJob,
+  markCommandJobWorking,
+  recordCommandJobFailure,
+} from "@nitsyclaw/shared/ops/command-jobs";
 import { validateChatBody, validateContentLength } from "../../../../lib/chat-validation";
 import {
   encryptDashboardText,
@@ -229,6 +235,19 @@ export async function POST(req: Request) {
     }
     try {
       const { deps } = buildDashboardDeps();
+      const commandJob = await createCommandJob(deps.db, {
+        source: "dashboard",
+        ownerHash,
+        command: last.content,
+      });
+      if (commandJob.status === "needs_approval") {
+        return streamSingleEvent({
+          type: "receipt",
+          id: commandJob.id,
+          status: commandJob.status,
+          text: commandJob.receiptText,
+        });
+      }
       const row = await insertFeatureRequest(deps.db, {
         description,
         type: "feature",
@@ -244,7 +263,8 @@ export async function POST(req: Request) {
         const configError = publicConfigErrorOrNull(persistErr);
         if (configError) return streamSingleEvent({ type: "error", message: configError.reply });
       }
-      return streamSingleEvent({ type: "done", reply, featureId: row.id });
+      await completeCommandJob(deps.db, commandJob.id, reply);
+      return streamSingleEvent({ type: "done", reply, featureId: row.id, commandJob: { id: commandJob.id, status: commandJob.status, receiptText: commandJob.receiptText } });
     } catch (e: unknown) {
       console.error("[chat/stream] addfeature failed", e);
       const configError = publicConfigErrorOrNull(e);
@@ -262,6 +282,20 @@ export async function POST(req: Request) {
   }
   const { deps, anthropic, model } = built;
   const registry = registerAllFeatures({ surface: "dashboard" });
+  const commandJob = await createCommandJob(deps.db, {
+    source: "dashboard",
+    ownerHash,
+    command: last.content,
+  });
+
+  if (commandJob.status === "needs_approval") {
+    return streamSingleEvent({
+      type: "receipt",
+      id: commandJob.id,
+      status: commandJob.status,
+      text: commandJob.receiptText,
+    });
+  }
 
   const history = await loadCrossSurfaceHistory(deps.db, ownerHash, 20).catch(() => []);
 
@@ -275,6 +309,13 @@ export async function POST(req: Request) {
 
       try {
         send({ type: "start", historyLoaded: history.length });
+        send({
+          type: "receipt",
+          id: commandJob.id,
+          status: commandJob.status,
+          text: commandJob.receiptText,
+        });
+        await markCommandJobWorking(deps.db, commandJob.id);
 
         const messages: Array<{ role: "user" | "assistant"; content: string }> = [
           ...history,
@@ -394,6 +435,7 @@ export async function POST(req: Request) {
           }
           console.error("[chat/stream] persist failed", persistErr);
         }
+        await completeCommandJob(deps.db, commandJob.id, finalText || "Done.");
 
         send({
           type: "done",
@@ -404,6 +446,7 @@ export async function POST(req: Request) {
           },
         });
       } catch (e: unknown) {
+        await recordCommandJobFailure(deps.db, commandJob.id, e);
         const configError = publicConfigErrorOrNull(e);
         if (configError) {
           send({ type: "error", message: configError.reply });

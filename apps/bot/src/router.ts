@@ -58,6 +58,12 @@ import {
   insertFeatureRequest,
   listPendingFeatureRequests,
 } from "@nitsyclaw/shared/db";
+import {
+  completeCommandJob,
+  createCommandJob,
+  markCommandJobWorking,
+  recordCommandJobFailure,
+} from "@nitsyclaw/shared/ops/command-jobs";
 import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
@@ -775,36 +781,56 @@ export class Router {
       }
     }
 
-    // 4. Default — agent loop with cross-surface history.
-    const result = await runAgent({
-      userPhone: msg.from,
-      userMessage: effectiveText,
-      history,
-      systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: this.deps.profile }),
-      registry: this.registry,
-      deps: this.deps,
+    // 4. Default — record the command first, then run the agent loop.
+    const commandJob = await createCommandJob(this.deps.db, {
+      source: "whatsapp",
+      ownerHash: hashPhone(this.ownerPhone),
+      command: effectiveText,
+      sourceMessageId: persisted.id,
+      sourceExternalId: msg.id,
     });
-    // The agent should have already replied via reply_to_user; only echo if it didn't.
-    const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);
-    if (replyToUserCall) {
-      // The tool already sent via WhatsApp; persist the reply for cross-surface history.
-      const text = (replyToUserCall.input as { text?: string })?.text ?? "";
-      if (text.trim()) {
-        try {
-          const enc = encryptForStorage(text);
-          await insertMessage(this.deps.db, {
-            direction: "out",
-            surface: "whatsapp",
-            fromNumber: hashPhone(this.ownerPhone),
-            body: enc,
-          });
-        } catch (e) {
-          console.error("[router] failed to persist reply_to_user outbound", e);
+    await this.sendAndPersist(commandJob.receiptText);
+    if (commandJob.status === "needs_approval") return;
+
+    try {
+      await markCommandJobWorking(this.deps.db, commandJob.id);
+      const result = await runAgent({
+        userPhone: msg.from,
+        userMessage: effectiveText,
+        history,
+        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: this.deps.profile }),
+        registry: this.registry,
+        deps: this.deps,
+      });
+      // The agent should have already replied via reply_to_user; only echo if it didn't.
+      const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);
+      let deliveredText = "";
+      if (replyToUserCall) {
+        // The tool already sent via WhatsApp; persist the reply for cross-surface history.
+        const text = (replyToUserCall.input as { text?: string })?.text ?? "";
+        deliveredText = text;
+        if (text.trim()) {
+          try {
+            const enc = encryptForStorage(text);
+            await insertMessage(this.deps.db, {
+              direction: "out",
+              surface: "whatsapp",
+              fromNumber: hashPhone(this.ownerPhone),
+              body: enc,
+            });
+          } catch (e) {
+            console.error("[router] failed to persist reply_to_user outbound", e);
+          }
+          notifyAll(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
         }
-        notifyAll(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
+      } else if (result.finalText.trim()) {
+        deliveredText = result.finalText;
+        await this.sendAndPersist(result.finalText);
       }
-    } else if (result.finalText.trim()) {
-      await this.sendAndPersist(result.finalText);
+      await completeCommandJob(this.deps.db, commandJob.id, deliveredText.trim() || "Done.");
+    } catch (e) {
+      await recordCommandJobFailure(this.deps.db, commandJob.id, e);
+      throw e;
     }
   }
 

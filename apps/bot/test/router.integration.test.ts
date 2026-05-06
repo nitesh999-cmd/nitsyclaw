@@ -86,6 +86,29 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("creates a durable command job and receipt before the default agent loop", async () => {
+    await router.handle({
+      id: "x-job",
+      from: OWNER,
+      body: "I have a new idea. Build it into NitsyClaw.",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      source: "whatsapp",
+      sourceExternalId: "x-job",
+      command: "I have a new idea. Build it into NitsyClaw.",
+      status: "done",
+      riskLevel: "safe",
+    });
+    expect(wa.sent[0].body).toContain("Saved");
+    expect(wa.sent[0].body).toContain("Working on it");
+    expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
+  });
+
   it("voice note → transcribed and acknowledged", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,

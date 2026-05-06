@@ -283,6 +283,8 @@ export default function ChatPage() {
             finalText += event.delta;
             setAssistantContent(finalText);
             handleSpeakBoundary();
+          } else if (event.type === "receipt" && typeof event.text === "string" && !finalText) {
+            setAssistantContent(event.text);
           } else if (event.type === "done") {
             // Speak any remaining unspoken text (final fragment without terminator)
             const remaining = finalText.slice(spokenSoFar).trim();

@@ -13,6 +13,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import {
+  completeCommandJob,
+  createCommandJob,
+  markCommandJobWorking,
+  recordCommandJobFailure,
+} from "@nitsyclaw/shared/ops/command-jobs";
 import { validateChatBody, validateContentLength } from "../../../lib/chat-validation";
 import {
   encryptDashboardText,
@@ -216,6 +222,22 @@ export async function POST(req: Request) {
     const deps = buildDashboardDeps();
     const registry = registerAllFeatures({ surface: "dashboard" });
     const { ownerPhone, ownerHash } = getOwnerIdentity();
+    const commandJob = await createCommandJob(deps.db, {
+      source: "dashboard",
+      ownerHash,
+      command: last.content,
+    });
+    const commandJobMeta = {
+      id: commandJob.id,
+      status: commandJob.status,
+      receiptText: commandJob.receiptText,
+    };
+    if (commandJob.status === "needs_approval") {
+      return NextResponse.json({
+        reply: commandJob.receiptText,
+        meta: { rounds: 0, tools: [], commandJob: commandJobMeta },
+      }, { headers: NO_STORE });
+    }
 
     // /addfeature <description> shortcut (feature_request fr_96407890).
     // Skip the agent loop for instant feedback.
@@ -223,9 +245,11 @@ export async function POST(req: Request) {
     if (addFeatureMatch) {
       const description = addFeatureMatch[1]?.trim() ?? "";
       if (description.length < 5) {
+        const reply = 'Description too short. Try: /addfeature voice input on /chat';
+        await completeCommandJob(deps.db, commandJob.id, reply);
         return NextResponse.json({
-          reply: 'Description too short. Try: /addfeature voice input on /chat',
-          meta: { rounds: 0, tools: [] },
+          reply,
+          meta: { rounds: 0, tools: [], commandJob: commandJobMeta },
         });
       }
       const row = await insertFeatureRequest(deps.db, {
@@ -255,9 +279,10 @@ export async function POST(req: Request) {
           return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
         }
       }
+      await completeCommandJob(deps.db, commandJob.id, reply);
       return NextResponse.json({
         reply,
-        meta: { rounds: 0, tools: [{ name: "request_feature", success: true }], featureId: row.id },
+        meta: { rounds: 0, tools: [{ name: "request_feature", success: true }], featureId: row.id, commandJob: commandJobMeta },
       }, { headers: NO_STORE });
     }
 
@@ -267,15 +292,23 @@ export async function POST(req: Request) {
       () => [],
     );
 
-    const result = await runAgent({
-      userPhone: ownerPhone,
-      userMessage: last.content,
-      history,
-      systemPrompt: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
-      registry,
-      deps,
-      maxRounds: 6,
-    });
+    let result: Awaited<ReturnType<typeof runAgent>>;
+    try {
+      await markCommandJobWorking(deps.db, commandJob.id);
+      result = await runAgent({
+        userPhone: ownerPhone,
+        userMessage: last.content,
+        history,
+        systemPrompt: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
+        registry,
+        deps,
+        maxRounds: 6,
+      });
+      await completeCommandJob(deps.db, commandJob.id, result.finalText || "Done.");
+    } catch (agentErr) {
+      await recordCommandJobFailure(deps.db, commandJob.id, agentErr);
+      throw agentErr;
+    }
 
     // Persist the user turn + assistant reply so cross-surface history sees them.
     try {
@@ -307,6 +340,7 @@ export async function POST(req: Request) {
         rounds: result.rounds,
         tools: result.toolCalls.map((c) => ({ name: c.name, success: c.success })),
         historyLoaded: history.length,
+        commandJob: commandJobMeta,
       },
     }, { headers: NO_STORE });
   } catch (e: unknown) {

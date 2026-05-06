@@ -50,6 +50,13 @@
       "when": 1777799000000,
       "tag": "0006_add_dashboard_auth_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778100800000,
+      "tag": "0007_add_command_jobs",
+      "breakpoints": true
     }
   ]
 }
