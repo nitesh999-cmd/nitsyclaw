@@ -1,6 +1,6 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -32,6 +32,12 @@ import {
 export async function insertMessage(db: DB, m: NewMessage) {
   const [row] = await db.insert(messages).values(m).returning();
   return row!;
+}
+
+/** Delete messages created before `cutoff`. Returns count of deleted rows (best-effort). */
+export async function pruneOldMessages(db: DB, cutoff: Date): Promise<number> {
+  const result = await db.delete(messages).where(lt(messages.createdAt, cutoff));
+  return (result as unknown as { rowCount?: number }).rowCount ?? 0;
 }
 
 export async function recentMessages(db: DB, fromNumber: string, limit = 50) {

@@ -4,10 +4,15 @@
 import cron from "node-cron";
 import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
-import { upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
+import { upsertSystemHeartbeat, pruneOldMessages } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
+
+const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
+const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
+const MEMORY_PRUNER_CRON = process.env.MEMORY_PRUNER_CRON ?? "0 3 * * *";
+const PRUNE_MESSAGES_DAYS = Number(process.env.PRUNE_MESSAGES_DAYS ?? 90);
 
 export interface SchedulerOpts {
   deps: AgentDeps;
@@ -67,7 +72,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
 
   // 7am daily morning brief - multi-account aggregation.
   tasks.push(
-    cron.schedule("0 7 * * *", async () => {
+    cron.schedule(MORNING_BRIEF_CRON, async () => {
       try {
         const now = opts.deps.now();
         if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
@@ -95,7 +100,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
   // CCR sandbox blocks Supabase + ntfy so the CCR routine cannot run;
   // this fires from the always-on bot process instead and notifies Nitesh.
   tasks.push(
-    cron.schedule("0 12 * * *", async () => {
+    cron.schedule(BUILD_AGENT_CRON, async () => {
       try {
         await runDailyBuildAgent(opts.deps, opts.ownerPhone);
       } catch (e) {
@@ -104,10 +109,16 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
     }),
   );
 
-  // 3am daily - memory pruner stub.
+  // 3am daily - memory pruner: delete messages older than PRUNE_MESSAGES_DAYS (default 90).
   tasks.push(
-    cron.schedule("0 3 * * *", async () => {
-      console.log("[cron:prune] noop placeholder");
+    cron.schedule(MEMORY_PRUNER_CRON, async () => {
+      try {
+        const cutoff = new Date(Date.now() - PRUNE_MESSAGES_DAYS * 24 * 60 * 60 * 1000);
+        await pruneOldMessages(opts.deps.db, cutoff);
+        console.log(`[cron:prune] pruned messages older than ${PRUNE_MESSAGES_DAYS} days (cutoff: ${cutoff.toISOString()})`);
+      } catch (e) {
+        console.error("[cron:prune] error", e);
+      }
     }),
   );
 

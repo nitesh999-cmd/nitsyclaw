@@ -90,7 +90,7 @@ export function registerSpotify(registry: ToolRegistry): void {
         name: input.name,
         trackCount: cleanUris.length,
         expiresAt: expiresAt.toISOString(),
-        instruction: "Reply yes to create this private Spotify playlist, or no to cancel.",
+        instruction: `Reply yes ${row.id} to create this private Spotify playlist, or no ${row.id} to cancel.`,
       };
     },
   });

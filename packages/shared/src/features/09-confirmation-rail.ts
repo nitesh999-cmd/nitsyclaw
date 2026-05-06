@@ -1,7 +1,8 @@
 // Feature 9: Confirmation rail — destructive actions wait here.
 //
-// The user replies 'y' / 'yes' or 'n' / 'no' to a pending confirmation id.
-// Without a confirmation id, the most-recently-pending one is used.
+// The user replies 'y <confirmationId>' / 'yes <confirmationId>' or
+// 'n <confirmationId>' / 'no <confirmationId>' to a pending action.
+// Side-effecting actions must never be resolved by a bare "yes".
 
 import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
@@ -13,6 +14,11 @@ import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
 
 export type ConfirmationDecision = "approved" | "rejected" | "expired";
 const EXPLICIT_ID_REQUIRED_ACTIONS = new Set(["email_create_draft"]);
+const SIDE_EFFECT_ACTIONS = new Set([
+  "create_calendar_event",
+  "spotify_create_playlist",
+  "email_create_draft",
+]);
 
 /**
  * Resolve a user reply to a pending confirmation.
@@ -42,7 +48,7 @@ export async function resolveConfirmation(args: {
   }
   if (!row) return null;
   if (row.status !== "pending") return null;
-  if (!args.confirmationId && EXPLICIT_ID_REQUIRED_ACTIONS.has(row.action)) {
+  if (!args.confirmationId && (EXPLICIT_ID_REQUIRED_ACTIONS.has(row.action) || SIDE_EFFECT_ACTIONS.has(row.action))) {
     return null;
   }
 

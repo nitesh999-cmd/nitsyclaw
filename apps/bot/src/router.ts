@@ -9,7 +9,17 @@ import {
   transcribeAndStore,
   processReceiptImage,
   analyzeLifeAdminIntake,
+  checkMessageBeforeSending,
+  cleanMessyNote,
+  comparePersonalOptions,
+  draftWarmReply,
+  extractActionItemsFromText,
   extractDocumentTextFromMedia,
+  extractRenewalWatch,
+  planPhoneCallScript,
+  planTravelDay,
+  prepareFirmComplaint,
+  triageLifeAdminNote,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import {
@@ -25,6 +35,7 @@ import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
+  parseHomeAssistantShortcut,
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
@@ -91,6 +102,89 @@ export class Router {
       result.warnings[0],
     ].filter((line): line is string => Boolean(line));
     return lines.join("\n");
+  }
+
+  private formatHomeAssistantReply(shortcut: NonNullable<ReturnType<typeof parseHomeAssistantShortcut>>): string {
+    const [first = "", second = "", third = "", fourth = ""] = shortcut.parts;
+    switch (shortcut.kind) {
+      case "sort-actions": {
+        const result = extractActionItemsFromText({ text: shortcut.text, now: this.deps.now() });
+        const lines = result.items.slice(0, 8).map((item, index) => {
+          const due = item.dueHint ? ` (${item.dueHint})` : "";
+          return `${index + 1}. ${item.title}${due}`;
+        });
+        return lines.length ? `Next steps:\n${lines.join("\n")}` : "I could not find clear action items. Try: next steps: pay bill by Friday. call dentist tomorrow.";
+      }
+      case "triage-admin": {
+        const result = triageLifeAdminNote({ text: shortcut.text });
+        const lines = Object.entries(result.buckets)
+          .filter(([, items]) => items.length > 0)
+          .map(([bucket, items]) => `${bucket}: ${items.join("; ")}`);
+        return lines.length ? `Life admin sorted:\n${lines.join("\n")}` : "I could not sort that yet. Add a few more details after sort admin:";
+      }
+      case "clean-note": {
+        return `Tidy note:\n${cleanMessyNote({ text: shortcut.text }).cleaned}`;
+      }
+      case "draft-reply": {
+        const result = draftWarmReply({
+          recipient: first || undefined,
+          situation: second || shortcut.text,
+          intent: third || "reply naturally",
+        });
+        return `Reply draft:\n${result.body}`;
+      }
+      case "compare-options": {
+        const optionInputs = shortcut.parts.slice(1, -1);
+        const options = optionInputs.length > 0
+          ? optionInputs.map((option) => {
+              const [name = option, ...rest] = option.split(";").map((part) => part.trim()).filter(Boolean);
+              return { name, pros: rest.filter((part) => !/slow|expensive|cost|fee|lock/i.test(part)), cons: rest.filter((part) => /slow|expensive|cost|fee|lock/i.test(part)) };
+            })
+          : [{ name: "Option 1", pros: [shortcut.text] }];
+        const result = comparePersonalOptions({
+          decision: first || "Which option should I pick?",
+          options,
+          priorities: fourth ? [fourth] : undefined,
+        });
+        return `Recommendation: ${result.recommended}\nWhy: ${result.reason}`;
+      }
+      case "call-script": {
+        const result = planPhoneCallScript({
+          contact: first || "the company",
+          goal: second || shortcut.text,
+          facts: third ? [third] : undefined,
+        });
+        return `Call prep:\n${result.openingLine}\nQuestions:\n- ${result.keyQuestions.slice(0, 4).join("\n- ")}\nFallback text:\n${result.fallbackSms}`;
+      }
+      case "renewal-watch": {
+        const result = extractRenewalWatch({ text: shortcut.text });
+        const lines = result.items.map((item, index) => `${index + 1}. ${item.label}: ${item.action}${item.date ? ` by ${item.date}` : ""}`);
+        return lines.length ? `Renewal watch:\n${lines.join("\n")}` : "No renewal or cancellation dates found. Paste the exact renewal/cancellation wording.";
+      }
+      case "complaint": {
+        const result = prepareFirmComplaint({
+          company: first || "the company",
+          issue: second || shortcut.text,
+          desiredOutcome: third || "fix the issue or explain it in writing",
+          deadline: fourth || undefined,
+        });
+        return `Firm complaint:\n${result.message}`;
+      }
+      case "check-message": {
+        const result = checkMessageBeforeSending({ text: shortcut.text });
+        const flags = result.flags.length ? result.flags.join(", ") : "no major issues";
+        return `Check before sending:\nFlags: ${flags}\nSafer version:\n${result.saferText}`;
+      }
+      case "travel-day": {
+        const commitments = third ? third.split(",").map((part) => part.trim()).filter(Boolean) : undefined;
+        const result = planTravelDay({
+          destination: first || shortcut.text,
+          date: second || undefined,
+          commitments,
+        });
+        return `${result.title}\n- ${result.checklist.join("\n- ")}`;
+      }
+    }
   }
 
   async handle(msg: InboundMessage): Promise<void> {
@@ -239,6 +333,16 @@ export class Router {
       return;
     }
 
+    const homeShortcut = parseHomeAssistantShortcut(effectiveText);
+    if (homeShortcut) {
+      try {
+        await this.sendAndPersist(this.formatHomeAssistantReply(homeShortcut));
+      } catch (homeShortcutError) {
+        await this.sendPublicFailure("home helper shortcut", "Could not run that home helper. Try the same request in plain words.", homeShortcutError);
+      }
+      return;
+    }
+
     const locationShortcut = parseLocationShortcut(effectiveText);
     if (locationShortcut) {
       const tool = this.registry.get("set_current_location");
@@ -347,9 +451,9 @@ export class Router {
         : "no";
       if (!confirmationId) {
         const latest = await getLatestPendingConfirmation(this.deps.db);
-        if (latest?.action === "email_create_draft") {
+        if (latest && confirmationNeedsExplicitId(latest.action)) {
           await this.sendAndPersist(
-            `Email drafts need the confirmation id. Reply ${reply} ${latest.id} to resolve this draft.`,
+            `${confirmationActionLabel(latest.action)} need the confirmation id. Reply ${reply} ${latest.id} to resolve this safely.`,
           );
           return;
         }
@@ -432,4 +536,23 @@ export class Router {
 
 function parseConfirmationId(text: string): string | undefined {
   return text.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)?.[0];
+}
+
+function confirmationNeedsExplicitId(action: string): boolean {
+  return action === "email_create_draft" ||
+    action === "create_calendar_event" ||
+    action === "spotify_create_playlist";
+}
+
+function confirmationActionLabel(action: string): string {
+  switch (action) {
+    case "email_create_draft":
+      return "Email drafts";
+    case "create_calendar_event":
+      return "Calendar changes";
+    case "spotify_create_playlist":
+      return "Spotify playlist creation";
+    default:
+      return "Pending actions";
+  }
 }

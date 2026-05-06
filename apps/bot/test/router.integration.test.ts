@@ -224,6 +224,36 @@ describe("Router (integration)", () => {
     expect(state.confirmations[0].status).toBe("pending");
   });
 
+  it("requires confirmation id before resolving pending calendar approval", async () => {
+    const state = getFakeDbState(deps.db);
+    state.confirmations.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      action: "create_calendar_event",
+      payload: {
+        title: "Call Maya",
+        start: "2026-05-03T14:00:00Z",
+        durationMin: 30,
+        participants: ["maya@example.com"],
+      },
+      status: "pending",
+      expiresAt: new Date("2026-05-03T14:00:00Z"),
+      createdAt: new Date("2026-05-03T13:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "yes",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Calendar changes need the confirmation id"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("05608bae-9152-43ea-bec9-df3a8c6b4c72"))).toBe(true);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+    expect(state.confirmations[0].status).toBe("pending");
+  });
+
   it("resolves pending email draft when confirmation id is included", async () => {
     const state = getFakeDbState(deps.db);
     state.confirmations.push({
@@ -312,5 +342,34 @@ describe("Router (integration)", () => {
 
     expect(wa.sent).toHaveLength(1);
     expect(wa.sent[0].body).toBe("Build agent checked the queue. No pending features or bugs.");
+  });
+
+  it("home helper shortcut replies directly without the model loop", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "next steps: Pay electricity bill by Friday. Call dentist tomorrow.",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Next steps"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Pay electricity bill"))).toBe(true);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("message safety shortcut redacts long sensitive numbers", async () => {
+    await router.handle({
+      id: "x",
+      from: OWNER,
+      body: "check before send: I am furious. My card is 4111111111111111. Fix this now or else.",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Check before sending");
+    expect(wa.sent[0].body).toContain("contains_sensitive_number");
+    expect(wa.sent[0].body).not.toContain("4111111111111111");
+    expect(wa.sent[0].body).toContain("********1111");
   });
 });

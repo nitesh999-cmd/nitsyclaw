@@ -20,7 +20,7 @@ type ToolOutput = Record<string, unknown> & {
 };
 
 describe("resolveConfirmation", () => {
-  it("approves when reply is 'y' and confirmation pending", async () => {
+  it("approves when reply is 'y' with the confirmation id", async () => {
     const { db, state } = makeFakeDb();
     state.confirmations.push({
       id: "c1",
@@ -30,7 +30,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "yes", confirmationId: "c1", now: NOW });
     expect(out?.decision).toBe("approved");
   });
 
@@ -44,7 +44,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db, reply: "no", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "no", confirmationId: "c1", now: NOW });
     expect(out?.decision).toBe("rejected");
   });
 
@@ -58,7 +58,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T07:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db, reply: "y", now: NOW });
+    const out = await resolveConfirmation({ db, reply: "y", confirmationId: "c1", now: NOW });
     expect(out?.decision).toBe("expired");
   });
 
@@ -74,12 +74,46 @@ describe("resolveConfirmation", () => {
     expect(out).toBeNull();
   });
 
-  it("does not resolve pending email drafts without an explicit confirmation id", async () => {
+  it("does not resolve side-effect confirmations without an explicit confirmation id", async () => {
     const { db, state } = makeFakeDb();
     state.confirmations.push({
       id: "c1",
       action: "email_create_draft",
       payload: { provider: "gmail", to: ["a@example.com"], subject: "S", body: "B" },
+      status: "pending",
+      expiresAt: new Date("2026-04-25T09:00:00Z"),
+      createdAt: NOW,
+    });
+
+    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
+
+    expect(out).toBeNull();
+    expect(state.confirmations[0].status).toBe("pending");
+  });
+
+  it("does not resolve pending Spotify playlist creation without an explicit confirmation id", async () => {
+    const { db, state } = makeFakeDb();
+    state.confirmations.push({
+      id: "c1",
+      action: "spotify_create_playlist",
+      payload: { name: "Mix", uris: ["spotify:track:1"] },
+      status: "pending",
+      expiresAt: new Date("2026-04-25T09:00:00Z"),
+      createdAt: NOW,
+    });
+
+    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
+
+    expect(out).toBeNull();
+    expect(state.confirmations[0].status).toBe("pending");
+  });
+
+  it("does not resolve pending calendar creation without an explicit confirmation id", async () => {
+    const { db, state } = makeFakeDb();
+    state.confirmations.push({
+      id: "c1",
+      action: "create_calendar_event",
+      payload: { title: "Call" },
       status: "pending",
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
@@ -132,7 +166,7 @@ describe("resolve_confirmation tool — calendar routing", () => {
   it("routes outlook payload to createOutlookEvent when method exists", async () => {
     const outlookSpy = vi.fn(async () => ({ id: "o1", htmlLink: "https://outlook/o" }));
     const { tool, deps, googleSpy } = setup({ calendarPayload: "outlook", outlookFn: outlookSpy });
-    const out = await tool.handler({ reply: "yes" }, ctx(deps)) as ToolOutput;
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx(deps)) as ToolOutput;
     expect(outlookSpy).toHaveBeenCalledOnce();
     expect(googleSpy).not.toHaveBeenCalled();
     expect(out.calendar).toBe("outlook");
@@ -141,7 +175,7 @@ describe("resolve_confirmation tool — calendar routing", () => {
 
   it("falls back to Google with note when outlook requested but unavailable on surface", async () => {
     const { tool, deps, googleSpy } = setup({ calendarPayload: "outlook" });
-    const out = await tool.handler({ reply: "yes" }, ctx(deps)) as ToolOutput;
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx(deps)) as ToolOutput;
     expect(googleSpy).toHaveBeenCalledOnce();
     expect(out.calendar).toBe("google");
     expect(out.fallback).toMatch(/outlook unavailable/i);
@@ -149,7 +183,7 @@ describe("resolve_confirmation tool — calendar routing", () => {
 
   it("defaults to Google when payload omits calendar field", async () => {
     const { tool, deps, googleSpy } = setup({});
-    const out = await tool.handler({ reply: "yes" }, ctx(deps)) as ToolOutput;
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx(deps)) as ToolOutput;
     expect(googleSpy).toHaveBeenCalledOnce();
     expect(out.calendar).toBe("google");
   });

@@ -56,7 +56,11 @@ export async function POST(request: Request): Promise<Response> {
     (clientState.lockedUntilMs && clientState.lockedUntilMs > now) ||
     (accountState.lockedUntilMs && accountState.lockedUntilMs > now)
   ) {
-    return redirectToLogin("locked", next, 303);
+    const lockedUntil = latestLockUntil(clientState, accountState);
+    const retryAfterSec = Math.max(1, Math.ceil((lockedUntil - now) / 1000));
+    const res = redirectToLogin("locked", next, 303);
+    res.headers.set("Retry-After", String(retryAfterSec));
+    return res;
   }
 
   if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
@@ -93,7 +97,7 @@ export async function POST(request: Request): Promise<Response> {
   return response;
 }
 
-function redirectToLogin(error: "invalid" | "locked", next: string, status: 303): Response {
+function redirectToLogin(error: "invalid" | "locked", next: string, status: 303): ReturnType<typeof NextResponse.redirect> {
   const params = new URLSearchParams({ error, next });
   return NextResponse.redirect(`/login?${params.toString()}`, status);
 }
@@ -130,11 +134,15 @@ function authAttemptTimeoutMs(): number {
   return DEFAULT_AUTH_ATTEMPT_TIMEOUT_MS;
 }
 
+function latestLockUntil(...states: DashboardLoginAttemptState[]): number {
+  return Math.max(...states.map((state) => state.lockedUntilMs ?? 0));
+}
+
 async function withAuthAttemptTimeout<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<T>((resolve) => {
     timeout = setTimeout(() => {
-      console.error(`[dashboard-auth] ${label} timed out; continuing with fallback`);
+      console.error("[dashboard-auth] operation timed out; continuing with fallback", { label });
       resolve(fallback);
     }, authAttemptTimeoutMs());
   });
@@ -142,7 +150,7 @@ async function withAuthAttemptTimeout<T>(promise: Promise<T>, fallback: T, label
   try {
     return await Promise.race([
       promise.catch((error) => {
-        console.error(`[dashboard-auth] ${label} failed; continuing with fallback`, error);
+        console.error("[dashboard-auth] operation failed; continuing with fallback", { label, error });
         return fallback;
       }),
       timeoutPromise,

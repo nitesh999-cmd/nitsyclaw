@@ -10,7 +10,7 @@ export function registerScheduleCall(registry: ToolRegistry): void {
   registry.register({
     name: "schedule_call",
     description:
-      "Propose a calendar event with a participant. Returns a pending confirmation id; the user must reply 'y' before it is created. " +
+      "Propose a calendar event with a participant. Returns a pending confirmation id; the user must reply 'yes <confirmationId>' before it is created. " +
       "Use 'calendar' to choose the destination: 'google' (default, personal Gmail) or 'outlook' (Wattage M365). " +
       "Pick 'outlook' when the user mentions wattage / work / outlook; otherwise default to 'google'.",
     inputSchema: z.object({
@@ -66,7 +66,7 @@ export function registerScheduleCall(registry: ToolRegistry): void {
           `Found: ${input.title} with ${input.participantEmail}\n` +
           `Calendar: ${where}\n` +
           `Slot: ${chosen.toISOString()}\n` +
-          `Reply 'y' (within 30 min) to create or 'n' to cancel.\n` +
+          `Reply 'yes ${conf.id}' (within 30 min) to create or 'no ${conf.id}' to cancel.\n` +
           `Confirmation id: ${conf.id}`,
       });
 

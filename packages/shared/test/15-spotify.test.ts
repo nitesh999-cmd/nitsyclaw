@@ -7,7 +7,7 @@ import {
   saveSpotifyConnection,
 } from "../src/integrations/spotify.js";
 import { hashPhone } from "../src/utils/crypto.js";
-import { makeAgentDeps, makeFakeDb } from "./helpers.js";
+import { getFakeDbState, makeAgentDeps, makeFakeDb } from "./helpers.js";
 
 const key = Buffer.alloc(32, 9).toString("base64");
 type SpotifyToolOutput = {
@@ -127,7 +127,7 @@ describe("spotify integration", () => {
 
     const tool = registerAllFeatures({ surface: "whatsapp" }).get("resolve_confirmation")!;
     const out = await tool.handler(
-      { reply: "yes" },
+      { reply: "yes", confirmationId: getFakeDbState(deps.db).confirmations[0].id },
       { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone },
     ) as SpotifyToolOutput;
 

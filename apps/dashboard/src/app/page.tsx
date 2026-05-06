@@ -25,7 +25,16 @@ async function loadToday() {
   };
 }
 
+function timeGreeting(): string {
+  const tz = process.env.TIMEZONE ?? "UTC";
+  const hour = Number(new Date().toLocaleString("en-AU", { timeZone: tz, hour: "numeric", hour12: false }));
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default async function TodayPage() {
+  const greeting = timeGreeting();
   let data: Awaited<ReturnType<typeof loadToday>>;
   try {
     data = await loadToday();
@@ -50,7 +59,7 @@ export default async function TodayPage() {
           <div>
             <h1 className="nc-eyebrow">Today</h1>
             <h2 className="mt-2 max-w-3xl text-3xl font-semibold leading-tight md:text-5xl">
-              Life admin, finally in one place.
+              {greeting}. Life admin, sorted.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600 md:text-base">
               A calm daily view for decisions, reminders, spending, and the little things that should not slip.

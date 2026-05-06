@@ -41,13 +41,19 @@ export async function POST(request: Request): Promise<never | Response> {
   }
 
   const completedAt = status === "done" || status === "rejected" ? new Date() : undefined;
-  const updated = await setFeatureRequestStatus(getDb(), id, {
-    status: status as "pending" | "in_progress" | "done" | "rejected",
-    expectedStatus: expectedStatus as "pending" | "in_progress" | "done" | "rejected",
-    implementationNotes: status === "done" ? note : undefined,
-    rejectionReason: status === "rejected" ? note : undefined,
-    completedAt,
-  });
+  let updated: boolean;
+  try {
+    updated = await setFeatureRequestStatus(getDb(), id, {
+      status: status as "pending" | "in_progress" | "done" | "rejected",
+      expectedStatus: expectedStatus as "pending" | "in_progress" | "done" | "rejected",
+      implementationNotes: status === "done" ? note : undefined,
+      rejectionReason: status === "rejected" ? note : undefined,
+      completedAt,
+    });
+  } catch (e) {
+    console.error("[queue/update] DB error", e);
+    return new Response("Server error", { status: 500, headers: NO_STORE });
+  }
   if (!updated) {
     return new Response("Queue item not found", { status: 404, headers: NO_STORE });
   }

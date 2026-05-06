@@ -27,7 +27,8 @@ describe("schedule_call tool", () => {
     );
     expect((out as ScheduleCallOutput).confirmationId).toBeTruthy();
     expect(wa.sent.length).toBe(1);
-    expect(wa.sent[0].body).toContain("Reply 'y'");
+    expect(wa.sent[0].body).toContain(`Reply 'yes ${(out as ScheduleCallOutput).confirmationId}'`);
+    expect(wa.sent[0].body).toContain(`'no ${(out as ScheduleCallOutput).confirmationId}'`);
   });
 
   it("rejects backwards windows", async () => {
