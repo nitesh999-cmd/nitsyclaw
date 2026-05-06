@@ -1544,3 +1544,63 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Destructive data controls now behave like production controls, not demo buttons.
 - Rollback is closer to an operator-safe procedure instead of a hopeful alias command.
 - The rollback target must still be recorded from live Vercel output after each deploy because a committed doc cannot know its own future production URL.
+
+---
+
+## 55. Session 44 (2026-05-06) — UI design system unification + Level 2 M365 sendMail
+
+**Goal:** Complete the UI Level 1 glow-up across all dashboard pages, add M365 Mail.Send, add memory pruner, and make the Operator Command surface dark-theme consistent.
+
+**What changed:**
+
+### Level 1: UI design system
+- `globals.css`: upgraded to gold/amber design system (`--accent: #d8b75d`). Added `nc-shell`, `nc-sidebar`, `nc-mobile-topbar`, `nc-brand-mark`, `nc-nav-link`, `nc-nav-link-active/idle`, `nc-muted`, `nc-empty`, `nc-pill`, `nc-input`, `nc-button`, `nc-button-primary` utility classes.
+- `dashboard-shell.tsx`: full mobile-first shell rebuild — sticky mobile topbar, desktop sidebar hidden on mobile, fixed bottom nav with 5 items (Today/Chat/Command/Reminders/Queue), gold active state `text-[#f1d58a]`.
+- `layout.tsx`: Geist font via `next/font/google` + PWA manifest + `appleWebApp` metadata + `themeColor: #090b0f`.
+- `manifest.json`: SVG icon with gold N on dark background.
+- `icon.svg`: new PWA icon.
+- `page.tsx` (Today): time-based greeting using `toLocaleString` server-side.
+- All pages migrated to `nc-page` / `nc-hero` / `nc-section` wrapper: `integrations`, `help`, `onboarding`, `expenses`, `reminders`.
+- `activity/page.tsx`: count tiles now clickable links to `/conversations`, `/reminders`, `/confirmations`, `/expenses` with gold hover.
+- `command/page.tsx`: all `stone-*` colors replaced with dark-theme `slate-*` + gold accent. Metric values use `text-slate-100`.
+- `.env.local.example`: added `NOTIFY_EMAIL`, `DASHBOARD_URL`, `MORNING_BRIEF_CRON`, `BUILD_AGENT_CRON`, `MEMORY_PRUNER_CRON`, `PRUNE_MESSAGES_DAYS`, `NITSYCLAW_AUTH_ATTEMPT_TIMEOUT_MS`.
+
+### Level 2: Microsoft Graph Mail.Send
+- `microsoft-auth.ts`: added `Mail.Send` scope.
+- `microsoft-graph.ts`: added `sendMail({ to, subject, body })` — HTML body, `saveToSentItems: false`, 202 = success.
+- `notify-all.ts`: new `notifyAll()` hub that fires ntfy push + MS email notification in parallel; test-guarded.
+- `router.ts`: both `pushNotify` calls replaced with `notifyAll`.
+
+### Other
+- `packages/shared/src/db/repo.ts`: added `pruneOldMessages(db, cutoff)` using `lt` operator.
+- `apps/bot/src/scheduler.ts`: added cron env var overrides + real memory pruner cron job.
+- `apps/bot/src/yahoo-imap.ts`: deleted (dead file, 0 imports).
+- `apps/dashboard/src/app/api/auth/login/route.ts`: Retry-After header on lockout + `latestLockUntil` helper.
+- `apps/dashboard/src/app/api/queue/update/route.ts`: DB errors return 500, `redirect()` moved outside try-catch.
+- `loading.tsx`: dark skeleton with PULSE constant.
+- `error.tsx`: branded error page.
+- `not-found.tsx`: 404 page with home + chat CTAs.
+- Several dashboard API routes: `requireSameOrigin` added.
+
+**Design system tokens:**
+```
+--accent: #d8b75d (gold)
+--accent-2: #52d6a3
+--bg: #090b0f
+--panel: #0d1117
+```
+
+**Key patterns:**
+- `nc-page` → `space-y-10` container
+- `nc-hero` → `pb-8 border-b` section
+- `nc-section` → `py-6` section
+- `nc-tile` → `rounded-xl border border-slate-800 bg-slate-900/40 p-4`
+- `nc-button-primary` → gold bg, dark text
+- `nc-input` → `border border-slate-800 bg-transparent px-3 py-2 text-sm`
+- Time-based greeting: `toLocaleString("en-AU", { timeZone: tz, hour: "numeric", hour12: false })`
+- notifyAll test guard: `if (process.env.NODE_ENV === "test" || process.env.VITEST === "true") return;`
+
+**Verification:**
+- `pnpm --filter @nitsyclaw/dashboard exec tsc --noEmit` passed.
+- `pnpm --filter @nitsyclaw/shared exec tsc --noEmit` passed.
+- `pnpm --filter @nitsyclaw/bot exec tsc --noEmit` passed.

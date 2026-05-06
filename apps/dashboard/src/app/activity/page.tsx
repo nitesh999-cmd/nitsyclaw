@@ -58,10 +58,26 @@ export default async function ActivityPage() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-4">
-            <div className="nc-tile text-sm">Messages: {data.recentMessages.length}</div>
-            <div className="nc-tile text-sm">Reminders: {data.recentReminders.length}</div>
-            <div className="nc-tile text-sm">Confirmations: {data.recentConfirmations.length}</div>
-            <div className="nc-tile text-sm">Expenses: {data.recentExpenses.length}</div>
+            <a href="/conversations" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+              <div className="nc-eyebrow mb-2">Messages</div>
+              <div className="text-2xl font-semibold text-slate-100">{data.recentMessages.length}</div>
+              <div className="mt-1 text-xs text-slate-500">recent</div>
+            </a>
+            <a href="/reminders" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+              <div className="nc-eyebrow mb-2">Reminders</div>
+              <div className="text-2xl font-semibold text-slate-100">{data.recentReminders.length}</div>
+              <div className="mt-1 text-xs text-slate-500">recent</div>
+            </a>
+            <a href="/confirmations" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+              <div className="nc-eyebrow mb-2">Confirmations</div>
+              <div className="text-2xl font-semibold text-slate-100">{data.recentConfirmations.length}</div>
+              <div className="mt-1 text-xs text-slate-500">recent</div>
+            </a>
+            <a href="/expenses" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+              <div className="nc-eyebrow mb-2">Expenses</div>
+              <div className="text-2xl font-semibold text-slate-100">{data.recentExpenses.length}</div>
+              <div className="mt-1 text-xs text-slate-500">recent</div>
+            </a>
           </section>
         </>
       ) : null}

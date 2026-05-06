@@ -76,9 +76,9 @@ function timeoutOperatorState(ms: number): Promise<null> {
 
 function metric(label: string, value: string | number, href?: string) {
   const body = (
-    <div className="nc-tile">
+    <div className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
       <div className="nc-eyebrow">{label}</div>
-      <div className="mt-3 text-2xl font-semibold text-stone-950">{value}</div>
+      <div className="mt-3 text-2xl font-semibold text-slate-100">{value}</div>
     </div>
   );
   return href ? <a href={href}>{body}</a> : body;
@@ -110,7 +110,7 @@ export default async function CommandPage() {
           <div>
             <div className="nc-eyebrow">Home plan</div>
             <h2 className="mt-2 text-3xl font-semibold">Operator Command</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
               A simple place to check requests, bugs, approvals, WhatsApp health, and what should be handled next.
             </p>
           </div>
@@ -119,7 +119,7 @@ export default async function CommandPage() {
       </section>
 
       {unavailable ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded-xl border border-red-900 bg-red-950/30 p-4 text-sm text-red-200">
           Command state is unavailable. Check server logs.
         </div>
       ) : null}
@@ -140,23 +140,23 @@ export default async function CommandPage() {
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="nc-eyebrow">Home upgrades</div>
-            <div className="mt-1 text-sm text-stone-600">
+            <div className="mt-1 text-sm text-slate-400">
               {operatorMissionCount} of {OPERATOR_MISSIONS.length} top missions are in the durable queue.
             </div>
           </div>
-          <a href="/queue" className="text-sm font-semibold text-[#8e3f24] hover:text-stone-950">
+          <a href="/queue" className="text-sm font-semibold text-[#d8b75d] hover:text-[#f1d58a]">
             Open requests
           </a>
         </div>
 
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           {data?.operatorMissions.slice(0, 6).map((mission) => (
-            <div key={mission.id} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3">
+            <div key={mission.id} className="rounded-xl border border-slate-700 bg-slate-800/40 p-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-stone-500">{mission.severity ?? "P2"}</div>
-                <div className="text-xs text-stone-500">{mission.status}</div>
+                <div className="text-xs text-slate-500">{mission.severity ?? "P2"}</div>
+                <div className="text-xs text-slate-500">{mission.status}</div>
               </div>
-              <div className="mt-2 line-clamp-2 text-sm text-stone-800">{mission.description}</div>
+              <div className="mt-2 line-clamp-2 text-sm text-slate-200">{mission.description}</div>
             </div>
           ))}
           {operatorMissionCount === 0 ? (
@@ -169,12 +169,12 @@ export default async function CommandPage() {
 
       <section className="nc-section">
         <div className="nc-eyebrow">Local runner</div>
-        <div className="mt-2 text-sm text-stone-600">
+        <div className="mt-2 text-sm text-slate-400">
           Use the laptop runner for real queue execution. It previews by default and only mutates queue state with an explicit mode.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {["pnpm operator:next", "pnpm operator:claim", "pnpm operator:reject-unsafe"].map((command) => (
-            <code key={command} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3 text-xs text-stone-800">
+            <code key={command} className="rounded-xl border border-slate-700 bg-slate-800/40 p-3 text-xs text-slate-300">
               {command}
             </code>
           ))}
@@ -184,22 +184,22 @@ export default async function CommandPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="nc-tile">
           <div className="nc-eyebrow">Loop guard</div>
-          <div className="mt-2 text-sm text-stone-800">{loopGuard?.status ?? "unknown"}</div>
-          <div className="mt-1 text-xs text-stone-500">
+          <div className="mt-2 text-sm text-slate-200">{loopGuard?.status ?? "unknown"}</div>
+          <div className="mt-1 text-xs text-slate-500">
             {loopGuard ? new Date(loopGuard.lastSeenAt).toLocaleString() : "No heartbeat"}
           </div>
         </div>
 
         <div className="nc-tile">
           <div className="nc-eyebrow">Last message</div>
-          <div className="mt-2 text-sm text-stone-800">
+          <div className="mt-2 text-sm text-slate-200">
             {data?.latestMessage ? new Date(data.latestMessage.createdAt).toLocaleString() : "None"}
           </div>
         </div>
 
         <div className="nc-tile">
           <div className="nc-eyebrow">Latest tools</div>
-          <div className="mt-2 space-y-1 text-xs text-stone-600">
+          <div className="mt-2 space-y-1 text-xs text-slate-400">
             {data?.latestAudit.length
               ? data.latestAudit.map((row) => (
                   <div key={row.id}>

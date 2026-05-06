@@ -84,9 +84,12 @@ export default async function ExpensesPage({
 
   if (errorMsg) {
     return (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">Expenses</h2>
-        <div className="p-4 bg-red-950/40 border border-red-900 rounded text-sm">
+      <div className="nc-page">
+        <section className="nc-hero">
+          <div className="nc-eyebrow">Spend tracking</div>
+          <h2 className="mt-2 text-3xl font-semibold">Expenses</h2>
+        </section>
+        <div className="border border-red-900 bg-red-950/40 p-4 text-sm">
           <p className="font-medium text-red-300">Could not load expenses</p>
           <p className="text-xs text-red-400 mt-2">{errorMsg}</p>
         </div>
@@ -103,80 +106,89 @@ export default async function ExpensesPage({
   const displayCurrency = currencies.length === 1 ? currencies[0] : "mixed";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Expenses</h2>
-        <p className="mt-2 text-xs text-neutral-500" data-testid="expenses-total">
-          {rows.length} expenses - total {displayCurrency} {(total / 100).toFixed(2)}
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Spend tracking</div>
+        <h2 className="mt-2 text-3xl font-semibold">Expenses</h2>
+        <p className="mt-3 text-sm text-slate-400" data-testid="expenses-total">
+          {rows.length} expenses — total {displayCurrency} {(total / 100).toFixed(2)}
         </p>
-      </div>
+      </section>
 
-      <form action={addExpense} className="grid gap-3 border border-neutral-800 p-4 md:grid-cols-[120px_100px_160px_1fr_180px_auto]">
-        <input name="amount" required placeholder="18.50" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="currency" placeholder="AUD" defaultValue="AUD" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="category" placeholder="coffee" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="merchant" placeholder="Merchant" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="occurredAt" type="datetime-local" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <button className="border border-neutral-700 px-4 py-2 text-sm hover:border-neutral-500">Add</button>
-        <input name="notes" placeholder="Notes" className="md:col-span-6 border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-      </form>
+      <section className="nc-section">
+        <h3 className="nc-eyebrow mb-3">Log expense</h3>
+        <form action={addExpense} className="grid gap-3 border border-slate-800 p-4 md:grid-cols-[120px_100px_160px_1fr_180px_auto]">
+          <input name="amount" required placeholder="18.50" className="nc-input" />
+          <input name="currency" placeholder="AUD" defaultValue="AUD" className="nc-input" />
+          <input name="category" placeholder="coffee" className="nc-input" />
+          <input name="merchant" placeholder="Merchant" className="nc-input" />
+          <input name="occurredAt" type="datetime-local" className="nc-input" />
+          <button className="nc-button">Add</button>
+          <input name="notes" placeholder="Notes" className="nc-input md:col-span-6" />
+        </form>
+      </section>
 
-      <form className="grid gap-3 border border-neutral-800 p-4 md:grid-cols-[1fr_160px_160px_160px_auto_auto]">
-        <input name="q" defaultValue={normalizedFilters.q ?? ""} placeholder="Merchant search" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="category" defaultValue={normalizedFilters.category ?? ""} placeholder="Category" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="from" defaultValue={normalizedFilters.from ?? ""} type="date" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <input name="to" defaultValue={normalizedFilters.to ?? ""} type="date" className="border border-neutral-800 bg-transparent px-3 py-2 text-sm" />
-        <button className="border border-neutral-700 px-4 py-2 text-sm hover:border-neutral-500">Filter</button>
-        <a href={asCsvUrl(filters)} className="border border-neutral-700 px-4 py-2 text-center text-sm hover:border-neutral-500">
-          CSV
-        </a>
-      </form>
+      <section className="nc-section">
+        <h3 className="nc-eyebrow mb-3">Filter</h3>
+        <form className="grid gap-3 border border-slate-800 p-4 md:grid-cols-[1fr_160px_160px_160px_auto_auto]">
+          <input name="q" defaultValue={normalizedFilters.q ?? ""} placeholder="Merchant search" className="nc-input" />
+          <input name="category" defaultValue={normalizedFilters.category ?? ""} placeholder="Category" className="nc-input" />
+          <input name="from" defaultValue={normalizedFilters.from ?? ""} type="date" className="nc-input" />
+          <input name="to" defaultValue={normalizedFilters.to ?? ""} type="date" className="nc-input" />
+          <button className="nc-button">Filter</button>
+          <a href={asCsvUrl(filters)} className="nc-button text-center">CSV</a>
+        </form>
+      </section>
 
       {Object.keys(categoryTotals).length ? (
-        <section className="grid gap-3 md:grid-cols-4">
+        <section className="nc-section grid gap-3 md:grid-cols-4">
           {Object.entries(categoryTotals)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 8)
             .map(([category, amount]) => (
-              <div key={category} className="border border-neutral-800 p-3">
-                <div className="text-xs uppercase text-neutral-500">{category}</div>
-                <div className="mt-1 text-sm">{displayCurrency} {(amount / 100).toFixed(2)}</div>
+              <div key={category} className="nc-tile">
+                <div className="nc-eyebrow">{category}</div>
+                <div className="mt-2 text-lg font-semibold text-slate-100">{displayCurrency} {(amount / 100).toFixed(2)}</div>
               </div>
             ))}
         </section>
       ) : null}
 
       {rows.length === 0 ? (
-        <p className="text-sm text-neutral-500">No expenses logged. Add one above or send a receipt photo on WhatsApp.</p>
+        <section className="nc-section">
+          <p className="nc-muted">No expenses logged. Add one above or send a receipt photo on WhatsApp.</p>
+        </section>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-neutral-400 border-b border-neutral-800">
-              <th className="py-2 pr-4">Date</th>
-              <th className="pr-4">Merchant</th>
-              <th className="pr-4">Category</th>
-              <th className="pr-4">Notes</th>
-              <th className="text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} className="border-b border-neutral-900">
-                <td className="py-2 pr-4 whitespace-nowrap text-neutral-300">
-                  {new Date(row.occurredAt).toLocaleDateString()}
-                </td>
-                <td className="pr-4 text-neutral-100">{row.merchant ?? "-"}</td>
-                <td className="pr-4 text-xs">
-                  <span className="px-2 py-0.5 bg-neutral-800 text-neutral-300 rounded">{row.category}</span>
-                </td>
-                <td className="pr-4 text-xs text-neutral-500">{row.notes ?? ""}</td>
-                <td className="text-right whitespace-nowrap text-neutral-100">
-                  {row.currency} {(row.amount / 100).toFixed(2)}
-                </td>
+        <section className="nc-section">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-800">
+                <th className="py-2 pr-4">Date</th>
+                <th className="pr-4">Merchant</th>
+                <th className="pr-4">Category</th>
+                <th className="pr-4">Notes</th>
+                <th className="text-right">Amount</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-slate-900">
+                  <td className="py-2 pr-4 whitespace-nowrap text-slate-300">
+                    {new Date(row.occurredAt).toLocaleDateString()}
+                  </td>
+                  <td className="pr-4 text-slate-100">{row.merchant ?? "-"}</td>
+                  <td className="pr-4 text-xs">
+                    <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded">{row.category}</span>
+                  </td>
+                  <td className="pr-4 text-xs text-slate-500">{row.notes ?? ""}</td>
+                  <td className="text-right whitespace-nowrap text-slate-100">
+                    {row.currency} {(row.amount / 100).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
     </div>
   );

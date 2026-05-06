@@ -35,9 +35,10 @@ async function loadRows(): Promise<IntegrationRow[]> {
       detail: "Unread/search and confirmation-gated draft requests are available; sending needs gmail.send re-auth.",
     },
     {
-      name: "Outlook",
+      name: "Outlook / M365",
       status: "Partial",
-      detail: "Unread/calendar read and confirmation-gated draft requests are available; sending needs Mail.Send re-auth.",
+      detail: "Unread/calendar read available. Mail.Send is now wired — re-run device-code auth on the bot to grant the scope.",
+      action: { href: "https://docs.microsoft.com/en-us/graph/auth-v2-user", label: "Re-auth guide →" },
     },
   ];
 
@@ -126,7 +127,7 @@ function badge(status: IntegrationRow["status"]) {
           ? "border-amber-500/40 text-amber-300"
           : status === "Blocked"
             ? "border-red-500/40 text-red-300"
-            : "border-neutral-700 text-neutral-300";
+            : "border-slate-700 text-slate-400";
   return `rounded border px-2 py-1 text-xs ${cls}`;
 }
 
@@ -139,13 +140,14 @@ export default async function IntegrationsPage({
   const rows = await loadRows();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Integrations</h2>
-        <p className="mt-2 text-sm text-neutral-400">
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Services &amp; access</div>
+        <h2 className="mt-2 text-3xl font-semibold">Integrations</h2>
+        <p className="mt-3 text-sm text-slate-400">
           NitsyClaw asks before sending, deleting, scheduling, or changing anything important.
         </p>
-      </div>
+      </section>
 
       {params?.spotify === "revoke-failed" ? (
         <div className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
@@ -157,29 +159,31 @@ export default async function IntegrationsPage({
         </div>
       ) : null}
 
-      <div className="divide-y divide-neutral-800 border-y border-neutral-800">
-        {rows.map((row) => (
-          <div key={row.name} className="grid gap-3 py-4 md:grid-cols-[160px_120px_1fr_auto] md:items-center">
-            <div className="font-medium">{row.name}</div>
-            <div><span className={badge(row.status)}>{row.status}</span></div>
-            <div className="text-sm text-neutral-400">{row.detail}</div>
-            <div className="flex flex-wrap gap-3">
-              {row.action ? (
-                <Link className="text-sm text-sky-300 hover:text-sky-200" href={row.action.href}>
-                  {row.action.label}
-                </Link>
-              ) : null}
-              {row.disconnectAction ? (
-                <form action={row.disconnectAction.action} method="post">
-                  <button className="text-sm text-red-300 hover:text-red-200">
-                    {row.disconnectAction.label}
-                  </button>
-                </form>
-              ) : null}
+      <section className="nc-section">
+        <div className="divide-y divide-slate-800 border-y border-slate-800">
+          {rows.map((row) => (
+            <div key={row.name} className="grid gap-3 py-4 md:grid-cols-[180px_120px_1fr_auto] md:items-center">
+              <div className="font-medium text-slate-100">{row.name}</div>
+              <div><span className={badge(row.status)}>{row.status}</span></div>
+              <div className="text-sm text-slate-400">{row.detail}</div>
+              <div className="flex flex-wrap gap-3">
+                {row.action ? (
+                  <Link className="text-sm text-[#d8b75d] hover:text-[#f1d58a]" href={row.action.href}>
+                    {row.action.label}
+                  </Link>
+                ) : null}
+                {row.disconnectAction ? (
+                  <form action={row.disconnectAction.action} method="post">
+                    <button className="text-sm text-red-300 hover:text-red-200">
+                      {row.disconnectAction.label}
+                    </button>
+                  </form>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

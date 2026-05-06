@@ -86,32 +86,40 @@ async function loadChecklist() {
 export default async function OnboardingPage() {
   const checklist = await loadChecklist();
   const doneCount = checklist.filter((item) => item.done).length;
+  const allDone = doneCount === checklist.length;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold">Onboarding</h2>
-        <p className="mt-2 text-sm text-neutral-400">
-          {doneCount} of {checklist.length} setup steps are complete.
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Setup guide</div>
+        <h2 className="mt-2 text-3xl font-semibold">Onboarding</h2>
+        <p className="mt-3 text-sm text-slate-400">
+          {allDone ? (
+            <span className="text-emerald-300">All {checklist.length} setup steps complete.</span>
+          ) : (
+            <>{doneCount} of {checklist.length} setup steps complete.</>
+          )}
         </p>
-      </div>
+      </section>
 
-      <div className="divide-y divide-neutral-800 border-y border-neutral-800">
-        {checklist.map((item) => (
-          <div key={item.label} className="grid gap-3 py-4 md:grid-cols-[32px_1fr_auto] md:items-center">
-            <div className={item.done ? "text-emerald-300" : "text-neutral-500"}>
-              {item.done ? "OK" : "--"}
+      <section className="nc-section">
+        <div className="divide-y divide-slate-800 border-y border-slate-800">
+          {checklist.map((item) => (
+            <div key={item.label} className="grid gap-3 py-4 md:grid-cols-[40px_1fr_auto] md:items-center">
+              <div className={`text-sm font-semibold ${item.done ? "text-emerald-400" : "text-slate-600"}`}>
+                {item.done ? "✓" : "○"}
+              </div>
+              <div>
+                <div className={`font-medium ${item.done ? "text-slate-200" : "text-slate-400"}`}>{item.label}</div>
+                <div className="mt-0.5 text-sm text-slate-500">{item.detail}</div>
+              </div>
+              <Link className="text-sm text-[#d8b75d] hover:text-[#f1d58a] whitespace-nowrap" href={item.href}>
+                Open →
+              </Link>
             </div>
-            <div>
-              <div className="font-medium">{item.label}</div>
-              <div className="text-sm text-neutral-400">{item.detail}</div>
-            </div>
-            <Link className="text-sm text-sky-300 hover:text-sky-200" href={item.href}>
-              Open
-            </Link>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

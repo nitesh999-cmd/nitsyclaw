@@ -82,31 +82,37 @@ const safety = [
 
 export default function HelpPage() {
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold">What Can I Ask?</h2>
-        <p className="mt-2 text-sm text-neutral-400">
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Usage guide</div>
+        <h2 className="mt-2 text-3xl font-semibold">What Can I Ask?</h2>
+        <p className="mt-3 text-sm text-slate-400">
           Use normal language. These examples are rails, not commands you must memorize.
         </p>
-      </div>
+      </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="nc-section grid gap-4 md:grid-cols-2">
         {groups.map((group) => (
-          <div key={group.title} className="border border-neutral-800 p-4">
-            <h3 className="font-medium">{group.title}</h3>
-            <ul className="mt-3 space-y-2 text-sm text-neutral-300">
+          <div key={group.title} className="nc-tile">
+            <h3 className="font-medium text-slate-100">{group.title}</h3>
+            <ul className="mt-3 space-y-2 text-sm text-slate-300">
               {group.examples.map((example) => (
-                <li key={example} className="border-l border-neutral-700 pl-3">{example}</li>
+                <li key={example} className="border-l-2 border-[#d8b75d]/40 pl-3 text-slate-400">{example}</li>
               ))}
             </ul>
           </div>
         ))}
       </section>
 
-      <section>
-        <h3 className="mb-2 text-sm uppercase tracking-wide text-neutral-400">Safety</h3>
-        <ul className="space-y-2 text-sm text-neutral-300">
-          {safety.map((line) => <li key={line}>- {line}</li>)}
+      <section className="nc-section">
+        <h3 className="nc-eyebrow mb-3">Safety model</h3>
+        <ul className="space-y-2 text-sm text-slate-400">
+          {safety.map((line) => (
+            <li key={line} className="flex gap-2">
+              <span className="mt-0.5 text-[#d8b75d]/60 shrink-0">—</span>
+              <span>{line}</span>
+            </li>
+          ))}
         </ul>
       </section>
     </div>

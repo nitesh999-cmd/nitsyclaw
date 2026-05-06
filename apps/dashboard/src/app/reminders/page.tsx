@@ -65,106 +65,121 @@ export default async function RemindersPage() {
     logDashboardLoadError("reminders", e);
     const message = publicConfigErrorOrNull(e)?.reply ?? "Reminders are unavailable. Check Health.";
     return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-4">Reminders</h1>
-        <div className="p-4 bg-red-50 border border-red-200 rounded">
-          <p className="text-sm font-medium text-red-900">Database error</p>
-          <p className="text-xs text-red-700 mt-2">{message}</p>
+      <div className="nc-page">
+        <section className="nc-hero">
+          <div className="nc-eyebrow">Scheduled alerts</div>
+          <h2 className="mt-2 text-3xl font-semibold">Reminders</h2>
+        </section>
+        <div className="border border-red-900 bg-red-950/40 p-4 text-sm">
+          <p className="font-medium text-red-300">Database error</p>
+          <p className="text-xs text-red-400 mt-2">{message}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Reminders</h1>
-        <p className="mt-2 text-sm text-neutral-400">
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Scheduled alerts</div>
+        <h2 className="mt-2 text-3xl font-semibold">Reminders</h2>
+        <p className="mt-3 text-sm text-slate-400">
           Create, complete, cancel, or reschedule reminders without going through chat.
         </p>
-      </div>
+      </section>
 
-      <form action={createReminder} className="grid gap-3 border border-neutral-800 p-4 md:grid-cols-[1fr_220px_auto]">
-        <label className="text-sm">
-          <span className="mb-1 block text-neutral-400">Reminder</span>
-          <input
-            name="text"
-            required
-            placeholder="Call Sam"
-            className="w-full border border-neutral-800 bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-neutral-400">When</span>
-          <input
-            name="when"
-            required
-            placeholder="tomorrow 9am"
-            className="w-full border border-neutral-800 bg-transparent px-3 py-2"
-          />
-        </label>
-        <button className="self-end border border-neutral-700 px-4 py-2 text-sm hover:border-neutral-500">
-          Add
-        </button>
-      </form>
+      <section className="nc-section">
+        <h3 className="nc-eyebrow mb-3">New reminder</h3>
+        <form action={createReminder} className="grid gap-3 border border-slate-800 p-4 md:grid-cols-[1fr_220px_auto]">
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-400">Reminder</span>
+            <input
+              name="text"
+              required
+              placeholder="Call Sam"
+              className="nc-input w-full"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-400">When</span>
+            <input
+              name="when"
+              required
+              placeholder="tomorrow 9am"
+              className="nc-input w-full"
+            />
+          </label>
+          <button className="nc-button self-end">Add</button>
+        </form>
+      </section>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-neutral-500">No reminders yet. Add one above or ask in chat: remind me tomorrow at 9am.</p>
+        <section className="nc-section">
+          <p className="nc-muted">No reminders yet. Add one above or ask in chat: remind me tomorrow at 9am.</p>
+        </section>
       ) : (
-        <table className="w-full text-sm" data-testid="reminders-table">
-          <thead>
-            <tr className="text-left text-neutral-500">
-              <th className="py-1">When</th>
-              <th>Status</th>
-              <th>Recurring</th>
-              <th>Text</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-neutral-800 align-top">
-                <td className="py-2">{new Date(r.fireAt).toLocaleString()}</td>
-                <td className="py-2">{r.status}</td>
-                <td className="py-2">{r.rrule ?? "-"}</td>
-                <td className="py-2">{r.text}</td>
-                <td className="space-y-2 py-2">
-                  <div className="flex flex-wrap gap-2">
-                    {r.status !== "fired" ? (
-                      <form action={setReminderStatus}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <input type="hidden" name="status" value="fired" />
-                        <button className="border border-neutral-800 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-600">
-                          Complete
-                        </button>
-                      </form>
-                    ) : null}
-                    {r.status !== "cancelled" ? (
-                      <form action={setReminderStatus}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <input type="hidden" name="status" value="cancelled" />
-                        <button className="border border-neutral-800 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-600">
-                          Cancel
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                  <form action={rescheduleReminder} className="flex flex-wrap gap-2">
-                    <input type="hidden" name="id" value={r.id} />
-                    <input
-                      type="datetime-local"
-                      name="fireAt"
-                      className="w-44 border border-neutral-800 bg-transparent px-2 py-1 text-xs"
-                    />
-                    <button className="border border-neutral-800 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-600">
-                      Reschedule
-                    </button>
-                  </form>
-                </td>
+        <section className="nc-section">
+          <table className="w-full text-sm" data-testid="reminders-table">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-800">
+                <th className="py-2 pr-4">When</th>
+                <th className="pr-4">Status</th>
+                <th className="pr-4">Recurring</th>
+                <th className="pr-4">Text</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-slate-800 align-top">
+                  <td className="py-2 pr-4 whitespace-nowrap">{new Date(r.fireAt).toLocaleString()}</td>
+                  <td className="py-2 pr-4">
+                    <span className={
+                      r.status === "pending" ? "text-amber-400" :
+                      r.status === "fired" ? "text-emerald-400" :
+                      "text-slate-500"
+                    }>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-4 text-xs text-slate-500">{r.rrule ?? "-"}</td>
+                  <td className="py-2 pr-4 text-slate-200">{r.text}</td>
+                  <td className="space-y-2 py-2">
+                    <div className="flex flex-wrap gap-2">
+                      {r.status !== "fired" ? (
+                        <form action={setReminderStatus}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="status" value="fired" />
+                          <button className="nc-button text-xs px-2 py-1 text-emerald-300 border-emerald-800/40">
+                            Complete
+                          </button>
+                        </form>
+                      ) : null}
+                      {r.status !== "cancelled" ? (
+                        <form action={setReminderStatus}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="status" value="cancelled" />
+                          <button className="nc-button text-xs px-2 py-1 text-slate-400">
+                            Cancel
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
+                    <form action={rescheduleReminder} className="flex flex-wrap gap-2">
+                      <input type="hidden" name="id" value={r.id} />
+                      <input
+                        type="datetime-local"
+                        name="fireAt"
+                        className="nc-input w-44 text-xs px-2 py-1"
+                      />
+                      <button className="nc-button text-xs px-2 py-1">Reschedule</button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
     </div>
   );
