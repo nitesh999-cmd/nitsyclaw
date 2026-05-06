@@ -9,6 +9,12 @@ interface Msg {
   createdAt?: string;
 }
 
+const SPEECH_LANGUAGES = [
+  { label: "English (Australia)", value: "en-AU" },
+  { label: "English (US)", value: "en-US" },
+  { label: "Hindi / Hinglish", value: "hi-IN" },
+];
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -25,6 +31,7 @@ export default function ChatPage() {
   const [voiceOut, setVoiceOut] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState("");
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const [speechLanguage, setSpeechLanguage] = useState("en-AU");
   const recognitionRef = useRef<unknown>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +65,10 @@ export default function ChatPage() {
     setVoiceOut(localStorage.getItem("nitsyclaw-voice-out") !== "false");
     const saved = localStorage.getItem("nitsyclaw-voice") || "";
     if (saved) setSelectedVoice(saved);
+    const savedSpeechLanguage = localStorage.getItem("nitsyclaw-speech-language") || "";
+    if (SPEECH_LANGUAGES.some((language) => language.value === savedSpeechLanguage)) {
+      setSpeechLanguage(savedSpeechLanguage);
+    }
   }, []);
 
   /** Queue an utterance. Does NOT cancel in-progress utterances —
@@ -110,6 +121,13 @@ export default function ChatPage() {
     }
   }
 
+  function pickSpeechLanguage(value: string) {
+    setSpeechLanguage(value);
+    if (typeof window !== "undefined") localStorage.setItem("nitsyclaw-speech-language", value);
+    const r = recognitionRef.current as SpeechRecognitionLike | null;
+    if (r) r.lang = value;
+  }
+
   // Web Speech API setup (feature_request fr_ff3ca79f). Chrome/Edge/Safari only.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -123,7 +141,7 @@ export default function ChatPage() {
     const r = new SR();
     r.continuous = false;
     r.interimResults = true;
-    r.lang = "en-AU";
+    r.lang = speechLanguage;
     r.onresult = (e: SpeechRecognitionEventLike) => {
       const t = Array.from(e.results)
         .map((res) => res[0]?.transcript ?? "")
@@ -136,7 +154,7 @@ export default function ChatPage() {
       setVoiceError("Microphone is blocked. Allow microphone access for this site, then try again.");
     };
     recognitionRef.current = r;
-  }, []);
+  }, [speechLanguage]);
 
   function toggleVoice() {
     const r = recognitionRef.current as SpeechRecognitionLike | null;
@@ -154,6 +172,7 @@ export default function ChatPage() {
       setInput("");
       setVoiceError("");
       try {
+        r.lang = speechLanguage;
         r.start();
         setRecording(true);
       } catch {
@@ -369,6 +388,19 @@ export default function ChatPage() {
             >
               Voice
             </button>
+            <label className="sr-only" htmlFor="speech-language">Speech language</label>
+            <select
+              id="speech-language"
+              value={speechLanguage}
+              onChange={(e) => pickSpeechLanguage(e.target.value)}
+              className="nc-input min-h-9 w-40 px-2 py-1 text-xs"
+            >
+              {SPEECH_LANGUAGES.map((language) => (
+                <option key={language.value} value={language.value}>
+                  {language.label}
+                </option>
+              ))}
+            </select>
           </div>
         )}
         </div>
