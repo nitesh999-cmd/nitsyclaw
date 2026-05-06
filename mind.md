@@ -1604,3 +1604,38 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `pnpm --filter @nitsyclaw/dashboard exec tsc --noEmit` passed.
 - `pnpm --filter @nitsyclaw/shared exec tsc --noEmit` passed.
 - `pnpm --filter @nitsyclaw/bot exec tsc --noEmit` passed.
+
+---
+
+## Session 45 — "Build next 30 things" sprint (2026-05-06)
+
+### Commits
+- `be818e7`: dark theme sprint batch 1 — chat, confirmations, login, today, queue pages
+- `07a08c9`: 30-item sprint — nav dark, search/stats/profile pages, memory search, conversations filter, health CTA, relativeTime, pruneExpiredConfirmations
+
+### Dark theme migration (stone-* → slate-*) — completed pages
+- `dashboard-shell.tsx`: sidebar + mobile nav fully dark; added "Explore" nav group (Search, Stats, Profile)
+- `debug/page.tsx`: nc-page wrapper + env diagnostics section
+
+### New utility: `relativeTime(date, now?)` in `packages/shared/src/utils/time.ts`
+- Returns "2 minutes ago", "in 3 days", "just now"
+- Used in `activity/page.tsx` audit timestamps with `title` tooltip for full date
+
+### New DB utility: `pruneExpiredConfirmations(db, now?)` in `packages/shared/src/db/repo.ts`
+- Updates pending confirmations past expiresAt to "expired" status
+- Hooked into MEMORY_PRUNER_CRON in `apps/bot/src/scheduler.ts`
+- Scheduler now writes "memory-pruner" heartbeat after prune
+
+### New pages
+- `/search` (`search/page.tsx`) + `/api/search/route.ts`: cross-entity full-text search (memories, reminders, messages)
+- `/stats` (`stats/page.tsx`) + `/api/stats/route.ts`: live counts for all entities (14 parallel queries)
+- `/profile` (`profile/page.tsx`): profileContext viewer with sensitivity badges + JSON value display
+
+### Feature improvements
+- `memory/page.tsx`: search box (GET ?q=, LIKE query on content)
+- `conversations/page.tsx`: direction filter tabs (All / Inbound / Outbound via ?dir=)
+- `health/page.tsx`: WhatsApp reconnect CTA banner when stale, memory-pruner heartbeat tile, count tiles now clickable links
+
+### TypeScript
+- `Promise.resolve({} as { q?: string })` pattern needed for typed searchParams fallback
+- All packages clean: 375/375 tests passing
