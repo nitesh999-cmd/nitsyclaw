@@ -16,7 +16,7 @@ import {
 } from "@nitsyclaw/shared/db";
 import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
 import { sessionTokenFromRequest, verifyExportProof } from "../../../../lib/data-export-proof";
-import { getOwnerIdentity } from "../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   try {
     form = await req.formData();
   } catch {
-    console.error("[data/delete] invalid form body");
+    logDashboardError("data.delete.invalid_form", new Error("invalid form body"));
     return NextResponse.json(
       { error: "Invalid delete request." },
       { status: 400, headers: NO_STORE },
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     });
     console.info("[data/delete] completed", { scope, counts });
   } catch (e) {
-    console.error("[data/delete] failed", e);
+    logDashboardError("data.delete", e);
     return NextResponse.json(
       { error: "Data deletion failed. Check server logs." },
       { status: 500, headers: NO_STORE },

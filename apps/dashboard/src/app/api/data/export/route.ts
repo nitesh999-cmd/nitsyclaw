@@ -20,6 +20,7 @@ import {
   redactAuditExportRows,
   redactConnectedAccountExportRows,
 } from "../../../../lib/data-export-redaction";
+import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -119,7 +120,7 @@ export async function GET(req: Request) {
       },
     );
   } catch (e) {
-    console.error("[data/export] failed", e);
+    logDashboardError("data.export", e);
     return NextResponse.json(
       { error: "Data export failed. Check server logs." },
       { status: 500, headers: NO_STORE },

@@ -3,6 +3,7 @@ import { getDb, messages, reminders, confirmations, featureRequests, auditLog, g
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
+import { logDashboardError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,7 @@ export default async function HealthPage() {
   try {
     data = await loadHealth();
   } catch (e) {
-    console.error("[health] load failed", e);
+    logDashboardError("health.load", e);
     error = "Health check failed. Check server logs.";
   }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, getConnectedAccount } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       ownerHash,
     });
   } catch (e) {
-    console.error("[spotify/status] failed", e);
+    logDashboardError("spotify.status", e);
     return NextResponse.json({
       provider: "spotify",
       configured: true,

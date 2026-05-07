@@ -27,7 +27,7 @@ describe("dashboard safe user-facing errors", () => {
 
     for (const file of files) {
       const source = readFileSync(file, "utf8");
-      expect(source, file).toContain("console.error");
+      expect(source, file).toContain("logDashboardError");
       expect(source, file).not.toContain("e instanceof Error ? e.message : String(e)");
     }
   });

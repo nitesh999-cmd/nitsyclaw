@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 import {
   exchangeSpotifyCode,
   getSpotifyProfile,
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
     token = await exchangeSpotifyCode(code);
     await saveSpotifyConnection({ db, ownerHash, token, metadata: { connectedAt: new Date().toISOString() } });
   } catch (e) {
-    console.error("[spotify/callback] token exchange or save failed", e);
+    logDashboardError("spotify.callback", e);
     return NextResponse.json(
       { ok: false, error: "Spotify connection failed. Try connecting again." },
       { status: 502, headers: NO_STORE },
