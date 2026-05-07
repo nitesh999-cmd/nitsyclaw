@@ -1,8 +1,9 @@
-import { logAudit } from "../db/repo.js";
+import { logAudit, redactAuditString } from "../db/repo.js";
 import type { AgentDeps } from "./deps.js";
 import type { ToolContext, ToolRegistry } from "./tools.js";
 
 const MAX_TOOL_RESULT_TEXT_CHARS = 2_000;
+const MAX_TOOL_ERROR_TEXT_CHARS = 240;
 
 export interface AgentRunArgs {
   userPhone: string;
@@ -61,7 +62,7 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
       const tool = args.registry.get(call.name);
       const started = Date.now();
       if (!tool) {
-        const err = `unknown tool: ${call.name}`;
+        const err = formatToolErrorText(`unknown tool: ${call.name}`);
         calls.push({ name: call.name, input: call.input, output: null, success: false, error: err });
         toolResultParts.push(`[tool ${call.name}] error: ${err}`);
         await logAudit(args.deps.db, { actor: "agent", tool: call.name, input: call.input, success: false, error: err });
@@ -82,7 +83,7 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
           durationMs: Date.now() - started,
         });
       } catch (e) {
-        const err = e instanceof Error ? e.message : String(e);
+        const err = formatToolErrorText(e);
         calls.push({ name: call.name, input: call.input, output: null, success: false, error: err });
         toolResultParts.push(`[tool ${call.name}] error: ${err}`);
         await logAudit(args.deps.db, {
@@ -103,6 +104,14 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
   }
 
   return { finalText: "[agent] hit max rounds", rounds, toolCalls: calls };
+}
+
+export function formatToolErrorText(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const redacted = redactAuditString(message);
+  return redacted.length > MAX_TOOL_ERROR_TEXT_CHARS
+    ? `${redacted.slice(0, MAX_TOOL_ERROR_TEXT_CHARS)}...[truncated]`
+    : redacted;
 }
 
 function formatToolResultText(value: unknown): string {
