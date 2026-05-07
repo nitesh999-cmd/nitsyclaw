@@ -182,6 +182,8 @@ Passed:
 - Focused Spotify error-safety tests passed, and `pnpm --filter @nitsyclaw/shared typecheck` passed after the Spotify integration cleanup.
 - Shared notification failures no longer log raw ntfy response bodies or raw exception objects.
 - Focused notification error-safety tests passed, and `pnpm --filter @nitsyclaw/shared typecheck` passed after the notification logging cleanup.
+- Local watchdog heartbeat failures now redact database URLs, tokens, emails, and phone numbers before printing errors.
+- Focused watchdog heartbeat error-safety test passed, and `pnpm -r typecheck` passed after the watchdog script cleanup.
 - `pnpm run release:vercel-build` could not complete local artifact packaging because Windows symlink privilege is unavailable. The dashboard Next build inside that gate passed; remaining blocker is local Windows Developer Mode/elevated PowerShell or running Vercel build in CI/Linux.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app` using non-mutating GET/HEAD checks: healthz 200, privacy/terms 200, protected APIs 401, login 200 with expected copy.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.
