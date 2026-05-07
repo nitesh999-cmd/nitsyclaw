@@ -178,6 +178,8 @@ Passed:
 - Focused package-script regression tests passed for the preflight route-import restore policy.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after the preflight script change.
 - `pnpm run release:preflight` passed again after the script change. It ran lint, typecheck, build, coverage, 12 Playwright E2E tests, and `security:deep`, then left only the intended source edits dirty.
+- Spotify integration failures no longer include raw provider response bodies or user query strings in thrown errors.
+- Focused Spotify error-safety tests passed, and `pnpm --filter @nitsyclaw/shared typecheck` passed after the Spotify integration cleanup.
 - `pnpm run release:vercel-build` could not complete local artifact packaging because Windows symlink privilege is unavailable. The dashboard Next build inside that gate passed; remaining blocker is local Windows Developer Mode/elevated PowerShell or running Vercel build in CI/Linux.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app` using non-mutating GET/HEAD checks: healthz 200, privacy/terms 200, protected APIs 401, login 200 with expected copy.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.

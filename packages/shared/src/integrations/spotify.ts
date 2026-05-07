@@ -67,6 +67,12 @@ function basicAuth(): string {
   return Buffer.from(`${id}:${secret}`).toString("base64");
 }
 
+export function formatSpotifyHttpError(action: string, status: number, path?: string): string {
+  const endpoint = path?.split("?")[0];
+  const location = endpoint ? ` ${endpoint}` : "";
+  return `Spotify ${action}${location} failed: ${status}`;
+}
+
 function enc(value: string): string {
   return encryptString(value);
 }
@@ -99,7 +105,7 @@ export async function exchangeSpotifyCode(code: string): Promise<SpotifyTokenRes
     },
     body,
   });
-  if (!resp.ok) throw new Error(`Spotify token exchange failed: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(formatSpotifyHttpError("token exchange", resp.status));
   return (await resp.json()) as SpotifyTokenResponse;
 }
 
@@ -116,7 +122,7 @@ async function refreshSpotifyToken(refreshToken: string): Promise<SpotifyTokenRe
     },
     body,
   });
-  if (!resp.ok) throw new Error(`Spotify refresh failed: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(formatSpotifyHttpError("refresh", resp.status));
   return (await resp.json()) as SpotifyTokenResponse;
 }
 
@@ -193,7 +199,7 @@ async function spotifyFetch<T>(
       ...(init.headers ?? {}),
     },
   });
-  if (!resp.ok) throw new Error(`Spotify ${path} failed: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(formatSpotifyHttpError("API request", resp.status, path));
   if (resp.status === 204) return undefined as T;
   return (await resp.json()) as T;
 }
