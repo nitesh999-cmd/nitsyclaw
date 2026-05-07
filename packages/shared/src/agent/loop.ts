@@ -2,6 +2,8 @@ import { logAudit } from "../db/repo.js";
 import type { AgentDeps } from "./deps.js";
 import type { ToolContext, ToolRegistry } from "./tools.js";
 
+const MAX_TOOL_RESULT_TEXT_CHARS = 2_000;
+
 export interface AgentRunArgs {
   userPhone: string;
   userMessage: string;
@@ -70,7 +72,7 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
         if (!parsed.success) throw new Error(parsed.error.message);
         const out = await tool.handler(parsed.data, ctx);
         calls.push({ name: call.name, input: call.input, output: out, success: true });
-        toolResultParts.push(`[tool ${call.name}] ${JSON.stringify(out)}`);
+        toolResultParts.push(`[tool ${call.name}] ${formatToolResultText(out)}`);
         await logAudit(args.deps.db, {
           actor: "agent",
           tool: call.name,
@@ -101,4 +103,16 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
   }
 
   return { finalText: "[agent] hit max rounds", rounds, toolCalls: calls };
+}
+
+function formatToolResultText(value: unknown): string {
+  let text: string;
+  try {
+    text = JSON.stringify(value);
+  } catch {
+    text = JSON.stringify({ error: "Tool result could not be serialized" });
+  }
+
+  if (text.length <= MAX_TOOL_RESULT_TEXT_CHARS) return text;
+  return `${text.slice(0, MAX_TOOL_RESULT_TEXT_CHARS)}...[truncated ${text.length - MAX_TOOL_RESULT_TEXT_CHARS} chars]`;
 }

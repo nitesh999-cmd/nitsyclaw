@@ -101,6 +101,48 @@ describe("runAgent", () => {
     expect(result.toolCalls[0].error).toBe("nope");
   });
 
+  it("caps tool result text before feeding it back to the model", async () => {
+    const r = new ToolRegistry();
+    r.register({
+      name: "big_result",
+      description: "returns a large payload",
+      inputSchema: z.object({}),
+      handler: async () => ({ text: "x".repeat(6_000) }),
+    });
+    const observedUserTurns: string[] = [];
+    let round = 0;
+    const llm = {
+      async complete() { return { text: "" }; },
+      async toolStep(args: { messages: Array<{ role: "user" | "assistant"; content: string }> }) {
+        round++;
+        observedUserTurns.push(...args.messages.filter((m) => m.role === "user").map((m) => m.content));
+        if (round === 1) {
+          return {
+            stopReason: "tool_use" as const,
+            toolCalls: [{ id: "1", name: "big_result", input: {} }],
+            text: "checking",
+          };
+        }
+        return { stopReason: "end_turn" as const, toolCalls: [], text: "done" };
+      },
+    };
+
+    const deps = makeAgentDeps({ llm });
+    const result = await runAgent({
+      userPhone: "+9100",
+      userMessage: "summarise this",
+      systemPrompt: "test",
+      registry: r,
+      deps,
+    });
+
+    const toolResultTurn = observedUserTurns.find((turn) => turn.startsWith("Tool results:")) ?? "";
+    expect(result.finalText).toBe("done");
+    expect(toolResultTurn.length).toBeLessThan(2_500);
+    expect(toolResultTurn).toContain("[truncated");
+    expect(toolResultTurn).not.toContain("x".repeat(3_000));
+  });
+
   it("handles unknown tool name gracefully", async () => {
     const r = new ToolRegistry();
     const deps = makeAgentDeps({ llm: fakeLlmWithToolCall("does-not-exist", {}) });
