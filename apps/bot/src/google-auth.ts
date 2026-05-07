@@ -143,8 +143,8 @@ export async function runFirstTimeAuth(label?: string): Promise<void> {
 }
 
 if (process.argv[1]?.endsWith("google-auth.ts") || process.argv[1]?.endsWith("google-auth.js")) {
-  runFirstTimeAuth().catch((e) => {
-    console.error("OAuth error:", e);
+  runFirstTimeAuth().catch(() => {
+    console.error("Google OAuth failed.");
     process.exit(1);
   });
 }

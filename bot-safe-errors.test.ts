@@ -83,4 +83,11 @@ describe("bot safe user-facing errors", () => {
     expect(sendMonitor).toContain("logBotError");
     expect(sendMonitor).not.toContain('console.error("[whatsapp-send-monitor]');
   });
+
+  test("Google auth CLI failure does not print raw OAuth error objects", () => {
+    const source = readFileSync("apps/bot/src/google-auth.ts", "utf8");
+
+    expect(source).toContain("Google OAuth failed.");
+    expect(source).not.toContain('console.error("OAuth error:", e)');
+  });
 });

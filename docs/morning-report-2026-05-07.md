@@ -168,6 +168,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after presence/send monitor log cleanup.
 - Focused command page, operator missions, and chat client error tests passed after `/command` stopped displaying raw client exception text.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after command client failure-copy cleanup.
+- Focused bot safe-error, external env, and bot secret-path tests passed after Google OAuth CLI failures stopped printing raw OAuth error objects.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after Google auth output cleanup.
 
 Failed or blocked:
 
