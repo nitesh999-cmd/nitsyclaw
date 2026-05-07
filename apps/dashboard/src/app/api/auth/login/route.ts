@@ -7,6 +7,7 @@ import {
 } from "../../../../lib/dashboard-login-attempts";
 import type { DashboardLoginAttemptState } from "../../../../lib/dashboard-login-attempts";
 import { createDashboardSessionToken, DASHBOARD_SESSION_COOKIE } from "../../../../lib/dashboard-session";
+import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -154,7 +155,7 @@ async function withAuthAttemptTimeout<T>(promise: Promise<T>, label: string): Pr
   try {
     return await Promise.race([
       promise.catch((error) => {
-        console.error("[dashboard-auth] operation failed; failing closed", { label, error });
+        logDashboardError(`auth.${label}`, error);
         return undefined;
       }),
       timeoutPromise,

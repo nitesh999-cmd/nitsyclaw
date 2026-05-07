@@ -80,6 +80,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - `eb0c59e fix: avoid raw client error logging`
 - Audit payloads now cap very wide nested objects before DB writes, reducing privacy and storage blast radius from unexpected tool/API responses.
 - Bot router failure logs now go through a redacted formatter, log context is sanitized before console output, and shared token redaction now catches Stripe-style `sk_live`/`sk_test` tokens before phone-number redaction.
+- Dashboard login attempt-storage failures now log through the redacted dashboard runtime logger instead of printing raw error objects.
 
 ## Verification run
 
@@ -106,6 +107,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/shared typecheck` passed after audit sanitizer changes.
 - Focused bot safe-log, router integration, and audit sanitizer regressions passed after bot log redaction and context sanitization.
 - `pnpm --filter @nitsyclaw/bot typecheck` and `pnpm --filter @nitsyclaw/shared typecheck` passed after bot log redaction.
+- Focused login route timeout/failure tests and dashboard runtime tests passed after login log redaction.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after login log redaction.
 
 Failed or blocked:
 
