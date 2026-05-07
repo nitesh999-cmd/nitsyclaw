@@ -98,7 +98,7 @@ export default async function HealthPage() {
     data = await loadHealth();
   } catch (e) {
     logDashboardError("health.load", e);
-    error = "Health check failed. Check server logs.";
+    error = "Health check failed. Try again shortly.";
   }
 
   const rows = [

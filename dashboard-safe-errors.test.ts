@@ -16,7 +16,7 @@ describe("dashboard safe user-facing errors", () => {
     }
   });
 
-  test("health and data controls use generic failure messages with server logs", () => {
+  test("health, integrations, and data controls use generic user-safe failure messages", () => {
     const files = [
       "apps/dashboard/src/app/health/page.tsx",
       "apps/dashboard/src/app/api/data/export/route.ts",
@@ -28,6 +28,7 @@ describe("dashboard safe user-facing errors", () => {
     for (const file of files) {
       const source = readFileSync(file, "utf8");
       expect(source, file).toContain("logDashboardError");
+      expect(source, file).not.toContain("Check server logs");
       expect(source, file).not.toContain("e instanceof Error ? e.message : String(e)");
     }
   });

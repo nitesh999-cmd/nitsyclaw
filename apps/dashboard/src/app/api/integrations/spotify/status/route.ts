@@ -56,7 +56,7 @@ export async function GET(req: Request) {
       configured: true,
       connected: false,
       status: "unavailable",
-      error: "Spotify status is unavailable. Check server logs.",
+      error: "Spotify status is unavailable. Try again shortly.",
     }, { status: 500, headers: NO_STORE });
   }
 

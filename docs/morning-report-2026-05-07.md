@@ -82,6 +82,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - Bot router failure logs now go through a redacted formatter, log context is sanitized before console output, and shared token redaction now catches Stripe-style `sk_live`/`sk_test` tokens before phone-number redaction.
 - Dashboard login attempt-storage failures now log through the redacted dashboard runtime logger instead of printing raw error objects.
 - Data export/delete API failure copy now gives normal user recovery wording instead of telling people to check server logs.
+- Health and Spotify integration failure copy now also avoids server-log wording and gives normal retry guidance.
 
 ## Verification run
 
@@ -113,6 +114,8 @@ Passed:
 - Latest full gate passed after the new privacy/login commits: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 116 files, 459 tests, and `pnpm build`.
 - Focused data control, export proof, and export redaction tests passed after data-control copy cleanup.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after data-control copy cleanup.
+- Focused safe-error, health page, provider revocation, and integrations page tests passed after removing remaining server-log wording.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after health/Spotify copy cleanup.
 
 Failed or blocked:
 
