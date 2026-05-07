@@ -173,6 +173,7 @@ Passed:
 - Focused stream privacy, stream route, safe-error, and audit sanitizer tests passed after streaming tool failure errors were redacted before audit logging.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after stream audit-error cleanup.
 - Latest full gate passed after the command/stream/privacy follow-up: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 119 files, 473 tests, and `pnpm build`.
+- `pnpm run release:preflight` passed. It ran lint, typecheck, build, coverage, 12 Playwright E2E tests, and `security:deep`. The temporary Next `next-env.d.ts` dev import was restored clean by rerunning dashboard typecheck.
 
 Failed or blocked:
 
