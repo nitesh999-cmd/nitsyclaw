@@ -78,6 +78,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - `2764612 fix: redact dashboard error logs`
 - `3c5e1e1 fix: use redacted server error logs`
 - `eb0c59e fix: avoid raw client error logging`
+- Audit payloads now cap very wide nested objects before DB writes, reducing privacy and storage blast radius from unexpected tool/API responses.
 
 ## Verification run
 
@@ -100,6 +101,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/shared typecheck` passed after command-job changes.
 - Latest full gate passed: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 113 files, 453 tests, and `pnpm build`.
 - Latest full gate passed again after log hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 114 files, 455 tests, and `pnpm build`.
+- Focused audit sanitizer regression passed after adding the wide-object cap.
+- `pnpm --filter @nitsyclaw/shared typecheck` passed after audit sanitizer changes.
 
 Failed or blocked:
 

@@ -368,6 +368,8 @@ export async function logAudit(
 }
 
 const SENSITIVE_KEY_RE = /(token|secret|password|credential|authorization|cookie|body|content|message|email|phone|number|address|location|transcript|payload|refresh|access)/i;
+const MAX_AUDIT_OBJECT_KEYS = 25;
+const AUDIT_OBJECT_SAMPLE_KEYS = 8;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
 const TOKEN_RE = /\b(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,}\b/g;
@@ -397,7 +399,14 @@ function sanitizeAuditValue(value: unknown): unknown {
   }
   if (typeof value === "object") {
     const out: Record<string, unknown> = {};
-    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length > MAX_AUDIT_OBJECT_KEYS) {
+      return {
+        count: entries.length,
+        sample: sanitizeAuditValue(Object.fromEntries(entries.slice(0, AUDIT_OBJECT_SAMPLE_KEYS))),
+      };
+    }
+    for (const [key, child] of entries) {
       if (SENSITIVE_KEY_RE.test(key)) {
         out[key] = "[redacted]";
       } else {
