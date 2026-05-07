@@ -827,7 +827,7 @@ export class Router {
               body: enc,
             });
           } catch (e) {
-            console.error("[router] failed to persist reply_to_user outbound", e);
+            logBotError("[router] failed to persist reply_to_user outbound", e);
           }
           notifyAll(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
         }

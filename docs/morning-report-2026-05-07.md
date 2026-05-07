@@ -162,6 +162,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after confirmations/queue page hardening.
 - Focused stream privacy, stream route, and safe-error tests passed after dashboard streaming chat stopped feeding raw tool validation/unknown-tool errors back into the LLM-visible transcript.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming tool-error privacy hardening.
+- Focused bot safe-error, router integration, and send-failure tests passed after the remaining router outbound-persist raw error log moved to redacted logging.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after router log cleanup.
 
 Failed or blocked:
 
