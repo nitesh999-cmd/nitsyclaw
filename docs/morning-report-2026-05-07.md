@@ -85,6 +85,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - Health and Spotify integration failure copy now also avoids server-log wording and gives normal retry guidance.
 - Stats API/page failures now use redacted logging and generic user-facing messages; `/api/stats` also explicitly disables caching.
 - Search API/page failures now use redacted logging and generic user-facing messages; search terms are capped before database queries.
+- Expense CSV export failures now use redacted logging and generic user-facing messages; validation errors also return no-store.
 
 ## Verification run
 
@@ -122,6 +123,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after stats hardening.
 - Focused search safety, private API cache, and safe-error tests passed after search hardening.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after search hardening.
+- Focused safe-error, private API cache, and expense-utils tests passed after expense export hardening.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after expense export hardening.
 
 Failed or blocked:
 

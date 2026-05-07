@@ -21,6 +21,7 @@ describe("dashboard safe user-facing errors", () => {
       "apps/dashboard/src/app/health/page.tsx",
       "apps/dashboard/src/app/api/data/export/route.ts",
       "apps/dashboard/src/app/api/data/delete/route.ts",
+      "apps/dashboard/src/app/api/expenses/export/route.ts",
       "apps/dashboard/src/app/api/integrations/spotify/callback/route.ts",
       "apps/dashboard/src/app/api/integrations/spotify/status/route.ts",
       "apps/dashboard/src/app/api/search/route.ts",

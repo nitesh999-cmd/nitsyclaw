@@ -7,10 +7,12 @@ import {
   normalizeExpenseFilters,
   validateExpenseFilters,
 } from "../../../../lib/expense-utils.js";
+import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET(req: Request) {
   const originError = requireSameOrigin(req);
@@ -25,33 +27,41 @@ export async function GET(req: Request) {
   });
   const validationError = validateExpenseFilters(filters);
   if (validationError) {
-    return NextResponse.json({ error: validationError }, { status: 400 });
+    return NextResponse.json({ error: validationError }, { status: 400, headers: NO_STORE });
   }
   const where = expenseWhere(filters);
 
-  const db = getDb();
-  const rows = where
-    ? await db.select().from(expenses).where(where).orderBy(desc(expenses.occurredAt)).limit(1000)
-    : await db.select().from(expenses).orderBy(desc(expenses.occurredAt)).limit(1000);
+  try {
+    const db = getDb();
+    const rows = where
+      ? await db.select().from(expenses).where(where).orderBy(desc(expenses.occurredAt)).limit(1000)
+      : await db.select().from(expenses).orderBy(desc(expenses.occurredAt)).limit(1000);
 
-  const header = ["date", "merchant", "category", "currency", "amount", "notes"];
-  const lines = [
-    header.map(csvCell).join(","),
-    ...rows.map((row) => [
-      row.occurredAt.toISOString(),
-      row.merchant ?? "",
-      row.category,
-      row.currency,
-      (row.amount / 100).toFixed(2),
-      row.notes ?? "",
-    ].map(csvCell).join(",")),
-  ];
+    const header = ["date", "merchant", "category", "currency", "amount", "notes"];
+    const lines = [
+      header.map(csvCell).join(","),
+      ...rows.map((row) => [
+        row.occurredAt.toISOString(),
+        row.merchant ?? "",
+        row.category,
+        row.currency,
+        (row.amount / 100).toFixed(2),
+        row.notes ?? "",
+      ].map(csvCell).join(",")),
+    ];
 
-  return new NextResponse(lines.join("\n"), {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="nitsyclaw-expenses.csv"`,
-      "Cache-Control": "no-store",
-    },
-  });
+    return new NextResponse(lines.join("\n"), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="nitsyclaw-expenses.csv"`,
+        ...NO_STORE,
+      },
+    });
+  } catch (e) {
+    logDashboardError("expenses.export", e);
+    return NextResponse.json(
+      { error: "Expense export failed. Try again shortly." },
+      { status: 500, headers: NO_STORE },
+    );
+  }
 }
