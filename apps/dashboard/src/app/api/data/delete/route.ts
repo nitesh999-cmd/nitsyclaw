@@ -128,7 +128,7 @@ export async function POST(req: Request) {
   } catch (e) {
     logDashboardError("data.delete", e);
     return NextResponse.json(
-      { error: "Data deletion failed. Check server logs." },
+      { error: "Data deletion failed. Try again shortly." },
       { status: 500, headers: NO_STORE },
     );
   }

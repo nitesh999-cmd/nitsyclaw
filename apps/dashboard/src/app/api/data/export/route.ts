@@ -122,7 +122,7 @@ export async function GET(req: Request) {
   } catch (e) {
     logDashboardError("data.export", e);
     return NextResponse.json(
-      { error: "Data export failed. Check server logs." },
+      { error: "Data export failed. Try again shortly." },
       { status: 500, headers: NO_STORE },
     );
   }

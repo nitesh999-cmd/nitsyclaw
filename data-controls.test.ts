@@ -20,6 +20,16 @@ describe("data controls", () => {
     expect(source).toContain('response.headers.set("Cache-Control", "no-store")');
   });
 
+  test("data control failure copy is user-safe", () => {
+    const exportRoute = readFileSync("apps/dashboard/src/app/api/data/export/route.ts", "utf8");
+    const deleteRoute = readFileSync("apps/dashboard/src/app/api/data/delete/route.ts", "utf8");
+
+    expect(exportRoute).not.toContain("Check server logs");
+    expect(deleteRoute).not.toContain("Check server logs");
+    expect(exportRoute).toContain("Data export failed. Try again shortly.");
+    expect(deleteRoute).toContain("Data deletion failed. Try again shortly.");
+  });
+
   test("delete everything is transactional, audited, and backup guarded", () => {
     const route = readFileSync("apps/dashboard/src/app/api/data/delete/route.ts", "utf8");
     const settings = readFileSync("apps/dashboard/src/app/settings/page.tsx", "utf8");
