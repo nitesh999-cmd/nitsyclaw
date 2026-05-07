@@ -57,6 +57,34 @@ describe("command execution jobs", () => {
     expect(job.receiptText).toContain("What is the main thing");
   });
 
+  it("returns the existing command job when the same dedupe key is queued twice", async () => {
+    const { db, state } = makeFakeDb();
+
+    await createCommandJob(db, {
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "Check the weather.",
+      dedupeKey: "whatsapp:other-message",
+    });
+    const first = await createCommandJob(db, {
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "Add this plan to the build queue.",
+      dedupeKey: "whatsapp:message-1",
+    });
+
+    const duplicate = await createCommandJob(db, {
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "Add this plan to the build queue again.",
+      dedupeKey: "whatsapp:message-1",
+    });
+
+    expect(duplicate.id).toBe(first.id);
+    expect(duplicate.command).toBe("Add this plan to the build queue.");
+    expect(state.command_jobs).toHaveLength(2);
+  });
+
   it("records failures as retrying first, then failed after retry budget is exhausted", async () => {
     const { db } = makeFakeDb();
     const job = await createCommandJob(db, {

@@ -119,10 +119,10 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
     }),
     update: (table: unknown) => ({
       set: (patch: FakeDbRow) => ({
-        where: (_cond: unknown) => {
+        where: (cond: unknown) => {
           const name = tableName(table);
-          state[name].forEach((r) => Object.assign(r, patch));
-          const updated = state[name];
+          const updated = filterRows(state[name], cond);
+          updated.forEach((r) => Object.assign(r, patch));
           return {
             returning: async () => updated,
             then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise.resolve(updated).then(resolve),
@@ -148,8 +148,12 @@ function tableName(table: unknown): keyof FakeDbState {
 
 function makeQueryChain(rows: FakeDbRow[]): FakeQueryChain {
   let limit = Infinity;
+  let filteredRows = rows;
   const order = (_a: FakeDbRow, _b: FakeDbRow) => 0;
-  const where = (_cond: unknown) => chain;
+  const where = (cond: unknown) => {
+    filteredRows = filterRows(filteredRows, cond);
+    return chain;
+  };
   const orderBy = (..._cols: unknown[]) => chain;
   const lim = (n: number) => {
     limit = n;
@@ -159,9 +163,33 @@ function makeQueryChain(rows: FakeDbRow[]): FakeQueryChain {
     where,
     orderBy,
     limit: lim,
-    then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise.resolve(rows.slice(0, limit).sort(order)).then(resolve),
+    then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise.resolve(filteredRows.slice(0, limit).sort(order)).then(resolve),
   };
   return chain;
+}
+
+function filterRows(rows: FakeDbRow[], cond: unknown): FakeDbRow[] {
+  const equality = readDrizzleEquality(cond);
+  if (!equality) return rows;
+
+  const camelKey = snakeToCamel(equality.columnName);
+  return rows.filter((row) => row[camelKey] === equality.value || row[equality.columnName] === equality.value);
+}
+
+function readDrizzleEquality(cond: unknown): { columnName: string; value: unknown } | null {
+  if (typeof cond !== "object" || cond === null) return null;
+  const chunks = (cond as { queryChunks?: unknown[] }).queryChunks;
+  if (!Array.isArray(chunks)) return null;
+  const column = chunks.find((chunk) => typeof (chunk as { name?: unknown }).name === "string") as
+    | { name: string }
+    | undefined;
+  const param = chunks.find((chunk) => chunk?.constructor?.name === "Param") as { value?: unknown } | undefined;
+  if (!column || !param) return null;
+  return { columnName: column.name, value: param.value };
+}
+
+function snakeToCamel(value: string): string {
+  return value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }
 
 // === Fake adapters ===

@@ -21,6 +21,11 @@ export async function createCommandJob(
   db: DB,
   input: CreateCommandJobInput,
 ): Promise<CommandJob> {
+  if (input.dedupeKey) {
+    const existing = await getCommandJobByDedupeKey(db, input.dedupeKey);
+    if (existing) return existing;
+  }
+
   const intent = analyzePersonalPaIntent(input.command);
   const riskLevel = intent.kind === "approval_required" ? "approval_required" : "safe";
   const status: CommandJobStatus =
@@ -31,25 +36,33 @@ export async function createCommandJob(
         : "received";
   const receiptText = intent.userFacingText;
 
-  const [row] = await db
-    .insert(commandJobs)
-    .values({
-      source: input.source,
-      ownerHash: input.ownerHash,
-      command: input.command.trim(),
-      status,
-      riskLevel,
-      receiptText,
-      attempts: 0,
-      sourceMessageId: input.sourceMessageId,
-      sourceExternalId: input.sourceExternalId,
-      dedupeKey: input.dedupeKey,
-      maxAttempts: input.maxAttempts ?? 3,
-      updatedAt: new Date(),
-    })
-    .returning();
+  try {
+    const [row] = await db
+      .insert(commandJobs)
+      .values({
+        source: input.source,
+        ownerHash: input.ownerHash,
+        command: input.command.trim(),
+        status,
+        riskLevel,
+        receiptText,
+        attempts: 0,
+        sourceMessageId: input.sourceMessageId,
+        sourceExternalId: input.sourceExternalId,
+        dedupeKey: input.dedupeKey,
+        maxAttempts: input.maxAttempts ?? 3,
+        updatedAt: new Date(),
+      })
+      .returning();
 
-  return row!;
+    return row!;
+  } catch (error) {
+    if (input.dedupeKey && isUniqueConstraintError(error)) {
+      const existing = await getCommandJobByDedupeKey(db, input.dedupeKey);
+      if (existing) return existing;
+    }
+    throw error;
+  }
 }
 
 export async function markCommandJobWorking(db: DB, id: string): Promise<CommandJob> {
@@ -107,6 +120,15 @@ export async function getCommandJob(db: DB, id: string): Promise<CommandJob> {
   return row;
 }
 
+async function getCommandJobByDedupeKey(db: DB, dedupeKey: string): Promise<CommandJob | null> {
+  const [row] = await db
+    .select()
+    .from(commandJobs)
+    .where(eq(commandJobs.dedupeKey, dedupeKey))
+    .limit(1);
+  return row ?? null;
+}
+
 function updateCommandJob(
   db: DB,
   id: string,
@@ -144,4 +166,14 @@ function publicErrorMessage(error: unknown): string {
       ? error.message
       : String(error || "Unknown error");
   return redactAuditString(message).slice(0, 240);
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const record = error as { code?: unknown; constraint?: unknown; message?: unknown };
+  return (
+    record.code === "23505" ||
+    String(record.constraint ?? "").includes("command_jobs_dedupe") ||
+    String(record.message ?? "").includes("command_jobs_dedupe")
+  );
 }
