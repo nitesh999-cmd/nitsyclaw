@@ -29,6 +29,10 @@ describe("operator command page", () => {
     expect(client).toContain("Skill Store");
     expect(client).toContain("Self-Healing");
     expect(client).toContain("/addfeature");
+    expect(client).toContain("Command failed. Try again shortly.");
+    expect(client).toContain("Operator mission failed. Try again shortly.");
+    expect(client).not.toContain("e instanceof Error ? e.message");
+    expect(client).not.toContain("Request failed with HTTP");
     expect(shell).toContain('href: "/command"');
     expect(shell).toContain('label: "Command"');
   });

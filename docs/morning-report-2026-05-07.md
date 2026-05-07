@@ -166,6 +166,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after router log cleanup.
 - Focused bot safe-error, WhatsApp presence, send-failure, and WhatsApp client regression tests passed after presence/send-monitor failures were sanitized in logs, heartbeat metadata, and urgent notifications.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after presence/send monitor log cleanup.
+- Focused command page, operator missions, and chat client error tests passed after `/command` stopped displaying raw client exception text.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after command client failure-copy cleanup.
 
 Failed or blocked:
 

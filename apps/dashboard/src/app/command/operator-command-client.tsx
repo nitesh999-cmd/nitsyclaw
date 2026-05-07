@@ -53,6 +53,9 @@ const modes: Array<{ value: Mode; label: string }> = [
   { value: "build", label: "Build" },
 ];
 
+const COMMAND_FAILED = "Command failed. Try again shortly.";
+const MISSION_FAILED = "Operator mission failed. Try again shortly.";
+
 function commandFor(mode: Mode, text: string): string {
   const clean = text.trim();
   if (mode === "feature") {
@@ -104,15 +107,16 @@ export function OperatorCommandClient() {
         meta?: { tools?: Array<{ name?: string; success?: boolean }> };
       };
       if (!res.ok) {
-        throw new Error(body.reply ?? `Request failed with HTTP ${res.status}`);
+        setError(body.reply ?? COMMAND_FAILED);
+        return;
       }
       const tools = body.meta?.tools?.length
         ? `\n\nTools: ${body.meta.tools.map((tool) => `${tool.name ?? "tool"}=${tool.success ? "ok" : "failed"}`).join(", ")}`
         : "";
       setReply(`${body.reply ?? "(empty reply)"}${tools}`);
       if (mode === "feature" || mode === "bug") setInput("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Command failed");
+    } catch {
+      setError(COMMAND_FAILED);
     } finally {
       setBusy(false);
     }
@@ -140,11 +144,12 @@ export function OperatorCommandClient() {
         existing?: number;
       };
       if (!res.ok) {
-        throw new Error(body.reply ?? `Request failed with HTTP ${res.status}`);
+        setError(body.reply ?? MISSION_FAILED);
+        return;
       }
       setMissionReply(body.reply ?? `Queued ${body.queued ?? 0}; existing ${body.existing ?? 0}.`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Operator mission failed");
+    } catch {
+      setError(MISSION_FAILED);
     } finally {
       setMissionBusy("");
     }
