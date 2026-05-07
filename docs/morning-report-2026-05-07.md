@@ -177,6 +177,7 @@ Passed:
 - `pnpm run release:vercel-build` could not complete local artifact packaging because Windows symlink privilege is unavailable. The dashboard Next build inside that gate passed; remaining blocker is local Windows Developer Mode/elevated PowerShell or running Vercel build in CI/Linux.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app` using non-mutating GET/HEAD checks: healthz 200, privacy/terms 200, protected APIs 401, login 200 with expected copy.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.
+- `pnpm run audit:doctor` still reports 2 local environment blockers: Docker is missing for ZAP, and Windows symlink privilege is unavailable for local Vercel artifact packaging. It confirmed Vercel CLI, `curl.exe`, and live `/api/healthz` are OK.
 
 Failed or blocked:
 
