@@ -15,6 +15,7 @@ import { buildAgentDeps } from "./adapters.js";
 import { Router } from "./router.js";
 import { startScheduler } from "./scheduler.js";
 import { loadBotDotenv, whatsappSessionDir } from "./secret-paths.js";
+import { logBotError } from "./safe-log.js";
 
 loadBotDotenv();
 
@@ -32,7 +33,7 @@ async function main() {
         source: "whatsapp-client",
         status: statusForWhatsAppRuntimeEvent(event),
         metadata: publicWhatsAppRuntimeMetadata(event),
-      }).catch((e) => console.error("[boot] whatsapp status heartbeat failed", e));
+      }).catch((e) => logBotError("[boot] whatsapp status heartbeat failed", e));
     },
   });
   const whatsapp = new WhatsAppLoopBreaker(rawWhatsapp, {
@@ -42,7 +43,7 @@ async function main() {
         source: "whatsapp-loop-guard",
         status: "paused",
         metadata: { ...incident },
-      }).catch((e) => console.error("[boot] loop guard heartbeat failed", e));
+      }).catch((e) => logBotError("[boot] loop guard heartbeat failed", e));
       void logAudit(db, {
         actor: "system",
         tool: "whatsapp_loop_breaker",
@@ -50,18 +51,18 @@ async function main() {
         output: { action: "paused_whatsapp_replies" },
         success: false,
         error: incident.reason,
-      }).catch((e) => console.error("[boot] loop guard audit failed", e));
+      }).catch((e) => logBotError("[boot] loop guard audit failed", e));
       void insertFeatureRequest(db, {
         description: `P0: WhatsApp loop breaker opened. Inspect audit_log tool=whatsapp_loop_breaker and harden regression tests. Reason: ${incident.reason}`,
         size: "S",
         source: "dashboard",
         requestedBy: "system",
         implementationNotes: "Auto-created by loop breaker incident path.",
-      }).catch((e) => console.error("[boot] loop guard feature request failed", e));
+      }).catch((e) => logBotError("[boot] loop guard feature request failed", e));
       pushNotify(`WhatsApp replies paused: ${incident.reason}`, {
         title: "NitsyClaw paused a WhatsApp loop",
         priority: "urgent",
-      }).catch((e) => console.error("[boot] loop guard notify failed", e));
+      }).catch((e) => logBotError("[boot] loop guard notify failed", e));
     },
     onReset: (reason) => {
       console.error(`[boot] WhatsApp loop breaker reset after: ${reason}`);
@@ -69,7 +70,7 @@ async function main() {
         source: "whatsapp-loop-guard",
         status: "ok",
         metadata: { resetAfter: reason },
-      }).catch((e) => console.error("[boot] loop guard reset heartbeat failed", e));
+      }).catch((e) => logBotError("[boot] loop guard reset heartbeat failed", e));
     },
   });
   const monitoredWhatsapp = new WhatsAppSendMonitor(whatsapp, { db });
@@ -119,7 +120,7 @@ async function main() {
       await monitoredWhatsapp.destroy();
       process.exit(0);
     } catch (e) {
-      console.error("[boot] shutdown failed", e);
+      logBotError("[boot] shutdown failed", e);
       process.exit(1);
     }
   };
@@ -129,6 +130,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error("[boot] fatal", e);
+  logBotError("[boot] fatal", e);
   process.exit(1);
 });

@@ -57,4 +57,18 @@ describe("bot safe user-facing errors", () => {
     expect(source).toContain("logBotError");
     expect(source).not.toContain('console.error("[build-agent]');
   });
+
+  test("bot boot failure paths use redacted logging", () => {
+    const source = readFileSync("apps/bot/src/index.ts", "utf8");
+
+    expect(source).toContain("logBotError");
+    expect(source).not.toContain('console.error("[boot] whatsapp status heartbeat failed"');
+    expect(source).not.toContain('console.error("[boot] loop guard heartbeat failed"');
+    expect(source).not.toContain('console.error("[boot] loop guard audit failed"');
+    expect(source).not.toContain('console.error("[boot] loop guard feature request failed"');
+    expect(source).not.toContain('console.error("[boot] loop guard notify failed"');
+    expect(source).not.toContain('console.error("[boot] loop guard reset heartbeat failed"');
+    expect(source).not.toContain('console.error("[boot] shutdown failed"');
+    expect(source).not.toContain('console.error("[boot] fatal"');
+  });
 });

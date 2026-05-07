@@ -151,6 +151,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after Microsoft auth output cleanup.
 - Focused bot safe-error and operator-runner tests passed after build-agent WhatsApp notification failures were moved to redacted logging.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after build-agent log cleanup.
+- Focused bot safe-error and location env tests passed after bot boot/shutdown failure logs were moved to redacted logging.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after bot boot log cleanup.
 
 Failed or blocked:
 
