@@ -147,6 +147,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after Microsoft Graph log cleanup.
 - Focused bot safe-error and watchdog tests passed after scheduler logs and heartbeat error metadata were sanitized.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after scheduler log cleanup.
+- Focused bot safe-error and external env loader tests passed after Microsoft auth stopped printing raw OAuth response bodies.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after Microsoft auth output cleanup.
 
 Failed or blocked:
 

@@ -70,7 +70,7 @@ async function refreshAccessToken(): Promise<string> {
       scope: SCOPES.join(" "),
     }),
   });
-  if (!resp.ok) throw new Error(`MS refresh failed: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(`MS refresh failed: ${resp.status}`);
   const data = await resp.json();
   const updated: MsTokens = {
     access_token: data.access_token,
@@ -110,7 +110,7 @@ export async function runDeviceCodeAuth(): Promise<void> {
     }),
   });
   if (!codeResp.ok) {
-    console.error(`Device code request failed: ${codeResp.status} ${await codeResp.text()}`);
+    console.error(`Device code request failed: ${codeResp.status}`);
     process.exit(1);
   }
   const codeData = await codeResp.json();
@@ -150,7 +150,7 @@ export async function runDeviceCodeAuth(): Promise<void> {
     }
     if (pollData.error === "authorization_pending") continue;
     if (pollData.error === "slow_down") { await new Promise((r) => setTimeout(r, 5000)); continue; }
-    console.error(`Auth failed: ${JSON.stringify(pollData)}`);
+    console.error(`Auth failed: ${String(pollData.error ?? pollResp.status)}`);
     process.exit(1);
   }
   console.error("Device code expired. Run again.");
@@ -158,5 +158,5 @@ export async function runDeviceCodeAuth(): Promise<void> {
 }
 
 if (process.argv[1]?.endsWith("microsoft-auth.ts") || process.argv[1]?.endsWith("microsoft-auth.js")) {
-  runDeviceCodeAuth().catch((e) => { console.error(e); process.exit(1); });
+  runDeviceCodeAuth().catch(() => { console.error("Microsoft auth failed."); process.exit(1); });
 }

@@ -41,4 +41,13 @@ describe("bot safe user-facing errors", () => {
     expect(source).not.toContain('console.error("[cron:');
     expect(source).not.toContain("e instanceof Error ? e.message : String(e)");
   });
+
+  test("Microsoft auth does not print raw OAuth response bodies", () => {
+    const source = readFileSync("apps/bot/src/microsoft-auth.ts", "utf8");
+
+    expect(source).not.toContain("await resp.text()");
+    expect(source).not.toContain("await codeResp.text()");
+    expect(source).not.toContain("JSON.stringify(pollData)");
+    expect(source).not.toContain("console.error(e)");
+  });
 });
