@@ -38,7 +38,6 @@ import type {
   ImageAnalyzer,
   LlmClient,
   Transcriber,
-  WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import type { WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 
