@@ -50,4 +50,11 @@ describe("bot safe user-facing errors", () => {
     expect(source).not.toContain("JSON.stringify(pollData)");
     expect(source).not.toContain("console.error(e)");
   });
+
+  test("build agent notification failures use redacted logging", () => {
+    const source = readFileSync("apps/bot/src/build-agent.ts", "utf8");
+
+    expect(source).toContain("logBotError");
+    expect(source).not.toContain('console.error("[build-agent]');
+  });
 });

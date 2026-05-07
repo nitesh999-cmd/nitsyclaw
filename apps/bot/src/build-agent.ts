@@ -9,6 +9,7 @@ import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { listPendingFeatureRequests, insertMessage } from "@nitsyclaw/shared/db";
 import { encryptForStorage, hashPhone } from "@nitsyclaw/shared/utils";
 import { pushNotify } from "@nitsyclaw/shared/notify";
+import { logBotError } from "./safe-log.js";
 
 export async function runDailyBuildAgent(
   deps: AgentDeps,
@@ -62,7 +63,9 @@ export async function runDailyBuildAgent(
       body: enc,
     });
   } catch (e) {
-    console.error("[build-agent] failed to send WhatsApp notification", e);
+    logBotError("[build-agent] failed to send WhatsApp notification", e, {
+      pendingCount: pending.length,
+    });
   }
 
   console.log(`[build-agent] notified Nitesh about ${pending.length} pending feature(s)`);
