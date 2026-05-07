@@ -10,7 +10,7 @@ if (-not $env:SNYK_TOKEN) {
     Write-Host "SNYK_TOKEN is not set. The CLI may still work if 'snyk auth' has already been completed."
 }
 
-snyk test --all-projects --exclude=.next,node_modules,dist,coverage,playwright-report,test-results --severity-threshold=medium
+snyk test --all-projects --detection-depth=2 --severity-threshold=medium
 if ($LASTEXITCODE -ne 0) {
     throw "Snyk security scan failed or is not authenticated. Run 'snyk auth' or set SNYK_TOKEN, then retry."
 }
