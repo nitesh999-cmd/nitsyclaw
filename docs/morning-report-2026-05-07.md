@@ -188,6 +188,8 @@ Passed:
 - Focused agent-loop error-safety tests passed, and `pnpm --filter @nitsyclaw/shared typecheck` passed after the agent-loop cleanup.
 - Local operator-runner unexpected failures now redact database URLs, tokens, emails, and phone numbers while preserving the safe missing-DB guidance.
 - Focused operator-runner error-safety tests passed, and `pnpm -r typecheck` passed after the operator script cleanup.
+- Added direct WhatsApp send-monitor coverage for successful sends and redacted failure heartbeat/notification behavior.
+- Focused WhatsApp send-monitor tests passed, and `pnpm --filter @nitsyclaw/bot typecheck` passed after the coverage addition.
 - Broad gate passed after the latest privacy-hardening commits: `pnpm lint` passed, and `pnpm test` passed with 124 test files and 482 tests.
 - `pnpm build` passed after the latest privacy-hardening commits.
 - `pnpm run security:audit` passed after the latest privacy-hardening commits with no known vulnerabilities.
