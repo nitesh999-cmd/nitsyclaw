@@ -61,21 +61,21 @@ export default async function SettingsPage({
           <ScoreTile label="Ready for me" score={saleReadiness.privateUseScore} />
           <ScoreTile label="Ready for customers" score={saleReadiness.publicSaleScore} />
           <div>
-            <div className="font-medium text-stone-950">
+            <div className="font-medium text-slate-100">
               {saleReadiness.ready ? "Ready to sell" : "Not ready to sell yet"}
             </div>
-            <p className="mt-2 text-xs leading-5 text-stone-600">
+            <p className="mt-2 text-xs leading-5 text-slate-400">
               Personal use checks the basics needed for your own daily system. Customer use stays capped until
               customer accounts, separate customer data, disconnect/delete controls, and reviewed legal pages are real.
             </p>
-            <ul className="mt-3 space-y-1 text-xs leading-5 text-stone-700">
+            <ul className="mt-3 space-y-1 text-xs leading-5 text-slate-400">
               {[...saleReadiness.privateUseBlockers, ...saleReadiness.blockers].slice(0, 5).map((blocker) => (
                 <li key={blocker}>- {plainReadinessItem(blocker)}</li>
               ))}
             </ul>
-            <details className="mt-3 text-xs text-stone-600">
-              <summary className="cursor-pointer font-medium text-[#76321d]">Advanced status</summary>
-              <a href="/api/sale-readiness" className="mt-2 inline-flex font-medium text-[#76321d]">
+            <details className="mt-3 text-xs text-slate-500">
+              <summary className="cursor-pointer font-medium text-[#d8b75d]">Advanced status</summary>
+              <a href="/api/sale-readiness" className="mt-2 inline-flex font-medium text-[#d8b75d]">
                 View technical readiness JSON
               </a>
             </details>
@@ -200,10 +200,10 @@ function plainReadinessItem(item: string): string {
 }
 
 function ScoreTile({ label, score }: { label: string; score: number }) {
-  const tone = score >= 9 ? "text-[#246b52]" : score >= 6 ? "text-[#8a4700]" : "text-[#9f2f22]";
+  const tone = score >= 9 ? "text-emerald-400" : score >= 6 ? "text-amber-400" : "text-red-400";
   return (
-    <div className="rounded-xl border border-stone-300 bg-[#fffdf8] p-4">
-      <div className="text-xs font-semibold uppercase text-[#8e3f24]">{label}</div>
+    <div className="nc-tile p-4">
+      <div className="nc-eyebrow">{label}</div>
       <div className={`mt-2 text-3xl font-semibold ${tone}`}>{score}/10</div>
     </div>
   );

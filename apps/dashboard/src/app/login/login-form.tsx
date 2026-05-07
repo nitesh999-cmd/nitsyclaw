@@ -8,7 +8,7 @@ export function LoginForm({ next }: { next: string }) {
     <form className="mt-5 space-y-4" action="/api/auth/login" method="post">
       <input type="hidden" name="next" value={next} />
       <label className="block text-sm">
-        <span className="font-medium text-stone-800">User</span>
+        <span className="font-medium text-slate-200">User</span>
         <input
           className="nc-input mt-1 w-full"
           name="user"
@@ -18,7 +18,7 @@ export function LoginForm({ next }: { next: string }) {
         />
       </label>
       <label className="block text-sm">
-        <span className="font-medium text-stone-800">Password</span>
+        <span className="font-medium text-slate-200">Password</span>
         <input
           className="nc-input mt-1 w-full"
           name="password"
@@ -52,7 +52,7 @@ function SubmitButton() {
         {pending ? "Checking access..." : "Sign in"}
       </button>
       {slow ? (
-        <p className="text-xs leading-5 text-stone-600" role="status">
+        <p className="text-xs leading-5 text-slate-400" role="status">
           Still checking the dashboard. If this sits here, refresh and try once more.
         </p>
       ) : null}
