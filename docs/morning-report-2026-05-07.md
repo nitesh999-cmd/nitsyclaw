@@ -158,6 +158,8 @@ Passed:
 - Latest full gate passed after the bot/dashboard log privacy sweep: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 119 files, 470 tests, and `pnpm build`.
 - `pnpm run security:audit` passed with no known vulnerabilities.
 - `pnpm run security:deep` passed: Semgrep scanned 367 tracked files with 0 findings and the dependency audit still reported no known vulnerabilities.
+- Focused safe-error, confirmations, queue-control, and private-cache tests passed after `/confirmations` and `/queue` stopped converting raw load exceptions into page copy.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after confirmations/queue page hardening.
 
 Failed or blocked:
 

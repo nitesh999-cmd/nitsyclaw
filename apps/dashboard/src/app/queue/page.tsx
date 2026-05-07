@@ -1,5 +1,6 @@
 import { getDb, featureRequests } from "@nitsyclaw/shared/db";
 import { desc, eq } from "drizzle-orm";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +53,13 @@ export default async function QueuePage({
 }) {
   let rows: Awaited<ReturnType<typeof loadQueue>> = [];
   let counts: Record<string, number> = {};
-  let error: string | null = null;
+  let hasLoadError = false;
   const params = searchParams ? await searchParams : undefined;
   try {
     [rows, counts] = await Promise.all([loadQueue(params?.status), loadQueueCounts()]);
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    logDashboardLoadError("queue.page", e);
+    hasLoadError = true;
   }
   const activeStatus = params?.status && ["pending", "in_progress", "done", "rejected"].includes(params.status)
     ? params.status
@@ -86,9 +88,9 @@ export default async function QueuePage({
         </div>
       </section>
 
-      {error ? (
+      {hasLoadError ? (
         <div className="rounded-xl border border-red-900 bg-red-950/30 p-4 text-sm leading-6 text-red-200" role="alert">
-          Queue data is not available right now. Check the dashboard database connection before changing request status.
+          Queue data is not available right now. Try again shortly before changing request status.
         </div>
       ) : null}
 

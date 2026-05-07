@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { getDb, confirmations, setConfirmationStatus } from "@nitsyclaw/shared/db";
 import { createPrivateSpotifyPlaylist } from "@nitsyclaw/shared/integrations/spotify";
 import { desc, eq } from "drizzle-orm";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -87,11 +88,12 @@ function summarize(payload: Record<string, unknown>) {
 
 export default async function ConfirmationsPage() {
   let rows: Awaited<ReturnType<typeof loadConfirmations>> = [];
-  let error: string | null = null;
+  let hasLoadError = false;
   try {
     rows = await loadConfirmations();
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    logDashboardLoadError("confirmations.page", e);
+    hasLoadError = true;
   }
 
   const pending = rows.filter((r) => r.status === "pending");
@@ -111,8 +113,10 @@ export default async function ConfirmationsPage() {
         </p>
       </section>
 
-      {error ? (
-        <div className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">{error}</div>
+      {hasLoadError ? (
+        <div className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+          Confirmations are not available right now. Try again shortly.
+        </div>
       ) : null}
 
       {rows.length === 0 ? (

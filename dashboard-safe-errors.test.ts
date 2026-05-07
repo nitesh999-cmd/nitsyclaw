@@ -57,10 +57,12 @@ describe("dashboard safe user-facing errors", () => {
   test("dashboard pages use redacted load logging and normal recovery copy", () => {
     for (const file of [
       "apps/dashboard/src/app/activity/page.tsx",
+      "apps/dashboard/src/app/confirmations/page.tsx",
       "apps/dashboard/src/app/conversations/page.tsx",
       "apps/dashboard/src/app/expenses/page.tsx",
       "apps/dashboard/src/app/memory/page.tsx",
       "apps/dashboard/src/app/profile/page.tsx",
+      "apps/dashboard/src/app/queue/page.tsx",
       "apps/dashboard/src/app/reminders/page.tsx",
       "apps/dashboard/src/app/search/page.tsx",
       "apps/dashboard/src/app/stats/page.tsx",
