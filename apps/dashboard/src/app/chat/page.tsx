@@ -198,7 +198,8 @@ export default function ChatPage() {
         }
       } catch (e) {
         if (!cancelled) {
-          setHistoryError(e instanceof Error ? e.message : "Unable to load chat history.");
+          console.warn("[chat] history load failed", e);
+          setHistoryError("Unable to load chat history. New messages still work.");
         }
       } finally {
         if (!cancelled) setLoadingHistory(false);
@@ -316,7 +317,7 @@ export default function ChatPage() {
             }
           } else if (event.type === "error" && typeof event.message === "string") {
             sawError = true;
-            setAssistantContent("Error: " + event.message);
+            setAssistantContent(event.message);
           }
           // tool / tool_result events ignored visually for now (could show indicator later)
         }
@@ -341,15 +342,13 @@ export default function ChatPage() {
           setAssistantContent(reply);
           if (voiceOut) speak(reply);
         } catch (fbErr) {
-          setAssistantContent(
-            "No reply — stream produced no text and fallback failed: " +
-              (fbErr instanceof Error ? fbErr.message : String(fbErr)),
-          );
+          console.warn("[chat] fallback failed", fbErr);
+          setAssistantContent("I could not get a reply. Try again shortly.");
         }
       }
     } catch (e) {
       console.error("[chat] stream error:", e);
-      setAssistantContent("Error: " + (e instanceof Error ? e.message : String(e)));
+      setAssistantContent("I could not get a reply. Try again shortly.");
     } finally {
       setBusy(false);
     }

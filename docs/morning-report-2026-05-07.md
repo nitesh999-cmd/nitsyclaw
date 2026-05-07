@@ -87,6 +87,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - Search API/page failures now use redacted logging and generic user-facing messages; search terms are capped before database queries.
 - Expense CSV export failures now use redacted logging and generic user-facing messages; validation errors also return no-store.
 - Main dashboard pages now use redacted load logging and normal retry guidance instead of telling users to check another page.
+- Chat UI now avoids rendering raw browser/fetch exception messages when stream or fallback calls fail.
 
 ## Verification run
 
@@ -129,6 +130,8 @@ Passed:
 - Latest full gate passed after search/expense hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 117 files, 461 tests, and `pnpm build`.
 - Focused safe-error, health page, and readability tests passed after dashboard page failure-copy cleanup.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard page failure-copy cleanup.
+- Focused chat client error, safe-error, and quick-action tests passed after chat client failure-copy cleanup.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat client failure-copy cleanup.
 
 Failed or blocked:
 
