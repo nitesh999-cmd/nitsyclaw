@@ -11,7 +11,7 @@ describe("dashboard safe user-facing errors", () => {
       expect(source, route).not.toContain("Agent error:");
       expect(source, route).not.toContain("message: msg");
       expect(source, route).not.toContain("const msg = e instanceof Error ? e.message : String(e)");
-      expect(source, route).toContain("console.error");
+      expect(source, route).toContain("logDashboardError");
       expect(source, route).toContain("I hit a server problem while answering. Try again shortly.");
     }
   });

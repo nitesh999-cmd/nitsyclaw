@@ -25,6 +25,7 @@ import { validateChatBody, validateContentLength } from "../../../lib/chat-valid
 import {
   encryptDashboardText,
   getOwnerIdentity,
+  logDashboardError,
   publicConfigErrorOrNull,
   publicServerError,
 } from "../../../lib/dashboard-runtime";
@@ -330,7 +331,7 @@ export async function POST(req: Request) {
       if (configError) {
         return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
       }
-      console.error("[chat] persist failed", persistErr);
+      logDashboardError("chat.persist", persistErr);
       // Non-fatal — still return the reply.
     }
 
@@ -348,7 +349,7 @@ export async function POST(req: Request) {
     if (configError) {
       return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
     }
-    console.error("[chat] agent failed", e);
+    logDashboardError("chat.agent", e);
     const failure = publicServerError("I hit a server problem while answering. Try again shortly.");
     return NextResponse.json(
       { reply: failure.reply },

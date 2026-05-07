@@ -1,4 +1,5 @@
 import { hashPhone, encryptForStorage } from "@nitsyclaw/shared/utils";
+import { redactAuditString } from "@nitsyclaw/shared/db";
 
 export interface OwnerIdentity {
   ownerPhone: string;
@@ -50,5 +51,22 @@ export function logDashboardLoadError(scope: string, error: unknown): void {
     return;
   }
 
-  console.error("[dashboard] load failed", { scope }, error);
+  console.error("[dashboard] load failed", { scope, error: safeErrorDetails(error) });
+}
+
+export function logDashboardError(scope: string, error: unknown): void {
+  console.error("[dashboard] operation failed", { scope, error: safeErrorDetails(error) });
+}
+
+function safeErrorDetails(error: unknown): { name: string; message: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name || "Error",
+      message: redactAuditString(error.message || "Unknown error"),
+    };
+  }
+  return {
+    name: typeof error,
+    message: redactAuditString(String(error || "Unknown error")),
+  };
 }

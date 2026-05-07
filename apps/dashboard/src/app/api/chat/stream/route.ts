@@ -32,6 +32,7 @@ import { validateChatBody, validateContentLength } from "../../../../lib/chat-va
 import {
   encryptDashboardText,
   getOwnerIdentity,
+  logDashboardError,
   publicConfigErrorOrNull,
   publicServerError,
 } from "../../../../lib/dashboard-runtime";
@@ -266,7 +267,7 @@ export async function POST(req: Request) {
       await completeCommandJob(deps.db, commandJob.id, reply);
       return streamSingleEvent({ type: "done", reply, featureId: row.id, commandJob: { id: commandJob.id, status: commandJob.status, receiptText: commandJob.receiptText } });
     } catch (e: unknown) {
-      console.error("[chat/stream] addfeature failed", e);
+      logDashboardError("chat.stream.addfeature", e);
       const configError = publicConfigErrorOrNull(e);
       if (configError) return streamSingleEvent({ type: "error", message: configError.reply });
       return streamSingleEvent({ type: "error", message: publicServerError("I could not queue that feature right now. Try again shortly.").reply });
@@ -433,7 +434,7 @@ export async function POST(req: Request) {
             send({ type: "error", message: configError.reply });
             return;
           }
-          console.error("[chat/stream] persist failed", persistErr);
+          logDashboardError("chat.stream.persist", persistErr);
         }
         await completeCommandJob(deps.db, commandJob.id, finalText || "Done.");
 
@@ -452,7 +453,7 @@ export async function POST(req: Request) {
           send({ type: "error", message: configError.reply });
           return;
         }
-        console.error("[chat/stream] stream failed", e);
+        logDashboardError("chat.stream", e);
         send({ type: "error", message: publicServerError("I hit a server problem while answering. Try again shortly.").reply });
       } finally {
         controller.close();
