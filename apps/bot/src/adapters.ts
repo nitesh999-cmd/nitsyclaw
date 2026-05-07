@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent } from "./microsoft-graph.js";
+import { logBotError } from "./safe-log.js";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
@@ -355,9 +356,9 @@ export async function fetchAllUnreadEmails(perAccountLimit = 5): Promise<Aggrega
           snippet: detail.data.snippet ?? undefined,
         });
       }
-    } catch (err) { console.error("[email] Gmail fetch failed", { label }, err); }
+    } catch (err) { logBotError("[email] Gmail fetch failed", err, { label }); }
   }
-  try { out.push(...(await fetchMsUnread(perAccountLimit))); } catch (err) { console.error("[email] M365 failed:", err); }
+  try { out.push(...(await fetchMsUnread(perAccountLimit))); } catch (err) { logBotError("[email] M365 failed", err); }
   // Yahoo skipped (parked, see session 2 / mind.md §6).
   out.sort((a, b) => b.date.getTime() - a.date.getTime());
   return out;
@@ -397,7 +398,7 @@ export async function searchAllGmail(query: string, perAccountLimit = 5): Promis
         });
       }
     } catch (err) {
-      console.error("[email] Gmail search failed", { label }, err);
+      logBotError("[email] Gmail search failed", err, { label });
     }
   }
 
@@ -429,12 +430,12 @@ export async function fetchAllEventsToday(timezone: string): Promise<AggregatedE
           start: new Date(e.start?.dateTime ?? e.start?.date ?? Date.now()),
         });
       }
-    } catch (err) { console.error("[cal] Google fetch failed", { label }, err); }
+    } catch (err) { logBotError("[cal] Google fetch failed", err, { label }); }
   }
   try {
     const ms = await fetchMsEventsToday(timezone);
     for (const e of ms) out.push({ source: "Outlook", title: e.title, start: e.start });
-  } catch (err) { console.error("[cal] M365 failed:", err); }
+  } catch (err) { logBotError("[cal] M365 failed", err); }
   out.sort((a, b) => a.start.getTime() - b.start.getTime());
   return out;
 }

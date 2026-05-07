@@ -13,4 +13,12 @@ describe("bot safe user-facing errors", () => {
     expect(source).not.toContain("(bugError as Error).message");
     expect(source).not.toContain("(queueError as Error).message");
   });
+
+  test("email and calendar adapters use redacted bot logging", () => {
+    const source = readFileSync("apps/bot/src/adapters.ts", "utf8");
+
+    expect(source).toContain("logBotError");
+    expect(source).not.toContain('console.error("[email]');
+    expect(source).not.toContain('console.error("[cal]');
+  });
 });

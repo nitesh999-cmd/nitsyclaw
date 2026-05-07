@@ -141,6 +141,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard API log cleanup.
 - Focused chat client error and safe-error tests passed after removing raw chat client exception logging.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat client log cleanup.
+- Focused bot safe-error tests passed after email/calendar adapters were moved to redacted bot logging.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after adapter log cleanup.
 
 Failed or blocked:
 
