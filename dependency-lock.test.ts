@@ -9,5 +9,7 @@ describe("dependency lock guard", () => {
     expect(lockfile).toContain("vite-node@2.1.9");
     expect(lockfile).not.toContain("@vitest/mocker@2.1.9(vite@8.");
     expect(lockfile).not.toContain("vite-node@2.1.9(@types/node@22.19.17)(esbuild@0.27.7");
+    expect(lockfile).not.toContain("basic-ftp@5.3.0");
+    expect(lockfile).toContain("basic-ftp@5.3.1");
   });
 });
