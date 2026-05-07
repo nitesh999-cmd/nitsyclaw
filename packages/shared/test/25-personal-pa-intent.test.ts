@@ -25,6 +25,13 @@ describe("personal PA intent clarification", () => {
     expect(result.userFacingText).toContain("approval");
   });
 
+  it("does not let a confirmation word hide a risky external action", () => {
+    const result = analyzePersonalPaIntent("yes please send it to Mukesh now");
+
+    expect(result.kind).toBe("approval_required");
+    expect(result.userFacingText).toContain("approval");
+  });
+
   it("lets clear safe research or comparison requests proceed", () => {
     const result = analyzePersonalPaIntent("Compare electricity plans for Melbourne and recommend the best option");
 
