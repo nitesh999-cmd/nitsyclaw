@@ -50,37 +50,56 @@ $forbiddenRepoPatterns = @(
     '*.db',
     'package-lock.json'
 )
-$forbiddenRepoPaths = @()
-foreach ($pattern in $forbiddenRepoPatterns) {
-    $matches = @(Get-ChildItem -Path . -Force -File -Recurse -Include $pattern -ErrorAction SilentlyContinue |
-        Where-Object {
-            $fullName = $_.FullName -replace '\\', '/'
-            $fullName -notmatch '/\.git/' -and
-            $fullName -notmatch '/node_modules/' -and
-            $fullName -notmatch '/\.pnpm-store/' -and
-            $fullName -notmatch '/dist/' -and
-            $fullName -notmatch '/\.next/' -and
-            $fullName -notmatch '/coverage/' -and
-            $fullName -notmatch '/playwright-report/' -and
-            $fullName -notmatch '/test-results/' -and
-            $_.Name -ne '.env.local.example'
-        })
-    foreach ($match in $matches) {
-        $forbiddenRepoPaths += $match.FullName
+$excludedRepoDirs = @(
+    '.git',
+    'node_modules',
+    '.pnpm-store',
+    'dist',
+    '.next',
+    'coverage',
+    'playwright-report',
+    'test-results'
+)
+function Get-RepoLocalSecretPaths {
+    param([string]$RootPath)
+
+    $results = New-Object System.Collections.Generic.List[string]
+    $stack = New-Object System.Collections.Generic.Stack[System.IO.DirectoryInfo]
+    $root = Get-Item -LiteralPath $RootPath -Force
+    $stack.Push($root)
+
+    while ($stack.Count -gt 0) {
+        $directory = $stack.Pop()
+
+        $files = @(Get-ChildItem -LiteralPath $directory.FullName -Force -File -ErrorAction SilentlyContinue)
+        foreach ($file in $files) {
+            if ($file.Name -eq '.env.local.example') {
+                continue
+            }
+            foreach ($pattern in $forbiddenRepoPatterns) {
+                if ($file.Name -like $pattern) {
+                    [void]$results.Add($file.FullName)
+                    break
+                }
+            }
+        }
+
+        $directories = @(Get-ChildItem -LiteralPath $directory.FullName -Force -Directory -ErrorAction SilentlyContinue)
+        foreach ($childDirectory in $directories) {
+            if ($excludedRepoDirs -contains $childDirectory.Name) {
+                continue
+            }
+            if ($childDirectory.Name -eq '.wa-session') {
+                [void]$results.Add($childDirectory.FullName)
+                continue
+            }
+            $stack.Push($childDirectory)
+        }
     }
+
+    return $results.ToArray()
 }
-$forbiddenSessionDirs = @(Get-ChildItem -Path . -Force -Directory -Recurse -Filter ".wa-session" -ErrorAction SilentlyContinue |
-    Where-Object {
-        $fullName = $_.FullName -replace '\\', '/'
-        $fullName -notmatch '/\.git/' -and
-        $fullName -notmatch '/node_modules/' -and
-        $fullName -notmatch '/\.pnpm-store/' -and
-        $fullName -notmatch '/dist/' -and
-        $fullName -notmatch '/\.next/'
-    })
-foreach ($sessionDir in $forbiddenSessionDirs) {
-    $forbiddenRepoPaths += $sessionDir.FullName
-}
+$forbiddenRepoPaths = @(Get-RepoLocalSecretPaths -RootPath ".")
 if ($forbiddenRepoPaths.Count -gt 0) {
     $externalSecretRoot = if ($env:NITSYCLAW_SECRET_ROOT) { $env:NITSYCLAW_SECRET_ROOT } else { Join-Path $HOME ".nitsyclaw\secrets" }
     $list = ($forbiddenRepoPaths | Sort-Object -Unique | ForEach-Object { " - $_" }) -join "`n"

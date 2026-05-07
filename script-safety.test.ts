@@ -65,4 +65,11 @@ describe("release script safety", () => {
 
     expect(violations).toEqual([]);
   });
+
+  test("preflight secret scan prunes generated dependency folders before recursing", () => {
+    const source = readFileSync("scripts/preflight.ps1", "utf8");
+
+    expect(source).not.toContain("Get-ChildItem -Path . -Force -File -Recurse -Include");
+    expect(source).toContain("$excludedRepoDirs");
+  });
 });
