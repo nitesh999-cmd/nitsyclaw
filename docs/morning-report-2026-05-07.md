@@ -198,6 +198,7 @@ Passed:
 - `pnpm run release:preflight` passed after all latest commits. It ran lint, typecheck, build, coverage, 12 Playwright E2E checks, and `security:deep`, then restored `apps/dashboard/next-env.d.ts` without leaving generated drift.
 - `pnpm run release:vercel-build` could not complete local artifact packaging because Windows symlink privilege is unavailable. The dashboard Next build inside that gate passed; remaining blocker is local Windows Developer Mode/elevated PowerShell or running Vercel build in CI/Linux.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app` using non-mutating GET/HEAD checks: healthz 200, privacy/terms 200, protected APIs 401, login 200 with expected copy.
+- Latest `pnpm run release:live-smoke` passed again against `https://nitsyclaw.vercel.app`: healthz 200, privacy/terms 200, protected APIs 401, login 200.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.
 - `pnpm run audit:doctor` still reports 2 local environment blockers: Docker is missing for ZAP, and Windows symlink privilege is unavailable for local Vercel artifact packaging. It confirmed Vercel CLI, `curl.exe`, and live `/api/healthz` are OK.
 
