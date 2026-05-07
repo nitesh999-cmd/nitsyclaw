@@ -1,7 +1,9 @@
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
 import { desc, sql } from "drizzle-orm";
+import { logDashboardError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
+const MAX_SEARCH_TERM_CHARS = 120;
 
 type SearchResultType = "memory" | "reminder" | "message";
 
@@ -89,7 +91,7 @@ export default async function SearchPage({
   searchParams?: Promise<{ q?: string }>;
 }) {
   const params = await (searchParams ?? Promise.resolve({ q: undefined }));
-  const q = params.q?.trim() ?? "";
+  const q = params.q?.trim().slice(0, MAX_SEARCH_TERM_CHARS) ?? "";
 
   let results: SearchResult[] = [];
   let searchError: string | null = null;
@@ -97,8 +99,9 @@ export default async function SearchPage({
   if (q) {
     try {
       results = await searchAll(q);
-    } catch {
-      searchError = "Search failed. Check Health.";
+    } catch (e) {
+      logDashboardError("search.page", e);
+      searchError = "Search failed. Try again shortly.";
     }
   }
 
