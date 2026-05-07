@@ -12,7 +12,11 @@ import {
   OPERATOR_MISSIONS,
   type OperatorMission,
 } from "../../../command/operator-missions";
-import { OPERATOR_NEXT_50, type OperatorRoadmapItem } from "../../../command/operator-roadmap";
+import {
+  getOperatorRoadmapItem,
+  OPERATOR_NEXT_50,
+  type OperatorRoadmapItem,
+} from "../../../command/operator-roadmap";
 import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
@@ -25,7 +29,7 @@ const MAX_BATCH = 20;
 const MAX_NEXT_50 = 50;
 const NO_STORE = { "Cache-Control": "no-store" };
 
-type QueueAction = "queue_mission" | "queue_all" | "queue_next_50";
+type QueueAction = "queue_mission" | "queue_all" | "queue_next_50" | "queue_next_50_item";
 
 interface QueueBody {
   action?: QueueAction;
@@ -59,7 +63,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const action = rawBody.action;
-  if (action !== "queue_mission" && action !== "queue_all" && action !== "queue_next_50") {
+  if (
+    action !== "queue_mission" &&
+    action !== "queue_all" &&
+    action !== "queue_next_50" &&
+    action !== "queue_next_50_item"
+  ) {
     return NextResponse.json({ reply: "Invalid operator job action" }, { status: 400, headers: NO_STORE });
   }
 
@@ -68,6 +77,9 @@ export async function POST(request: Request): Promise<Response> {
     jobs = OPERATOR_MISSIONS.slice(0, MAX_BATCH).map(missionToJob);
   } else if (action === "queue_next_50") {
     jobs = OPERATOR_NEXT_50.slice(0, MAX_NEXT_50).map(next50ToJob);
+  } else if (action === "queue_next_50_item" && rawBody.missionId) {
+    const item = getOperatorRoadmapItem(rawBody.missionId);
+    jobs = item ? [next50ToJob(item)] : [];
   } else if (rawBody.missionId) {
     const mission = getOperatorMission(rawBody.missionId);
     jobs = mission ? [missionToJob(mission)] : [];

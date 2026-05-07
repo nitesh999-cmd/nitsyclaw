@@ -4,6 +4,10 @@ import {
   missionToQueueDescription,
   OPERATOR_MISSIONS,
 } from "./apps/dashboard/src/app/command/operator-missions";
+import {
+  getOperatorRoadmapItem,
+  OPERATOR_NEXT_50,
+} from "./apps/dashboard/src/app/command/operator-roadmap";
 
 describe("operator missions", () => {
   it("defines exactly twenty high-leverage missions with stable ids", () => {
@@ -27,5 +31,10 @@ describe("operator missions", () => {
     expect(description).toContain("[Reliability] Self-Healing Core");
     expect(description).toContain("Outcome:");
   });
-});
 
+  it("can look up a single next-50 roadmap item by id", () => {
+    expect(OPERATOR_NEXT_50.length).toBeGreaterThanOrEqual(50);
+    expect(getOperatorRoadmapItem("travel-aware-mode")?.title).toBe("Travel-Aware Mode");
+    expect(getOperatorRoadmapItem("missing-roadmap-item")).toBeNull();
+  });
+});

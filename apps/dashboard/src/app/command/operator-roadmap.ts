@@ -512,3 +512,7 @@ export const OPERATOR_NEXT_50: OperatorRoadmapItem[] = [
     why: "A simple score keeps personal use and paid-app readiness separate.",
   },
 ];
+
+export function getOperatorRoadmapItem(id: string): OperatorRoadmapItem | null {
+  return OPERATOR_NEXT_50.find((item) => item.id === id) ?? null;
+}

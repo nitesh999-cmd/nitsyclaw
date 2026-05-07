@@ -22,6 +22,7 @@ describe("operator command page", () => {
     expect(client).toContain("This is the planning desk");
     expect(client).toContain("Queue Top 20 requests");
     expect(client).toContain("Queue Next 50 requests");
+    expect(client).toContain("queue_next_50_item");
     expect(client).toContain("Desktop Gateway");
     expect(client).toContain("Codex Factory");
     expect(client).toContain("Skill Store");

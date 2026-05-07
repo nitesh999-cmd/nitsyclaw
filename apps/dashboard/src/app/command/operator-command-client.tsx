@@ -118,7 +118,10 @@ export function OperatorCommandClient() {
     }
   }
 
-  async function queueMission(action: "queue_mission" | "queue_all" | "queue_next_50", missionId?: string) {
+  async function queueMission(
+    action: "queue_mission" | "queue_all" | "queue_next_50" | "queue_next_50_item",
+    missionId?: string,
+  ) {
     if (missionBusy) return;
 
     setMissionBusy(missionId ?? action);
@@ -288,7 +291,13 @@ export function OperatorCommandClient() {
 
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
           {OPERATOR_NEXT_50.slice(0, 10).map((item) => (
-            <div key={item.id} className="rounded-xl border border-stone-200 bg-white p-3">
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => queueMission("queue_next_50_item", item.id)}
+              disabled={Boolean(missionBusy)}
+              className="rounded-xl border border-stone-200 bg-white p-3 text-left transition-colors hover:border-[#b85c38] disabled:border-stone-200 disabled:bg-stone-50 disabled:text-stone-500"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="text-sm font-semibold text-stone-950">{item.title}</div>
                 <div className="text-xs font-semibold text-[#8e3f24]">{item.severity}</div>
@@ -297,7 +306,10 @@ export function OperatorCommandClient() {
                 {item.category} / {item.size}
               </div>
               <div className="mt-2 text-xs leading-5 text-stone-700">{item.why}</div>
-            </div>
+              <div className="mt-3 text-xs font-semibold text-[#8e3f24]">
+                {missionBusy === item.id ? "Queuing" : "Queue this move"}
+              </div>
+            </button>
           ))}
         </div>
       </section>
