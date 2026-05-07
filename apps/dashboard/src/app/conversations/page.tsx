@@ -37,7 +37,7 @@ export default async function ConversationsPage({
     rows = await load(direction);
   } catch (e: unknown) {
     logDashboardLoadError("conversations", e);
-    errorMsg = "Could not load conversations. Check Health.";
+    errorMsg = "Could not load conversations. Try again shortly.";
   }
 
   if (errorMsg) {

@@ -1,5 +1,6 @@
 import { getDb, profileContext } from "@nitsyclaw/shared/db";
 import { desc } from "drizzle-orm";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +81,9 @@ export default async function ProfilePage() {
 
   try {
     rows = await load();
-  } catch {
-    errorMsg = "Could not load profile context. Check Health.";
+  } catch (e) {
+    logDashboardLoadError("profile", e);
+    errorMsg = "Could not load profile context. Try again shortly.";
   }
 
   if (errorMsg) {

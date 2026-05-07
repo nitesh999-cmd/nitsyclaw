@@ -1,5 +1,6 @@
 import { getDb, memories } from "@nitsyclaw/shared/db";
 import { desc, sql } from "drizzle-orm";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,9 @@ export default async function MemoryPage({
   let errorMsg: string | null = null;
   try {
     rows = await load(q);
-  } catch {
-    errorMsg = "Could not load memory. Check Health.";
+  } catch (e) {
+    logDashboardLoadError("memory", e);
+    errorMsg = "Could not load memory. Try again shortly.";
   }
 
   if (errorMsg) {

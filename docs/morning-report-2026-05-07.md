@@ -86,6 +86,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - Stats API/page failures now use redacted logging and generic user-facing messages; `/api/stats` also explicitly disables caching.
 - Search API/page failures now use redacted logging and generic user-facing messages; search terms are capped before database queries.
 - Expense CSV export failures now use redacted logging and generic user-facing messages; validation errors also return no-store.
+- Main dashboard pages now use redacted load logging and normal retry guidance instead of telling users to check another page.
 
 ## Verification run
 
@@ -126,6 +127,8 @@ Passed:
 - Focused safe-error, private API cache, and expense-utils tests passed after expense export hardening.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after expense export hardening.
 - Latest full gate passed after search/expense hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 117 files, 461 tests, and `pnpm build`.
+- Focused safe-error, health page, and readability tests passed after dashboard page failure-copy cleanup.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard page failure-copy cleanup.
 
 Failed or blocked:
 

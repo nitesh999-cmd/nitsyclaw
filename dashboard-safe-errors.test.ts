@@ -50,6 +50,25 @@ describe("dashboard safe user-facing errors", () => {
     }
   });
 
+  test("dashboard pages use redacted load logging and normal recovery copy", () => {
+    for (const file of [
+      "apps/dashboard/src/app/activity/page.tsx",
+      "apps/dashboard/src/app/conversations/page.tsx",
+      "apps/dashboard/src/app/expenses/page.tsx",
+      "apps/dashboard/src/app/memory/page.tsx",
+      "apps/dashboard/src/app/profile/page.tsx",
+      "apps/dashboard/src/app/reminders/page.tsx",
+      "apps/dashboard/src/app/search/page.tsx",
+      "apps/dashboard/src/app/stats/page.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).toContain("logDashboard");
+      expect(source, file).not.toContain("Check Health");
+      expect(source, file).not.toContain("err instanceof Error ? err.message");
+      expect(source, file).not.toContain("e instanceof Error ? e.message");
+    }
+  });
+
   test("database construction errors do not expose environment shape", () => {
     const source = readFileSync("packages/shared/src/db/client.ts", "utf8");
 

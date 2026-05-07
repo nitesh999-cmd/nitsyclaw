@@ -2,6 +2,7 @@ import { getDb, auditLog, messages, reminders, confirmations, expenses } from "@
 import { redactAuditString, sanitizeAuditPayload } from "@nitsyclaw/shared/db";
 import { relativeTime } from "@nitsyclaw/shared/utils";
 import { desc } from "drizzle-orm";
+import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,9 @@ export default async function ActivityPage() {
   let error: string | null = null;
   try {
     data = await loadActivity();
-  } catch (_e) {
-    error = "Could not load recent activity. Check Health.";
+  } catch (e) {
+    logDashboardLoadError("activity", e);
+    error = "Could not load recent activity. Try again shortly.";
   }
 
   return (

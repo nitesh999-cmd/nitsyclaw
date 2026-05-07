@@ -79,7 +79,7 @@ export default async function ExpensesPage({
     rows = await load(filters);
   } catch (e: unknown) {
     logDashboardLoadError("expenses", e);
-    errorMsg = "Could not load expenses. Check Health.";
+    errorMsg = "Could not load expenses. Try again shortly.";
   }
 
   if (errorMsg) {

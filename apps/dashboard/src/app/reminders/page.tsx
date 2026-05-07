@@ -63,7 +63,7 @@ export default async function RemindersPage() {
     rows = await load();
   } catch (e: unknown) {
     logDashboardLoadError("reminders", e);
-    const message = publicConfigErrorOrNull(e)?.reply ?? "Reminders are unavailable. Check Health.";
+    const message = publicConfigErrorOrNull(e)?.reply ?? "Reminders are unavailable. Try again shortly.";
     return (
       <div className="nc-page">
         <section className="nc-hero">
