@@ -79,7 +79,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - `3c5e1e1 fix: use redacted server error logs`
 - `eb0c59e fix: avoid raw client error logging`
 - Audit payloads now cap very wide nested objects before DB writes, reducing privacy and storage blast radius from unexpected tool/API responses.
-- Bot router failure logs now go through a redacted formatter, and shared token redaction now catches Stripe-style `sk_live`/`sk_test` tokens before phone-number redaction.
+- Bot router failure logs now go through a redacted formatter, log context is sanitized before console output, and shared token redaction now catches Stripe-style `sk_live`/`sk_test` tokens before phone-number redaction.
 
 ## Verification run
 
@@ -104,7 +104,7 @@ Passed:
 - Latest full gate passed again after log hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 114 files, 455 tests, and `pnpm build`.
 - Focused audit sanitizer regression passed after adding the wide-object cap.
 - `pnpm --filter @nitsyclaw/shared typecheck` passed after audit sanitizer changes.
-- Focused bot safe-log, router integration, and audit sanitizer regressions passed after bot log redaction.
+- Focused bot safe-log, router integration, and audit sanitizer regressions passed after bot log redaction and context sanitization.
 - `pnpm --filter @nitsyclaw/bot typecheck` and `pnpm --filter @nitsyclaw/shared typecheck` passed after bot log redaction.
 
 Failed or blocked:

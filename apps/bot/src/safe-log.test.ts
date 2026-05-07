@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { formatSafeLogError } from "./safe-log.js";
+import { formatSafeLogError, logBotError } from "./safe-log.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("formatSafeLogError", () => {
   it("redacts contact details and tokens from runtime errors", () => {
@@ -14,5 +18,25 @@ describe("formatSafeLogError", () => {
     expect(safe).not.toContain("nitesh@example.com");
     expect(safe).not.toContain("+61 430 008 008");
     expect(safe).not.toContain("sk_live");
+  });
+
+  it("redacts context before writing to console", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logBotError("[test] failed", new Error("bad"), {
+      email: "nitesh@example.com",
+      phone: "+61 430 008 008",
+      label: "voice transcription",
+    });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      "[test] failed",
+      expect.objectContaining({
+        email: "[redacted]",
+        phone: "[redacted]",
+        label: "voice transcription",
+      }),
+      "Error: bad",
+    );
   });
 });

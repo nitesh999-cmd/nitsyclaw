@@ -1,4 +1,4 @@
-import { redactAuditString } from "@nitsyclaw/shared/db";
+import { redactAuditString, sanitizeAuditPayload } from "@nitsyclaw/shared/db";
 
 export function formatSafeLogError(error: unknown): string {
   if (error instanceof Error) {
@@ -8,5 +8,5 @@ export function formatSafeLogError(error: unknown): string {
 }
 
 export function logBotError(scope: string, error: unknown, context?: Record<string, unknown>): void {
-  console.error(scope, context ?? {}, formatSafeLogError(error));
+  console.error(scope, context ? sanitizeAuditPayload(context) : {}, formatSafeLogError(error));
 }
