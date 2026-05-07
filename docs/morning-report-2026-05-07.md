@@ -4,7 +4,7 @@
 
 NitsyClaw moved forward through safe, reversible local work only. No deploy, push, secret change, production data change, outbound message, call, email, purchase, or destructive operation was performed.
 
-Current branch status after this work: `main` is 27 commits ahead of `origin/main`.
+Current branch status after this work: `main` is 32 commits ahead of `origin/main`.
 
 ## What was inspected
 
@@ -14,6 +14,7 @@ Current branch status after this work: `main` is 27 commits ahead of `origin/mai
 - Shared command job persistence, intent classification, migration files, Drizzle journal, dependency lock, and release scripts.
 - Local release machine readiness through `audit:doctor`.
 - Continued audit cycles for WhatsApp runtime status, session storage docs, debug diagnostics, Snyk scan scope, operator roadmap queuing, dashboard readability, and command-job idempotency.
+- Continued audit cycles for dashboard fallback speed, login return paths, agent tool-output size, and risky-action approval wording.
 
 ## What changed
 
@@ -35,6 +36,10 @@ Current branch status after this work: `main` is 27 commits ahead of `origin/mai
 - Individual Next 50 roadmap items can now be queued from `/command`.
 - Dashboard shell, login, command, help, privacy, terms, and loading surfaces use darker readable contrast.
 - Duplicate command-job dedupe keys now return the existing job instead of creating duplicate work.
+- Today and Command pages now fall back faster when storage is slow, reducing post-login buffering.
+- Login redirects now preserve the original page query string, so filtered views survive authentication.
+- Agent tool-result text is capped before being fed back to the model to reduce runaway token/cost risk.
+- Booking, appointment, schedule, and order wording is now approval-gated.
 
 ## Commits made
 
@@ -63,6 +68,10 @@ Current branch status after this work: `main` is 27 commits ahead of `origin/mai
 - `72cb0ad style: improve dashboard contrast`
 - `8bab960 style: improve readable dark dashboard surfaces`
 - `4d3e991 fix: make command job dedupe idempotent`
+- `aa3976f fix: shorten dashboard fallback waits`
+- `9260851 fix: preserve login return query`
+- `ec84f21 fix: cap agent tool result context`
+- `03eecce fix: gate booking and order wording`
 
 ## Verification run
 
@@ -83,6 +92,7 @@ Passed:
 - Focused command-job, operator jobs, bot router, and command shortcut tests passed after dedupe/idempotency changes.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard changes.
 - `pnpm --filter @nitsyclaw/shared typecheck` passed after command-job changes.
+- Latest full gate passed: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 113 files, 453 tests, and `pnpm build`.
 
 Failed or blocked:
 
