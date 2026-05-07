@@ -109,6 +109,28 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("ignores duplicate WhatsApp events with the same message id", async () => {
+    const inbound = {
+      id: "x-duplicate",
+      from: OWNER,
+      body: "Research better electricity plans for Melbourne.",
+      timestamp: new Date(),
+      hasMedia: false,
+    };
+
+    await router.handle(inbound);
+    await router.handle(inbound);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-duplicate",
+      dedupeKey: "whatsapp:x-duplicate",
+    });
+    expect(wa.sent.filter((message) => message.body.includes("Saved"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+  });
+
   it("asks for clarification instead of running unclear emotional speech", async () => {
     await router.handle({
       id: "x-clarify",

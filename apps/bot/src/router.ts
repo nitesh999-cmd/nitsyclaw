@@ -78,6 +78,8 @@ import { runDailyBuildAgent } from "./build-agent.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
+  private readonly seenExternalMessageIds = new Set<string>();
+  private readonly seenExternalMessageOrder: string[] = [];
 
   constructor(private deps: AgentDeps, private ownerPhone: string) {}
 
@@ -471,6 +473,7 @@ export class Router {
 
   async handle(msg: InboundMessage): Promise<void> {
     if (msg.from !== this.ownerPhone) return; // R2 — only owner
+    if (!this.rememberExternalMessageId(msg.id)) return;
 
     // Load cross-surface history BEFORE persisting current turn so it isn't included.
     const history = await loadCrossSurfaceHistory(
@@ -791,6 +794,7 @@ export class Router {
       command: effectiveText,
       sourceMessageId: persisted.id,
       sourceExternalId: msg.id,
+      dedupeKey: `whatsapp:${msg.id}`,
     });
     await this.sendAndPersist(commandJob.receiptText);
     if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;
@@ -835,6 +839,18 @@ export class Router {
       await recordCommandJobFailure(this.deps.db, commandJob.id, e);
       throw e;
     }
+  }
+
+  private rememberExternalMessageId(id: string): boolean {
+    if (!id.trim()) return true;
+    if (this.seenExternalMessageIds.has(id)) return false;
+    this.seenExternalMessageIds.add(id);
+    this.seenExternalMessageOrder.push(id);
+    while (this.seenExternalMessageOrder.length > 500) {
+      const oldest = this.seenExternalMessageOrder.shift();
+      if (oldest) this.seenExternalMessageIds.delete(oldest);
+    }
+    return true;
   }
 
 }

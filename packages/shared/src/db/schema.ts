@@ -286,7 +286,7 @@ export const commandJobs = pgTable(
   (t) => ({
     statusIdx: index("command_jobs_status_idx").on(t.status, t.createdAt),
     ownerStatusIdx: index("command_jobs_owner_status_idx").on(t.ownerHash, t.status, t.createdAt),
-    dedupeIdx: index("command_jobs_dedupe_idx").on(t.dedupeKey),
+    dedupeIdx: uniqueIndex("command_jobs_dedupe_idx").on(t.dedupeKey),
   }),
 );
 
