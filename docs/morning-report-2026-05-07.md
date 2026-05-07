@@ -153,6 +153,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after build-agent log cleanup.
 - Focused bot safe-error and location env tests passed after bot boot/shutdown failure logs were moved to redacted logging.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after bot boot log cleanup.
+- Focused WhatsApp client regression, bot safe-error, and location env tests passed after WhatsApp restart/status reasons were sanitized.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after WhatsApp client log cleanup.
 
 Failed or blocked:
 

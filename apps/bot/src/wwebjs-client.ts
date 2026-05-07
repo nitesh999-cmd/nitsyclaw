@@ -32,6 +32,7 @@ import {
   markPresenceUnavailable,
   parsePresenceUnavailableIntervalMs,
 } from "./whatsapp-presence.js";
+import { formatSafeLogError, logBotError } from "./safe-log.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
@@ -55,6 +56,10 @@ function defaultHealthFilePath(): string {
 
 function safeRuntimeReason(reason: string | undefined): string | undefined {
   return reason ? redactAuditString(reason) : undefined;
+}
+
+function safeRestartReason(label: string, error: unknown): string {
+  return `${label}: ${formatSafeLogError(error)}`;
 }
 
 export interface WwebjsOptions {
@@ -161,7 +166,7 @@ export class WwebjsClient implements WhatsAppClient {
       await mkdir(dirname(this.healthFilePath), { recursive: true });
       await writeFile(this.healthFilePath, `${new Date().toISOString()} ${state}\n`, "utf8");
     } catch (e) {
-      console.error("[wwebjs] health heartbeat write failed", e);
+      logBotError("[wwebjs] health heartbeat write failed", e);
     }
   }
 
@@ -172,7 +177,7 @@ export class WwebjsClient implements WhatsAppClient {
       at: event.at ?? new Date().toISOString(),
     };
     Promise.resolve(this.opts.onStatus?.(safeEvent)).catch((e) => {
-      console.error("[wwebjs] status callback failed", e);
+      logBotError("[wwebjs] status callback failed", e);
     });
   }
 
@@ -198,11 +203,11 @@ export class WwebjsClient implements WhatsAppClient {
       }, this.initializeTimeoutMs);
     } catch (e) {
       if (this.stopped) return;
-      console.error("[wwebjs] initialize failed; retrying", { reason, restartBackoffMs: this.restartBackoffMs }, e);
-      this.emitStatus({ status: "restarting", reason: `initialize failed: ${String(e)}` });
+      logBotError("[wwebjs] initialize failed; retrying", e, { reason, restartBackoffMs: this.restartBackoffMs });
+      this.emitStatus({ status: "restarting", reason: safeRestartReason("initialize failed", e) });
       this.client.removeAllListeners();
       await this.client.destroy().catch((destroyError: unknown) => {
-        console.error("[wwebjs] destroy after initialize failure failed", destroyError);
+        logBotError("[wwebjs] destroy after initialize failure failed", destroyError);
       });
       await new Promise((resolveDelay) => setTimeout(resolveDelay, this.restartBackoffMs));
       if (this.stopped) return;
@@ -231,13 +236,13 @@ export class WwebjsClient implements WhatsAppClient {
       this.emitStatus({ status: "health_ok", state: String(state) });
     } catch (e) {
       this.consecutiveHealthFailures += 1;
-      console.error("[wwebjs] health probe failed", {
+      logBotError("[wwebjs] health probe failed", e, {
         consecutiveHealthFailures: this.consecutiveHealthFailures,
         maxConsecutiveHealthFailures: this.maxConsecutiveHealthFailures,
-      }, e);
+      });
       this.emitStatus({
         status: "health_failed",
-        reason: String(e),
+        reason: formatSafeLogError(e),
         consecutiveFailures: this.consecutiveHealthFailures,
       });
       if (
@@ -246,7 +251,7 @@ export class WwebjsClient implements WhatsAppClient {
           this.maxConsecutiveHealthFailures,
         )
       ) {
-        await this.restart(`health probe failed: ${String(e)}`);
+        await this.restart(safeRestartReason("health probe failed", e));
       }
     }
   }
@@ -256,7 +261,7 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.restarting) return this.restarting;
 
     this.restarting = (async () => {
-      console.error(`[wwebjs] restarting client: ${reason}`);
+      console.error(`[wwebjs] restarting client: ${safeRuntimeReason(reason)}`);
       this.emitStatus({ status: "restarting", reason });
       if (this.healthProbe) {
         clearInterval(this.healthProbe);
@@ -279,7 +284,7 @@ export class WwebjsClient implements WhatsAppClient {
         "WhatsApp presence before restart",
       );
       await oldClient.destroy().catch((e: unknown) => {
-        console.error("[wwebjs] destroy during restart failed", e);
+        logBotError("[wwebjs] destroy during restart failed", e);
       });
 
       this.generation += 1;
@@ -333,15 +338,15 @@ export class WwebjsClient implements WhatsAppClient {
     });
     this.client.on("auth_failure", (err: unknown) => {
       if (!isCurrentGeneration()) return;
-      console.error("[wwebjs] auth_failure", err);
-      this.emitStatus({ status: "auth_failure", reason: String(err) });
-      void this.restart(`auth_failure: ${String(err)}`);
+      logBotError("[wwebjs] auth_failure", err);
+      this.emitStatus({ status: "auth_failure", reason: formatSafeLogError(err) });
+      void this.restart(safeRestartReason("auth_failure", err));
     });
     this.client.on("disconnected", (reason: unknown) => {
       if (!isCurrentGeneration()) return;
-      console.error("[wwebjs] disconnected", reason);
-      this.emitStatus({ status: "disconnected", reason: String(reason) });
-      void this.restart(`disconnected: ${String(reason)}`);
+      logBotError("[wwebjs] disconnected", reason);
+      this.emitStatus({ status: "disconnected", reason: formatSafeLogError(reason) });
+      void this.restart(safeRestartReason("disconnected", reason));
     });
 
     const handleMessage = async (m: Message) => {
@@ -427,7 +432,7 @@ export class WwebjsClient implements WhatsAppClient {
         };
         for (const h of this.handlers) await h(inbound);
       } catch (e) {
-        console.error("[wwebjs] handler error", e);
+        logBotError("[wwebjs] handler error", e);
       }
     };
 
@@ -454,7 +459,7 @@ export class WwebjsClient implements WhatsAppClient {
       );
       return { id: sent.id?._serialized ?? "" };
     } catch (e) {
-      void this.restart(`send failed: ${String(e)}`);
+      void this.restart(safeRestartReason("send failed", e));
       throw e;
     }
   }

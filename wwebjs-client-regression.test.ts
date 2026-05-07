@@ -31,6 +31,10 @@ describe("wwebjs client regressions", () => {
   test("redacts runtime status reasons before they can reach heartbeat metadata", () => {
     expect(source).toContain("redactAuditString");
     expect(source).toContain("safeRuntimeReason");
+    expect(source).toContain("safeRestartReason");
+    expect(source).toContain("formatSafeLogError");
     expect(source).toContain("reason: safeRuntimeReason(event.reason)");
+    expect(source).not.toContain("String(e)");
+    expect(source).not.toContain("String(err)");
   });
 });
