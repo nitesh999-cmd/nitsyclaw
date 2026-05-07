@@ -172,6 +172,7 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after Google auth output cleanup.
 - Focused stream privacy, stream route, safe-error, and audit sanitizer tests passed after streaming tool failure errors were redacted before audit logging.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after stream audit-error cleanup.
+- Latest full gate passed after the command/stream/privacy follow-up: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 119 files, 473 tests, and `pnpm build`.
 
 Failed or blocked:
 
