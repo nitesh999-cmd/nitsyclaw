@@ -38,4 +38,11 @@ describe("personal PA intent clarification", () => {
     expect(result.kind).toBe("actionable");
     expect(result.question).toBeUndefined();
   });
+
+  it("treats short weather requests as actionable", () => {
+    const result = analyzePersonalPaIntent("weather today");
+
+    expect(result.kind).toBe("actionable");
+    expect(result.question).toBeUndefined();
+  });
 });
