@@ -88,6 +88,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - Expense CSV export failures now use redacted logging and generic user-facing messages; validation errors also return no-store.
 - Main dashboard pages now use redacted load logging and normal retry guidance instead of telling users to check another page.
 - Chat UI now avoids rendering raw browser/fetch exception messages when stream or fallback calls fail.
+- Reminder creation with an invalid date now shows a visible error instead of silently doing nothing.
 
 ## Verification run
 
@@ -133,6 +134,9 @@ Passed:
 - Focused chat client error, safe-error, and quick-action tests passed after chat client failure-copy cleanup.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat client failure-copy cleanup.
 - Latest full gate passed after dashboard/chat error-copy hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 118 files, 463 tests, and `pnpm build`.
+- `pnpm run security:audit` passed again with no known vulnerabilities.
+- Focused reminders page and safe-error tests passed after invalid-date feedback was covered.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after reminder feedback coverage.
 
 Failed or blocked:
 

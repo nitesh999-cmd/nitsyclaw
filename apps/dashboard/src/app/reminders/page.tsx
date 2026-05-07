@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getDb, insertReminder, reminders } from "@nitsyclaw/shared/db";
 import { parseRelativeTime } from "@nitsyclaw/shared/utils";
 import { desc, eq } from "drizzle-orm";
@@ -17,7 +18,9 @@ async function createReminder(formData: FormData) {
   const parsed = parseRelativeTime(when, now, timezone);
   const directDate = parsed ? null : new Date(when);
   const fireAt = parsed?.fireAt ?? (directDate && !Number.isNaN(directDate.getTime()) ? directDate : null);
-  if (!fireAt) return;
+  if (!fireAt) {
+    redirect("/reminders?error=invalid-date");
+  }
 
   await insertReminder(getDb(), {
     text,
@@ -57,7 +60,16 @@ async function rescheduleReminder(formData: FormData) {
   revalidatePath("/");
 }
 
-export default async function RemindersPage() {
+export default async function RemindersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
+  const createError = params?.error === "invalid-date"
+    ? "Date not recognised. Try: tomorrow 9am, Friday 3pm, or 2026-05-10T09:00."
+    : null;
+
   let rows: Awaited<ReturnType<typeof load>> = [];
   try {
     rows = await load();
@@ -87,6 +99,12 @@ export default async function RemindersPage() {
           Create, complete, cancel, or reschedule reminders without going through chat.
         </p>
       </section>
+
+      {createError ? (
+        <div className="rounded-xl border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+          {createError}
+        </div>
+      ) : null}
 
       <section className="nc-section">
         <h3 className="nc-eyebrow mb-3">New reminder</h3>
