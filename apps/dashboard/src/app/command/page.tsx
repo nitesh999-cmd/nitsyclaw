@@ -89,7 +89,7 @@ export default async function CommandPage() {
   let unavailable = false;
 
   try {
-    data = await Promise.race([loadOperatorState(), timeoutOperatorState(3500)]);
+    data = await Promise.race([loadOperatorState(), timeoutOperatorState(1500)]);
     unavailable = data === null;
   } catch (e) {
     logDashboardLoadError("command", e);

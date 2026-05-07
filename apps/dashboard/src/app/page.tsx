@@ -5,7 +5,7 @@ import { eq, gte, desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TODAY_TIMEOUT_MS = 2_500;
+const DEFAULT_TODAY_TIMEOUT_MS = 1_200;
 
 async function loadToday() {
   const db = getDb();
@@ -142,7 +142,7 @@ export default async function TodayPage() {
       </section>
 
       {data.dataUnavailable ? (
-        <div className="rounded-xl border border-[#d9875f] bg-[#fff2ed] p-4 text-sm leading-6 text-[#6f2e18]" role="status">
+        <div className="rounded-xl border border-amber-900 bg-amber-950/30 p-4 text-sm leading-6 text-amber-200" role="status">
           Live dashboard data is taking too long to load. I am showing a safe temporary view instead of pretending the day is empty.
         </div>
       ) : null}

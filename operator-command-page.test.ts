@@ -8,7 +8,7 @@ describe("operator command page", () => {
     const shell = readFileSync("apps/dashboard/src/app/dashboard-shell.tsx", "utf8");
 
     expect(page).toContain("Operator Command");
-    expect(page).toContain("timeoutOperatorState(3500)");
+    expect(page).toContain("timeoutOperatorState(1500)");
     expect(page).toContain("pendingConfirmations");
     expect(page).toContain("whatsapp-client");
     expect(page).toContain("Home upgrades");

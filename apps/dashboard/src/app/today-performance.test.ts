@@ -6,11 +6,14 @@ describe("today dashboard performance guard", () => {
     const source = readFileSync("apps/dashboard/src/app/page.tsx", "utf8");
 
     expect(source).toContain('export const dynamic = "force-dynamic"');
+    expect(source).toContain("const DEFAULT_TODAY_TIMEOUT_MS = 1_200");
     expect(source).toContain("NITSYCLAW_TODAY_TIMEOUT_MS");
     expect(source).toContain("loadTodayWithTimeout");
     expect(source).toContain("Promise.race");
     expect(source).toContain("emptyTodayData");
     expect(source).toContain("dataUnavailable");
     expect(source).toContain("instead of pretending the day is empty");
+    expect(source).toContain("border-amber-900");
+    expect(source).toContain("text-amber-200");
   });
 });
