@@ -10,7 +10,10 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[dashboard/error]", error);
+    console.error("[dashboard/error]", {
+      name: error.name,
+      digest: error.digest,
+    });
   }, [error]);
 
   return (
