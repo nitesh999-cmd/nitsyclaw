@@ -156,6 +156,8 @@ Passed:
 - Focused WhatsApp client regression, bot safe-error, and location env tests passed after WhatsApp restart/status reasons were sanitized.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after WhatsApp client log cleanup.
 - Latest full gate passed after the bot/dashboard log privacy sweep: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 119 files, 470 tests, and `pnpm build`.
+- `pnpm run security:audit` passed with no known vulnerabilities.
+- `pnpm run security:deep` passed: Semgrep scanned 367 tracked files with 0 findings and the dependency audit still reported no known vulnerabilities.
 
 Failed or blocked:
 
