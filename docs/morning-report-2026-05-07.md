@@ -125,6 +125,7 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after search hardening.
 - Focused safe-error, private API cache, and expense-utils tests passed after expense export hardening.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after expense export hardening.
+- Latest full gate passed after search/expense hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 117 files, 461 tests, and `pnpm build`.
 
 Failed or blocked:
 
