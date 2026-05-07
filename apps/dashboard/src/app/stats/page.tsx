@@ -9,6 +9,7 @@ import {
   featureRequests,
   confirmations,
 } from "@nitsyclaw/shared/db";
+import { logDashboardError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +117,8 @@ export default async function StatsPage() {
   try {
     stats = await loadStats();
   } catch (err) {
-    errorMsg = err instanceof Error ? err.message : "Could not load stats. Check Health.";
+    logDashboardError("stats.page", err);
+    errorMsg = "Could not load stats. Try again shortly.";
   }
 
   if (errorMsg || !stats) {

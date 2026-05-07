@@ -83,6 +83,7 @@ Current branch status after this work: `main` is 36 commits ahead of `origin/mai
 - Dashboard login attempt-storage failures now log through the redacted dashboard runtime logger instead of printing raw error objects.
 - Data export/delete API failure copy now gives normal user recovery wording instead of telling people to check server logs.
 - Health and Spotify integration failure copy now also avoids server-log wording and gives normal retry guidance.
+- Stats API/page failures now use redacted logging and generic user-facing messages; `/api/stats` also explicitly disables caching.
 
 ## Verification run
 
@@ -116,6 +117,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after data-control copy cleanup.
 - Focused safe-error, health page, provider revocation, and integrations page tests passed after removing remaining server-log wording.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after health/Spotify copy cleanup.
+- Focused private API cache and safe-error tests passed after stats API/page hardening.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after stats hardening.
 
 Failed or blocked:
 

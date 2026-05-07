@@ -8,6 +8,8 @@ const privateGetRoutes = [
   "apps/dashboard/src/app/api/integrations/spotify/connect/route.ts",
   "apps/dashboard/src/app/api/integrations/spotify/callback/route.ts",
   "apps/dashboard/src/app/api/integrations/spotify/status/route.ts",
+  "apps/dashboard/src/app/api/stats/route.ts",
+  "apps/dashboard/src/app/api/search/route.ts",
 ];
 
 describe("dashboard private API cache policy", () => {

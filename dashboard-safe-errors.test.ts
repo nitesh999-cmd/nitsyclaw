@@ -23,12 +23,15 @@ describe("dashboard safe user-facing errors", () => {
       "apps/dashboard/src/app/api/data/delete/route.ts",
       "apps/dashboard/src/app/api/integrations/spotify/callback/route.ts",
       "apps/dashboard/src/app/api/integrations/spotify/status/route.ts",
+      "apps/dashboard/src/app/api/stats/route.ts",
+      "apps/dashboard/src/app/stats/page.tsx",
     ];
 
     for (const file of files) {
       const source = readFileSync(file, "utf8");
       expect(source, file).toContain("logDashboardError");
       expect(source, file).not.toContain("Check server logs");
+      expect(source, file).not.toContain("err instanceof Error ? err.message");
       expect(source, file).not.toContain("e instanceof Error ? e.message : String(e)");
     }
   });
