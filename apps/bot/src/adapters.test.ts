@@ -26,7 +26,7 @@ describe("buildAgentDeps web search wiring", () => {
 
     const results = await deps.webSearch.search("weather in Melbourne");
 
-    expect(results[0]?.snippet).toContain("Configure WEB_SEARCH_PROVIDER");
+    expect(results[0]?.snippet).toContain("SERPER_API_KEY");
   });
 
   it("can disable web research explicitly", async () => {

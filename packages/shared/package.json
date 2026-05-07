@@ -17,7 +17,7 @@
     "./ops/heartbeat": "./src/ops/heartbeat.ts",
     "./utils": "./src/utils/index.ts",
     "./notify": "./src/notify/index.ts",
-    "./search": "./src/search/serper.ts"
+    "./search": "./src/search/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -6,7 +6,7 @@ import OpenAI from "openai";
 import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent } from "./microsoft-graph.js";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/utils";
+import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
   CalendarClient,
@@ -150,11 +150,12 @@ export const stubWebSearch: WebSearcher = {
       {
         title: "Web search not configured - query: " + query,
         url: "https://example.com",
-        snippet: "Configure WEB_SEARCH_PROVIDER in .env.local to enable real web search.",
+        snippet: "Set SERPER_API_KEY in .env.local to enable real web search.",
       },
     ];
   },
 };
+
 
 export const realCalendar: CalendarClient = {
   async suggestSlots({ durationMin, window }) {

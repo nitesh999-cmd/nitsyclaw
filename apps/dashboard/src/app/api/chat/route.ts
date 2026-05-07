@@ -2,9 +2,11 @@
 // so dashboard chat can answer DB-backed questions (reminders, plate, brief,
 // memory) using tools instead of deflecting to WhatsApp.
 //
-// What's wired:    db, llm (Anthropic), embedder (OpenAI), full tool registry.
+// What's wired:    db, llm (Anthropic), embedder (OpenAI), full tool registry,
+//                  Serper explicit search (when SERPER_API_KEY set),
+//                  rate limiting (30 req/min per session), same-origin guard.
 // What's stubbed:  whatsapp send (no-op), transcriber, calendar.createEvent,
-//                  imageAnalyzer, webSearch (returns empty).
+//                  imageAnalyzer.
 //
 // Voice + Outlook write are still parked.
 
@@ -28,6 +30,7 @@ import {
 } from "../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../lib/request-origin";
+import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
   CalendarClient,
@@ -64,10 +67,6 @@ const noopTranscriber: Transcriber = {
   async transcribe() {
     throw new Error("Audio transcription not available in dashboard chat");
   },
-};
-
-const noopWebSearch: WebSearcher = {
-  async search() { return []; },
 };
 
 const noopCalendar: CalendarClient = {
@@ -156,7 +155,9 @@ function buildDashboardDeps(): AgentDeps {
     whatsapp: new NoopWhatsApp(),
     llm: makeAnthropicLlm(apiKey, model),
     transcriber: noopTranscriber,
-    webSearch: noopWebSearch,
+    webSearch: process.env.SERPER_API_KEY
+      ? makeSerperSearch(process.env.SERPER_API_KEY)
+      : noopWebSearch,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
     embedder: openaiKey
