@@ -92,7 +92,8 @@ describe("package scripts", () => {
     expect(rootPackage.scripts?.["release:check"]).not.toContain("security:snyk");
 
     const source = readFileSync("scripts/snyk-scan.ps1", "utf8");
-    expect(source).toContain("snyk test --all-projects --severity-threshold=medium");
+    expect(source).toContain("snyk test --all-projects --exclude=.next,node_modules,dist,coverage,playwright-report,test-results --severity-threshold=medium");
+    expect(source).not.toContain("apps\\dashboard\\.next");
     expect(source).toContain("SNYK_TOKEN");
   });
 
