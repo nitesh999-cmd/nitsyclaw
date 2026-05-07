@@ -174,6 +174,10 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after stream audit-error cleanup.
 - Latest full gate passed after the command/stream/privacy follow-up: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 119 files, 473 tests, and `pnpm build`.
 - `pnpm run release:preflight` passed. It ran lint, typecheck, build, coverage, 12 Playwright E2E tests, and `security:deep`. The temporary Next `next-env.d.ts` dev import was restored clean by rerunning dashboard typecheck.
+- `scripts/preflight.ps1` now restores the generated `apps/dashboard/next-env.d.ts` route import automatically after `pnpm release:check`, without using Git checkout/reset.
+- Focused package-script regression tests passed for the preflight route-import restore policy.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after the preflight script change.
+- `pnpm run release:preflight` passed again after the script change. It ran lint, typecheck, build, coverage, 12 Playwright E2E tests, and `security:deep`, then left only the intended source edits dirty.
 - `pnpm run release:vercel-build` could not complete local artifact packaging because Windows symlink privilege is unavailable. The dashboard Next build inside that gate passed; remaining blocker is local Windows Developer Mode/elevated PowerShell or running Vercel build in CI/Linux.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app` using non-mutating GET/HEAD checks: healthz 200, privacy/terms 200, protected APIs 401, login 200 with expected copy.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.

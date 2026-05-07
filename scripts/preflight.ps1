@@ -3,6 +3,19 @@ $ErrorActionPreference = "Stop"
 Write-Host "== NitsyClaw safe release preflight =="
 Write-Host ""
 
+function Restore-NextEnvRouteImport {
+    $nextEnvPath = Join-Path $PSScriptRoot "..\apps\dashboard\next-env.d.ts"
+    if (-not (Test-Path -LiteralPath $nextEnvPath)) {
+        return
+    }
+    $source = Get-Content -LiteralPath $nextEnvPath -Raw
+    $stableSource = $source -replace 'import\s+"\./\.next/(?:dev/)?types/routes\.d\.ts";', 'import "./.next/types/routes.d.ts";'
+    if ($stableSource -ne $source) {
+        Set-Content -LiteralPath $nextEnvPath -Value $stableSource -NoNewline
+        Write-Host "Restored apps/dashboard/next-env.d.ts route import to stable production path."
+    }
+}
+
 Write-Host "[1/6] Git branch/status"
 git status --short --branch
 if ($LASTEXITCODE -ne 0) {
@@ -139,6 +152,7 @@ pnpm release:check
 if ($LASTEXITCODE -ne 0) {
     throw "pnpm release:check failed"
 }
+Restore-NextEnvRouteImport
 
 Write-Host ""
 Write-Host "[6/6] Final status"

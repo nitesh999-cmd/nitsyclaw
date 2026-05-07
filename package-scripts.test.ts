@@ -35,6 +35,12 @@ describe("package scripts", () => {
     expect(rootPackage.scripts?.["release:preflight"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     );
+
+    const source = readFileSync("scripts/preflight.ps1", "utf8");
+    expect(source).toContain("Restore-NextEnvRouteImport");
+    expect(source).toContain('import "./.next/types/routes.d.ts";');
+    expect(source).not.toContain("git checkout");
+    expect(source).not.toContain("git reset");
   });
 
   test("Playwright starts Next 16 dev server with the selected bundler", () => {
