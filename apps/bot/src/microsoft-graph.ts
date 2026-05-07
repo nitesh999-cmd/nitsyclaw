@@ -1,4 +1,5 @@
 import { getMsAccessToken, hasMsToken } from "./microsoft-auth.js";
+import { logBotError } from "./safe-log.js";
 
 export interface MsEvent {
   title: string;
@@ -38,7 +39,7 @@ async function graphGet(path: string): Promise<unknown> {
   const resp = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!resp.ok) throw new Error(`Graph ${path} failed: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(`Graph request failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -52,7 +53,7 @@ async function graphPost(path: string, body: unknown): Promise<unknown> {
     },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`Graph POST ${path} failed: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok) throw new Error(`Graph POST failed: ${resp.status}`);
   return resp.json();
 }
 
@@ -105,7 +106,7 @@ export async function fetchMsEventsToday(_timezone: string): Promise<MsEvent[]> 
       location: e.location?.displayName ?? undefined,
     }));
   } catch (err) {
-    console.error("[ms-graph] events fetch failed:", err);
+    logBotError("[ms-graph] events fetch failed", err);
     return [];
   }
 }
@@ -149,7 +150,7 @@ export async function sendMail(args: SendMailArgs): Promise<void> {
   });
   // 202 Accepted = sent; anything else is an error
   if (!resp.ok) {
-    throw new Error(`Graph POST /me/sendMail failed: ${resp.status} ${await resp.text()}`);
+    throw new Error(`Graph POST /me/sendMail failed: ${resp.status}`);
   }
 }
 
@@ -166,7 +167,7 @@ export async function fetchMsUnread(limit = 5): Promise<MsUnreadEmail[]> {
       snippet: m.bodyPreview ?? undefined,
     }));
   } catch (err) {
-    console.error("[ms-graph] mail fetch failed:", err);
+    logBotError("[ms-graph] mail fetch failed", err);
     return [];
   }
 }

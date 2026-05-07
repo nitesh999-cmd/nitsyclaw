@@ -143,6 +143,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat client log cleanup.
 - Focused bot safe-error tests passed after email/calendar adapters were moved to redacted bot logging.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after adapter log cleanup.
+- Focused bot safe-error and notify reliability tests passed after Microsoft Graph and email notification errors stopped including raw provider response bodies/log objects.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after Microsoft Graph log cleanup.
 
 Failed or blocked:
 

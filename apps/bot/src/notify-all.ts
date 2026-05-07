@@ -15,6 +15,7 @@
 import { pushNotify, type NotifyOpts } from "@nitsyclaw/shared/notify";
 import { hasMsToken } from "./microsoft-auth.js";
 import { sendMail } from "./microsoft-graph.js";
+import { logBotError } from "./safe-log.js";
 
 export async function notifyAll(text: string, opts: NotifyOpts = {}): Promise<void> {
   if (process.env.NODE_ENV === "test" || process.env.VITEST === "true") return;
@@ -31,6 +32,6 @@ async function sendMsEmailNotify(text: string, opts: NotifyOpts): Promise<void> 
   try {
     await sendMail({ to, subject, body: text });
   } catch (e) {
-    console.error("[notify/ms-mail] failed", e);
+    logBotError("[notify/ms-mail] failed", e);
   }
 }

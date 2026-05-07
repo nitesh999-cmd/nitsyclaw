@@ -21,4 +21,15 @@ describe("bot safe user-facing errors", () => {
     expect(source).not.toContain('console.error("[email]');
     expect(source).not.toContain('console.error("[cal]');
   });
+
+  test("Microsoft Graph and notification failures avoid raw provider error logs", () => {
+    const graph = readFileSync("apps/bot/src/microsoft-graph.ts", "utf8");
+    const notify = readFileSync("apps/bot/src/notify-all.ts", "utf8");
+
+    expect(graph).toContain("logBotError");
+    expect(graph).not.toContain("await resp.text()");
+    expect(graph).not.toContain('console.error("[ms-graph]');
+    expect(notify).toContain("logBotError");
+    expect(notify).not.toContain('console.error("[notify');
+  });
 });
