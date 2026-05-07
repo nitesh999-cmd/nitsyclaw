@@ -193,7 +193,7 @@ export default function ChatPage() {
           setMessages(data.messages);
           setHistoryError("");
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           console.warn("[chat] history load failed");
           setHistoryError("Unable to load chat history. New messages still work.");
@@ -268,7 +268,6 @@ export default function ChatPage() {
       const reader = r.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
-      let eventCount = 0;
       const handleSpeakBoundary = () => {
         if (!voiceOut) return;
         // Find sentence terminator (. ! ? \n) past spokenSoFar
@@ -293,7 +292,6 @@ export default function ChatPage() {
             console.warn("[chat] skipped unparseable stream line");
             continue;
           }
-          eventCount++;
           if (event.type === "text" && typeof event.delta === "string") {
             finalText += event.delta;
             setAssistantContent(finalText);
