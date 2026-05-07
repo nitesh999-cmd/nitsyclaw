@@ -139,6 +139,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after reminder feedback coverage.
 - Focused safe-error, private-cache, auth-route, and operator-job tests passed after replacing remaining dashboard API raw error logs with redacted logging.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard API log cleanup.
+- Focused chat client error and safe-error tests passed after removing raw chat client exception logging.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat client log cleanup.
 
 Failed or blocked:
 

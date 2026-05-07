@@ -7,6 +7,10 @@ describe("dashboard chat client errors", () => {
 
     expect(source).not.toContain("fbErr instanceof Error ? fbErr.message : String(fbErr)");
     expect(source).not.toContain('setAssistantContent("Error: " +');
+    expect(source).not.toContain("console.error(");
+    expect(source).not.toContain("stream error:");
+    expect(source).not.toContain("parseErr");
+    expect(source).not.toContain("primerErr");
     expect(source).toContain("I could not get a reply. Try again shortly.");
   });
 });

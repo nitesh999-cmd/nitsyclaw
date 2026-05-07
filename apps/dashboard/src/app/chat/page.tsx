@@ -76,7 +76,6 @@ export default function ChatPage() {
    *  sentences can queue up naturally without each one cutting off the prior). */
   function speak(text: string) {
     if (!voiceOut || typeof window === "undefined" || !window.speechSynthesis) {
-      console.log("[tts] skipped: voiceOut=" + voiceOut + " supported=" + !!window?.speechSynthesis);
       return;
     }
     // Strip markdown / decoration so TTS doesn't read "asterisk asterisk"
@@ -93,9 +92,7 @@ export default function ChatPage() {
     }
     u.rate = 1.05;
     u.pitch = 1.0;
-    u.onerror = (e) => console.warn("[tts] error", e);
-    u.onstart = () => console.log("[tts] speaking:", clean.slice(0, 60));
-    console.log("[tts] queue:", clean.slice(0, 60), "voice=" + (u.voice?.name || "default"));
+    u.onerror = () => console.warn("[tts] speech failed");
     window.speechSynthesis.speak(u);
   }
 
@@ -198,7 +195,7 @@ export default function ChatPage() {
         }
       } catch (e) {
         if (!cancelled) {
-          console.warn("[chat] history load failed", e);
+          console.warn("[chat] history load failed");
           setHistoryError("Unable to load chat history. New messages still work.");
         }
       } finally {
@@ -231,8 +228,8 @@ export default function ChatPage() {
         primer.volume = 0;
         window.speechSynthesis.speak(primer);
       }
-    } catch (primerErr) {
-      console.warn("[tts] primer failed (non-fatal):", primerErr);
+    } catch {
+      console.warn("[tts] primer failed");
     }
 
     // Append empty assistant message that we'll fill via streaming.
@@ -266,7 +263,6 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: next }),
       });
-      console.log("[chat] stream response status:", r.status, "ok:", r.ok);
       if (!r.ok) throw new Error("HTTP " + r.status);
       if (!r.body) throw new Error("No response body");
       const reader = r.body.getReader();
@@ -293,12 +289,11 @@ export default function ChatPage() {
         for (const line of lines) {
           if (!line.trim()) continue;
           let event: { type: string; [k: string]: unknown };
-          try { event = JSON.parse(line); } catch (parseErr) {
-            console.warn("[chat] skipped unparseable line:", line.slice(0, 100), parseErr);
+          try { event = JSON.parse(line); } catch {
+            console.warn("[chat] skipped unparseable stream line");
             continue;
           }
           eventCount++;
-          console.log("[chat] event:", event.type, eventCount);
           if (event.type === "text" && typeof event.delta === "string") {
             finalText += event.delta;
             setAssistantContent(finalText);
@@ -322,8 +317,6 @@ export default function ChatPage() {
           // tool / tool_result events ignored visually for now (could show indicator later)
         }
       }
-      console.log("[chat] stream done. finalText length:", finalText.length, "events:", eventCount);
-
       // Fallback: if stream finished with no text AND no error event was shown,
       // hit the non-streaming /api/chat endpoint to get *something* visible.
       // This catches edge cases where chunked streaming silently fails (proxy,
@@ -341,13 +334,13 @@ export default function ChatPage() {
           finalText = reply;
           setAssistantContent(reply);
           if (voiceOut) speak(reply);
-        } catch (fbErr) {
-          console.warn("[chat] fallback failed", fbErr);
+        } catch {
+          console.warn("[chat] fallback failed");
           setAssistantContent("I could not get a reply. Try again shortly.");
         }
       }
-    } catch (e) {
-      console.error("[chat] stream error:", e);
+    } catch {
+      console.warn("[chat] stream failed");
       setAssistantContent("I could not get a reply. Try again shortly.");
     } finally {
       setBusy(false);
