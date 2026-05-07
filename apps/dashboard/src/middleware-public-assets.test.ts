@@ -8,4 +8,11 @@ describe("dashboard proxy public assets", () => {
     expect(source).toContain('pathname === "/manifest.json"');
     expect(source).toContain('pathname === "/icon.svg"');
   });
+
+  it("preserves the original page query when redirecting to login", () => {
+    const source = readFileSync("apps/dashboard/src/proxy.ts", "utf8");
+
+    expect(source).toContain("const nextPath = request.nextUrl.pathname + request.nextUrl.search");
+    expect(source).toContain("new URLSearchParams({ next: nextPath })");
+  });
 });

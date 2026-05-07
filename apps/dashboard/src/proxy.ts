@@ -7,8 +7,9 @@ import { evaluateSaleReadiness } from "./lib/sale-readiness";
 function unauthorized(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith("/api/")) {
     const url = request.nextUrl.clone();
+    const nextPath = request.nextUrl.pathname + request.nextUrl.search;
     url.pathname = "/login";
-    url.search = new URLSearchParams({ next: request.nextUrl.pathname }).toString();
+    url.search = new URLSearchParams({ next: nextPath }).toString();
     return withSecurityHeaders(NextResponse.redirect(url), request);
   }
 
