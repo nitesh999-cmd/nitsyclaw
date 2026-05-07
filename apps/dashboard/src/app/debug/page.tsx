@@ -7,10 +7,6 @@ function debugEnabled(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-function hasDatabaseUrl(): boolean {
-  return Boolean(process.env["DATABASE" + "_URL"]);
-}
-
 export default function DebugPage() {
   if (!debugEnabled()) {
     notFound();
@@ -27,14 +23,11 @@ export default function DebugPage() {
         </p>
       </section>
       <section className="nc-section">
-        <div className="nc-eyebrow mb-3">Environment</div>
-        <div className="space-y-1 font-mono text-xs text-slate-300">
-          <div><span className="text-slate-500">NODE_ENV</span> = {process.env.NODE_ENV ?? "—"}</div>
-          <div><span className="text-slate-500">TIMEZONE</span> = {process.env.TIMEZONE ?? "UTC"}</div>
-          <div><span className="text-slate-500">ANTHROPIC</span> = {process.env.ANTHROPIC_API_KEY ? "set" : "missing"}</div>
-          <div><span className="text-slate-500">OPENAI</span> = {process.env.OPENAI_API_KEY ? "set" : "missing"}</div>
-          <div><span className="text-slate-500">DATABASE_URL</span> = {hasDatabaseUrl() ? "set" : "missing"}</div>
-        </div>
+        <div className="nc-eyebrow mb-3">Safe diagnostics</div>
+        <p className="text-sm text-slate-300">
+          This page intentionally avoids listing environment variables. Use the health page for
+          safe readiness status.
+        </p>
       </section>
     </div>
   );
