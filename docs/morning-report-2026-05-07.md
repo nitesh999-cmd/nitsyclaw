@@ -109,6 +109,7 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` and `pnpm --filter @nitsyclaw/shared typecheck` passed after bot log redaction.
 - Focused login route timeout/failure tests and dashboard runtime tests passed after login log redaction.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after login log redaction.
+- Latest full gate passed after the new privacy/login commits: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 116 files, 459 tests, and `pnpm build`.
 
 Failed or blocked:
 
