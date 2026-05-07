@@ -4,7 +4,7 @@
 
 NitsyClaw moved forward through safe, reversible local work only. No deploy, push, secret change, production data change, outbound message, call, email, purchase, or destructive operation was performed.
 
-Current branch status after this work: `main` is 17 commits ahead of `origin/main`.
+Current branch status after this work: `main` is 27 commits ahead of `origin/main`.
 
 ## What was inspected
 
@@ -13,6 +13,7 @@ Current branch status after this work: `main` is 17 commits ahead of `origin/mai
 - WhatsApp router, WhatsApp session path handling, loop-breaker tests, owner guard, send failure tests, and command job creation flow.
 - Shared command job persistence, intent classification, migration files, Drizzle journal, dependency lock, and release scripts.
 - Local release machine readiness through `audit:doctor`.
+- Continued audit cycles for WhatsApp runtime status, session storage docs, debug diagnostics, Snyk scan scope, operator roadmap queuing, dashboard readability, and command-job idempotency.
 
 ## What changed
 
@@ -27,6 +28,13 @@ Current branch status after this work: `main` is 17 commits ahead of `origin/mai
 - The release preflight secret scan now prunes generated folders before recursion.
 - README now points to the launch, env, testing, QA, and safety docs.
 - Launch ops docs were added for architecture, env, and manual QA.
+- WhatsApp runtime status reasons are redacted before heartbeat/audit metadata is emitted.
+- WhatsApp session storage docs now match the runtime secret-root behavior.
+- The local debug page no longer exposes environment variable shape.
+- Snyk scans are scoped to real workspace manifests instead of generated `.next` manifests.
+- Individual Next 50 roadmap items can now be queued from `/command`.
+- Dashboard shell, login, command, help, privacy, terms, and loading surfaces use darker readable contrast.
+- Duplicate command-job dedupe keys now return the existing job instead of creating duplicate work.
 
 ## Commits made
 
@@ -47,6 +55,14 @@ Current branch status after this work: `main` is 17 commits ahead of `origin/mai
 - `b693c0c fix: override vulnerable basic-ftp`
 - `c36154a fix: speed up preflight secret scan`
 - `e59a829 docs: surface launch operations guides`
+- `1e4d9c3 fix: redact whatsapp runtime reasons`
+- `3d674bd docs: align whatsapp session storage setup`
+- `b828b1f fix: reduce debug page environment exposure`
+- `9b58869 fix: limit snyk scan to workspace manifests`
+- `085c748 feat: queue individual next 50 moves`
+- `72cb0ad style: improve dashboard contrast`
+- `8bab960 style: improve readable dark dashboard surfaces`
+- `4d3e991 fix: make command job dedupe idempotent`
 
 ## Verification run
 
@@ -62,6 +78,11 @@ Passed:
 - `pnpm run security:deep` - Semgrep passed, 0 findings, audit passed
 - `pnpm run security:snyk` - no vulnerable paths found
 - `pnpm run release:preflight` - passed after preflight scan fix
+- Focused WhatsApp runtime/session tests passed after runtime redaction and session doc alignment.
+- Focused dashboard debug/auth/command/readability tests passed after debug and UI changes.
+- Focused command-job, operator jobs, bot router, and command shortcut tests passed after dedupe/idempotency changes.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard changes.
+- `pnpm --filter @nitsyclaw/shared typecheck` passed after command-job changes.
 
 Failed or blocked:
 
