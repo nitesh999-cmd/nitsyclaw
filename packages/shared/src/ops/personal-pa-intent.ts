@@ -7,7 +7,7 @@ export interface PersonalPaIntentDecision {
   userFacingText: string;
 }
 
-const RISKY_ACTION_RE = /\b(send|message|text|email|call|delete|remove|pay|spend|buy|purchase|post|publish|deploy|production|refund|transfer|cancel|book)\b/i;
+const RISKY_ACTION_RE = /\b(send|message|text|email|call|delete|remove|pay|spend|buy|purchase|order|post|publish|deploy|production|refund|transfer|cancel|book|schedule|appointment)\b/i;
 const ACTION_RE = /\b(compare|find|research|summari[sz]e|explain|draft|write|prepare|plan|check|sort|save|remember|remind|create|make|look|help|choose|recommend|analyse|analyze|weather|forecast)\b/i;
 const VAGUE_REFERENCE_RE = /\b(him|her|them|it|this|that|someone|something|there)\b/i;
 const EMOTIONAL_RE = /\b(stressed|overwhelmed|angry|upset|annoyed|panic|worried|scared|tired|too much|can't deal|cannot deal|fed up|frustrated)\b/i;

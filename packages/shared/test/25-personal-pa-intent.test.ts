@@ -25,6 +25,11 @@ describe("personal PA intent clarification", () => {
     expect(result.userFacingText).toContain("approval");
   });
 
+  it("approval-gates normal human wording for bookings and orders", () => {
+    expect(analyzePersonalPaIntent("schedule an appointment with the mechanic").kind).toBe("approval_required");
+    expect(analyzePersonalPaIntent("order my medicine from the pharmacy").kind).toBe("approval_required");
+  });
+
   it("does not let a confirmation word hide a risky external action", () => {
     const result = analyzePersonalPaIntent("yes please send it to Mukesh now");
 
