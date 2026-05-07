@@ -4,7 +4,7 @@
 
 NitsyClaw moved forward through safe, reversible local work only. No deploy, push, secret change, production data change, outbound message, call, email, purchase, or destructive operation was performed.
 
-Current branch status after this work: `main` is 32 commits ahead of `origin/main`.
+Current branch status after this work: `main` is 36 commits ahead of `origin/main`.
 
 ## What was inspected
 
@@ -15,6 +15,7 @@ Current branch status after this work: `main` is 32 commits ahead of `origin/mai
 - Local release machine readiness through `audit:doctor`.
 - Continued audit cycles for WhatsApp runtime status, session storage docs, debug diagnostics, Snyk scan scope, operator roadmap queuing, dashboard readability, and command-job idempotency.
 - Continued audit cycles for dashboard fallback speed, login return paths, agent tool-output size, and risky-action approval wording.
+- Continued audit cycles for hosted server log privacy and client error boundary logging.
 
 ## What changed
 
@@ -40,6 +41,8 @@ Current branch status after this work: `main` is 32 commits ahead of `origin/mai
 - Login redirects now preserve the original page query string, so filtered views survive authentication.
 - Agent tool-result text is capped before being fed back to the model to reduce runaway token/cost risk.
 - Booking, appointment, schedule, and order wording is now approval-gated.
+- Dashboard chat, stream, health, data, and Spotify integration server errors now log redacted structured details instead of raw error objects.
+- The client error boundary logs only error name and digest instead of the raw browser error object.
 
 ## Commits made
 
@@ -72,6 +75,9 @@ Current branch status after this work: `main` is 32 commits ahead of `origin/mai
 - `9260851 fix: preserve login return query`
 - `ec84f21 fix: cap agent tool result context`
 - `03eecce fix: gate booking and order wording`
+- `2764612 fix: redact dashboard error logs`
+- `3c5e1e1 fix: use redacted server error logs`
+- `eb0c59e fix: avoid raw client error logging`
 
 ## Verification run
 
@@ -93,6 +99,7 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard changes.
 - `pnpm --filter @nitsyclaw/shared typecheck` passed after command-job changes.
 - Latest full gate passed: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 113 files, 453 tests, and `pnpm build`.
+- Latest full gate passed again after log hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 114 files, 455 tests, and `pnpm build`.
 
 Failed or blocked:
 
