@@ -27,4 +27,10 @@ describe("wwebjs client regressions", () => {
     expect(source).not.toContain("api.qrserver.com");
     expect(source).toContain("QR payload hidden");
   });
+
+  test("redacts runtime status reasons before they can reach heartbeat metadata", () => {
+    expect(source).toContain("redactAuditString");
+    expect(source).toContain("safeRuntimeReason");
+    expect(source).toContain("reason: safeRuntimeReason(event.reason)");
+  });
 });

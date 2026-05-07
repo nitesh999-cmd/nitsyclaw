@@ -19,6 +19,7 @@ import type {
   OutboundMessage,
   WhatsAppClient,
 } from "@nitsyclaw/shared/whatsapp";
+import { redactAuditString } from "@nitsyclaw/shared/db";
 import {
   isHealthyWhatsAppState,
   shouldRestartWhatsAppClient,
@@ -50,6 +51,10 @@ function defaultHealthFilePath(): string {
     return resolve(cwd, "../../logs/whatsapp-health-last-ok.txt");
   }
   return resolve(cwd, "logs/whatsapp-health-last-ok.txt");
+}
+
+function safeRuntimeReason(reason: string | undefined): string | undefined {
+  return reason ? redactAuditString(reason) : undefined;
 }
 
 export interface WwebjsOptions {
@@ -163,6 +168,7 @@ export class WwebjsClient implements WhatsAppClient {
   private emitStatus(event: WhatsAppRuntimeEvent): void {
     const safeEvent = {
       ...event,
+      reason: safeRuntimeReason(event.reason),
       at: event.at ?? new Date().toISOString(),
     };
     Promise.resolve(this.opts.onStatus?.(safeEvent)).catch((e) => {
