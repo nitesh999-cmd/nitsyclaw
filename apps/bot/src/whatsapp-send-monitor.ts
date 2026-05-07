@@ -6,6 +6,7 @@ import type {
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
 import type { DB } from "@nitsyclaw/shared/db";
+import { formatSafeLogError, logBotError } from "./safe-log.js";
 
 export interface WhatsAppSendMonitorOptions {
   db: DB;
@@ -30,7 +31,7 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
     try {
       return await this.inner.send(msg);
     } catch (e) {
-      const error = e instanceof Error ? e.message : String(e);
+      const error = formatSafeLogError(e);
       await upsertSystemHeartbeat(this.opts.db, {
         source: "whatsapp-send",
         status: "error",
@@ -39,7 +40,7 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
           at: this.now().toISOString(),
         },
       }).catch((heartbeatError) => {
-        console.error("[whatsapp-send-monitor] failed to write heartbeat", heartbeatError);
+        logBotError("[whatsapp-send-monitor] failed to write heartbeat", heartbeatError);
       });
       pushNotify(`WhatsApp send failed: ${error.slice(0, 180)}`, {
         title: "NitsyClaw WhatsApp send failed",

@@ -164,6 +164,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming tool-error privacy hardening.
 - Focused bot safe-error, router integration, and send-failure tests passed after the remaining router outbound-persist raw error log moved to redacted logging.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after router log cleanup.
+- Focused bot safe-error, WhatsApp presence, send-failure, and WhatsApp client regression tests passed after presence/send-monitor failures were sanitized in logs, heartbeat metadata, and urgent notifications.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after presence/send monitor log cleanup.
 
 Failed or blocked:
 

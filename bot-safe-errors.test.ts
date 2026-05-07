@@ -72,4 +72,15 @@ describe("bot safe user-facing errors", () => {
     expect(source).not.toContain('console.error("[boot] shutdown failed"');
     expect(source).not.toContain('console.error("[boot] fatal"');
   });
+
+  test("WhatsApp presence and send monitor failures use redacted logging", () => {
+    const presence = readFileSync("apps/bot/src/whatsapp-presence.ts", "utf8");
+    const sendMonitor = readFileSync("apps/bot/src/whatsapp-send-monitor.ts", "utf8");
+
+    expect(presence).toContain("logBotError");
+    expect(presence).not.toContain('console.error("[wwebjs] presence unavailable failed"');
+    expect(sendMonitor).toContain("formatSafeLogError");
+    expect(sendMonitor).toContain("logBotError");
+    expect(sendMonitor).not.toContain('console.error("[whatsapp-send-monitor]');
+  });
 });

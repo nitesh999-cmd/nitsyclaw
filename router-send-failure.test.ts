@@ -15,7 +15,11 @@ describe("WhatsApp send failure handling", () => {
 
     expect(source).toContain('source: "whatsapp-send"');
     expect(source).toContain('status: "error"');
+    expect(source).toContain("formatSafeLogError");
+    expect(source).toContain("logBotError");
     expect(source).toContain("NitsyClaw WhatsApp send failed");
     expect(source).toContain('priority: "urgent"');
+    expect(source).not.toContain("e instanceof Error ? e.message : String(e)");
+    expect(source).not.toContain('console.error("[whatsapp-send-monitor]');
   });
 });

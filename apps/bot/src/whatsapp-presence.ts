@@ -1,3 +1,5 @@
+import { logBotError } from "./safe-log.js";
+
 export interface PresenceClient {
   sendPresenceUnavailable(): Promise<void>;
 }
@@ -32,7 +34,7 @@ export async function markPresenceUnavailable(
     ]);
     return true;
   } catch (e) {
-    console.error("[wwebjs] presence unavailable failed", e);
+    logBotError("[wwebjs] presence unavailable failed", e, { label });
     return false;
   } finally {
     if (timeout) clearTimeout(timeout);
