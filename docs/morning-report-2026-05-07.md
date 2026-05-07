@@ -160,6 +160,8 @@ Passed:
 - `pnpm run security:deep` passed: Semgrep scanned 367 tracked files with 0 findings and the dependency audit still reported no known vulnerabilities.
 - Focused safe-error, confirmations, queue-control, and private-cache tests passed after `/confirmations` and `/queue` stopped converting raw load exceptions into page copy.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after confirmations/queue page hardening.
+- Focused stream privacy, stream route, and safe-error tests passed after dashboard streaming chat stopped feeding raw tool validation/unknown-tool errors back into the LLM-visible transcript.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming tool-error privacy hardening.
 
 Failed or blocked:
 

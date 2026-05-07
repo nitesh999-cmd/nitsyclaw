@@ -349,15 +349,14 @@ export async function POST(req: Request) {
             const tool = registry.get(call.name);
             const started = Date.now();
             if (!tool) {
-              const err = `unknown tool: ${call.name}`;
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
-              toolResultParts.push(`[tool ${call.name}] error: ${err}`);
-              send({ type: "tool_result", name: call.name, success: false, error: err });
+              toolResultParts.push(`[tool ${call.name}] error: Tool unavailable.`);
+              send({ type: "tool_result", name: call.name, success: false, error: "Tool unavailable." });
               continue;
             }
             try {
               const parsed = tool.inputSchema.safeParse(call.input);
-              if (!parsed.success) throw new Error(parsed.error.message);
+              if (!parsed.success) throw new Error("Invalid tool input");
               const out = await tool.handler(parsed.data, {
                 userPhone: ownerPhone,
                 now: deps.now(),
@@ -378,7 +377,7 @@ export async function POST(req: Request) {
             } catch (e) {
               const err = e instanceof Error ? e.message : String(e);
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
-              toolResultParts.push(`[tool ${call.name}] error: ${err}`);
+              toolResultParts.push(`[tool ${call.name}] error: Tool failed.`);
               send({ type: "tool_result", name: call.name, success: false, error: "Tool failed." });
               await logAudit(deps.db, {
                 actor: "agent",
