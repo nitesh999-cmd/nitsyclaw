@@ -31,6 +31,19 @@ export async function pushNotify(text: string, opts: NotifyOpts = {}): Promise<v
   await Promise.all([sendNtfy(text, opts), sendWindowsToast(text, opts)]);
 }
 
+const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
+const TOKEN_RE = /\b(?:(?:sk|pk)_(?:live|test)_[A-Za-z0-9._-]{8,}|(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,})\b/g;
+
+export function formatNotifyFailure(channel: "ntfy" | "toast", error: unknown): string {
+  const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  const redacted = text
+    .replace(EMAIL_RE, "[redacted:email]")
+    .replace(TOKEN_RE, "[redacted:token]")
+    .replace(PHONE_RE, "[redacted:phone]");
+  return `[notify/${channel}] failed ${redacted.slice(0, 160)}`.trim();
+}
+
 async function sendNtfy(text: string, opts: NotifyOpts): Promise<void> {
   const topic = process.env.NTFY_TOPIC;
   if (!topic) return;
@@ -53,13 +66,12 @@ async function sendNtfy(text: string, opts: NotifyOpts): Promise<void> {
       body: text.slice(0, 4096),
     });
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
       console.error(
-        `[notify/ntfy] failed status=${response.status} ${response.statusText} ${body.slice(0, 160)}`.trim(),
+        formatNotifyFailure("ntfy", `status=${response.status} ${response.statusText}`),
       );
     }
   } catch (e) {
-    console.error("[notify/ntfy] failed", e);
+    console.error(formatNotifyFailure("ntfy", e));
   }
 }
 
@@ -93,10 +105,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($tpl)
       windowsHide: true,
     });
     child.on("error", (e) => {
-      console.error("[notify/toast] failed", e);
+      console.error(formatNotifyFailure("toast", e));
     });
     child.unref();
   } catch (e) {
-    console.error("[notify/toast] failed", e);
+    console.error(formatNotifyFailure("toast", e));
   }
 }
