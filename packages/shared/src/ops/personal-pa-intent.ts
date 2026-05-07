@@ -12,9 +12,14 @@ const ACTION_RE = /\b(compare|find|research|summari[sz]e|explain|draft|write|pre
 const VAGUE_REFERENCE_RE = /\b(him|her|them|it|this|that|someone|something|there)\b/i;
 const EMOTIONAL_RE = /\b(stressed|overwhelmed|angry|upset|annoyed|panic|worried|scared|tired|too much|can't deal|cannot deal|fed up|frustrated)\b/i;
 const SMALL_TALK_OR_CONFIRMATION_RE = /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|thanks|thank you)[.!? ]*$/i;
+const FEATURE_CAPTURE_RE = /^(\/addfeature|feature request:|add feature\b|new feature\b|bug:|problem:)/i;
 
 export function analyzePersonalPaIntent(input: string): PersonalPaIntentDecision {
   const text = input.trim();
+
+  if (FEATURE_CAPTURE_RE.test(text)) {
+    return actionable();
+  }
 
   if (SMALL_TALK_OR_CONFIRMATION_RE.test(text)) {
     return actionable();

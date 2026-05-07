@@ -45,4 +45,11 @@ describe("personal PA intent clarification", () => {
     expect(result.kind).toBe("actionable");
     expect(result.question).toBeUndefined();
   });
+
+  it("treats feature capture as safe even when the requested feature mentions risky actions", () => {
+    const result = analyzePersonalPaIntent("/addfeature send email drafts after I approve them");
+
+    expect(result.kind).toBe("actionable");
+    expect(result.question).toBeUndefined();
+  });
 });
