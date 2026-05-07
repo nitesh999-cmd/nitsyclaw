@@ -19,7 +19,7 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
+import { getDb, insertMessage, insertFeatureRequest, logAudit, redactAuditString } from "@nitsyclaw/shared/db";
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
 import {
@@ -59,6 +59,10 @@ const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+function safeToolError(error: unknown): string {
+  return redactAuditString(error instanceof Error ? error.message : `${error}`);
 }
 
 class NoopWhatsApp implements WhatsAppClient {
@@ -375,7 +379,7 @@ export async function POST(req: Request) {
                 durationMs: Date.now() - started,
               });
             } catch (e) {
-              const err = e instanceof Error ? e.message : String(e);
+              const err = safeToolError(e);
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
               toolResultParts.push(`[tool ${call.name}] error: Tool failed.`);
               send({ type: "tool_result", name: call.name, success: false, error: "Tool failed." });

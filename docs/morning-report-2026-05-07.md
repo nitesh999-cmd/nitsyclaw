@@ -170,6 +170,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after command client failure-copy cleanup.
 - Focused bot safe-error, external env, and bot secret-path tests passed after Google OAuth CLI failures stopped printing raw OAuth error objects.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after Google auth output cleanup.
+- Focused stream privacy, stream route, safe-error, and audit sanitizer tests passed after streaming tool failure errors were redacted before audit logging.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after stream audit-error cleanup.
 
 Failed or blocked:
 
