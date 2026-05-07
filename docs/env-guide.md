@@ -16,6 +16,12 @@ Copy `.env.local.example` to `.env.local` for local work. Do not commit `.env.lo
 - `WHATSAPP_OWNER_NUMBER`
   - Owner phone number only.
   - Used to reject non-owner WhatsApp messages.
+- `NITSYCLAW_SECRET_ROOT`
+  - Optional external folder for local bot secrets and WhatsApp session files.
+  - Default: `C:\Users\Nitesh\.nitsyclaw\secrets` on this machine.
+- `WHATSAPP_SESSION_DIR`
+  - Defaults to `.wa-session`, which the bot resolves under `NITSYCLAW_SECRET_ROOT`.
+  - Use an absolute path only when production has persistent storage mounted there.
 - `NITSYCLAW_DASHBOARD_PASSWORD`
   - Required outside local dev bypass.
 - `ANTHROPIC_API_KEY`

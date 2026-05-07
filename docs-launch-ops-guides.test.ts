@@ -20,6 +20,13 @@ describe("launch operations docs", () => {
     expect(env).toContain("DATABASE_URL_DIRECT");
     expect(env).toContain("ENCRYPTION_KEY");
     expect(env).toContain("NITSYCLAW_DASHBOARD_PASSWORD");
+    expect(env).toContain("NITSYCLAW_SECRET_ROOT");
+    expect(env).toContain("WHATSAPP_SESSION_DIR");
+
+    const deploy = readFileSync("docs/deploy.md", "utf8");
+    expect(deploy).toContain("NITSYCLAW_SECRET_ROOT");
+    expect(deploy).toContain("WHATSAPP_SESSION_DIR");
+    expect(deploy).not.toContain("mounted at `/app/.wa-session`");
 
     const qa = readFileSync("docs/manual-qa-checklist.md", "utf8");
     expect(qa).toContain("Unclear request");

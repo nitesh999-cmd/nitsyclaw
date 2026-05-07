@@ -35,10 +35,12 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
    - Root: `/`
    - Build: Dockerfile at repo root
    - Start: `pnpm --filter @nitsyclaw/bot start`
-3. Add a **persistent volume** mounted at `/app/.wa-session`. Without this, every redeploy forces a QR rescan.
+3. Add a **persistent volume** for WhatsApp session storage. Set `NITSYCLAW_SECRET_ROOT` to that mounted folder and leave `WHATSAPP_SESSION_DIR=.wa-session`, or set `WHATSAPP_SESSION_DIR` to an absolute path inside the volume. Without persistent storage, every redeploy forces a QR rescan.
 4. Set env vars (mirror the dashboard plus):
    - `DATABASE_URL_DIRECT` — direct, not pooled
    - `WHATSAPP_OWNER_NUMBER`
+   - `NITSYCLAW_SECRET_ROOT`
+   - `WHATSAPP_SESSION_DIR`
    - `OPENAI_API_KEY`
    - `ENCRYPTION_KEY` (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`)
 5. First boot: open Railway logs, scan the QR with WhatsApp on your phone (Settings → Linked Devices → Link a Device).
