@@ -372,13 +372,13 @@ const MAX_AUDIT_OBJECT_KEYS = 25;
 const AUDIT_OBJECT_SAMPLE_KEYS = 8;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
-const TOKEN_RE = /\b(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,}\b/g;
+const TOKEN_RE = /\b(?:(?:sk|pk)_(?:live|test)_[A-Za-z0-9._-]{8,}|(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,})\b/g;
 
 export function redactAuditString(value: string): string {
   const redacted = value
     .replace(EMAIL_RE, "[redacted:email]")
-    .replace(PHONE_RE, "[redacted:phone]")
-    .replace(TOKEN_RE, "[redacted:token]");
+    .replace(TOKEN_RE, "[redacted:token]")
+    .replace(PHONE_RE, "[redacted:phone]");
   return redacted.length > 160 ? `${redacted.slice(0, 160)}...[truncated]` : redacted;
 }
 

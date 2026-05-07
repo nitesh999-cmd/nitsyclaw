@@ -75,6 +75,7 @@ import {
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
+import { logBotError } from "./safe-log.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -120,13 +121,13 @@ export class Router {
         body: enc,
       });
     } catch (e) {
-      console.error("[router] failed to persist outbound", e);
+      logBotError("[router] failed to persist outbound", e);
     }
     notifyAll(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
   }
 
   private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
-    console.error("[router] handler failed", { label }, error);
+    logBotError("[router] handler failed", error, { label });
     await this.sendAndPersist(userMessage);
   }
 
@@ -481,7 +482,7 @@ export class Router {
       hashPhone(this.ownerPhone),
       20,
     ).catch((e) => {
-      console.error("[router] history load failed", e);
+      logBotError("[router] history load failed", e);
       return [];
     });
 
