@@ -81,6 +81,28 @@ describe("command execution jobs", () => {
     expect(failed.error).toBe("provider still down");
   });
 
+  it("redacts private data from persisted command job errors", async () => {
+    const { db } = makeFakeDb();
+    const job = await createCommandJob(db, {
+      source: "dashboard",
+      ownerHash: "owner-hash",
+      command: "Check my private account safely.",
+      maxAttempts: 1,
+    });
+
+    const failed = await recordCommandJobFailure(
+      db,
+      job.id,
+      new Error("OpenAI failed for nitesh@example.com +61430008008 sk-test-secret-1234567890"),
+    );
+
+    expect(failed.status).toBe("failed");
+    expect(failed.error).not.toContain("nitesh@example.com");
+    expect(failed.error).not.toContain("+61430008008");
+    expect(failed.error).not.toContain("sk-test-secret");
+    expect(failed.error).toContain("[redacted");
+  });
+
   it("marks completed jobs done with a user-visible result", async () => {
     const { db } = makeFakeDb();
     const job = await createCommandJob(db, {

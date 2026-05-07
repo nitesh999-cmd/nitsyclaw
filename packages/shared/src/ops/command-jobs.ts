@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { DB } from "../db/client.js";
+import { redactAuditString } from "../db/repo.js";
 import { commandJobs, type CommandJob } from "../db/schema.js";
 import { analyzePersonalPaIntent, isRiskyPersonalPaAction } from "./personal-pa-intent.js";
 
@@ -138,6 +139,9 @@ export function isRiskyCommand(command: string): boolean {
 }
 
 function publicErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message.slice(0, 240);
-  return String(error || "Unknown error").slice(0, 240);
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message
+      : String(error || "Unknown error");
+  return redactAuditString(message).slice(0, 240);
 }
