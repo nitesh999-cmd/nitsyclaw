@@ -32,4 +32,13 @@ describe("bot safe user-facing errors", () => {
     expect(notify).toContain("logBotError");
     expect(notify).not.toContain('console.error("[notify');
   });
+
+  test("scheduler uses redacted errors in logs and heartbeat metadata", () => {
+    const source = readFileSync("apps/bot/src/scheduler.ts", "utf8");
+
+    expect(source).toContain("logBotError");
+    expect(source).toContain("formatSafeLogError");
+    expect(source).not.toContain('console.error("[cron:');
+    expect(source).not.toContain("e instanceof Error ? e.message : String(e)");
+  });
 });

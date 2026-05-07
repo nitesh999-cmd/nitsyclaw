@@ -8,6 +8,7 @@ import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } fr
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
+import { formatSafeLogError, logBotError } from "./safe-log.js";
 
 const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
 const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
@@ -42,13 +43,13 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       try {
         await writeHeartbeat("bot-scheduler", { scheduler: "alive" });
       } catch (e) {
-        console.error("[cron:heartbeat] error", e);
+        logBotError("[cron:heartbeat] error", e);
       }
     }),
   );
 
   writeHeartbeat("bot-scheduler", { scheduler: "started" }).catch((e) => {
-    console.error("[cron:heartbeat] initial error", e);
+    logBotError("[cron:heartbeat] initial error", e);
   });
 
   // Every minute - fire any due reminders.
@@ -60,12 +61,12 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       } catch (e) {
         await writeHeartbeat(
           "reminder-sweep",
-          { error: e instanceof Error ? e.message : String(e) },
+          { error: formatSafeLogError(e) },
           "error",
         ).catch((heartbeatError) => {
-          console.error("[cron:heartbeat] reminder error status failed", heartbeatError);
+          logBotError("[cron:heartbeat] reminder error status failed", heartbeatError);
         });
-        console.error("[cron:reminders] error", e);
+        logBotError("[cron:reminders] error", e);
       }
     }),
   );
@@ -91,7 +92,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
           },
         });
       } catch (e) {
-        console.error("[cron:brief] error", e);
+        logBotError("[cron:brief] error", e);
       }
     }),
   );
@@ -104,7 +105,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       try {
         await runDailyBuildAgent(opts.deps, opts.ownerPhone);
       } catch (e) {
-        console.error("[cron:build] error", e);
+        logBotError("[cron:build] error", e);
       }
     }),
   );
@@ -121,8 +122,8 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
         if (expired > 0) console.log(`[cron:prune] expired ${expired} confirmation(s)`);
         await writeHeartbeat("memory-pruner", { lastRun: now.toISOString() });
       } catch (e) {
-        await writeHeartbeat("memory-pruner", { error: e instanceof Error ? e.message : String(e) }, "error").catch(() => {});
-        console.error("[cron:prune] error", e);
+        await writeHeartbeat("memory-pruner", { error: formatSafeLogError(e) }, "error").catch(() => {});
+        logBotError("[cron:prune] error", e);
       }
     }),
   );

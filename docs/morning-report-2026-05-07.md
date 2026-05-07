@@ -145,6 +145,8 @@ Passed:
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after adapter log cleanup.
 - Focused bot safe-error and notify reliability tests passed after Microsoft Graph and email notification errors stopped including raw provider response bodies/log objects.
 - `pnpm --filter @nitsyclaw/bot typecheck` passed after Microsoft Graph log cleanup.
+- Focused bot safe-error and watchdog tests passed after scheduler logs and heartbeat error metadata were sanitized.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed after scheduler log cleanup.
 
 Failed or blocked:
 
