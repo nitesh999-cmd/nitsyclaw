@@ -191,6 +191,7 @@ Passed:
 - Broad gate passed after the latest privacy-hardening commits: `pnpm lint` passed, and `pnpm test` passed with 124 test files and 482 tests.
 - `pnpm build` passed after the latest privacy-hardening commits.
 - `pnpm run security:audit` passed after the latest privacy-hardening commits with no known vulnerabilities.
+- `pnpm run security:deep` passed after the latest privacy-hardening commits: Semgrep scanned 372 tracked files with 0 findings, and dependency audit reported no known vulnerabilities.
 - `pnpm run release:vercel-build` could not complete local artifact packaging because Windows symlink privilege is unavailable. The dashboard Next build inside that gate passed; remaining blocker is local Windows Developer Mode/elevated PowerShell or running Vercel build in CI/Linux.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app` using non-mutating GET/HEAD checks: healthz 200, privacy/terms 200, protected APIs 401, login 200 with expected copy.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.
