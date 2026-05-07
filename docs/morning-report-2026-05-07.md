@@ -201,6 +201,7 @@ Passed:
 - Latest `pnpm run release:live-smoke` passed again against `https://nitsyclaw.vercel.app`: healthz 200, privacy/terms 200, protected APIs 401, login 200.
 - `pnpm run operator:next` still fails safely because `DATABASE_URL` is not configured locally. It confirmed no queue state was changed.
 - `pnpm run audit:doctor` still reports 2 local environment blockers: Docker is missing for ZAP, and Windows symlink privilege is unavailable for local Vercel artifact packaging. It confirmed Vercel CLI, `curl.exe`, and live `/api/healthz` are OK.
+- Latest `pnpm run audit:doctor` still reports the same 2 local environment blockers: Docker missing for ZAP and Windows symlink privilege unavailable for local Vercel artifact packaging. Vercel CLI, `curl.exe`, and live `/api/healthz` remain OK.
 
 Failed or blocked:
 
