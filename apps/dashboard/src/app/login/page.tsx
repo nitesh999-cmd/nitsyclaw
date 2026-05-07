@@ -16,37 +16,37 @@ export default async function LoginPage({
           <div>
             <div className="nc-eyebrow">NitsyClaw</div>
             <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight md:text-5xl">Personal life admin</h2>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-stone-700 md:text-base">
+            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-400 md:text-base">
               A private home base for messages, reminders, spending, decisions, and the things that should not be forgotten.
             </p>
           </div>
           <div className="grid gap-3 text-sm sm:grid-cols-3">
-            <div className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm">
-              <div className="text-xs font-semibold text-[#8e3f24]">Private</div>
-              <div className="mt-2 text-stone-900">Owner-gated</div>
+            <div className="nc-tile p-3">
+              <div className="nc-eyebrow">Private</div>
+              <div className="mt-2 text-slate-200">Owner-gated</div>
             </div>
-            <div className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm">
-              <div className="text-xs font-semibold text-[#8e3f24]">Saved</div>
-              <div className="mt-2 text-stone-900">Private records</div>
+            <div className="nc-tile p-3">
+              <div className="nc-eyebrow">Saved</div>
+              <div className="mt-2 text-slate-200">Private records</div>
             </div>
-            <div className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm">
-              <div className="text-xs font-semibold text-[#8e3f24]">Useful</div>
-              <div className="mt-2 text-stone-900">Fast action</div>
+            <div className="nc-tile p-3">
+              <div className="nc-eyebrow">Useful</div>
+              <div className="mt-2 text-slate-200">Fast action</div>
             </div>
           </div>
         </div>
 
-        <div className="order-first rounded-2xl border border-stone-200 bg-white p-5 shadow-[0_18px_44px_rgba(70,48,23,0.08)] md:order-none">
+        <div className="order-first rounded-2xl border border-slate-800 bg-slate-900/50 p-5 shadow-[0_18px_44px_rgba(0,0,0,0.4)] md:order-none">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-2xl font-semibold text-stone-950">Sign in</h3>
-              <p className="mt-2 text-sm text-stone-600">Access is restricted to the dashboard owner.</p>
+              <h3 className="text-2xl font-semibold text-slate-100">Sign in</h3>
+              <p className="mt-2 text-sm text-slate-400">Access is restricted to the dashboard owner.</p>
             </div>
-            <div className="nc-pill border-[#b85c38]/30 text-[#8e3f24]">Private</div>
+            <div className="nc-pill border-[#d8b75d]/30 text-[#d8b75d]">Private</div>
           </div>
 
           {error ? (
-            <div className="mt-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <div className="mt-4 rounded-xl border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
               {error === "locked"
                 ? "Too many failed attempts. Try again later."
                 : "Invalid dashboard credentials."}
@@ -54,9 +54,9 @@ export default async function LoginPage({
           ) : null}
 
           <LoginForm next={next} />
-          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-stone-600">
-            <a href="/privacy" className="hover:text-stone-950">Privacy</a>
-            <a href="/terms" className="hover:text-stone-950">Terms</a>
+          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+            <a href="/privacy" className="hover:text-slate-100">Privacy</a>
+            <a href="/terms" className="hover:text-slate-100">Terms</a>
             <span>Protected dashboard</span>
           </div>
         </div>

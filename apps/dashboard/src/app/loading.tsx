@@ -1,4 +1,4 @@
-const PULSE = "animate-pulse rounded-lg bg-stone-300/70";
+const PULSE = "animate-pulse rounded-lg bg-slate-700/70";
 
 export default function Loading() {
   return (

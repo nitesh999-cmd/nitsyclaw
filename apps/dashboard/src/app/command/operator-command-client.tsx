@@ -62,7 +62,7 @@ function commandFor(mode: Mode, text: string): string {
     return /^bug\b/i.test(clean) ? clean : `bug: ${clean}`;
   }
   if (mode === "location") {
-    return /^(?:i['’]?m|i am)\s+in\b/i.test(clean) || /^use\s+.+\s+for\s+weather/i.test(clean)
+    return /^(?:i(?:['\u2019])?m|i am)\s+in\b/i.test(clean) || /^use\s+.+\s+for\s+weather/i.test(clean)
       ? clean
       : `I'm in ${clean}`;
   }
@@ -154,22 +154,22 @@ export function OperatorCommandClient() {
     <section className="space-y-4" data-testid="operator-command">
       <section className="nc-section">
         <div className="nc-eyebrow">What this page does</div>
-        <div className="mt-2 text-sm leading-6 text-stone-700">
+        <div className="mt-2 text-sm leading-6 text-slate-400">
           This is the planning desk. It can send a command to the assistant or add work into Requests.
           Queuing does not build, run code, or deploy by itself. It only saves the work so the operator runner or Codex can pick it up later.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-stone-200 bg-white p-3">
-            <div className="text-sm font-semibold text-stone-950">Run Command</div>
-            <div className="mt-1 text-xs leading-5 text-stone-600">Sends one instruction to the dashboard assistant.</div>
+          <div className="nc-tile">
+            <div className="text-sm font-semibold text-slate-100">Run Command</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Sends one instruction to the dashboard assistant.</div>
           </div>
-          <div className="rounded-xl border border-stone-200 bg-white p-3">
-            <div className="text-sm font-semibold text-stone-950">Queue Top 20</div>
-            <div className="mt-1 text-xs leading-5 text-stone-600">Adds the main operator missions to Requests.</div>
+          <div className="nc-tile">
+            <div className="text-sm font-semibold text-slate-100">Queue Top 20</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Adds the main operator missions to Requests.</div>
           </div>
-          <div className="rounded-xl border border-stone-200 bg-white p-3">
-            <div className="text-sm font-semibold text-stone-950">Queue Next 50</div>
-            <div className="mt-1 text-xs leading-5 text-stone-600">Adds roadmap ideas to Requests. It is not automatic execution.</div>
+          <div className="nc-tile">
+            <div className="text-sm font-semibold text-slate-100">Queue Next 50</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Adds roadmap ideas to Requests. It is not automatic execution.</div>
           </div>
         </div>
       </section>
@@ -183,8 +183,8 @@ export function OperatorCommandClient() {
             className={
               "rounded-full border px-3 py-2 text-sm font-semibold transition-colors " +
               (mode === item.value
-                ? "border-[#b85c38] bg-[#b85c38] text-white"
-                : "border-stone-300 bg-white text-stone-700 hover:border-[#b85c38] hover:text-[#8e3f24]")
+                ? "border-[#d8b75d] bg-[#d8b75d]/10 text-[#d8b75d]"
+                : "border-slate-700 bg-slate-800 text-slate-300 hover:border-[#d8b75d] hover:text-[#d8b75d]")
             }
           >
             {item.label}
@@ -197,20 +197,20 @@ export function OperatorCommandClient() {
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder="Type the command..."
-          className="min-h-32 resize-y rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none placeholder:text-stone-500 focus:border-[#b85c38] focus:ring-4 focus:ring-[#f2d1c3]"
+          className="min-h-32 resize-y rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-[#d8b75d] focus:ring-4 focus:ring-[#d8b75d]/20"
         />
         <div className="space-y-3">
           <button
             type="button"
             onClick={runCommand}
             disabled={busy || !prepared.trim()}
-            className="h-12 w-full rounded-xl bg-[#b85c38] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#8e3f24] disabled:bg-stone-200 disabled:text-stone-500"
+            className="h-12 w-full rounded-xl bg-[#d8b75d] px-4 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-[#e8c76d] disabled:bg-slate-700 disabled:text-slate-500"
           >
             {busy ? "Running" : "Run Command"}
           </button>
-          <div className="rounded-xl border border-stone-200 bg-[#fffdf8] p-3 text-xs text-stone-600">
-            <div className="mb-2 font-semibold uppercase text-stone-500">Prepared</div>
-            <div className="break-words text-stone-900">{prepared || "No command"}</div>
+          <div className="rounded-xl border border-slate-700 bg-slate-800 p-3 text-xs text-slate-500">
+            <div className="mb-2 font-semibold uppercase text-slate-500">Prepared</div>
+            <div className="break-words text-slate-200">{prepared || "No command"}</div>
           </div>
         </div>
       </div>
@@ -224,18 +224,18 @@ export function OperatorCommandClient() {
               setMode(preset.mode);
               setInput(preset.text);
             }}
-            className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-left text-sm font-semibold text-stone-800 transition-colors hover:border-[#b85c38] hover:text-[#8e3f24]"
+            className="nc-tile text-left text-sm font-semibold text-slate-200 transition-colors hover:border-[#d8b75d] hover:text-[#d8b75d]"
           >
             {preset.label}
           </button>
         ))}
       </div>
 
-      <section className="space-y-3 rounded-2xl border border-stone-200 bg-[#fffdf8] p-4">
+      <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase text-[#8e3f24]">Top 20 operator missions</div>
-            <div className="mt-1 text-sm text-stone-700">
+            <div className="nc-eyebrow">Top 20 operator missions</div>
+            <div className="mt-1 text-sm text-slate-400">
               Queue the whole build program as durable dashboard jobs.
             </div>
           </div>
@@ -243,7 +243,7 @@ export function OperatorCommandClient() {
             type="button"
             onClick={() => queueMission("queue_all")}
             disabled={Boolean(missionBusy)}
-            className="rounded-xl border border-[#b85c38] bg-[#b85c38] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#8e3f24] disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-500"
+            className="rounded-xl border border-[#d8b75d] bg-[#d8b75d]/10 px-4 py-2 text-sm font-semibold text-[#d8b75d] transition-colors hover:bg-[#d8b75d]/20 disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
           >
             {missionBusy === "queue_all" ? "Queuing" : "Queue Top 20 requests"}
           </button>
@@ -256,26 +256,26 @@ export function OperatorCommandClient() {
               type="button"
               onClick={() => queueMission("queue_mission", mission.id)}
               disabled={Boolean(missionBusy)}
-              className="rounded-xl border border-stone-200 bg-white p-3 text-left transition-colors hover:border-[#b85c38] disabled:border-stone-200 disabled:bg-stone-50 disabled:text-stone-500"
+              className="rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-left transition-colors hover:border-[#d8b75d] disabled:border-slate-800 disabled:bg-slate-900/10 disabled:text-slate-600"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-semibold text-stone-950">{mission.title}</div>
-                <div className="text-xs font-semibold text-[#8e3f24]">{mission.severity}</div>
+                <div className="text-sm font-semibold text-slate-100">{mission.title}</div>
+                <div className="text-xs font-semibold text-[#d8b75d]">{mission.severity}</div>
               </div>
-              <div className="mt-2 text-xs text-stone-600">
+              <div className="mt-2 text-xs text-slate-500">
                 {mission.category} / {mission.size}
               </div>
-              <div className="mt-2 text-xs leading-5 text-stone-700">{mission.outcome}</div>
+              <div className="mt-2 text-xs leading-5 text-slate-400">{mission.outcome}</div>
             </button>
           ))}
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-stone-200 bg-[#fffdf8] p-4">
+      <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase text-[#8e3f24]">Next 50 product moves</div>
-            <div className="mt-1 text-sm text-stone-700">
+            <div className="nc-eyebrow">Next 50 product moves</div>
+            <div className="mt-1 text-sm text-slate-400">
               Queue the expanded roadmap for personal use, trust, automation, integrations, SaaS, and launch readiness.
             </div>
           </div>
@@ -283,7 +283,7 @@ export function OperatorCommandClient() {
             type="button"
             onClick={() => queueMission("queue_next_50")}
             disabled={Boolean(missionBusy)}
-            className="rounded-xl border border-[#b85c38] bg-[#b85c38] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#8e3f24] disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-500"
+            className="rounded-xl border border-[#d8b75d] bg-[#d8b75d]/10 px-4 py-2 text-sm font-semibold text-[#d8b75d] transition-colors hover:bg-[#d8b75d]/20 disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
           >
             {missionBusy === "queue_next_50" ? "Queuing" : "Queue Next 50 requests"}
           </button>
@@ -296,17 +296,17 @@ export function OperatorCommandClient() {
               type="button"
               onClick={() => queueMission("queue_next_50_item", item.id)}
               disabled={Boolean(missionBusy)}
-              className="rounded-xl border border-stone-200 bg-white p-3 text-left transition-colors hover:border-[#b85c38] disabled:border-stone-200 disabled:bg-stone-50 disabled:text-stone-500"
+              className="rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-left transition-colors hover:border-[#d8b75d] disabled:border-slate-800 disabled:bg-slate-900/10 disabled:text-slate-600"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-semibold text-stone-950">{item.title}</div>
-                <div className="text-xs font-semibold text-[#8e3f24]">{item.severity}</div>
+                <div className="text-sm font-semibold text-slate-100">{item.title}</div>
+                <div className="text-xs font-semibold text-[#d8b75d]">{item.severity}</div>
               </div>
-              <div className="mt-2 text-xs text-stone-600">
+              <div className="mt-2 text-xs text-slate-500">
                 {item.category} / {item.size}
               </div>
-              <div className="mt-2 text-xs leading-5 text-stone-700">{item.why}</div>
-              <div className="mt-3 text-xs font-semibold text-[#8e3f24]">
+              <div className="mt-2 text-xs leading-5 text-slate-400">{item.why}</div>
+              <div className="mt-3 text-xs font-semibold text-[#d8b75d]">
                 {missionBusy === item.id ? "Queuing" : "Queue this move"}
               </div>
             </button>
@@ -315,29 +315,29 @@ export function OperatorCommandClient() {
       </section>
 
       {lastCommand ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-4 text-sm">
-          <div className="text-xs font-semibold uppercase text-stone-500">Last command</div>
-          <div className="mt-2 whitespace-pre-wrap text-stone-800">{lastCommand}</div>
+        <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm">
+          <div className="text-xs font-semibold uppercase text-slate-500">Last command</div>
+          <div className="mt-2 whitespace-pre-wrap text-slate-300">{lastCommand}</div>
         </div>
       ) : null}
 
       {reply ? (
-        <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950">
-          <div className="text-xs font-semibold uppercase text-emerald-700">Result</div>
+        <div className="rounded-xl border border-emerald-900 bg-emerald-950/30 p-4 text-sm text-emerald-200">
+          <div className="text-xs font-semibold uppercase text-emerald-400">Result</div>
           <div className="mt-2 whitespace-pre-wrap">{reply}</div>
         </div>
       ) : null}
 
       {missionReply ? (
-        <div className="rounded-xl border border-sky-300 bg-sky-50 p-4 text-sm text-sky-950">
-          <div className="text-xs font-semibold uppercase text-sky-700">Mission queue</div>
+        <div className="rounded-xl border border-sky-900 bg-sky-950/30 p-4 text-sm text-sky-200">
+          <div className="text-xs font-semibold uppercase text-sky-400">Mission queue</div>
           <div className="mt-2 whitespace-pre-wrap">{missionReply}</div>
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-950">
-          <div className="text-xs font-semibold uppercase text-red-700">Failed</div>
+        <div className="rounded-xl border border-red-900 bg-red-950/30 p-4 text-sm text-red-200">
+          <div className="text-xs font-semibold uppercase text-red-400">Failed</div>
           <div className="mt-2">{error}</div>
         </div>
       ) : null}
