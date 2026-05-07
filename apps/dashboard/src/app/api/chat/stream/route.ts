@@ -344,7 +344,7 @@ export async function POST(req: Request) {
           // Execute tools
           const toolResultParts: string[] = [];
           for (const call of resp.toolCalls) {
-            send({ type: "tool", name: call.name, input: call.input });
+            send({ type: "tool", name: call.name });
             const tool = registry.get(call.name);
             const started = Date.now();
             if (!tool) {
