@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
 import { getDb } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export async function POST(req: Request): Promise<Response> {
     if (configError) {
       return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
     }
-    console.error("[spotify/disconnect] failed", e);
+    logDashboardError("spotify.disconnect", e);
     return NextResponse.json({ reply: "Spotify disconnect failed." }, { status: 500, headers: NO_STORE });
   }
 }

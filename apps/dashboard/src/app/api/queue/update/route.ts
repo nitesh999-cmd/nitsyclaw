@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDb, setFeatureRequestStatus } from "@nitsyclaw/shared/db";
+import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
@@ -60,7 +61,7 @@ export async function POST(request: Request): Promise<never | Response> {
       completedAt,
     });
   } catch (e) {
-    console.error("[queue/update] DB error", e);
+    logDashboardError("queue.update", e);
     return new Response("Server error", { status: 500, headers: NO_STORE });
   }
   if (!updated) {

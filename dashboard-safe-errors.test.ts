@@ -23,7 +23,10 @@ describe("dashboard safe user-facing errors", () => {
       "apps/dashboard/src/app/api/data/delete/route.ts",
       "apps/dashboard/src/app/api/expenses/export/route.ts",
       "apps/dashboard/src/app/api/integrations/spotify/callback/route.ts",
+      "apps/dashboard/src/app/api/integrations/spotify/disconnect/route.ts",
       "apps/dashboard/src/app/api/integrations/spotify/status/route.ts",
+      "apps/dashboard/src/app/api/operator/jobs/route.ts",
+      "apps/dashboard/src/app/api/queue/update/route.ts",
       "apps/dashboard/src/app/api/search/route.ts",
       "apps/dashboard/src/app/search/page.tsx",
       "apps/dashboard/src/app/api/stats/route.ts",
@@ -36,6 +39,7 @@ describe("dashboard safe user-facing errors", () => {
       expect(source, file).not.toContain("Check server logs");
       expect(source, file).not.toContain("err instanceof Error ? err.message");
       expect(source, file).not.toContain("e instanceof Error ? e.message : String(e)");
+      expect(source, file).not.toContain("console.error(");
     }
   });
 

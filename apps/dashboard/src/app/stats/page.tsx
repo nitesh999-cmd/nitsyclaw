@@ -130,7 +130,7 @@ export default async function StatsPage() {
         </section>
         <section className="nc-section">
           <p className="font-medium text-red-300">Stats unavailable</p>
-          <p className="mt-1 text-sm text-slate-500">{errorMsg ?? "Unknown error"}</p>
+          <p className="mt-1 text-sm text-slate-500">{errorMsg ?? "Could not load stats. Try again shortly."}</p>
         </section>
       </div>
     );

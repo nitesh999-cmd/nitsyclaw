@@ -137,6 +137,8 @@ Passed:
 - `pnpm run security:audit` passed again with no known vulnerabilities.
 - Focused reminders page and safe-error tests passed after invalid-date feedback was covered.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after reminder feedback coverage.
+- Focused safe-error, private-cache, auth-route, and operator-job tests passed after replacing remaining dashboard API raw error logs with redacted logging.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard API log cleanup.
 
 Failed or blocked:
 

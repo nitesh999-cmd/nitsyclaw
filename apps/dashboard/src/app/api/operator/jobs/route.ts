@@ -17,7 +17,7 @@ import {
   OPERATOR_NEXT_50,
   type OperatorRoadmapItem,
 } from "../../../command/operator-roadmap";
-import { getOwnerIdentity, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
@@ -141,7 +141,7 @@ export async function POST(request: Request): Promise<Response> {
     if (configError) {
       return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
     }
-    console.error("[operator-jobs] enqueue failed", e);
+    logDashboardError("operator.jobs", e);
     return NextResponse.json({ reply: "Operator jobs failed to queue." }, { status: 500, headers: NO_STORE });
   }
 }
