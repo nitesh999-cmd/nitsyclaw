@@ -132,6 +132,7 @@ Passed:
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after dashboard page failure-copy cleanup.
 - Focused chat client error, safe-error, and quick-action tests passed after chat client failure-copy cleanup.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat client failure-copy cleanup.
+- Latest full gate passed after dashboard/chat error-copy hardening: `pnpm lint`, `pnpm -r typecheck`, `pnpm test` - 118 files, 463 tests, and `pnpm build`.
 
 Failed or blocked:
 
