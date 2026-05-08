@@ -28,7 +28,7 @@ describe("dashboard login route timeout handling", () => {
       },
       body: new URLSearchParams({
         user: "nitesh",
-        password: "secret",
+        password: "wrong",
         next: "/",
       }),
     }));
@@ -37,6 +37,40 @@ describe("dashboard login route timeout handling", () => {
     expect(response.status).toBe(503);
     expect(await response.text()).toBe("Login protection is temporarily unavailable. Please try again shortly.");
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("does not make a valid owner login wait for attempt storage", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NITSYCLAW_DASHBOARD_PASSWORD", "secret");
+    vi.stubEnv("NITSYCLAW_DASHBOARD_USER", "nitesh");
+    vi.stubEnv("NITSYCLAW_AUTH_ATTEMPT_TIMEOUT_MS", "1");
+    const getStates = vi.fn(() => new Promise(() => {}));
+    vi.doMock("../../../../lib/dashboard-login-attempts", () => ({
+      clearDashboardLoginAttemptsForKeys: vi.fn(() => new Promise(() => {})),
+      getDashboardLoginAttemptStates: getStates,
+      recordDashboardLoginFailure: vi.fn(() => new Promise(() => {})),
+    }));
+
+    const { POST } = await import("./route");
+    const started = Date.now();
+    const response = await POST(new Request("https://nitsyclaw.vercel.app/api/auth/login", {
+      method: "POST",
+      headers: {
+        origin: "https://nitsyclaw.vercel.app",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        user: "nitesh",
+        password: "secret",
+        next: "/",
+      }),
+    }));
+
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://nitsyclaw.vercel.app/");
+    expect(response.headers.get("set-cookie")).toContain("nitsyclaw_dashboard_session=");
+    expect(getStates).not.toHaveBeenCalled();
   });
 
   it("redacts attempt storage errors before logging", async () => {
@@ -61,7 +95,7 @@ describe("dashboard login route timeout handling", () => {
       },
       body: new URLSearchParams({
         user: "nitesh",
-        password: "secret",
+        password: "wrong",
         next: "/",
       }),
     }));

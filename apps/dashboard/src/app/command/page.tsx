@@ -111,7 +111,8 @@ export default async function CommandPage() {
             <div className="nc-eyebrow">Home plan</div>
             <h2 className="mt-2 text-3xl font-semibold">Operator Command</h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-              A simple place to check requests, bugs, approvals, WhatsApp health, and what should be handled next.
+              A simple place to send one command or save work into Requests. Queued means saved for the operator runner;
+              it does not build code or deploy by itself.
             </p>
           </div>
           <a href="/queue" className="nc-button-primary">Open requests</a>

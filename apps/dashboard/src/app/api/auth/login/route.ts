@@ -40,6 +40,15 @@ export async function POST(request: Request): Promise<Response> {
   const clientKey = `ip:${clientKeyFromRequest(request)}`;
   const accountKey = accountKeyFromUser(user, expectedUser);
   const loginKeys = [clientKey, accountKey];
+  const credentialsValid = constantTimeEqual(user, expectedUser) && constantTimeEqual(password, expectedPassword ?? "");
+
+  if (credentialsValid) {
+    void withAuthAttemptTimeout(
+      clearDashboardLoginAttemptsForKeys(loginKeys),
+      "clear login attempts",
+    );
+    return createLoginResponse(request, next, expectedUser, expectedPassword ?? "");
+  }
 
   const now = Date.now();
   const states = await withAuthAttemptTimeout(
@@ -61,28 +70,29 @@ export async function POST(request: Request): Promise<Response> {
     return res;
   }
 
-  if (!constantTimeEqual(user, expectedUser) || !constantTimeEqual(password, expectedPassword ?? "")) {
-    const updatedStates = await withAuthAttemptTimeout(
-      Promise.all([
-        recordDashboardLoginFailure(clientKey, now),
-        recordDashboardLoginFailure(accountKey, now),
-      ]),
-      "record login failure",
-    );
-    if (!updatedStates) return authProtectionUnavailable();
-    const [updatedClient, updatedAccount] = updatedStates;
-    return redirectToLogin(
-      updatedClient.lockedUntilMs || updatedAccount.lockedUntilMs ? "locked" : "invalid",
-      next,
-      303,
-    );
-  }
-
-  void withAuthAttemptTimeout(
-    clearDashboardLoginAttemptsForKeys(loginKeys),
-    "clear login attempts",
+  const updatedStates = await withAuthAttemptTimeout(
+    Promise.all([
+      recordDashboardLoginFailure(clientKey, now),
+      recordDashboardLoginFailure(accountKey, now),
+    ]),
+    "record login failure",
   );
-  const token = await createDashboardSessionToken(expectedUser, expectedPassword ?? "");
+  if (!updatedStates) return authProtectionUnavailable();
+  const [updatedClient, updatedAccount] = updatedStates;
+  return redirectToLogin(
+    updatedClient.lockedUntilMs || updatedAccount.lockedUntilMs ? "locked" : "invalid",
+    next,
+    303,
+  );
+}
+
+async function createLoginResponse(
+  request: Request,
+  next: string,
+  expectedUser: string,
+  expectedPassword: string,
+): Promise<Response> {
+  const token = await createDashboardSessionToken(expectedUser, expectedPassword);
   const response = NextResponse.redirect(new URL(next, request.url), 303);
   response.cookies.set(DASHBOARD_SESSION_COOKIE, token, {
     httpOnly: true,

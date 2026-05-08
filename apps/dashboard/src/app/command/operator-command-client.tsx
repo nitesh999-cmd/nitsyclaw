@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { OPERATOR_MISSIONS } from "./operator-missions";
 import { OPERATOR_NEXT_50 } from "./operator-roadmap";
 
@@ -76,10 +77,12 @@ function commandFor(mode: Mode, text: string): string {
 }
 
 export function OperatorCommandClient() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("ask");
   const [input, setInput] = useState("");
   const [reply, setReply] = useState("");
   const [missionReply, setMissionReply] = useState("");
+  const [missionSummary, setMissionSummary] = useState("");
   const [lastCommand, setLastCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const [missionBusy, setMissionBusy] = useState("");
@@ -131,6 +134,7 @@ export function OperatorCommandClient() {
     setMissionBusy(missionId ?? action);
     setError("");
     setMissionReply("");
+    setMissionSummary("");
 
     try {
       const res = await fetch("/api/operator/jobs", {
@@ -148,6 +152,8 @@ export function OperatorCommandClient() {
         return;
       }
       setMissionReply(body.reply ?? `Queued ${body.queued ?? 0}; existing ${body.existing ?? 0}.`);
+      setMissionSummary(`Saved ${body.queued ?? 0} new request${body.queued === 1 ? "" : "s"}; ${body.existing ?? 0} already existed. Open Requests to see them, or run the laptop operator when you want execution.`);
+      router.refresh();
     } catch {
       setError(MISSION_FAILED);
     } finally {
@@ -160,8 +166,8 @@ export function OperatorCommandClient() {
       <section className="nc-section">
         <div className="nc-eyebrow">What this page does</div>
         <div className="mt-2 text-sm leading-6 text-slate-400">
-          This is the planning desk. It can send a command to the assistant or add work into Requests.
-          Queuing does not build, run code, or deploy by itself. It only saves the work so the operator runner or Codex can pick it up later.
+          This is the planning desk. It can send one command to the assistant, or save future work into Requests.
+          Queued means saved. It does not build, run code, text anyone, or deploy by itself.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="nc-tile">
@@ -169,12 +175,12 @@ export function OperatorCommandClient() {
             <div className="mt-1 text-xs leading-5 text-slate-500">Sends one instruction to the dashboard assistant.</div>
           </div>
           <div className="nc-tile">
-            <div className="text-sm font-semibold text-slate-100">Queue Top 20</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">Adds the main operator missions to Requests.</div>
+            <div className="text-sm font-semibold text-slate-100">Save Top 20</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Adds the main operator missions to Requests for later execution.</div>
           </div>
           <div className="nc-tile">
-            <div className="text-sm font-semibold text-slate-100">Queue Next 50</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">Adds roadmap ideas to Requests. It is not automatic execution.</div>
+            <div className="text-sm font-semibold text-slate-100">Save Next 50</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Adds roadmap ideas to Requests. You still choose what gets built.</div>
           </div>
         </div>
       </section>
@@ -236,12 +242,22 @@ export function OperatorCommandClient() {
         ))}
       </div>
 
+      {missionSummary ? (
+        <div className="rounded-xl border border-sky-800 bg-sky-950/30 p-4 text-sm text-sky-100" role="status">
+          <div className="text-xs font-semibold uppercase text-sky-300">Saved to Requests</div>
+          <div className="mt-2 leading-6">{missionSummary}</div>
+          <a href="/queue?status=pending" className="mt-3 inline-flex text-sm font-semibold text-[#d8b75d] hover:text-[#e8c76d]">
+            Open Requests
+          </a>
+        </div>
+      ) : null}
+
       <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="nc-eyebrow">Top 20 operator missions</div>
             <div className="mt-1 text-sm text-slate-400">
-              Queue the whole build program as durable dashboard jobs.
+              Save the whole build program as durable dashboard jobs.
             </div>
           </div>
           <button
@@ -250,7 +266,7 @@ export function OperatorCommandClient() {
             disabled={Boolean(missionBusy)}
             className="rounded-xl border border-[#d8b75d] bg-[#d8b75d]/10 px-4 py-2 text-sm font-semibold text-[#d8b75d] transition-colors hover:bg-[#d8b75d]/20 disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
           >
-            {missionBusy === "queue_all" ? "Queuing" : "Queue Top 20 requests"}
+            {missionBusy === "queue_all" ? "Saving" : "Save Top 20 to Requests"}
           </button>
         </div>
 
@@ -271,6 +287,9 @@ export function OperatorCommandClient() {
                 {mission.category} / {mission.size}
               </div>
               <div className="mt-2 text-xs leading-5 text-slate-400">{mission.outcome}</div>
+              <div className="mt-3 text-xs font-semibold text-[#d8b75d]">
+                {missionBusy === mission.id ? "Saving" : "Save to Requests"}
+              </div>
             </button>
           ))}
         </div>
@@ -290,7 +309,7 @@ export function OperatorCommandClient() {
             disabled={Boolean(missionBusy)}
             className="rounded-xl border border-[#d8b75d] bg-[#d8b75d]/10 px-4 py-2 text-sm font-semibold text-[#d8b75d] transition-colors hover:bg-[#d8b75d]/20 disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
           >
-            {missionBusy === "queue_next_50" ? "Queuing" : "Queue Next 50 requests"}
+            {missionBusy === "queue_next_50" ? "Saving" : "Save Next 50 to Requests"}
           </button>
         </div>
 
@@ -312,7 +331,7 @@ export function OperatorCommandClient() {
               </div>
               <div className="mt-2 text-xs leading-5 text-slate-400">{item.why}</div>
               <div className="mt-3 text-xs font-semibold text-[#d8b75d]">
-                {missionBusy === item.id ? "Queuing" : "Queue this move"}
+                {missionBusy === item.id ? "Saving" : "Save this move"}
               </div>
             </button>
           ))}
