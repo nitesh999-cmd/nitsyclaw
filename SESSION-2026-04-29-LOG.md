@@ -199,3 +199,12 @@
 3. **Then everything else** — email channel, tool indicators, tests, key rotation. (Outlook write is done as of `6334c73`.) All in the backlog file.
 
 Sleep well.
+
+## 2026-05-08 WhatsApp reliability update
+
+- Dashboard work was parked; WhatsApp became the focus.
+- Evidence: local bot was connected, but many owner-authored events were dropped as `not self-chat fromMe=true`.
+- Fixed the self-chat guard to use WhatsApp chat id as the reliable owner self-chat boundary.
+- Fixed watchdog heartbeat env loading for scheduled/background contexts.
+- Restarted only the local bot process tree via `launch-bot.ps1`.
+- Fresh local proof: `logs/whatsapp-health-last-ok.txt` wrote `2026-05-08T12:46:28.504Z READY`.

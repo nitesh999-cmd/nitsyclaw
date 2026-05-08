@@ -1,4 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 import {
   getDb,
@@ -12,7 +14,8 @@ const status = args.status ?? "ok";
 const event = args.event ?? "tick";
 const dryRun = args.dryRun === true;
 
-loadLocalEnv([".env.local", "apps/dashboard/.env.local", ".env"]);
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+loadLocalEnv(resolveLocalEnvPaths(repoRoot));
 
 async function main() {
   const metadata = {
@@ -75,6 +78,17 @@ export function formatWatchdogHeartbeatError(error: unknown): string {
     .replace(TOKEN_RE, "[redacted:token]")
     .replace(PHONE_RE, "[redacted:phone]");
   return `watchdog heartbeat failed: ${redacted.slice(0, 200)}`;
+}
+
+export function resolveLocalEnvPaths(repoRootPath: string): string[] {
+  return [
+    ".env.local",
+    "apps/dashboard/.env.local",
+    ".env",
+    resolve(repoRootPath, ".env.local"),
+    resolve(repoRootPath, "apps/dashboard/.env.local"),
+    resolve(repoRootPath, ".env"),
+  ];
 }
 
 function parseArgs(argv: string[]): {

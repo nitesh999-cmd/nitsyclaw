@@ -28,6 +28,18 @@ describe("WhatsApp identity helpers", () => {
     ).toBe(true);
   });
 
+  it("accepts owner self-chat when message envelope is messy but chat id is owner", () => {
+    expect(
+      isOwnerSelfChat({
+        from: "129274421981381@lid",
+        fromMe: true,
+        to: "",
+        chatId: "61430008008@c.us",
+        ownerNumber: "+61430008008",
+      }),
+    ).toBe(true);
+  });
+
   it("rejects non-self chats", () => {
     expect(
       isOwnerSelfChat({
@@ -44,6 +56,7 @@ describe("WhatsApp identity helpers", () => {
         from: "129274421981381@lid",
         fromMe: true,
         to: "61425046161@c.us",
+        chatId: "61425046161@c.us",
         ownerNumber: "+61430008008",
       }),
     ).toBe(false);

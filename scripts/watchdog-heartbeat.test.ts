@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { formatWatchdogHeartbeatError } from "./watchdog-heartbeat.js";
+import {
+  formatWatchdogHeartbeatError,
+  resolveLocalEnvPaths,
+} from "./watchdog-heartbeat.js";
 
 describe("watchdog heartbeat error safety", () => {
   it("redacts secrets and contact data from heartbeat failures", () => {
@@ -18,5 +21,14 @@ describe("watchdog heartbeat error safety", () => {
     expect(message).not.toContain("nitesh@example.com");
     expect(message).not.toContain("+61 430 008 008");
     expect(message).not.toContain("sk_live");
+  });
+
+  it("resolves env files from both cwd and repo root", () => {
+    const paths = resolveLocalEnvPaths("C:\\Users\\Nitesh\\projects\\NitsyClaw");
+
+    expect(paths).toContain(".env.local");
+    expect(paths).toContain(".env");
+    expect(paths).toContain("C:\\Users\\Nitesh\\projects\\NitsyClaw\\.env.local");
+    expect(paths).toContain("C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\.env.local");
   });
 });

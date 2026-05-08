@@ -1642,3 +1642,25 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 ### TypeScript
 - `Promise.resolve({} as { q?: string })` pattern needed for typed searchParams fallback
 - All packages clean: 375/375 tests passing
+
+---
+
+## Session 46 — WhatsApp reliability first pass (2026-05-08)
+
+### What broke
+- Bot was connected and writing `logs/whatsapp-health-last-ok.txt`, but `logs/bot.log` showed repeated `dropped: not self-chat fromMe=true`.
+- Root cause: self-chat detection only trusted `from`/`to` message envelope fields. WhatsApp Web can emit owner-authored self-chat messages with messy envelope values; the reliable boundary is the chat id.
+- Watchdog heartbeat also failed from some launch contexts because `scripts/watchdog-heartbeat.ts` only searched env files relative to the current working directory.
+
+### What changed
+- `apps/bot/src/whatsapp-identity.ts`: self-chat detection now accepts owner self-chat when the WhatsApp chat id is the owner chat, while still rejecting other contacts/groups.
+- `apps/bot/src/wwebjs-client.ts`: message handling now reads `m.getChat().id._serialized` and passes it into the self-chat guard; drop logs now include safe address kinds (`contact`, `group`, `newsletter`, `status`, `lid`, `empty`) without raw phone numbers.
+- `scripts/watchdog-heartbeat.ts`: env lookup now includes repo-root absolute paths so scheduled/background runs can still find `.env.local`.
+
+### Verification
+- Red test first: messy self-chat envelope failed before the fix.
+- Focused WhatsApp/watchdog tests passed: 23 tests.
+- `pnpm --filter @nitsyclaw/bot typecheck` passed.
+- `pnpm --filter @nitsyclaw/bot build` passed.
+- Dry-run watchdog from `C:\Windows\System32` passed using repo-root resolution.
+- Local bot restarted through `launch-bot.ps1` and wrote fresh `READY` heartbeat at `2026-05-08T12:46:28.504Z`.

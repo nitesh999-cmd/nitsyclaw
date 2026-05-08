@@ -62,6 +62,16 @@ function safeRestartReason(label: string, error: unknown): string {
   return `${label}: ${formatSafeLogError(error)}`;
 }
 
+function addressKind(value: string): string {
+  if (!value) return "empty";
+  if (value.endsWith("@g.us")) return "group";
+  if (value.endsWith("@newsletter")) return "newsletter";
+  if (value === "status@broadcast") return "status";
+  if (value.endsWith("@lid")) return "lid";
+  if (value.endsWith("@c.us")) return "contact";
+  return "other";
+}
+
 export interface WwebjsOptions {
   sessionDir: string;
   ownerNumber: string;
@@ -383,15 +393,23 @@ export class WwebjsClient implements WhatsAppClient {
         const fromRaw = envelope.from ?? "";
         const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = envelope.to ?? "";
+        let chatId = "";
+        try {
+          const chat = await m.getChat();
+          chatId = chat.id?._serialized ?? "";
+        } catch (chatError) {
+          logBotError("[wwebjs] failed to read chat id", chatError);
+        }
         if (
           !isOwnerSelfChat({
             from: fromRaw,
             fromMe,
             to: toRaw,
+            chatId,
             ownerNumber: this.opts.ownerNumber,
           })
         ) {
-          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe}`);
+          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)}`);
           return;
         }
 
