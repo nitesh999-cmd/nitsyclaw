@@ -13,6 +13,7 @@
 - Updated the away-from-desk go-live runbook with the verified `operator:next` / `DATABASE_URL` blocker.
 - Hardened dashboard chat JSON parsing so oversized request bodies are rejected even when `Content-Length` is missing.
 - Verified and covered expense form invalid-input redirects so bad amount, currency, or date submissions produce readable page errors instead of silent no-ops.
+- Hardened dashboard search normalization so `%`, `_`, and backslash are escaped before SQL `LIKE` queries across the search page and API.
 
 ## Verification
 
@@ -52,6 +53,8 @@
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat body-size hardening.
 - `pnpm exec vitest run expenses-page-errors.test.ts apps/dashboard/src/lib/expense-utils.test.ts` passed: 2 files, 6 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after expense form feedback coverage.
+- `pnpm exec vitest run apps/dashboard/src/lib/search-query.test.ts dashboard-search-safety.test.ts` passed: 2 files, 4 tests.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after search wildcard hardening.
 
 ## Guardrails kept
 

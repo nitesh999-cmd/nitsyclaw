@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { desc, sql } from "drizzle-orm";
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
 import { logDashboardError } from "../../../lib/dashboard-runtime";
+import { likePatternForSearchTerm, normalizeSearchTerm } from "../../../lib/search-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
-const MAX_SEARCH_TERM_CHARS = 120;
-
 type SearchResultType = "memory" | "reminder" | "message";
 
 interface SearchResult {
@@ -20,7 +19,7 @@ interface SearchResult {
 
 export async function GET(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
-  const term = searchParams.get("q")?.trim().slice(0, MAX_SEARCH_TERM_CHARS);
+  const term = normalizeSearchTerm(searchParams.get("q"));
 
   if (!term || term.length === 0) {
     return NextResponse.json(
@@ -30,7 +29,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   try {
-    const q = `%${term.toLowerCase()}%`;
+    const q = likePatternForSearchTerm(term);
     const db = getDb();
 
     const [memoryRows, reminderRows, messageRows] = await Promise.all([
@@ -42,7 +41,7 @@ export async function GET(req: Request): Promise<Response> {
           createdAt: memories.createdAt,
         })
         .from(memories)
-        .where(sql`lower(${memories.content}) LIKE ${q}`)
+        .where(sql`lower(${memories.content}) LIKE ${q} ESCAPE '\'`)
         .orderBy(desc(memories.createdAt))
         .limit(8),
 
@@ -54,7 +53,7 @@ export async function GET(req: Request): Promise<Response> {
         })
         .from(reminders)
         .where(
-          sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q}`,
+          sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q} ESCAPE '\'`,
         )
         .orderBy(desc(reminders.createdAt))
         .limit(8),
@@ -67,7 +66,7 @@ export async function GET(req: Request): Promise<Response> {
           createdAt: messages.createdAt,
         })
         .from(messages)
-        .where(sql`${messages.intent} IS NOT NULL AND lower(${messages.intent}) LIKE ${q}`)
+        .where(sql`${messages.intent} IS NOT NULL AND lower(${messages.intent}) LIKE ${q} ESCAPE '\'`)
         .orderBy(desc(messages.createdAt))
         .limit(8),
     ]);

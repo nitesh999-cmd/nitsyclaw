@@ -1,9 +1,9 @@
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
 import { desc, sql } from "drizzle-orm";
 import { logDashboardError } from "../../lib/dashboard-runtime";
+import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query";
 
 export const dynamic = "force-dynamic";
-const MAX_SEARCH_TERM_CHARS = 120;
 
 type SearchResultType = "memory" | "reminder" | "message";
 
@@ -21,7 +21,7 @@ const TYPE_BADGE: Record<SearchResultType, string> = {
 };
 
 async function searchAll(term: string): Promise<SearchResult[]> {
-  const q = `%${term.toLowerCase()}%`;
+  const q = likePatternForSearchTerm(term);
   const db = getDb();
 
   const [memoryRows, reminderRows, messageRows] = await Promise.all([
@@ -33,7 +33,7 @@ async function searchAll(term: string): Promise<SearchResult[]> {
         createdAt: memories.createdAt,
       })
       .from(memories)
-      .where(sql`lower(${memories.content}) LIKE ${q}`)
+      .where(sql`lower(${memories.content}) LIKE ${q} ESCAPE '\'`)
       .orderBy(desc(memories.createdAt))
       .limit(8),
 
@@ -45,7 +45,7 @@ async function searchAll(term: string): Promise<SearchResult[]> {
       })
       .from(reminders)
       .where(
-        sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q}`,
+        sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q} ESCAPE '\'`,
       )
       .orderBy(desc(reminders.createdAt))
       .limit(8),
@@ -58,7 +58,7 @@ async function searchAll(term: string): Promise<SearchResult[]> {
         createdAt: messages.createdAt,
       })
       .from(messages)
-      .where(sql`${messages.intent} IS NOT NULL AND lower(${messages.intent}) LIKE ${q}`)
+      .where(sql`${messages.intent} IS NOT NULL AND lower(${messages.intent}) LIKE ${q} ESCAPE '\'`)
       .orderBy(desc(messages.createdAt))
       .limit(8),
   ]);
@@ -88,10 +88,10 @@ async function searchAll(term: string): Promise<SearchResult[]> {
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string }>;
+  searchParams?: Promise<{ q?: string | string[] }>;
 }) {
   const params = await (searchParams ?? Promise.resolve({ q: undefined }));
-  const q = params.q?.trim().slice(0, MAX_SEARCH_TERM_CHARS) ?? "";
+  const q = normalizeSearchTerm(params.q);
 
   let results: SearchResult[] = [];
   let searchError: string | null = null;
