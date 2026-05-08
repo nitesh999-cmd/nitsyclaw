@@ -8,7 +8,11 @@
 // notifies the user back via the messages table.
 
 import { z } from "zod";
-import { insertFeatureRequest } from "../db/repo.js";
+import {
+  insertFeatureRequest,
+  listPendingFeatureRequests,
+  listRecentFeatureRequestsByStatus,
+} from "../db/repo.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { Surface } from "../agent/system-prompt.js";
 import { hashPhone } from "../utils/crypto.js";
@@ -21,6 +25,47 @@ export function registerFeatureRequest(
   registry: ToolRegistry,
   opts: FeatureRequestRegisterOpts,
 ): void {
+  registry.register({
+    name: "list_feature_queue_status",
+    description:
+      "Read the live NitsyClaw feature/bug queue status from the database. Use before answering questions about pending features, shipped features, queue count, what is left, or what has been added.",
+    inputSchema: z.object({
+      limit: z.number().int().min(1).max(10).optional().default(5),
+    }),
+    handler: async (input: { limit?: number }, ctx: ToolContext) => {
+      const limit = input.limit ?? 5;
+      const pending = await listPendingFeatureRequests(ctx.deps.db);
+      const completed = await listRecentFeatureRequestsByStatus(ctx.deps.db, "done", limit);
+      const topPending = pending.slice(0, limit).map((row) => ({
+        id: row.id,
+        shortId: row.id.slice(0, 8),
+        type: row.type,
+        size: row.size,
+        description: row.description,
+        source: row.source,
+        createdAt: row.createdAt,
+      }));
+      const recentCompleted = completed.map((row) => ({
+        id: row.id,
+        shortId: row.id.slice(0, 8),
+        type: row.type,
+        size: row.size,
+        description: row.description,
+        source: row.source,
+        completedAt: row.completedAt,
+        implementationNotes: row.implementationNotes,
+      }));
+
+      return {
+        pendingCount: pending.length,
+        topPending,
+        recentCompleted,
+        guidance:
+          "Answer from these live rows only. Do not say 'nothing has shipped' unless recentCompleted is empty and you explicitly say you only checked recent completed rows.",
+      };
+    },
+  });
+
   registry.register({
     name: "request_feature",
     description:
@@ -55,7 +100,7 @@ export function registerFeatureRequest(
         id: row.id,
         status: row.status,
         size: row.size,
-        eta: "Build agent will review this on the next run. You can also trigger it sooner from claude.ai/code/routines.",
+        eta: "Queued in NitsyClaw. The operator queue can review and implement it through the local build workflow.",
       };
     },
   });

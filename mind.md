@@ -1700,3 +1700,23 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 ### Verification
 - Focused integration/router tests passed.
 - `pnpm -r typecheck` passed.
+
+---
+
+## Session 48 — WhatsApp feature-status truth fix (2026-05-09)
+
+### Problem
+- WhatsApp answered a live voice question with stale product status: it said nothing had shipped and told Nitesh to open Claude Code/run `*nwp`.
+
+### Root Cause
+- `request_feature` could write new feature rows, but the agent had no DB-backed read tool for "what is pending / what shipped".
+- The local build-agent notification copy still described the old manual Claude Code workflow.
+
+### What Changed
+- Added `list_feature_queue_status` so the agent can answer feature queue/status questions from live DB rows.
+- Updated the system prompt to require that tool before answering pending/shipped feature questions.
+- Broadened the WhatsApp shortcut for direct "pending features" questions, while letting compound weather+feature questions go through the agent so both parts can be answered.
+- Replaced old "open Claude Code" wording with "local operator workflow" wording.
+
+### Verification
+- Focused tests passed: feature-request, WhatsApp shortcut, router integration, system prompt, and tool registry.

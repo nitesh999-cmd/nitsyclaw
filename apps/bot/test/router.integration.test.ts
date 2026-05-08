@@ -391,7 +391,8 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent.some((m) => m.body.includes("Build agent checked 1 pending"))).toBe(true);
-    expect(wa.sent.some((m) => m.body.includes("Implementation still happens in Claude Code"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("local operator workflow"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Claude Code"))).toBe(false);
     expect(wa.sent.some((m) => m.body.includes("Add Google Photos search"))).toBe(true);
   });
 

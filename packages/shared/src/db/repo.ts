@@ -159,6 +159,19 @@ export async function listPendingFeatureRequests(db: DB): Promise<FeatureRequest
     .orderBy(asc(featureRequests.createdAt));
 }
 
+export async function listRecentFeatureRequestsByStatus(
+  db: DB,
+  status: FeatureRequest["status"],
+  limit = 5,
+): Promise<FeatureRequest[]> {
+  return db
+    .select()
+    .from(featureRequests)
+    .where(eq(featureRequests.status, status))
+    .orderBy(desc(featureRequests.completedAt), desc(featureRequests.createdAt))
+    .limit(limit);
+}
+
 export async function setFeatureRequestStatus(
   db: DB,
   id: string,

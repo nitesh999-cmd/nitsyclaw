@@ -54,4 +54,60 @@ describe("feature request capture", () => {
       size: "M",
     });
   });
+
+  it("reads live feature queue status before answering queue questions", async () => {
+    const deps = makeAgentDeps();
+    const state = getFakeDbState(deps.db);
+    state.feature_requests.push(
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        description: "Connect Google Photos safely",
+        type: "feature",
+        size: "M",
+        status: "pending",
+        source: "whatsapp",
+        createdAt: new Date("2026-05-08T10:00:00Z"),
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        description: "Expand safe integration request router",
+        type: "feature",
+        size: "M",
+        status: "done",
+        source: "whatsapp",
+        createdAt: new Date("2026-05-08T09:00:00Z"),
+        completedAt: new Date("2026-05-09T00:50:00Z"),
+        implementationNotes: "Committed and tested.",
+      },
+    );
+    const tool = registerAllFeatures({ surface: "whatsapp" }).get("list_feature_queue_status");
+
+    const result = await tool?.handler(
+      { limit: 3 },
+      {
+        deps,
+        userPhone: "+61430008008",
+        now: deps.now(),
+        timezone: deps.timezone,
+      },
+    );
+
+    expect(result).toMatchObject({
+      pendingCount: 1,
+      topPending: [
+        {
+          shortId: "11111111",
+          description: "Connect Google Photos safely",
+        },
+      ],
+      recentCompleted: [
+        {
+          shortId: "22222222",
+          description: "Expand safe integration request router",
+          implementationNotes: "Committed and tested.",
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).toContain("Do not say 'nothing has shipped'");
+  });
 });

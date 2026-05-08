@@ -235,3 +235,10 @@ Sleep well.
 - Added safe request tools for email connection, calendar connection, Spotify music, contacts/birthdays, and fuel prices.
 - Expanded integration capability truth table and dashboard Integrations page.
 - Verification passed: focused integration tests and `pnpm -r typecheck`.
+
+## 2026-05-09 WhatsApp feature-status truth fix
+
+- User screenshot showed WhatsApp saying "Nothing has been shipped yet" and telling Nitesh to open Claude Code/run `*nwp`.
+- Root cause: the agent had a feature-write tool but no DB-backed feature-status read tool, so natural queue-status questions could be answered from stale context.
+- Added `list_feature_queue_status`, expanded natural "pending features" detection, and removed user-facing "open Claude Code" wording from build-agent replies.
+- Focused verification passed: feature-request, shortcut, router integration, system-prompt, and tool-registry tests.

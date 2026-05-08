@@ -718,7 +718,7 @@ export class Router {
         }
 
         await this.sendAndPersist(
-          `Build agent checked ${rows.length} pending item(s). I will post the queue summary here. Implementation still happens in Claude Code.`,
+          `Build agent checked ${rows.length} pending item(s). I will post the queue summary here. Implementation happens through the local operator workflow and only counts as shipped after tests and commit.`,
         );
         await runDailyBuildAgent(this.deps, this.ownerPhone);
       } catch (e) {

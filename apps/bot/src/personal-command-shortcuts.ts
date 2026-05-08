@@ -97,12 +97,16 @@ export function parseLocationShortcut(text: string): LocationShortcut | null {
 
 export function parseFeatureQueueShortcut(text: string): FeatureQueueShortcut | null {
   const trimmed = text.trim().toLowerCase();
+  if (/\b(weather|forecast|rain|temperature)\b/.test(trimmed)) return null;
   if (
     trimmed === "feature status" ||
     trimmed === "feature queue" ||
     trimmed === "features" ||
     trimmed === "show feature queue" ||
-    trimmed === "show features"
+    trimmed === "show features" ||
+    /\b(pending|queued|awaiting|left)\s+(features?|bugs?|items?)\b/.test(trimmed) ||
+    /\b(features?|bugs?|items?)\s+(pending|queued|awaiting|left)\b/.test(trimmed) ||
+    /\bwhat(?:'s| is)\s+(?:still\s+)?(?:pending|queued|left)\b/.test(trimmed)
   ) {
     return { limit: 5 };
   }

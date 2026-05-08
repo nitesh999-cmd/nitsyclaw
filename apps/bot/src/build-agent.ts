@@ -2,8 +2,8 @@
 // CCR cloud sandbox permanently blocks outbound to Supabase + ntfy, so this
 // runs inside the always-on bot process which has full network access.
 // Fires at 12:00 UTC via scheduler.ts. Queries pending feature_requests and
-// notifies Nitesh via WhatsApp + ntfy. Auto-implementation deferred: for now
-// the notification tells him to open Claude Code and type *nwp to process them.
+// notifies Nitesh via WhatsApp + ntfy. Implementation is handled through the
+// local operator workflow, not by telling the user to manually open another app.
 
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { listPendingFeatureRequests, insertMessage } from "@nitsyclaw/shared/db";
@@ -39,7 +39,7 @@ export async function runDailyBuildAgent(
   const body =
     `\u{1F527} Build agent: ${pending.length} pending feature(s):\n\n` +
     lines +
-    `\n\nTo implement, open Claude Code in the NitsyClaw repo and type \`*nwp\` or trigger the daily build agent manually.`;
+    `\n\nNext: these are queued for the local operator workflow. I will not claim a feature is shipped until it is committed, tested, and marked done.`;
 
   // ntfy push (phone + PC notification)
   await pushNotify(
