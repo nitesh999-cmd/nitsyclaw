@@ -2,7 +2,14 @@
 // Long-running Node process. Designed for Railway. NOT compatible with Vercel.
 
 import { loadEnv } from "@nitsyclaw/shared";
-import { getDb, insertFeatureRequest, logAudit, upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
+import {
+  getDb,
+  insertFeatureRequest,
+  listPendingFeatureRequests,
+  logAudit,
+  upsertSystemHeartbeat,
+  type DB,
+} from "@nitsyclaw/shared/db";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { WwebjsClient } from "./wwebjs-client.js";
 import {
@@ -48,21 +55,21 @@ async function main() {
         actor: "system",
         tool: "whatsapp_loop_breaker",
         input: { ...incident },
-        output: { action: "paused_whatsapp_replies" },
+        output: { action: incident.resetAt ? "cooldown_whatsapp_replies" : "paused_whatsapp_replies" },
         success: false,
         error: incident.reason,
       }).catch((e) => logBotError("[boot] loop guard audit failed", e));
-      void insertFeatureRequest(db, {
-        description: `P0: WhatsApp loop breaker opened. Inspect audit_log tool=whatsapp_loop_breaker and harden regression tests. Reason: ${incident.reason}`,
-        size: "S",
-        source: "dashboard",
-        requestedBy: "system",
-        implementationNotes: "Auto-created by loop breaker incident path.",
-      }).catch((e) => logBotError("[boot] loop guard feature request failed", e));
-      pushNotify(`WhatsApp replies paused: ${incident.reason}`, {
-        title: "NitsyClaw paused a WhatsApp loop",
-        priority: "urgent",
-      }).catch((e) => logBotError("[boot] loop guard notify failed", e));
+      void queueLoopBreakerFeatureRequest(db, incident)
+        .catch((e) => logBotError("[boot] loop guard feature request failed", e));
+      pushNotify(
+        incident.resetAt
+          ? `WhatsApp replies cooling down until ${incident.resetAt}: ${incident.reason}`
+          : `WhatsApp replies paused: ${incident.reason}`,
+        {
+          title: incident.resetAt ? "NitsyClaw cooled down WhatsApp replies" : "NitsyClaw paused a WhatsApp loop",
+          priority: "urgent",
+        },
+      ).catch((e) => logBotError("[boot] loop guard notify failed", e));
     },
     onReset: (reason) => {
       console.error(`[boot] WhatsApp loop breaker reset after: ${reason}`);
@@ -133,3 +140,27 @@ main().catch((e) => {
   logBotError("[boot] fatal", e);
   process.exit(1);
 });
+
+async function queueLoopBreakerFeatureRequest(
+  db: DB,
+  incident: { reason: string; resetAt?: string },
+): Promise<void> {
+  const dedupeKey = incident.reason.startsWith("send burst")
+    ? "whatsapp_loop_breaker:send_burst"
+    : "whatsapp_loop_breaker:echo";
+  const pending = await listPendingFeatureRequests(db);
+  if (pending.some((row) => row.dedupeKey === dedupeKey)) return;
+
+  await insertFeatureRequest(db, {
+    description: `P0: WhatsApp loop breaker opened. Inspect audit_log tool=whatsapp_loop_breaker and harden regression tests. Reason: ${incident.reason}`,
+    type: "bug",
+    severity: "P0",
+    size: "S",
+    source: "dashboard",
+    requestedBy: "system",
+    implementationNotes: incident.resetAt
+      ? `Auto-created by loop breaker cooldown path. Auto-reset scheduled for ${incident.resetAt}.`
+      : "Auto-created by loop breaker manual-reset incident path.",
+    dedupeKey,
+  });
+}

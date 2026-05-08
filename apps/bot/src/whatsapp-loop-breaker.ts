@@ -9,6 +9,7 @@ export interface LoopBreakerOptions {
   outboundTtlMs?: number;
   maxSendsPerWindow?: number;
   sendWindowMs?: number;
+  sendBurstCooldownMs?: number;
   onTrip?: (incident: LoopBreakerIncident) => void;
   onReset?: (reason: string) => void;
 }
@@ -16,6 +17,7 @@ export interface LoopBreakerOptions {
 export interface LoopBreakerIncident {
   reason: string;
   trippedAt: string;
+  resetAt?: string;
   sendCount: number;
   recentOutboundPreviews: string[];
 }
@@ -24,10 +26,12 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
   private recentOutbound: Array<{ body: string; sentAt: number }> = [];
   private recentSends: number[] = [];
   private pausedReason: string | null = null;
+  private pausedUntilMs: number | null = null;
   private readonly now: () => number;
   private readonly outboundTtlMs: number;
   private readonly maxSendsPerWindow: number;
   private readonly sendWindowMs: number;
+  private readonly sendBurstCooldownMs: number;
   private readonly onTrip?: (incident: LoopBreakerIncident) => void;
   private readonly onReset?: (reason: string) => void;
 
@@ -39,6 +43,7 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
     this.outboundTtlMs = opts.outboundTtlMs ?? 2 * 60 * 1000;
     this.maxSendsPerWindow = opts.maxSendsPerWindow ?? 6;
     this.sendWindowMs = opts.sendWindowMs ?? 90_000;
+    this.sendBurstCooldownMs = opts.sendBurstCooldownMs ?? 2 * 60 * 1000;
     this.onTrip = opts.onTrip;
     this.onReset = opts.onReset;
   }
@@ -49,13 +54,17 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
 
   async send(msg: OutboundMessage): Promise<{ id: string }> {
     this.prune();
+    this.resetIfCooldownExpired();
     if (this.isPaused()) {
       throw new Error("WhatsApp replies paused by loop breaker");
     }
 
     this.recentSends.push(this.now());
     if (this.recentSends.length > this.maxSendsPerWindow) {
-      this.trip(`send burst: ${this.recentSends.length} sends in ${this.sendWindowMs}ms`);
+      this.trip(
+        `send burst: ${this.recentSends.length} sends in ${this.sendWindowMs}ms`,
+        this.sendBurstCooldownMs,
+      );
       throw new Error("WhatsApp replies paused by loop breaker");
     }
 
@@ -70,14 +79,12 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
 
       if (this.isResumeCommand(body)) {
         if (this.pausedReason) {
-          const reason = this.pausedReason;
-          this.pausedReason = null;
-          console.error(`[loop-breaker] manual reset consumed; previous reason=${reason}`);
-          this.onReset?.(reason);
+          this.resetPause("manual reset consumed");
         }
         return;
       }
 
+      this.resetIfCooldownExpired();
       if (this.isPaused()) {
         console.error("[loop-breaker] dropped inbound while paused");
         return;
@@ -98,22 +105,42 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
   }
 
   isPaused(): boolean {
+    this.resetIfCooldownExpired();
     return this.pausedReason !== null;
   }
 
-  private trip(reason: string): void {
+  private trip(reason: string, autoResetMs?: number): void {
     if (this.pausedReason) return;
+    const resetAtMs = autoResetMs ? this.now() + autoResetMs : null;
     this.pausedReason = reason;
+    this.pausedUntilMs = resetAtMs;
     const incident: LoopBreakerIncident = {
       reason,
       trippedAt: new Date(this.now()).toISOString(),
+      ...(resetAtMs ? { resetAt: new Date(resetAtMs).toISOString() } : {}),
       sendCount: this.recentSends.length,
       recentOutboundPreviews: this.recentOutbound
         .slice(-5)
         .map((entry) => this.preview(entry.body)),
     };
-    console.error(`[loop-breaker] ${reason}; paused until manual reset`);
+    const resetLabel = resetAtMs ? `cooling down until ${new Date(resetAtMs).toISOString()}` : "paused until manual reset";
+    console.error(`[loop-breaker] ${reason}; ${resetLabel}`);
     this.onTrip?.(incident);
+  }
+
+  private resetIfCooldownExpired(): void {
+    if (!this.pausedReason || !this.pausedUntilMs) return;
+    if (this.now() < this.pausedUntilMs) return;
+    this.resetPause("cooldown expired");
+  }
+
+  private resetPause(label: string): void {
+    if (!this.pausedReason) return;
+    const reason = this.pausedReason;
+    this.pausedReason = null;
+    this.pausedUntilMs = null;
+    console.error(`[loop-breaker] ${label}; previous reason=${reason}`);
+    this.onReset?.(reason);
   }
 
   private prune(): void {

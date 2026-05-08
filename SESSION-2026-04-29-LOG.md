@@ -263,3 +263,11 @@ Sleep well.
 - Added direct WhatsApp shortcut handling for `next moves`, `what next`, and `what should we build next`.
 - This avoids stale model guesses and avoids telling Nitesh to manually run local workflow commands from WhatsApp.
 - Focused verification passed: queue summary, feature-status tool, shortcut parser, and router integration tests.
+
+## 2026-05-09 WhatsApp loop-breaker hardening
+
+- The live queue brain surfaced a P0 loop-breaker incident as the best next safe build.
+- Root cause found: send-burst protection permanently paused WhatsApp replies, which is too harsh for legitimate multi-message voice/document flows.
+- Changed send-burst trips to a timed cooldown that auto-resets; true echo-loop matches still require manual reset.
+- Loop-breaker incidents now include reset timing, safer notification wording, and deduped P0 bug queueing by incident type.
+- Focused verification passed: loop-breaker and router integration tests.

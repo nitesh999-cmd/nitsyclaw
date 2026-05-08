@@ -1733,3 +1733,10 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `next moves`, `what next`, and `what should we build next` now short-circuit through the live DB queue on WhatsApp.
 - `list_feature_queue_status` returns the same richer summary to the agent.
 - Focused verification passed: `feature-queue-status`, `11-feature-request`, `personal-command-shortcuts`, and `router.integration` tests.
+
+### Follow-up: loop-breaker cooldown
+- The queue brain surfaced a P0 loop-breaker incident as the best next safe build.
+- Send-burst trips now use a timed cooldown and auto-reset after the cooldown; echo-loop matches remain manual-reset only.
+- Loop-breaker incidents now include `resetAt` when auto-reset is scheduled.
+- Auto-created P0 bug rows are typed as bugs and deduped by incident class.
+- Focused verification passed: `whatsapp-loop-breaker` and `router.integration` tests.

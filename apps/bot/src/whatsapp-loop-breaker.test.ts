@@ -74,6 +74,36 @@ describe("WhatsAppLoopBreaker", () => {
     expect(inner.sent.map((msg) => msg.body)).toEqual(["one", "two"]);
   });
 
+  it("auto-resets send burst cooldown instead of staying permanently paused", async () => {
+    let now = 1_000;
+    const inner = new FakeWhatsApp();
+    const onReset = vi.fn();
+    const handler = vi.fn();
+    const breaker = new WhatsAppLoopBreaker(inner, {
+      now: () => now,
+      maxSendsPerWindow: 2,
+      sendWindowMs: 60_000,
+      sendBurstCooldownMs: 90_000,
+      onReset,
+    });
+    breaker.onMessage(handler);
+
+    await breaker.send({ to: "+61430008008", body: "one" });
+    await breaker.send({ to: "+61430008008", body: "two" });
+    await expect(
+      breaker.send({ to: "+61430008008", body: "three" }),
+    ).rejects.toThrow("loop breaker");
+    expect(breaker.isPaused()).toBe(true);
+
+    now += 91_000;
+    inner.emit("fresh after cooldown");
+
+    expect(breaker.isPaused()).toBe(false);
+    expect(onReset).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler.mock.calls[0][0].body).toBe("fresh after cooldown");
+  });
+
   it("resume command clears pause but is consumed before router", async () => {
     const inner = new FakeWhatsApp();
     const onReset = vi.fn();
@@ -105,6 +135,29 @@ describe("WhatsAppLoopBreaker", () => {
       reason: "inbound matched recent outbound",
       sendCount: 1,
       recentOutboundPreviews: ["[message 15 chars]"],
+    }));
+  });
+
+  it("reports auto-reset time for send burst incidents", async () => {
+    let now = Date.UTC(2026, 4, 9, 0, 0, 0);
+    const inner = new FakeWhatsApp();
+    const onTrip = vi.fn();
+    const breaker = new WhatsAppLoopBreaker(inner, {
+      now: () => now,
+      maxSendsPerWindow: 1,
+      sendWindowMs: 60_000,
+      sendBurstCooldownMs: 120_000,
+      onTrip,
+    });
+
+    await breaker.send({ to: "+61430008008", body: "one" });
+    await expect(
+      breaker.send({ to: "+61430008008", body: "two" }),
+    ).rejects.toThrow("loop breaker");
+
+    expect(onTrip).toHaveBeenCalledWith(expect.objectContaining({
+      reason: "send burst: 2 sends in 60000ms",
+      resetAt: "2026-05-09T00:02:00.000Z",
     }));
   });
 });
