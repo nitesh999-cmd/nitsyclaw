@@ -43,6 +43,7 @@
 - `pnpm test` passed after the latest route hardening cycle: 128 test files, 497 tests.
 - `pnpm build` passed after the latest route hardening cycle.
 - `pnpm run security:deep` passed after the latest route hardening cycle: Semgrep 0 findings plus dependency audit.
+- `pnpm test:e2e` passed after the latest route hardening cycle: 12 Playwright tests.
 
 ## Guardrails kept
 
