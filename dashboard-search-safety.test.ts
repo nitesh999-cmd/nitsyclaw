@@ -10,6 +10,7 @@ describe("dashboard search safety", () => {
     for (const file of [
       "apps/dashboard/src/app/api/search/route.ts",
       "apps/dashboard/src/app/search/page.tsx",
+      "apps/dashboard/src/app/memory/page.tsx",
     ]) {
       const source = readFileSync(file, "utf8");
       expect(source, file).toContain("normalizeSearchTerm");
@@ -20,6 +21,8 @@ describe("dashboard search safety", () => {
     for (const file of [
       "apps/dashboard/src/app/api/search/route.ts",
       "apps/dashboard/src/app/search/page.tsx",
+      "apps/dashboard/src/app/memory/page.tsx",
+      "apps/dashboard/src/lib/expense-utils.ts",
     ]) {
       const source = readFileSync(file, "utf8");
       expect(source, file).toContain("likePatternForSearchTerm");

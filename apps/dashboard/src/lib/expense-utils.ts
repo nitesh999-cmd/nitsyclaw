@@ -1,7 +1,8 @@
-import { and, eq, gte, ilike, lt } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { expenses } from "@nitsyclaw/shared/db";
 import type { ExpenseFilters } from "./expense-pure.js";
+import { likePatternForSearchTerm } from "./search-query.js";
 export {
   csvCell,
   normalizeExpenseFilters,
@@ -35,7 +36,9 @@ export function expenseWhere(filters: ExpenseFilters): SQL | undefined {
   const to = parseDate(filters.to);
 
   if (filters.category) clauses.push(eq(expenses.category, filters.category));
-  if (filters.q) clauses.push(ilike(expenses.merchant, `%${filters.q}%`));
+  if (filters.q) {
+    clauses.push(sql`lower(${expenses.merchant}) LIKE ${likePatternForSearchTerm(filters.q)} ESCAPE '\'`);
+  }
   if (from) clauses.push(gte(expenses.occurredAt, from));
   if (to) {
     const exclusiveTo = new Date(to);

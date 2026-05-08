@@ -1,17 +1,19 @@
 import { getDb, memories } from "@nitsyclaw/shared/db";
 import { desc, sql } from "drizzle-orm";
 import { logDashboardLoadError } from "../../lib/dashboard-runtime";
+import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query.js";
 
 export const dynamic = "force-dynamic";
 
 async function load(q?: string) {
   const db = getDb();
-  if (q && q.trim()) {
-    const like = `%${q.toLowerCase()}%`;
+  const term = normalizeSearchTerm(q);
+  if (term) {
+    const like = likePatternForSearchTerm(term);
     return db
       .select()
       .from(memories)
-      .where(sql`lower(${memories.content}) LIKE ${like}`)
+      .where(sql`lower(${memories.content}) LIKE ${like} ESCAPE '\'`)
       .orderBy(desc(memories.createdAt))
       .limit(100);
   }
