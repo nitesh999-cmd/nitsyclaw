@@ -58,6 +58,10 @@
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after search wildcard hardening.
 - `pnpm exec vitest run reminders-page.test.ts` passed: 1 file, 1 test.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after reminder reschedule validation coverage.
+- `pnpm lint` passed after the extra safe-build cycle.
+- `pnpm test` passed after the extra safe-build cycle: 130 test files, 503 tests.
+- `pnpm build` passed after the extra safe-build cycle.
+- `pnpm run security:deep` passed after the extra safe-build cycle: Semgrep 0 findings plus dependency audit.
 
 ## Guardrails kept
 
