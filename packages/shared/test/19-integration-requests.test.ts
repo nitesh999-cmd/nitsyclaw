@@ -25,17 +25,59 @@ describe("integration request rails", () => {
     const names = registry.all().map((tool) => tool.name);
 
     expect(names).toEqual([
+      "queue_email_connection_request",
+      "queue_calendar_connection_request",
+      "queue_spotify_music_request",
       "queue_storage_file_import_request",
       "queue_google_photos_import_request",
       "prepare_sms_draft",
       "queue_phone_call_request",
       "queue_bank_csv_import_request",
       "queue_birthday_import_request",
+      "queue_contacts_birthdays_import_request",
+      "queue_fuel_price_request",
       "queue_social_video_analysis_request",
     ]);
     expect(names).not.toContain("send_sms");
     expect(names).not.toContain("scan_drive");
     expect(names).not.toContain("sync_bank_feed");
+    expect(names).not.toContain("read_contacts_silently");
+    expect(names).not.toContain("live_fuel_prices");
+  });
+
+  it("queues email, calendar, Spotify, contacts, and fuel requests safely", async () => {
+    const { registry, ctx, state } = setup();
+
+    await registry.get("queue_email_connection_request")!.handler(
+      { provider: "both", requestedCapability: "draft", goal: "Search and draft replies" },
+      ctx,
+    );
+    await registry.get("queue_calendar_connection_request")!.handler(
+      { provider: "both", goal: "Check schedule and create approved events" },
+      ctx,
+    );
+    await registry.get("queue_spotify_music_request")!.handler(
+      { goal: "Build playlists from my taste", moodOrTheme: "focus", playlistName: "Work mode" },
+      ctx,
+    );
+    await registry.get("queue_contacts_birthdays_import_request")!.handler(
+      { source: "csv", goal: "Import birthdays and draft messages" },
+      ctx,
+    );
+    await registry.get("queue_fuel_price_request")!.handler(
+      { location: "Point Cook VIC", fuelType: "Unleaded 91", loyaltyPrograms: ["qantas"], goal: "Find best value nearby" },
+      ctx,
+    );
+
+    expect(state.feature_requests).toHaveLength(5);
+    expect(state.feature_requests.map((row) => String(row.description).split(".")[0])).toEqual([
+      "Email connection request",
+      "Calendar connection request",
+      "Spotify music request",
+      "Contacts and birthdays import request",
+      "Fuel price request",
+    ]);
+    expect(state.feature_requests.every((row) => row.implementationNotes === "Queued through safe integration request rail; no live external access was claimed.")).toBe(true);
   });
 
   it("queues Drive/OneDrive selected-file import requests as feature requests", async () => {

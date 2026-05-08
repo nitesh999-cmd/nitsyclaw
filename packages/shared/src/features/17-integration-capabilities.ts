@@ -8,13 +8,17 @@ import { z } from "zod";
 import type { ToolRegistry } from "../agent/tools.js";
 
 export const integrationAreaSchema = z.enum([
+  "calendar",
+  "contacts_birthdays",
   "email_sending",
   "drive_onedrive",
   "phone_sms",
   "bank_feeds",
   "google_photos",
   "facebook_birthdays",
+  "fuel_prices",
   "social_video_analysis",
+  "spotify_music",
 ]);
 
 export type IntegrationArea = z.infer<typeof integrationAreaSchema>;
@@ -34,6 +38,52 @@ export interface IntegrationCapability {
 }
 
 export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapability> = {
+  calendar: {
+    area: "calendar",
+    title: "Google and Outlook Calendar",
+    status: "partial",
+    userPromise:
+      "NitsyClaw can read calendar context where tokens exist and create confirmed calendar events through the existing approval rail, but each account must be connected and healthy.",
+    availableNow: [
+      "Morning brief can include calendar context when account tokens are present.",
+      "Confirmed schedule-call flows can create calendar events through supported providers.",
+      "queue_calendar_connection_request can capture missing account/setup work.",
+    ],
+    needsSetup: [
+      "Verify Google Calendar OAuth token health.",
+      "Verify Outlook/Microsoft Graph calendar token health.",
+      "Expose account-by-account health on the Integrations page.",
+    ],
+    blockedBy: [],
+    safeMvp:
+      "Use connected calendars for brief/search and require confirmation before creating events.",
+    nextBuildStep:
+      "Add a calendar connection health endpoint and reconnect instructions per provider.",
+  },
+  contacts_birthdays: {
+    area: "contacts_birthdays",
+    title: "Contacts and birthdays",
+    status: "needs_setup",
+    userPromise:
+      "NitsyClaw can plan birthday reminders and message drafts now, but importing contacts needs a user-selected source and clear consent.",
+    availableNow: [
+      "Birthday templates can be saved and listed.",
+      "queue_birthday_import_request can capture contacts/calendar/CSV/manual birthday imports.",
+      "queue_contacts_birthdays_import_request can capture broader contacts plus birthday context.",
+    ],
+    needsSetup: [
+      "Choose first import source: Google Contacts, iPhone export, calendar, CSV, or manual list.",
+      "Add review/delete controls for imported people.",
+      "Require approval before any birthday message is sent.",
+    ],
+    blockedBy: [
+      "Silent contact scraping is not acceptable for a consumer personal assistant.",
+    ],
+    safeMvp:
+      "Import a CSV/manual list first, then draft reminders and birthday messages for approval.",
+    nextBuildStep:
+      "Build a contacts/birthdays import review flow with dedupe and delete controls.",
+  },
   email_sending: {
     area: "email_sending",
     title: "Email sending",
@@ -169,6 +219,29 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
     nextBuildStep:
       "Build manual/contact birthday import and birthday reminder drafts instead of Facebook scraping.",
   },
+  fuel_prices: {
+    area: "fuel_prices",
+    title: "Fuel prices and loyalty points",
+    status: "needs_setup",
+    userPromise:
+      "NitsyClaw can capture a location-aware fuel-price request now, but live station prices need a reliable data source or public API per region.",
+    availableNow: [
+      "queue_fuel_price_request can capture suburb/postcode, fuel type, loyalty programs, and recommendation goal.",
+      "General web research can help compare public fuel-price sources when the user asks.",
+    ],
+    needsSetup: [
+      "Pick first geography and source: Victoria fuel API/public datasets, retailer feeds, or third-party fuel API.",
+      "Define supported loyalty programs and how points are valued.",
+      "Add freshness timestamp so recommendations do not look more precise than the data.",
+    ],
+    blockedBy: [
+      "Without a live source, the assistant must not claim exact real-time station prices.",
+    ],
+    safeMvp:
+      "Return a queued request with location, fuel type, loyalty preferences, and data-source gap; then connect one reliable data feed.",
+    nextBuildStep:
+      "Build a fuel data-source adapter for the first supported region and a recommendation scorer with freshness labels.",
+  },
   social_video_analysis: {
     area: "social_video_analysis",
     title: "Social video analysis",
@@ -192,6 +265,28 @@ export const INTEGRATION_CAPABILITIES: Record<IntegrationArea, IntegrationCapabi
       "Accept a public URL or uploaded file, extract visible/transcribed content, then produce a summary, hooks, CTA ideas, and follow-up actions.",
     nextBuildStep:
       "Add analyze_social_video_request that records URL/upload intent and returns provider-specific setup gaps.",
+  },
+  spotify_music: {
+    area: "spotify_music",
+    title: "Spotify music assistant",
+    status: "partial",
+    userPromise:
+      "NitsyClaw can use connected Spotify for top tracks, track search, and confirmation-gated private playlist creation when Spotify OAuth is connected.",
+    availableNow: [
+      "spotify_top_tracks reads connected listening taste.",
+      "spotify_search_tracks finds tracks for playlist drafting.",
+      "queue_spotify_playlist_creation creates a confirmation before making a private playlist.",
+      "queue_spotify_music_request can capture music requests when connection/setup is not complete.",
+    ],
+    needsSetup: [
+      "Spotify server env must be configured.",
+      "User must connect Spotify OAuth before read/create tools work.",
+    ],
+    blockedBy: [],
+    safeMvp:
+      "Draft playlist ideas from search/top tracks and create playlists only after explicit confirmation.",
+    nextBuildStep:
+      "Add a richer WhatsApp music request shortcut that checks connection status before suggesting playlist creation.",
   },
 };
 

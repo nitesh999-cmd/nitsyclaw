@@ -1680,3 +1680,23 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - If a message passes the owner/self-chat gates and backend handling crashes, WhatsApp now sends a short safe fallback reply instead of going silent.
 - Fallback send failures are separately logged as `[wwebjs] handler failure fallback send failed`.
 - Focused regression and identity tests passed; bot typecheck/build passed.
+
+---
+
+## Session 47 — Pending integration features batch (2026-05-09)
+
+### Goal
+- User asked to add all pending features immediately.
+- The live `feature_requests` queue includes many external integrations that cannot be honestly marked live without OAuth/provider setup.
+- Implemented the safe, high-leverage layer: Integration Request Router V2.
+
+### What changed
+- Added capability/status coverage for Calendar, Contacts/Birthdays, Fuel Prices, and Spotify Music.
+- Added safe queue tools for email connection, calendar connection, Spotify music requests, contacts/birthdays imports, and fuel-price requests.
+- Existing rails still cover Drive/OneDrive, Google Photos, SMS drafts, phone-call prep, bank CSV import, birthday imports, and social video analysis.
+- Updated the shared system prompt so WhatsApp and dashboard route these asks without overpromising.
+- Updated the Integrations dashboard page to show the new capability states.
+
+### Verification
+- Focused integration/router tests passed.
+- `pnpm -r typecheck` passed.

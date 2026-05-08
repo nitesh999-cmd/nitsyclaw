@@ -69,3 +69,38 @@ Next batch candidates:
 8. Add private-mode UI toggle.
 9. Add memory review inbox UI.
 10. Add ops SLO and incident dashboard sections.
+
+## Batch 3 - Integration Request Router V2
+
+Implemented across:
+
+- `packages/shared/src/features/17-integration-capabilities.ts`
+- `packages/shared/src/features/19-integration-requests.ts`
+- `packages/shared/src/agent/system-prompt.ts`
+- `apps/dashboard/src/app/integrations/page.tsx`
+
+What changed:
+
+1. Added honest capability statuses for Calendar, Contacts/Birthdays, Fuel Prices, and Spotify Music.
+2. Expanded the safe request rail with:
+   - `queue_email_connection_request`
+   - `queue_calendar_connection_request`
+   - `queue_spotify_music_request`
+   - `queue_contacts_birthdays_import_request`
+   - `queue_fuel_price_request`
+3. Kept high-risk integrations honest: no fake email sending, no silent contact import, no live bank feed, no live fuel price claim, no Facebook scraping.
+4. Updated the shared system prompt so WhatsApp and dashboard route pending integration asks to the right safe tool.
+5. Updated the Integrations dashboard page so these pending capabilities are visible as partial/needs setup/blocked.
+
+Verification:
+
+- `pnpm exec vitest run packages/shared/test/19-integration-requests.test.ts packages/shared/test/integration-capabilities.test.ts packages/shared/test/system-prompt.test.ts packages/shared/test/tools-registry.test.ts integrations-page.test.ts`
+- `pnpm -r typecheck`
+
+Still not live-provider complete:
+
+- Gmail/Outlook sending needs OAuth scopes and adapter work.
+- Drive/OneDrive/Photos need selected-file/media OAuth import.
+- Phone/SMS needs a provider or companion app.
+- Bank feeds need CSV import first, then compliant provider evaluation.
+- Fuel prices need a reliable regional live data source.

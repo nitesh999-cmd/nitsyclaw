@@ -10,21 +10,29 @@ describe("integration capabilities", () => {
   it("covers every requested integration area with an honest non-available status", () => {
     expect(Object.keys(INTEGRATION_CAPABILITIES).sort()).toEqual([
       "bank_feeds",
+      "calendar",
+      "contacts_birthdays",
       "drive_onedrive",
       "email_sending",
       "facebook_birthdays",
+      "fuel_prices",
       "google_photos",
       "phone_sms",
       "social_video_analysis",
+      "spotify_music",
     ]);
 
+    expect(INTEGRATION_CAPABILITIES.calendar.status).toBe("partial");
+    expect(INTEGRATION_CAPABILITIES.contacts_birthdays.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.email_sending.status).toBe("partial");
     expect(INTEGRATION_CAPABILITIES.drive_onedrive.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.phone_sms.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.bank_feeds.status).toBe("blocked");
     expect(INTEGRATION_CAPABILITIES.google_photos.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.facebook_birthdays.status).toBe("blocked");
+    expect(INTEGRATION_CAPABILITIES.fuel_prices.status).toBe("needs_setup");
     expect(INTEGRATION_CAPABILITIES.social_video_analysis.status).toBe("partial");
+    expect(INTEGRATION_CAPABILITIES.spotify_music.status).toBe("partial");
   });
 
   it("returns all capabilities and includes a guardrail rule", async () => {
@@ -43,7 +51,7 @@ describe("integration capabilities", () => {
     );
 
     expect(result).toMatchObject({
-      count: 7,
+      count: 11,
       rule: expect.stringContaining("Only call an integration live"),
     });
   });

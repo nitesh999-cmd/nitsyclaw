@@ -44,6 +44,63 @@ async function queueIntegrationRequest(
 
 export function registerIntegrationRequests(registry: ToolRegistry): void {
   registry.register({
+    name: "queue_email_connection_request",
+    description:
+      "Queue a Gmail/Outlook connection or permission request for read, search, draft, or send-safe email workflows.",
+    inputSchema: z.object({
+      provider: z.enum(["gmail", "outlook", "both"]),
+      goal: z.string().min(3).max(500),
+      requestedCapability: z.enum(["read", "search", "draft", "send_after_approval"]).optional(),
+    }),
+    handler: async (
+      input: {
+        provider: "gmail" | "outlook" | "both";
+        goal: string;
+        requestedCapability?: "read" | "search" | "draft" | "send_after_approval";
+      },
+      ctx,
+    ) =>
+      queueIntegrationRequest(
+        ctx,
+        `Email connection request. Provider: ${input.provider}. Capability: ${input.requestedCapability ?? "not specified"}. Goal: ${input.goal}`,
+        { dedupePrefix: "email_connection", size: "M", severity: "P1" },
+      ),
+  });
+
+  registry.register({
+    name: "queue_calendar_connection_request",
+    description:
+      "Queue a Google/Outlook calendar connection or health request. Event creation still requires confirmation.",
+    inputSchema: z.object({
+      provider: z.enum(["google", "outlook", "both"]),
+      goal: z.string().min(3).max(500),
+    }),
+    handler: async (input: { provider: "google" | "outlook" | "both"; goal: string }, ctx) =>
+      queueIntegrationRequest(
+        ctx,
+        `Calendar connection request. Provider: ${input.provider}. Goal: ${input.goal}`,
+        { dedupePrefix: "calendar_connection", size: "M", severity: "P1" },
+      ),
+  });
+
+  registry.register({
+    name: "queue_spotify_music_request",
+    description:
+      "Queue a Spotify music assistant request when connection status, playlist creation, taste profiling, or recommendation behavior needs setup/work.",
+    inputSchema: z.object({
+      goal: z.string().min(3).max(500),
+      moodOrTheme: z.string().max(200).optional(),
+      playlistName: z.string().max(120).optional(),
+    }),
+    handler: async (input: { goal: string; moodOrTheme?: string; playlistName?: string }, ctx) =>
+      queueIntegrationRequest(
+        ctx,
+        `Spotify music request. Goal: ${input.goal}. Mood/theme: ${input.moodOrTheme ?? "not provided"}. Playlist: ${input.playlistName ?? "not provided"}`,
+        { dedupePrefix: "spotify_music", size: "M" },
+      ),
+  });
+
+  registry.register({
     name: "queue_storage_file_import_request",
     description:
       "Queue a user-selected Google Drive or OneDrive file import/search request. Does not scan broad storage.",
@@ -142,6 +199,51 @@ export function registerIntegrationRequests(registry: ToolRegistry): void {
         ctx,
         `Birthday import request. Source: ${input.source}. Goal: ${input.goal}`,
         { dedupePrefix: "birthday_import", size: "M" },
+      ),
+  });
+
+  registry.register({
+    name: "queue_contacts_birthdays_import_request",
+    description:
+      "Queue contacts plus birthday import planning from Google Contacts, iPhone export, calendar, CSV, or manual list.",
+    inputSchema: z.object({
+      source: z.enum(["google_contacts", "iphone_export", "calendar", "csv", "manual"]),
+      goal: z.string().min(3).max(500),
+    }),
+    handler: async (
+      input: { source: "google_contacts" | "iphone_export" | "calendar" | "csv" | "manual"; goal: string },
+      ctx,
+    ) =>
+      queueIntegrationRequest(
+        ctx,
+        `Contacts and birthdays import request. Source: ${input.source}. Goal: ${input.goal}`,
+        { dedupePrefix: "contacts_birthdays", size: "M", severity: "P1" },
+      ),
+  });
+
+  registry.register({
+    name: "queue_fuel_price_request",
+    description:
+      "Queue a location-aware fuel price and loyalty-points recommendation request. Does not claim live station-price access until a data feed is connected.",
+    inputSchema: z.object({
+      location: z.string().min(2).max(200),
+      fuelType: z.string().min(2).max(80).optional(),
+      loyaltyPrograms: z.array(z.enum(["qantas", "virgin", "woolworths_rewards", "flybuys", "none", "other"])).optional(),
+      goal: z.string().min(3).max(500),
+    }),
+    handler: async (
+      input: {
+        location: string;
+        fuelType?: string;
+        loyaltyPrograms?: Array<"qantas" | "virgin" | "woolworths_rewards" | "flybuys" | "none" | "other">;
+        goal: string;
+      },
+      ctx,
+    ) =>
+      queueIntegrationRequest(
+        ctx,
+        `Fuel price request. Location: ${input.location}. Fuel: ${input.fuelType ?? "not provided"}. Loyalty: ${(input.loyaltyPrograms ?? []).join(", ") || "not provided"}. Goal: ${input.goal}`,
+        { dedupePrefix: "fuel_prices", size: "M" },
       ),
   });
 

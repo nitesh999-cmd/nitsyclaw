@@ -227,3 +227,11 @@ Sleep well.
 - Added safe fallback reply from the WhatsApp client when owner/self-chat message handling crashes after intake.
 - This means DB/AI/tool failures should no longer look like WhatsApp ignored the user.
 - Verification passed: `pnpm exec vitest run wwebjs-client-regression.test.ts apps/bot/test/whatsapp-identity.test.ts`, `pnpm --filter @nitsyclaw/bot typecheck`, and `pnpm --filter @nitsyclaw/bot build`.
+
+## 2026-05-09 Pending integration features batch
+
+- User asked to add all pending features.
+- Implemented the safe integration-router layer rather than pretending provider-heavy features are live.
+- Added safe request tools for email connection, calendar connection, Spotify music, contacts/birthdays, and fuel prices.
+- Expanded integration capability truth table and dashboard Integrations page.
+- Verification passed: focused integration tests and `pnpm -r typecheck`.

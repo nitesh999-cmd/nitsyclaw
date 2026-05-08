@@ -40,6 +40,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
       detail: "Unread/calendar read available. Mail.Send is now wired — re-run device-code auth on the bot to grant the scope.",
       action: { href: "https://docs.microsoft.com/en-us/graph/auth-v2-user", label: "Re-auth guide →" },
     },
+    {
+      name: "Google / Outlook Calendar",
+      status: "Partial",
+      detail: "Calendar context and confirmed event creation are supported where tokens are healthy. Connection-health checks are queued next.",
+    },
   ];
 
   const spotifyConfigured = Boolean(
@@ -96,6 +101,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
       detail: "SMS copy and call-prep requests work now. Sending/calling needs Twilio or a phone companion.",
     },
     {
+      name: "Contacts & birthdays",
+      status: "Needs setup",
+      detail: "Manual/CSV/calendar/contact import requests can be queued. Review/delete controls are needed before broad import.",
+    },
+    {
       name: "Bank feeds",
       status: "Blocked",
       detail: "Live feeds need a compliant provider and consent flow. CSV import requests can be queued now.",
@@ -109,6 +119,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
       name: "Social video analysis",
       status: "Partial",
       detail: "Public URL/upload analysis requests can be queued. Deeper comments/metadata need platform APIs.",
+    },
+    {
+      name: "Fuel prices",
+      status: "Needs setup",
+      detail: "Location/fuel/loyalty requests can be queued. Exact live station prices need a trusted regional data feed.",
     },
   );
 
