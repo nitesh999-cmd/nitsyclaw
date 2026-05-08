@@ -26,4 +26,26 @@ describe("reply_to_user tool", () => {
     );
     expect(wa.sent[0]).toMatchObject({ to: "+9100", body: "hello back" });
   });
+
+  it("removes manual Claude Code/nwp instructions from model replies", async () => {
+    const r = new ToolRegistry();
+    registerTextCommand(r);
+    const wa = new MockWhatsAppClient();
+    const deps = makeAgentDeps({ whatsapp: wa });
+    const tool = r.get("reply_to_user")!;
+
+    await tool.handler(
+      {
+        text: [
+          "Feature queue: 95 pending, 1 shipped.",
+          "Run *nwp in Claude Code to kick off the next build!",
+        ].join("\n"),
+      },
+      { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
+    );
+
+    expect(wa.sent[0].body).toContain("Feature queue: 95 pending, 1 shipped.");
+    expect(wa.sent[0].body).not.toContain("Claude Code");
+    expect(wa.sent[0].body).not.toContain("*nwp");
+  });
 });

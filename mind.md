@@ -1720,3 +1720,9 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 
 ### Verification
 - Focused tests passed: feature-request, WhatsApp shortcut, router integration, system prompt, and tool registry.
+
+### Follow-up: manual workflow wording guard
+- The next live WhatsApp answer correctly reported live queue state but still ended with "Run *nwp in Claude Code".
+- Added `sanitizeUserFacingReply` to strip manual Claude/Codex/OpenClaw/nwp build instructions from model replies before sending/persisting.
+- Updated the system prompt to forbid this wording.
+- Added regression tests around `reply_to_user` and router integration.

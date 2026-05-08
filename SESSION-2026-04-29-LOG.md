@@ -242,3 +242,10 @@ Sleep well.
 - Root cause: the agent had a feature-write tool but no DB-backed feature-status read tool, so natural queue-status questions could be answered from stale context.
 - Added `list_feature_queue_status`, expanded natural "pending features" detection, and removed user-facing "open Claude Code" wording from build-agent replies.
 - Focused verification passed: feature-request, shortcut, router integration, system-prompt, and tool-registry tests.
+
+## 2026-05-09 WhatsApp manual-workflow wording guard
+
+- User confirmed the queue answer now showed live counts, but the model still ended with "Run *nwp in Claude Code".
+- Added a reply-safety sanitizer so `reply_to_user` and router persistence strip manual Claude/Codex/OpenClaw/nwp instructions before WhatsApp sends them.
+- Added system-prompt wording that forbids telling the user to manually run the build workflow from WhatsApp.
+- Focused verification passed: reply tool, system prompt, router integration, and tool registry tests.

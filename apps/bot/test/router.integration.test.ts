@@ -86,6 +86,28 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("sanitizes manual Claude Code/nwp instructions from agent replies", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      llm: fakeLlmWithToolCall("reply_to_user", {
+        text: "Feature queue: 95 pending, 1 shipped.\nRun *nwp in Claude Code to kick off the next build!",
+      }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-sanitize",
+      from: OWNER,
+      body: "summarize the build situation",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Feature queue: 95 pending, 1 shipped."))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Claude Code"))).toBe(false);
+    expect(wa.sent.some((m) => m.body.includes("*nwp"))).toBe(false);
+  });
+
   it("creates a durable command job and receipt before the default agent loop", async () => {
     await router.handle({
       id: "x-job",

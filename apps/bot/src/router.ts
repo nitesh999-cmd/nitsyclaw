@@ -64,7 +64,7 @@ import {
   markCommandJobWorking,
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
-import { encryptForStorage, hashPhone, maskPhone } from "@nitsyclaw/shared/utils";
+import { encryptForStorage, hashPhone, maskPhone, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
@@ -111,6 +111,7 @@ export class Router {
    *  silently fail). All three are best-effort; failure of any one doesn't
    *  block the others. */
   private async sendAndPersist(body: string): Promise<void> {
+    body = sanitizeUserFacingReply(body);
     await this.deps.whatsapp.send({ to: this.ownerPhone, body });
     try {
       const enc = encryptForStorage(body);
@@ -815,7 +816,7 @@ export class Router {
       let deliveredText = "";
       if (replyToUserCall) {
         // The tool already sent via WhatsApp; persist the reply for cross-surface history.
-        const text = (replyToUserCall.input as { text?: string })?.text ?? "";
+        const text = sanitizeUserFacingReply((replyToUserCall.input as { text?: string })?.text ?? "");
         deliveredText = text;
         if (text.trim()) {
           try {

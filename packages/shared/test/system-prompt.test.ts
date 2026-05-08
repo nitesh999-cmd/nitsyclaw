@@ -40,6 +40,14 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("plan_live_smoke_suite");
   });
 
+  it("forbids telling WhatsApp users to manually run the build workflow", () => {
+    const prompt = buildSystemPrompt({ surface: "whatsapp" });
+
+    expect(prompt).toContain("Never tell Nitesh to open Claude Code");
+    expect(prompt).toContain("run *nwp");
+    expect(prompt).toContain("local operator workflow");
+  });
+
   it("treats profile values as data and strips control characters", () => {
     const prompt = buildSystemPrompt({
       surface: "dashboard",

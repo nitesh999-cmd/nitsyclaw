@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { detectIntent, type Intent } from "../utils/parse.js";
+import { sanitizeUserFacingReply } from "../utils/reply-safety.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
 export interface TextCommandResult {
@@ -31,7 +32,10 @@ export function registerTextCommand(registry: ToolRegistry): void {
       text: z.string().min(1).describe("The plain-text reply to send"),
     }),
     handler: async (input: { text: string }, ctx: ToolContext) => {
-      const out = await ctx.deps.whatsapp.send({ to: ctx.userPhone, body: input.text });
+      const out = await ctx.deps.whatsapp.send({
+        to: ctx.userPhone,
+        body: sanitizeUserFacingReply(input.text),
+      });
       return { messageId: out.id };
     },
   });
