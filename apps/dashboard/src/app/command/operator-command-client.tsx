@@ -164,22 +164,22 @@ export function OperatorCommandClient() {
   return (
     <section className="space-y-4" data-testid="operator-command">
       <section className="nc-section">
-        <div className="nc-eyebrow">What this page does</div>
+        <div className="nc-eyebrow">What happens here</div>
         <div className="mt-2 text-sm leading-6 text-slate-400">
-          This is the planning desk. It can send one command to the assistant, or save future work into Requests.
-          Queued means saved. It does not build, run code, text anyone, or deploy by itself.
+          This page is a safe holding area. It can ask the assistant one thing, or save future work into Requests.
+          Saved requests wait for the laptop runner; nothing here auto-builds, texts anyone, or deploys by itself.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="nc-tile">
-            <div className="text-sm font-semibold text-slate-100">Run Command</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">Sends one instruction to the dashboard assistant.</div>
+            <div className="text-sm font-semibold text-slate-100">Run one command</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Sends one instruction to the assistant.</div>
           </div>
           <div className="nc-tile">
-            <div className="text-sm font-semibold text-slate-100">Save Top 20</div>
+            <div className="text-sm font-semibold text-slate-100">Save build work</div>
             <div className="mt-1 text-xs leading-5 text-slate-500">Adds the main operator missions to Requests for later execution.</div>
           </div>
           <div className="nc-tile">
-            <div className="text-sm font-semibold text-slate-100">Save Next 50</div>
+            <div className="text-sm font-semibold text-slate-100">Save future ideas</div>
             <div className="mt-1 text-xs leading-5 text-slate-500">Adds roadmap ideas to Requests. You still choose what gets built.</div>
           </div>
         </div>
@@ -217,10 +217,10 @@ export function OperatorCommandClient() {
             disabled={busy || !prepared.trim()}
             className="h-12 w-full rounded-xl bg-[#d8b75d] px-4 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-[#e8c76d] disabled:bg-slate-700 disabled:text-slate-500"
           >
-            {busy ? "Running" : "Run Command"}
+            {busy ? "Running" : "Run one command"}
           </button>
           <div className="rounded-xl border border-slate-700 bg-slate-800 p-3 text-xs text-slate-500">
-            <div className="mb-2 font-semibold uppercase text-slate-500">Prepared</div>
+            <div className="mb-2 font-semibold uppercase text-slate-500">Will send</div>
             <div className="break-words text-slate-200">{prepared || "No command"}</div>
           </div>
         </div>
@@ -255,7 +255,7 @@ export function OperatorCommandClient() {
       <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="nc-eyebrow">Top 20 operator missions</div>
+            <div className="nc-eyebrow">Top 20 build missions</div>
             <div className="mt-1 text-sm text-slate-400">
               Save the whole build program as durable dashboard jobs.
             </div>

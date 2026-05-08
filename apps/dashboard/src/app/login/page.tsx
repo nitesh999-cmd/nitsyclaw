@@ -15,9 +15,9 @@ export default async function LoginPage({
         <div className="flex flex-col justify-between gap-10">
           <div>
             <div className="nc-eyebrow">NitsyClaw</div>
-            <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight md:text-5xl">Personal life admin</h2>
+            <h1 className="mt-3 max-w-xl text-4xl font-semibold leading-tight md:text-5xl">Your private personal PA</h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-400 md:text-base">
-              A private home base for messages, reminders, spending, decisions, and the things that should not be forgotten.
+              A calm home base for reminders, messages, spending, decisions, and the things that should not be forgotten.
             </p>
           </div>
           <div className="grid gap-3 text-sm sm:grid-cols-3">
@@ -30,13 +30,13 @@ export default async function LoginPage({
               <div className="mt-2 text-slate-200">Private records</div>
             </div>
             <div className="nc-tile p-3">
-              <div className="nc-eyebrow">Useful</div>
-              <div className="mt-2 text-slate-200">Fast action</div>
+              <div className="nc-eyebrow">Safe</div>
+              <div className="mt-2 text-slate-200">Approval first</div>
             </div>
           </div>
         </div>
 
-        <div className="order-first rounded-2xl border border-slate-800 bg-slate-900/50 p-5 shadow-[0_18px_44px_rgba(0,0,0,0.4)] md:order-none">
+        <div className="nc-glass-panel order-first p-5 md:order-none">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-2xl font-semibold text-slate-100">Sign in</h3>

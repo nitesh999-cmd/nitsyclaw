@@ -108,11 +108,11 @@ export default async function CommandPage() {
       <section className="nc-hero">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="nc-eyebrow">Home plan</div>
-            <h2 className="mt-2 text-3xl font-semibold">Operator Command</h2>
+            <div className="nc-eyebrow">Do desk</div>
+            <h1 className="mt-2 text-3xl font-semibold">Plan work without losing it</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-              A simple place to send one command or save work into Requests. Queued means saved for the operator runner;
-              it does not build code or deploy by itself.
+              Send one instruction to the assistant, or save future work into Requests. Queued means saved and visible;
+              it does not build code, send messages, or deploy by itself.
             </p>
           </div>
           <a href="/queue" className="nc-button-primary">Open requests</a>
@@ -140,7 +140,7 @@ export default async function CommandPage() {
       <section className="nc-section">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="nc-eyebrow">Home upgrades</div>
+            <div className="nc-eyebrow">Saved build work</div>
             <div className="mt-1 text-sm text-slate-400">
               {operatorMissionCount} of {OPERATOR_MISSIONS.length} top missions are in the durable queue.
             </div>
@@ -169,7 +169,7 @@ export default async function CommandPage() {
       </section>
 
       <section className="nc-section">
-        <div className="nc-eyebrow">Local runner</div>
+        <div className="nc-eyebrow">Laptop runner</div>
         <div className="mt-2 text-sm text-slate-400">
           Use the laptop runner for real queue execution. It previews by default and only mutates queue state with an explicit mode.
         </div>

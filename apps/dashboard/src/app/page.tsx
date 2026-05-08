@@ -102,20 +102,34 @@ export default async function TodayPage() {
       <section className="nc-hero overflow-hidden">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
           <div>
-            <h1 className="nc-eyebrow">Today</h1>
-            <h2 className="mt-2 max-w-3xl text-3xl font-semibold leading-tight md:text-5xl">
+            <div className="nc-eyebrow">Private personal PA</div>
+            <h1 className="mt-2 max-w-3xl text-3xl font-semibold leading-tight md:text-5xl">
               {greeting}. Life admin, sorted.
-            </h2>
+            </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-              A calm daily view for decisions, reminders, spending, and the little things that should not slip.
+              Ask once. Save the important parts. Review risky actions before anything important changes.
             </p>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row" data-testid="today-primary-actions">
               <a href="/chat" className="nc-button-primary">Ask for help</a>
-              <a href="/reminders" className="nc-button">Check reminders</a>
+              <a href="/command" className="nc-button">Plan next action</a>
+            </div>
+            <div className="mt-5 grid gap-2 text-xs text-stone-600 sm:grid-cols-3" data-testid="today-trust-strip">
+              <div className="rounded-xl border border-stone-200 bg-[#fbf8f2] px-3 py-2">
+                <span className="font-semibold text-stone-950">Private first</span>
+                <span className="block">Owner-gated dashboard</span>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-[#fbf8f2] px-3 py-2">
+                <span className="font-semibold text-stone-950">Asks before risk</span>
+                <span className="block">Approvals stay visible</span>
+              </div>
+              <div className="rounded-xl border border-stone-200 bg-[#fbf8f2] px-3 py-2">
+                <span className="font-semibold text-stone-950">WhatsApp ready</span>
+                <span className="block">Use plain language</span>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-700/60 bg-slate-800/50 p-4 backdrop-blur-sm">
+          <div className="nc-glass-panel p-4" data-testid="today-attention-panel">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="nc-eyebrow">Needs attention</div>
@@ -174,6 +188,36 @@ export default async function TodayPage() {
             {data.recentExpenses.length > 0 ? `${data.recentExpenses.length} items` : "Nothing logged"}
           </div>
         </a>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" data-testid="today-quick-start">
+        <div className="nc-section">
+          <div className="nc-eyebrow">Start here</div>
+          <h2 className="mt-2 text-2xl font-semibold">Say what you need done.</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Use the same words you would send in WhatsApp. NitsyClaw turns useful requests into reminders, saved notes,
+            drafts, decisions, or build requests.
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <a href="/chat" className="nc-button-primary">Open Ask</a>
+            <a href="/help" className="nc-button">See examples</a>
+          </div>
+        </div>
+        <div className="nc-section">
+          <div className="nc-eyebrow">Try saying</div>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {[
+              "Remind me to call Mukesh tomorrow morning",
+              "Remember my passport is in the black folder",
+              "What needs my decision today?",
+              "Add a feature: read bills and suggest action",
+            ].map((example) => (
+              <div key={example} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3 text-sm leading-6 text-stone-700">
+                {example}
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">

@@ -5,15 +5,45 @@ import { Geist } from "next/font/google";
 import { DashboardShell } from "./dashboard-shell";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://nitsyclaw.vercel.app";
 
 export const viewport: Viewport = {
-  themeColor: "#fffaf2",
+  themeColor: "#fbf6ec",
 };
 
 export const metadata: Metadata = {
-  title: "NitsyClaw",
-  description: "Personal life admin",
+  metadataBase: new URL(siteUrl),
+  applicationName: "NitsyClaw",
+  title: {
+    default: "NitsyClaw | Private Personal PA",
+    template: "%s | NitsyClaw",
+  },
+  description: "Personal life admin with a private personal PA for reminders, messages, decisions, and spending.",
   manifest: "/manifest.json",
+  keywords: [
+    "personal assistant",
+    "private PA",
+    "life admin",
+    "WhatsApp assistant",
+    "reminders",
+    "personal automation",
+  ],
+  openGraph: {
+    title: "NitsyClaw | Private Personal PA",
+    description: "Personal life admin with a calm private home base for reminders, messages, decisions, and spending.",
+    url: siteUrl,
+    siteName: "NitsyClaw",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "NitsyClaw | Private Personal PA",
+    description: "A private personal PA for everyday life admin.",
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

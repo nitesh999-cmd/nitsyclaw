@@ -13,6 +13,10 @@ describe("today dashboard performance guard", () => {
     expect(source).toContain("emptyTodayData");
     expect(source).toContain("dataUnavailable");
     expect(source).toContain("instead of pretending the day is empty");
+    expect(source).toContain("Private personal PA");
+    expect(source).toContain("today-trust-strip");
+    expect(source).toContain("today-quick-start");
+    expect(source).toContain("Say what you need done.");
     expect(source).toContain("border-amber-900");
     expect(source).toContain("text-amber-200");
   });

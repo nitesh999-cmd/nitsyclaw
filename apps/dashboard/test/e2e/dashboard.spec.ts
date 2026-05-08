@@ -8,7 +8,7 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
 test.describe("dashboard routes render", () => {
   test("Login page has polished owner-gated entry", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: "Personal life admin" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your private personal PA" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     await expect(page.locator(".nc-hero")).toBeVisible();
   });
@@ -16,7 +16,8 @@ test.describe("dashboard routes render", () => {
   test("Today page", async ({ page }) => {
     await page.goto("/");
     if (hasDatabase) {
-      await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: /Life admin, sorted/ })).toBeVisible();
+      await expect(page.getByTestId("today-quick-start")).toBeVisible();
     } else {
       await expect(page.getByRole("heading", { name: "Dashboard unavailable" })).toBeVisible();
       await expect(page.getByText("Database is not configured")).toBeVisible();
@@ -41,7 +42,7 @@ test.describe("dashboard routes render", () => {
 
   test("Operator command page", async ({ page }) => {
     await page.goto("/command");
-    await expect(page.getByRole("heading", { name: "Operator Command" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Plan work without losing it" })).toBeVisible();
     await expect(page.getByTestId("operator-command")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save Top 20 to Requests" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save Next 50 to Requests" })).toBeVisible();

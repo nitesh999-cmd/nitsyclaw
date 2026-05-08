@@ -16,5 +16,7 @@ describe("dashboard shell navigation", () => {
     expect(mobileSection).toContain('label: "Saved"');
     expect(mobileSection).not.toContain('label: "Command"');
     expect(mobileSection).not.toContain('label: "Queue"');
+    expect(source).toContain("nc-mobile-nav");
+    expect(source).toContain('label: "Do"');
   });
 });

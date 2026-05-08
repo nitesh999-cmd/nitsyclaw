@@ -9,7 +9,7 @@ const navGroups = [
     items: [
       { href: "/", label: "Today", mark: "Home" },
       { href: "/chat", label: "Ask", mark: "Talk" },
-      { href: "/command", label: "Command", mark: "Do" },
+      { href: "/command", label: "Do", mark: "Do" },
       { href: "/confirmations", label: "Decisions", mark: "Yes" },
     ],
   },
@@ -127,7 +127,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </a>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <a href="/chat" aria-label="Open Chat" className="nc-button-primary">Ask</a>
-            <a href="/command" className="nc-button">Plan</a>
+            <a href="/command" className="nc-button">Do</a>
           </div>
         </div>
 
@@ -172,7 +172,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
       <main className="flex-1 p-4 pb-24 md:p-6 lg:pb-8 xl:p-8">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-slate-800 bg-slate-900/95 shadow-[0_-6px_24px_rgba(0,0,0,0.4)] backdrop-blur-xl lg:hidden">
+      <nav className="nc-mobile-nav">
         {mobileNavItems.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
