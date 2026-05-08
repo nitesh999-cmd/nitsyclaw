@@ -47,7 +47,7 @@ describe("GitHub Actions CI workflow", () => {
 
   it("has a Linux Vercel packaging gate for main branch releases", () => {
     expect(workflow).toContain("vercel-build:");
-    expect(workflow).toContain("node-version: 20.11.1");
+    expect(workflow).toContain("node-version: 22.19.0");
     expect(workflow).toContain("VERCEL_TOKEN");
     expect(workflow).toContain("VERCEL_ORG_ID");
     expect(workflow).toContain("VERCEL_PROJECT_ID");

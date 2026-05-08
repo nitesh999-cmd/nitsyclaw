@@ -13,7 +13,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.11.1
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -35,7 +35,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.11.1
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
@@ -51,7 +51,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.11.1
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Semgrep
@@ -69,7 +69,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.11.1
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Start dashboard for ZAP
@@ -105,7 +105,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.11.1
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -137,7 +137,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.11.1
+          node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Require Vercel CI secrets

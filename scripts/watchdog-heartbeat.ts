@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 import {
@@ -8,6 +8,8 @@ import {
   getSystemHeartbeat,
   upsertSystemHeartbeat,
 } from "@nitsyclaw/shared/db";
+
+const WINDOWS_ABSOLUTE_RE = /^[A-Za-z]:[\\/]/;
 
 const args = parseArgs(process.argv.slice(2));
 const source = args.source ?? "local-watchdog";
@@ -85,19 +87,28 @@ export function resolveLocalEnvPaths(
   repoRootPath: string,
   homeDir = homedir(),
 ): string[] {
-  const secretRoot = process.env.NITSYCLAW_SECRET_ROOT
-    ? resolve(process.env.NITSYCLAW_SECRET_ROOT)
-    : resolve(homeDir, ".nitsyclaw", "secrets");
+  const secretRoot = resolvePathLike(
+    process.env.NITSYCLAW_SECRET_ROOT ?? joinPathLike(homeDir, ".nitsyclaw", "secrets"),
+  );
 
   return [
     ".env.local",
     "apps/dashboard/.env.local",
     ".env",
-    resolve(secretRoot, ".env.local"),
-    resolve(repoRootPath, ".env.local"),
-    resolve(repoRootPath, "apps/dashboard/.env.local"),
-    resolve(repoRootPath, ".env"),
+    joinPathLike(secretRoot, ".env.local"),
+    joinPathLike(repoRootPath, ".env.local"),
+    joinPathLike(repoRootPath, "apps/dashboard/.env.local"),
+    joinPathLike(repoRootPath, ".env"),
   ];
+}
+
+function resolvePathLike(path: string): string {
+  return WINDOWS_ABSOLUTE_RE.test(path) ? path : resolve(path);
+}
+
+function joinPathLike(root: string, ...parts: string[]): string {
+  if (WINDOWS_ABSOLUTE_RE.test(root)) return win32.join(root, ...parts);
+  return resolve(root, ...parts);
 }
 
 function parseArgs(argv: string[]): {

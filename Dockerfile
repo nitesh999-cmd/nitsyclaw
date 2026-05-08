@@ -1,6 +1,7 @@
 # NitsyClaw bot Dockerfile for Railway
-# Uses Node 20 slim + system Chromium installed at /usr/bin/chromium
-FROM node:20-slim
+# Uses Node 22 slim + system Chromium installed at /usr/bin/chromium.
+# pdf-parse requires >=20.16 <21 or >=22.3; Railway must not run the older Node 20.11 runtime.
+FROM node:22-slim
 
 # Install Chromium and the libraries it needs at runtime.
 # We use Debian's chromium since node:20-slim is Debian-based, not Ubuntu.

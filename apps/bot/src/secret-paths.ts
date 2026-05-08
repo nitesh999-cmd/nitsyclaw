@@ -3,6 +3,19 @@ import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
+const WINDOWS_ABSOLUTE_RE = /^[A-Za-z]:[\\/]/;
+
+function isAbsoluteLike(path: string): boolean {
+  return isAbsolute(path) || WINDOWS_ABSOLUTE_RE.test(path);
+}
+
+function joinRoot(root: string, name: string): string {
+  if (WINDOWS_ABSOLUTE_RE.test(root) && !isAbsolute(root)) {
+    return `${root.replace(/[\\/]+$/, "")}/${name}`;
+  }
+  return resolve(root, name);
+}
+
 export function repoRoot(): string {
   return resolve(process.cwd(), "../..");
 }
@@ -18,11 +31,11 @@ export function ensureSecretRoot(): string {
 }
 
 export function secretPath(name: string): string {
-  return resolve(secretRoot(), name);
+  return joinRoot(secretRoot(), name);
 }
 
 export function writableSecretPath(name: string): string {
-  return resolve(ensureSecretRoot(), name);
+  return joinRoot(ensureSecretRoot(), name);
 }
 
 export function legacyRepoSecretPath(name: string): string {
@@ -46,6 +59,6 @@ export function loadBotDotenv(): void {
 
 export function whatsappSessionDir(input?: string): string {
   if (!input || input === ".wa-session") return secretPath(".wa-session");
-  if (isAbsolute(input)) return input;
-  return resolve(secretRoot(), input);
+  if (isAbsoluteLike(input)) return input;
+  return joinRoot(secretRoot(), input);
 }
