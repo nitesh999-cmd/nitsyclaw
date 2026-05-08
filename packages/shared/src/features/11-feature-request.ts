@@ -16,6 +16,7 @@ import {
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { Surface } from "../agent/system-prompt.js";
 import { hashPhone } from "../utils/crypto.js";
+import { summarizeFeatureQueueStatus } from "./feature-queue-status.js";
 
 export interface FeatureRequestRegisterOpts {
   surface: Surface;
@@ -36,32 +37,12 @@ export function registerFeatureRequest(
       const limit = input.limit ?? 5;
       const pending = await listPendingFeatureRequests(ctx.deps.db);
       const completed = await listRecentFeatureRequestsByStatus(ctx.deps.db, "done", limit);
-      const topPending = pending.slice(0, limit).map((row) => ({
-        id: row.id,
-        shortId: row.id.slice(0, 8),
-        type: row.type,
-        size: row.size,
-        description: row.description,
-        source: row.source,
-        createdAt: row.createdAt,
-      }));
-      const recentCompleted = completed.map((row) => ({
-        id: row.id,
-        shortId: row.id.slice(0, 8),
-        type: row.type,
-        size: row.size,
-        description: row.description,
-        source: row.source,
-        completedAt: row.completedAt,
-        implementationNotes: row.implementationNotes,
-      }));
+      const summary = summarizeFeatureQueueStatus({ pending, completed, limit });
 
       return {
-        pendingCount: pending.length,
-        topPending,
-        recentCompleted,
+        ...summary,
         guidance:
-          "Answer from these live rows only. Do not say 'nothing has shipped' unless recentCompleted is empty and you explicitly say you only checked recent completed rows.",
+          "Answer from these live rows only. Do not say 'nothing has shipped' unless recentCompleted is empty and you explicitly say you only checked recent completed rows. Do not tell the user to open Claude Code, run nwp, or manually start a build from WhatsApp.",
       };
     },
   });

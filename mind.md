@@ -1726,3 +1726,10 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Added `sanitizeUserFacingReply` to strip manual Claude/Codex/OpenClaw/nwp build instructions from model replies before sending/persisting.
 - Updated the system prompt to forbid this wording.
 - Added regression tests around `reply_to_user` and router integration.
+
+### Follow-up: WhatsApp feature queue brain
+- Added `feature-queue-status.ts` so queue/status answers are deterministic instead of model-inferred.
+- The summary now includes pending count, recent shipped rows, best next safe build, quick code-only wins, setup-heavy provider/OAuth items, and grouped batches.
+- `next moves`, `what next`, and `what should we build next` now short-circuit through the live DB queue on WhatsApp.
+- `list_feature_queue_status` returns the same richer summary to the agent.
+- Focused verification passed: `feature-queue-status`, `11-feature-request`, `personal-command-shortcuts`, and `router.integration` tests.

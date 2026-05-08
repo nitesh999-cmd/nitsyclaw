@@ -34,6 +34,8 @@ describe("personal command shortcuts", () => {
   it("parses feature queue/status commands", () => {
     expect(parseFeatureQueueShortcut("feature status")).toEqual({ limit: 5 });
     expect(parseFeatureQueueShortcut("show feature queue")).toEqual({ limit: 5 });
+    expect(parseFeatureQueueShortcut("next moves")).toEqual({ limit: 5 });
+    expect(parseFeatureQueueShortcut("what should we build next")).toEqual({ limit: 5 });
     expect(parseFeatureQueueShortcut("is there any pending features you're still about to add?")).toEqual({ limit: 5 });
     expect(parseFeatureQueueShortcut("what is still pending from the queue")).toEqual({ limit: 5 });
     expect(parseFeatureQueueShortcut("how's the weather tomorrow and any pending features?")).toBeNull();

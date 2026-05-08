@@ -102,8 +102,12 @@ export function parseFeatureQueueShortcut(text: string): FeatureQueueShortcut | 
     trimmed === "feature status" ||
     trimmed === "feature queue" ||
     trimmed === "features" ||
+    trimmed === "next moves" ||
+    trimmed === "what next" ||
     trimmed === "show feature queue" ||
     trimmed === "show features" ||
+    /\bwhat\s+should\s+we\s+build\s+next\b/.test(trimmed) ||
+    /\bnext\s+(?:build|deploy|move|moves)\b/.test(trimmed) ||
     /\b(pending|queued|awaiting|left)\s+(features?|bugs?|items?)\b/.test(trimmed) ||
     /\b(features?|bugs?|items?)\s+(pending|queued|awaiting|left)\b/.test(trimmed) ||
     /\bwhat(?:'s| is)\s+(?:still\s+)?(?:pending|queued|left)\b/.test(trimmed)

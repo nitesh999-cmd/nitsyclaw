@@ -131,6 +131,57 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("answers next moves from the live feature queue without the model loop", async () => {
+    const state = getFakeDbState(deps.db);
+    state.feature_requests.push(
+      {
+        id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+        description: "Read and send emails on behalf of the user via Gmail and Outlook",
+        type: "feature",
+        size: "M",
+        status: "pending",
+        source: "whatsapp",
+        createdAt: new Date("2026-04-28T17:00:00Z"),
+      },
+      {
+        id: "3010d991-9152-43ea-bec9-df3a8c6b4c72",
+        description: "Improve dashboard mobile navigation labels",
+        type: "feature",
+        size: "S",
+        status: "pending",
+        source: "dashboard",
+        createdAt: new Date("2026-04-28T18:00:00Z"),
+      },
+      {
+        id: "36bfc78b-9152-43ea-bec9-df3a8c6b4c72",
+        description: "Integration Request Router",
+        type: "feature",
+        size: "M",
+        status: "done",
+        source: "whatsapp",
+        createdAt: new Date("2026-04-28T16:00:00Z"),
+        completedAt: new Date("2026-05-09T00:00:00Z"),
+      },
+    );
+
+    await router.handle({
+      id: "x-next-moves",
+      from: OWNER,
+      body: "next moves",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Feature queue: 2 pending");
+    expect(wa.sent[0].body).toContain("Recently shipped");
+    expect(wa.sent[0].body).toContain("Best next safe build");
+    expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
+    expect(wa.sent[0].body).toContain("Setup-heavy items waiting on provider access/OAuth");
+    expect(wa.sent[0].body).not.toContain("Claude Code");
+    expect(wa.sent[0].body).not.toContain("*nwp");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("ignores duplicate WhatsApp events with the same message id", async () => {
     const inbound = {
       id: "x-duplicate",

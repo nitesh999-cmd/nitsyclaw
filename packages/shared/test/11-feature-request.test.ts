@@ -104,10 +104,16 @@ describe("feature request capture", () => {
         {
           shortId: "22222222",
           description: "Expand safe integration request router",
-          implementationNotes: "Committed and tested.",
+          category: "other",
         },
       ],
+      recommendedNext: {
+        shortId: "11111111",
+        category: "photos",
+        setupHeavy: true,
+      },
     });
     expect(JSON.stringify(result)).toContain("Do not say 'nothing has shipped'");
+    expect(JSON.stringify(result)).toContain("Do not tell the user to open Claude Code");
   });
 });

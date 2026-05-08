@@ -249,3 +249,17 @@ Sleep well.
 - Added a reply-safety sanitizer so `reply_to_user` and router persistence strip manual Claude/Codex/OpenClaw/nwp instructions before WhatsApp sends them.
 - Added system-prompt wording that forbids telling the user to manually run the build workflow from WhatsApp.
 - Focused verification passed: reply tool, system prompt, router integration, and tool registry tests.
+
+## 2026-05-09 WhatsApp feature queue brain
+
+- Live DB check showed 95 pending queue items and recent shipped rows were visible.
+- Added a deterministic queue summary layer for WhatsApp and the agent tool:
+  - pending count,
+  - recently shipped items,
+  - best next safe build,
+  - quick code-only wins,
+  - setup-heavy OAuth/provider items,
+  - grouped big batches.
+- Added direct WhatsApp shortcut handling for `next moves`, `what next`, and `what should we build next`.
+- This avoids stale model guesses and avoids telling Nitesh to manually run local workflow commands from WhatsApp.
+- Focused verification passed: queue summary, feature-status tool, shortcut parser, and router integration tests.

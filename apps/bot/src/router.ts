@@ -50,6 +50,8 @@ import {
   suggestGiftIdeas,
   trackWarranty,
   triageLifeAdminNote,
+  formatFeatureQueueStatusForWhatsApp,
+  summarizeFeatureQueueStatus,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import {
@@ -57,6 +59,7 @@ import {
   insertMessage,
   insertFeatureRequest,
   listPendingFeatureRequests,
+  listRecentFeatureRequestsByStatus,
 } from "@nitsyclaw/shared/db";
 import {
   completeCommandJob,
@@ -680,17 +683,12 @@ export class Router {
     const featureQueue = parseFeatureQueueShortcut(effectiveText);
     if (featureQueue) {
       try {
-        const rows = await listPendingFeatureRequests(this.deps.db);
-        const top = rows.slice(0, featureQueue.limit);
-        const lines = top.map((row, index) => {
-          const label = row.type === "bug" ? `bug ${row.severity ?? ""}`.trim() : "feature";
-          return `${index + 1}. ${row.id.slice(0, 8)} ${label}: ${row.description.slice(0, 90)}`;
-        });
-        await this.sendAndPersist(
-          lines.length
-            ? `Pending queue (${rows.length} total):\n${lines.join("\n")}`
-            : "No pending feature or bug queue items.",
-        );
+        const [rows, completed] = await Promise.all([
+          listPendingFeatureRequests(this.deps.db),
+          listRecentFeatureRequestsByStatus(this.deps.db, "done", featureQueue.limit),
+        ]);
+        const summary = summarizeFeatureQueueStatus({ pending: rows, completed, limit: featureQueue.limit });
+        await this.sendAndPersist(formatFeatureQueueStatusForWhatsApp(summary));
       } catch (queueError) {
         await this.sendPublicFailure("feature queue load", "Couldn't load the feature queue. I logged it; try again shortly.", queueError);
       }
