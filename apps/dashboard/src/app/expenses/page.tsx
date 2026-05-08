@@ -1,10 +1,12 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getDb, insertExpense, expenses } from "@nitsyclaw/shared/db";
 import { desc } from "drizzle-orm";
 import {
   type ExpenseSearchParams,
   expenseWhere,
   normalizeExpenseFilters,
+  one,
 } from "../../lib/expense-utils.js";
 import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
@@ -19,13 +21,13 @@ async function addExpense(formData: FormData) {
   const occurredAtRaw = String(formData.get("occurredAt") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const amount = Number(amountRaw);
-  if (!Number.isFinite(amount) || amount <= 0) return;
-  if (!/^[A-Z]{3}$/.test(currency)) return;
+  if (!Number.isFinite(amount) || amount <= 0) redirect("/expenses?error=invalid-amount");
+  if (!/^[A-Z]{3}$/.test(currency)) redirect("/expenses?error=invalid-currency");
 
   const occurredAt = occurredAtRaw ? new Date(occurredAtRaw) : new Date();
-  if (Number.isNaN(occurredAt.getTime())) return;
+  if (Number.isNaN(occurredAt.getTime())) redirect("/expenses?error=invalid-date");
   const amountCents = Math.round(amount * 100);
-  if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > 2147483647) return;
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > 2147483647) redirect("/expenses?error=invalid-amount");
 
   await insertExpense(getDb(), {
     amount: amountCents,
@@ -72,6 +74,14 @@ export default async function ExpensesPage({
   searchParams?: Promise<ExpenseSearchParams>;
 }) {
   const filters = searchParams ? await searchParams : {};
+  const errorCode = one(filters.error);
+  const addError = errorCode === "invalid-amount"
+    ? "Amount must be a positive number (e.g. 18.50)."
+    : errorCode === "invalid-currency"
+    ? "Currency must be a 3-letter code (e.g. AUD, USD)."
+    : errorCode === "invalid-date"
+    ? "Date not recognised. Leave blank for now, or use the date picker."
+    : null;
   const normalizedFilters = normalizeExpenseFilters(filters);
   let rows: Awaited<ReturnType<typeof load>> = [];
   let errorMsg: string | null = null;
@@ -114,6 +124,12 @@ export default async function ExpensesPage({
           {rows.length} expenses — total {displayCurrency} {(total / 100).toFixed(2)}
         </p>
       </section>
+
+      {addError ? (
+        <div className="rounded-xl border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+          {addError}
+        </div>
+      ) : null}
 
       <section className="nc-section">
         <h3 className="nc-eyebrow mb-3">Log expense</h3>

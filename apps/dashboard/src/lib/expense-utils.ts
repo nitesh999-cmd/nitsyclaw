@@ -5,6 +5,7 @@ import type { ExpenseFilters } from "./expense-pure.js";
 export {
   csvCell,
   normalizeExpenseFilters,
+  one,
   validateExpenseFilters,
   type ExpenseFilters,
   type ExpenseSearchParams,
