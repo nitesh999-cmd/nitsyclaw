@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { csvCell, normalizeExpenseFilters, validateExpenseFilters } from "./expense-pure.js";
+import { expenseWhere } from "./expense-utils.js";
 
 describe("expense utils", () => {
   it("protects CSV cells from spreadsheet formula injection", () => {
@@ -25,5 +26,19 @@ describe("expense utils", () => {
     expect(validateExpenseFilters({ from: "bad-date" })).toBe("Invalid from date");
     expect(validateExpenseFilters({ from: "2026-02-31" })).toBe("Invalid from date");
     expect(validateExpenseFilters({ to: "2026-05-02" })).toBeNull();
+  });
+
+  it("builds no where clause for empty or invalid filters", () => {
+    expect(expenseWhere({})).toBeUndefined();
+    expect(expenseWhere({ from: "bad-date", to: "2026-02-31" })).toBeUndefined();
+  });
+
+  it("builds a where clause for searchable filters", () => {
+    expect(expenseWhere({
+      q: "coffee",
+      category: "food",
+      from: "2026-05-01",
+      to: "2026-05-08",
+    })).toBeDefined();
   });
 });
