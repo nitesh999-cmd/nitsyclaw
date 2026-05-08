@@ -267,14 +267,14 @@ export async function POST(req: Request) {
         await insertMessage(deps.db, { direction: "out", surface: "dashboard", fromNumber: ownerHash, body: encryptDashboardText(reply) });
       } catch (persistErr) {
         const configError = publicConfigErrorOrNull(persistErr);
-        if (configError) return streamSingleEvent({ type: "error", message: configError.reply });
+        if (configError) return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
       }
       await completeCommandJob(deps.db, commandJob.id, reply);
       return streamSingleEvent({ type: "done", reply, featureId: row.id, commandJob: { id: commandJob.id, status: commandJob.status, receiptText: commandJob.receiptText } });
     } catch (e: unknown) {
       logDashboardError("chat.stream.addfeature", e);
       const configError = publicConfigErrorOrNull(e);
-      if (configError) return streamSingleEvent({ type: "error", message: configError.reply });
+      if (configError) return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
       return streamSingleEvent({ type: "error", message: publicServerError("I could not queue that feature right now. Try again shortly.").reply });
     }
   }
@@ -284,7 +284,7 @@ export async function POST(req: Request) {
     built = buildDashboardDeps();
   } catch (e: unknown) {
     const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
-    return streamSingleEvent({ type: "error", message: configError.reply });
+    return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
   }
   const { deps, anthropic, model } = built;
   const registry = registerAllFeatures({ surface: "dashboard" });

@@ -9,6 +9,7 @@
 - Improved dashboard voice input error copy so microphone-blocked, no-speech, missing-microphone, network, and aborted cases give different recovery guidance.
 - Hardened delete-everything handling so missing auth configuration or missing proof-signing configuration fails closed instead of allowing empty-password reauth or throwing out of the route.
 - Restored Serper web-search capability in streaming dashboard chat so `/api/chat/stream` matches normal `/api/chat` search behavior when `SERPER_API_KEY` is configured.
+- Made streaming dashboard chat return failing HTTP status codes for pre-stream backend configuration errors instead of a 200 response with an error event.
 
 ## Verification
 
@@ -35,6 +36,8 @@
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after the data-delete route hardening.
 - `pnpm exec vitest run dashboard-stream-privacy.test.ts packages/shared/test/08-web-research.test.ts apps/dashboard/src/app/api/chat/stream/route.test.ts` passed: 3 files, 9 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming chat search parity.
+- `pnpm exec vitest run apps/dashboard/src/app/api/chat/stream/route.test.ts dashboard-stream-privacy.test.ts apps/dashboard/src/lib/chat-validation.test.ts` passed: 3 files, 9 tests.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming chat status hardening.
 
 ## Guardrails kept
 
