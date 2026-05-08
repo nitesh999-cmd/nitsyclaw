@@ -220,3 +220,10 @@ Sleep well.
 - Applied pending Drizzle migrations, verified `command_jobs` table exists, and verified a rolled-back live command-job insert path.
 - Restarted the local bot; health wrote `2026-05-08T13:12:53.018Z CONNECTED`.
 - Focused verification passed: `pnpm exec vitest run packages/shared/test/24-command-jobs.test.ts apps/bot/test/router.integration.test.ts apps/bot/test/whatsapp-identity.test.ts wwebjs-client-regression.test.ts`.
+
+## 2026-05-09 WhatsApp silent-failure hardening
+
+- User confirmed a real `hi` message worked.
+- Added safe fallback reply from the WhatsApp client when owner/self-chat message handling crashes after intake.
+- This means DB/AI/tool failures should no longer look like WhatsApp ignored the user.
+- Verification passed: `pnpm exec vitest run wwebjs-client-regression.test.ts apps/bot/test/whatsapp-identity.test.ts`, `pnpm --filter @nitsyclaw/bot typecheck`, and `pnpm --filter @nitsyclaw/bot build`.

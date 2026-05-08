@@ -1674,3 +1674,9 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Verified `command_jobs` exists and a rolled-back live transaction can create a WhatsApp command job.
 - Restarted the local bot again; health wrote `2026-05-08T13:12:53.018Z CONNECTED`.
 - Focused tests passed: command jobs, router integration, WhatsApp identity, and wwebjs regression (43 tests).
+
+### Silent-failure hardening
+- After live `hi` worked, added a final safety layer in `apps/bot/src/wwebjs-client.ts`.
+- If a message passes the owner/self-chat gates and backend handling crashes, WhatsApp now sends a short safe fallback reply instead of going silent.
+- Fallback send failures are separately logged as `[wwebjs] handler failure fallback send failed`.
+- Focused regression and identity tests passed; bot typecheck/build passed.

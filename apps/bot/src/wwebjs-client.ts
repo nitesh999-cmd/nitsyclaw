@@ -37,6 +37,8 @@ import { formatSafeLogError, logBotError } from "./safe-log.js";
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
   : ["--no-sandbox", "--disable-setuid-sandbox", "--single-process", "--no-zygote", "--disable-dev-shm-usage"];
+const WHATSAPP_HANDLER_FAILURE_REPLY =
+  "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
 
 function messageMeta(body: string): string {
   return `chars=${body.length}`;
@@ -193,6 +195,18 @@ export class WwebjsClient implements WhatsAppClient {
 
   private async markUnavailable(label: string): Promise<void> {
     await markPresenceUnavailable(this.client, Math.min(this.healthProbeTimeoutMs, 2_000), label);
+  }
+
+  private async sendHandlerFailureReply(canSendFailureReply: boolean): Promise<void> {
+    if (!canSendFailureReply) return;
+    try {
+      await this.send({
+        to: this.opts.ownerNumber,
+        body: WHATSAPP_HANDLER_FAILURE_REPLY,
+      });
+    } catch (fallbackError) {
+      logBotError("[wwebjs] handler failure fallback send failed", fallbackError);
+    }
   }
 
   private async initializeClient(reason: string): Promise<void> {
@@ -361,6 +375,7 @@ export class WwebjsClient implements WhatsAppClient {
 
     const handleMessage = async (m: Message) => {
       if (!isCurrentGeneration()) return;
+      let canSendFailureReply = false;
       try {
         const body = m.body ?? "";
         const envelope = m as WwebMessageWithEnvelope;
@@ -423,6 +438,7 @@ export class WwebjsClient implements WhatsAppClient {
           console.log("[wwebjs] dropped: non-owner inbound");
           return;
         }
+        canSendFailureReply = true;
 
         const inbound: InboundMessage = {
           id: m.id?._serialized ?? "",
@@ -451,6 +467,7 @@ export class WwebjsClient implements WhatsAppClient {
         for (const h of this.handlers) await h(inbound);
       } catch (e) {
         logBotError("[wwebjs] handler error", e);
+        await this.sendHandlerFailureReply(canSendFailureReply);
       }
     };
 
