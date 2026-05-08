@@ -12,6 +12,7 @@
 - Made streaming dashboard chat return failing HTTP status codes for pre-stream backend configuration errors instead of a 200 response with an error event.
 - Updated the away-from-desk go-live runbook with the verified `operator:next` / `DATABASE_URL` blocker.
 - Hardened dashboard chat JSON parsing so oversized request bodies are rejected even when `Content-Length` is missing.
+- Verified and covered expense form invalid-input redirects so bad amount, currency, or date submissions produce readable page errors instead of silent no-ops.
 
 ## Verification
 
@@ -49,6 +50,8 @@
 - `pnpm exec vitest run docs-go-live-without-nitesh.test.ts` passed: 1 file, 3 tests.
 - `pnpm exec vitest run apps/dashboard/src/lib/chat-validation.test.ts apps/dashboard/src/app/api/chat/route.test.ts apps/dashboard/src/app/api/chat/stream/route.test.ts dashboard-stream-privacy.test.ts` passed: 4 files, 12 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat body-size hardening.
+- `pnpm exec vitest run expenses-page-errors.test.ts apps/dashboard/src/lib/expense-utils.test.ts` passed: 2 files, 6 tests.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after expense form feedback coverage.
 
 ## Guardrails kept
 
