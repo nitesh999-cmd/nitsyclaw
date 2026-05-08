@@ -39,6 +39,10 @@
 - `pnpm exec vitest run apps/dashboard/src/app/api/chat/stream/route.test.ts dashboard-stream-privacy.test.ts apps/dashboard/src/lib/chat-validation.test.ts` passed: 3 files, 9 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming chat status hardening.
 - `pnpm run operator:next` failed safely because local `DATABASE_URL` is not configured. The runner reported that no queue state was changed.
+- `pnpm lint` passed after the latest route hardening cycle.
+- `pnpm test` passed after the latest route hardening cycle: 128 test files, 497 tests.
+- `pnpm build` passed after the latest route hardening cycle.
+- `pnpm run security:deep` passed after the latest route hardening cycle: Semgrep 0 findings plus dependency audit.
 
 ## Guardrails kept
 
