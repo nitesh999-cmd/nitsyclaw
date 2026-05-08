@@ -211,3 +211,12 @@ Sleep well.
 - Follow-up fix: watchdog now loads the external bot secret root (`~/.nitsyclaw/secrets/.env.local`), which is where the real local DB env lives.
 - Real `pnpm run watchdog:heartbeat` now succeeds.
 - Final proof: `pnpm run release:preflight` passed, and WhatsApp health wrote `2026-05-08T12:50:28.536Z CONNECTED`.
+
+## 2026-05-08 WhatsApp live DB fix
+
+- User reported WhatsApp still not working.
+- Evidence: bot received the message but failed while inserting/selecting `command_jobs`.
+- Root cause: live DB had not applied the existing command-job migrations.
+- Applied pending Drizzle migrations, verified `command_jobs` table exists, and verified a rolled-back live command-job insert path.
+- Restarted the local bot; health wrote `2026-05-08T13:12:53.018Z CONNECTED`.
+- Focused verification passed: `pnpm exec vitest run packages/shared/test/24-command-jobs.test.ts apps/bot/test/router.integration.test.ts apps/bot/test/whatsapp-identity.test.ts wwebjs-client-regression.test.ts`.

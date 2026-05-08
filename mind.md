@@ -1666,3 +1666,11 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Local bot restarted through `launch-bot.ps1` and wrote fresh `READY` heartbeat at `2026-05-08T12:46:28.504Z`.
 - Real watchdog heartbeat published successfully after loading the external secret root.
 - `pnpm run release:preflight` passed after the watchdog fix: lint, typecheck, build, coverage, e2e, and deep security.
+
+### Live follow-up
+- User reported WhatsApp still not working after the self-chat fix.
+- Evidence: WhatsApp received the owner message (`inbound: fromMe=true`) but the router crashed on `command_jobs`; live DB had not applied migrations `0007_add_command_jobs.sql` and `0008_unique_command_job_dedupe.sql`.
+- Applied pending Drizzle migrations to the live DB.
+- Verified `command_jobs` exists and a rolled-back live transaction can create a WhatsApp command job.
+- Restarted the local bot again; health wrote `2026-05-08T13:12:53.018Z CONNECTED`.
+- Focused tests passed: command jobs, router integration, WhatsApp identity, and wwebjs regression (43 tests).
