@@ -1753,3 +1753,9 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Added transcript persistence on the original inbound voice message and a safe repeat/read/hear shortcut that replies from recent history.
 - Repeat requests now skip noise such as `approved` and do not create command jobs or approval-gated receipts.
 - Focused verification passed: personal PA intent and router integration tests.
+
+### Follow-up: non-English voice command routing
+- Live screenshot showed Telugu speech transcribed successfully but blocked by the generic "What outcome do you want?" gate.
+- Voice transcripts now bypass only the safe clarification gate and go to the multilingual agent for interpretation.
+- Risky voice commands still require approval; only safe-but-unclear voice text is allowed through.
+- Added command-job and router integration coverage for Telugu voice input.

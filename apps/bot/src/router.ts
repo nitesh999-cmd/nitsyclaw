@@ -538,6 +538,7 @@ export class Router {
 
     // 1. Voice note → transcribe → continue as if it were text.
     let effectiveText = msg.body;
+    let effectiveTextFromVoice = false;
     if (msg.mediaType === "voice" && msg.downloadMedia) {
       try {
         const media = await msg.downloadMedia();
@@ -549,6 +550,7 @@ export class Router {
           sourceMessageId: persisted.id,
         });
         effectiveText = transcript;
+        effectiveTextFromVoice = true;
         await this.sendAndPersist(
           `📝 Transcribed. I will reply in English.\n${transcript}`,
         );
@@ -869,6 +871,7 @@ export class Router {
       sourceMessageId: persisted.id,
       sourceExternalId: msg.id,
       dedupeKey: `whatsapp:${msg.id}`,
+      allowAgentClarification: effectiveTextFromVoice,
     });
     await this.sendAndPersist(commandJob.receiptText);
     if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;

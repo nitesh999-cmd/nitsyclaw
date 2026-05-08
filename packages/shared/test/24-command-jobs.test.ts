@@ -57,6 +57,36 @@ describe("command execution jobs", () => {
     expect(job.receiptText).toContain("What is the main thing");
   });
 
+  it("can let voice transcripts reach the agent for multilingual clarification", async () => {
+    const { db } = makeFakeDb();
+
+    const job = await createCommandJob(db, {
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "వాతావరణం రేపు ఎలా ఉంది",
+      allowAgentClarification: true,
+    });
+
+    expect(job.status).toBe("received");
+    expect(job.riskLevel).toBe("safe");
+    expect(job.receiptText).toContain("Saved");
+    expect(job.receiptText).toContain("Working on it");
+  });
+
+  it("still approval-gates risky voice transcripts", async () => {
+    const { db } = makeFakeDb();
+
+    const job = await createCommandJob(db, {
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "send this message to Mukesh",
+      allowAgentClarification: true,
+    });
+
+    expect(job.status).toBe("needs_approval");
+    expect(job.riskLevel).toBe("approval_required");
+  });
+
   it("returns the existing command job when the same dedupe key is queued twice", async () => {
     const { db, state } = makeFakeDb();
 

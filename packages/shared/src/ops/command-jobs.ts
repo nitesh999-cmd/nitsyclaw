@@ -15,6 +15,7 @@ export interface CreateCommandJobInput {
   sourceExternalId?: string;
   dedupeKey?: string;
   maxAttempts?: number;
+  allowAgentClarification?: boolean;
 }
 
 export async function createCommandJob(
@@ -32,9 +33,14 @@ export async function createCommandJob(
     intent.kind === "approval_required"
       ? "needs_approval"
       : intent.kind === "needs_clarification"
-        ? "needs_clarification"
+        ? input.allowAgentClarification
+          ? "received"
+          : "needs_clarification"
         : "received";
-  const receiptText = intent.userFacingText;
+  const receiptText =
+    intent.kind === "needs_clarification" && input.allowAgentClarification
+      ? buildReceiptText("received")
+      : intent.userFacingText;
 
   try {
     const [row] = await db

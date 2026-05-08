@@ -286,3 +286,11 @@ Sleep well.
 - Stored voice transcripts on the original inbound message row, keeping them available to cross-surface history.
 - Added a deterministic WhatsApp shortcut for `hear/read/repeat my last message` and `hear it`, skipping approval gates and ignoring confirmation noise like `approved`.
 - Focused verification passed: personal PA intent tests and WhatsApp router integration tests.
+
+## 2026-05-09 Non-English voice command routing fix
+
+- User screenshot showed a Telugu voice note was transcribed, then stopped with `What outcome do you want from this?`.
+- Root cause: voice transcripts were still passed through the English keyword-based clarification gate before the multilingual agent saw them.
+- Changed command jobs so voice transcripts can pass to the agent when they are safe-but-unclear, while still approval-gating risky actions like sending messages, calls, payments, and bookings.
+- Added router coverage proving a Telugu voice transcript reaches the agent and does not return the generic clarification prompt.
+- Focused verification passed: command-job, personal PA intent, router integration, and bot typecheck.

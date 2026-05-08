@@ -297,6 +297,39 @@ describe("Router (integration)", () => {
     expect(state.command_jobs.some((job) => job.sourceExternalId === "x-voice-repeat")).toBe(false);
   });
 
+  it("lets non-English voice transcripts reach the agent instead of stopping at clarification", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "రేపు మెల్బోర్న్ వాతావరణం ఎలా ఉంది";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "Tomorrow in Melbourne looks cool and cloudy." }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-telugu-voice",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-05-09T01:55:00Z"),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Tomorrow in Melbourne"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-telugu-voice",
+      status: "done",
+      riskLevel: "safe",
+    });
+  });
+
   it("receipt image → expense logged + ack", async () => {
     deps = makeAgentDeps({ whatsapp: wa, imageAnalyzer: fakeImageAnalyzer });
     router = new Router(deps, OWNER);
