@@ -1759,3 +1759,24 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Voice transcripts now bypass only the safe clarification gate and go to the multilingual agent for interpretation.
 - Risky voice commands still require approval; only safe-but-unclear voice text is allowed through.
 - Added command-job and router integration coverage for Telugu voice input.
+
+---
+
+## Session 49 — ntfy feature-notification spam guard (2026-05-09)
+
+### Problem
+- Phone screenshot showed repeated `NitsyClaw: features pending` ntfy alerts for the same queue state.
+
+### Root Cause
+- `runDailyBuildAgent()` sent ntfy + WhatsApp notifications every time it saw pending features.
+- There was no durable dedupe/cooldown, so bot restarts, duplicate processes, or a too-frequent `BUILD_AGENT_CRON` could spam the phone.
+
+### What Changed
+- Added an atomic `system_heartbeats` notification claim keyed by queue fingerprint.
+- Pending-feature notifications now send only when the queue changes or the cooldown expires.
+- Default cooldown is 20 hours; override with `BUILD_AGENT_NOTIFY_COOLDOWN_HOURS` from 1 to 72.
+- Removed noisy "no pending feature requests today" phone notifications.
+
+### Verification
+- Added build-agent regression tests for empty queue, duplicate suppression, one allowed notification, and stable queue fingerprinting.
+- `pnpm lint`, `pnpm -r typecheck`, `pnpm test`, `pnpm build`, `pnpm run security:audit`, and `pnpm run security:deep` passed.

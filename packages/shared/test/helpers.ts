@@ -31,6 +31,7 @@ export interface FakeDbState {
   feature_requests: FakeDbRow[];
   profile_context: FakeDbRow[];
   connected_accounts: FakeDbRow[];
+  system_heartbeats: FakeDbRow[];
   command_jobs: FakeDbRow[];
 }
 
@@ -67,6 +68,7 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
     feature_requests: [],
     profile_context: [],
     connected_accounts: [],
+    system_heartbeats: [],
     command_jobs: [],
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
@@ -130,6 +132,7 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
         },
       }),
     }),
+    execute: async () => [{ source: "fake-system-claim" }],
   };
   const dbWithState = Object.assign(db, { __state: state }) as unknown as FakeDbWithState;
 

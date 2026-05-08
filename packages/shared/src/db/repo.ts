@@ -364,6 +364,46 @@ export async function getSystemHeartbeat(
   return row ?? null;
 }
 
+export async function claimSystemNotification(
+  db: DB,
+  args: {
+    source: string;
+    fingerprint: string;
+    now: Date;
+    cooldownMs: number;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<boolean> {
+  const cooldownCutoff = new Date(args.now.getTime() - args.cooldownMs);
+  const metadata = JSON.stringify({
+    ...(args.metadata ?? {}),
+    fingerprint: args.fingerprint,
+    notifiedAt: args.now.toISOString(),
+    cooldownMs: args.cooldownMs,
+  });
+
+  const rows = await db.execute(sql`
+    INSERT INTO system_heartbeats (source, status, last_seen_at, metadata, updated_at)
+    VALUES (${args.source}, 'ok', ${args.now}, ${metadata}::jsonb, NOW())
+    ON CONFLICT (source)
+    DO UPDATE SET
+      status = 'ok',
+      last_seen_at = EXCLUDED.last_seen_at,
+      metadata = EXCLUDED.metadata,
+      updated_at = NOW()
+    WHERE
+      COALESCE(system_heartbeats.metadata->>'fingerprint', '') <> ${args.fingerprint}
+      OR COALESCE((system_heartbeats.metadata->>'notifiedAt')::timestamptz, 'epoch'::timestamptz) <= ${cooldownCutoff}
+    RETURNING source
+  `);
+
+  return Array.isArray(rows)
+    ? rows.length > 0
+    : Array.isArray((rows as { rows?: unknown[] }).rows)
+      ? ((rows as { rows?: unknown[] }).rows?.length ?? 0) > 0
+      : Number((rows as { rowCount?: number }).rowCount ?? 0) > 0;
+}
+
 export async function logAudit(
   db: DB,
   entry: {
