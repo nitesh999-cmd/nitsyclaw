@@ -25,6 +25,7 @@
 - `pnpm run security:semgrep` passed: 0 findings across 377 tracked files.
 - `pnpm run security:snyk` passed across 4 projects with no vulnerable paths found. Snyk also reported the monthly private-test limit is now reached for the `nitesh999` org.
 - `pnpm run security:deep` passed: Semgrep plus dependency audit.
+- `pnpm test:e2e` passed: 12 Playwright tests. Local test logs still warn that dashboard auth bypass is active because `NITSYCLAW_DASHBOARD_PASSWORD` is intentionally not set in this local test environment.
 
 ## Guardrails kept
 
