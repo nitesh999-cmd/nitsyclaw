@@ -7,7 +7,7 @@
 - Added dashboard expense filter tests for empty filters, invalid dates, and searchable where-clause creation.
 - Added feature request capture tests proving WhatsApp/dashboard ideas queue into the backend with hashed requester identity and safe default sizing.
 - Improved dashboard voice input error copy so microphone-blocked, no-speech, missing-microphone, network, and aborted cases give different recovery guidance.
-- Hardened delete-everything export-proof handling so missing proof-signing configuration fails closed instead of throwing out of the route.
+- Hardened delete-everything handling so missing auth configuration or missing proof-signing configuration fails closed instead of allowing empty-password reauth or throwing out of the route.
 
 ## Verification
 
@@ -30,7 +30,7 @@
 - `pnpm run release:preflight` passed: git/secret checks, lint, workspace typecheck, build, coverage, e2e, and deep security.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app`: health, privacy, terms, login copy, and protected API auth boundaries.
 - `pnpm run audit:doctor` failed with 2 local environment blockers: Docker is missing for OWASP ZAP, and Windows symlink privilege is unavailable for local Vercel artifact packaging. Vercel CLI, curl, and live health passed.
-- `pnpm exec vitest run apps/dashboard/src/app/api/data/delete/route.test.ts data-controls.test.ts data-export-redaction.test.ts apps/dashboard/src/lib/data-export-proof.test.ts` passed: 4 files, 10 tests.
+- `pnpm exec vitest run apps/dashboard/src/app/api/data/delete/route.test.ts data-controls.test.ts data-export-redaction.test.ts apps/dashboard/src/lib/data-export-proof.test.ts` passed: 4 files, 11 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after the data-delete route hardening.
 
 ## Guardrails kept

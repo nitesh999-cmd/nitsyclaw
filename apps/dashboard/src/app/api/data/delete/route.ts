@@ -69,7 +69,8 @@ export async function POST(req: Request) {
   }
 
   if (scope === "everything") {
-    if (!constantTimeEqual(currentPassword, process.env.NITSYCLAW_DASHBOARD_PASSWORD ?? "")) {
+    const expectedPassword = process.env.NITSYCLAW_DASHBOARD_PASSWORD ?? "";
+    if (!expectedPassword || !constantTimeEqual(currentPassword, expectedPassword)) {
       return redirectToSettings(req, { deleteError: "reauth", scope });
     }
     let verifiedExportProof = false;
