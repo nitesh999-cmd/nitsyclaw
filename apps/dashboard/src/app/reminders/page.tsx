@@ -50,7 +50,9 @@ async function rescheduleReminder(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const value = String(formData.get("fireAt") ?? "");
   const fireAt = new Date(value);
-  if (!id || Number.isNaN(fireAt.getTime())) return;
+  if (!id || !value || Number.isNaN(fireAt.getTime())) {
+    redirect("/reminders?error=reschedule-invalid-date");
+  }
 
   await getDb()
     .update(reminders)
@@ -68,6 +70,8 @@ export default async function RemindersPage({
   const params = await searchParams;
   const createError = params?.error === "invalid-date"
     ? "Date not recognised. Try: tomorrow 9am, Friday 3pm, or 2026-05-10T09:00."
+    : params?.error === "reschedule-invalid-date"
+    ? "Pick a date and time before clicking Reschedule."
     : null;
 
   let rows: Awaited<ReturnType<typeof load>> = [];
@@ -188,6 +192,7 @@ export default async function RemindersPage({
                       <input
                         type="datetime-local"
                         name="fireAt"
+                        required
                         className="nc-input w-44 text-xs px-2 py-1"
                       />
                       <button className="nc-button text-xs px-2 py-1">Reschedule</button>

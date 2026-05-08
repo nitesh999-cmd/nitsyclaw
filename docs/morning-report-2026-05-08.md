@@ -14,6 +14,7 @@
 - Hardened dashboard chat JSON parsing so oversized request bodies are rejected even when `Content-Length` is missing.
 - Verified and covered expense form invalid-input redirects so bad amount, currency, or date submissions produce readable page errors instead of silent no-ops.
 - Hardened dashboard search normalization so `%`, `_`, and backslash are escaped before SQL `LIKE` queries across the search page and API.
+- Verified and covered reminder reschedule invalid-date feedback so missing reschedule dates redirect to a readable page error.
 
 ## Verification
 
@@ -55,6 +56,8 @@
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after expense form feedback coverage.
 - `pnpm exec vitest run apps/dashboard/src/lib/search-query.test.ts dashboard-search-safety.test.ts` passed: 2 files, 4 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after search wildcard hardening.
+- `pnpm exec vitest run reminders-page.test.ts` passed: 1 file, 1 test.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after reminder reschedule validation coverage.
 
 ## Guardrails kept
 
