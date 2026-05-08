@@ -51,6 +51,8 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("VERCEL_TOKEN");
     expect(workflow).toContain("VERCEL_ORG_ID");
     expect(workflow).toContain("VERCEL_PROJECT_ID");
+    expect(workflow).toContain("configured=false");
+    expect(workflow).toContain("steps.vercel-secrets.outputs.configured == 'true'");
     expect(workflow).toContain("pnpm exec vercel build --yes --token");
   });
 

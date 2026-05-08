@@ -140,12 +140,16 @@ jobs:
           node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Require Vercel CI secrets
+      - name: Check Vercel CI secrets
+        id: vercel-secrets
         shell: bash
         run: |
           if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::error::Set VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID secrets to verify Vercel packaging in CI."
-            exit 1
+            echo "::warning::Skipping Vercel packaging check because VERCEL_TOKEN, VERCEL_ORG_ID, or VERCEL_PROJECT_ID is not configured."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
       - name: Verify Vercel packaging on Linux
+        if: steps.vercel-secrets.outputs.configured == 'true'
         run: pnpm exec vercel build --yes --token "$VERCEL_TOKEN"
