@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
@@ -80,11 +81,19 @@ export function formatWatchdogHeartbeatError(error: unknown): string {
   return `watchdog heartbeat failed: ${redacted.slice(0, 200)}`;
 }
 
-export function resolveLocalEnvPaths(repoRootPath: string): string[] {
+export function resolveLocalEnvPaths(
+  repoRootPath: string,
+  homeDir = homedir(),
+): string[] {
+  const secretRoot = process.env.NITSYCLAW_SECRET_ROOT
+    ? resolve(process.env.NITSYCLAW_SECRET_ROOT)
+    : resolve(homeDir, ".nitsyclaw", "secrets");
+
   return [
     ".env.local",
     "apps/dashboard/.env.local",
     ".env",
+    resolve(secretRoot, ".env.local"),
     resolve(repoRootPath, ".env.local"),
     resolve(repoRootPath, "apps/dashboard/.env.local"),
     resolve(repoRootPath, ".env"),

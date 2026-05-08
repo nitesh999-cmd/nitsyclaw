@@ -1650,12 +1650,12 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 ### What broke
 - Bot was connected and writing `logs/whatsapp-health-last-ok.txt`, but `logs/bot.log` showed repeated `dropped: not self-chat fromMe=true`.
 - Root cause: self-chat detection only trusted `from`/`to` message envelope fields. WhatsApp Web can emit owner-authored self-chat messages with messy envelope values; the reliable boundary is the chat id.
-- Watchdog heartbeat also failed from some launch contexts because `scripts/watchdog-heartbeat.ts` only searched env files relative to the current working directory.
+- Watchdog heartbeat also failed from some launch contexts because `scripts/watchdog-heartbeat.ts` only searched env files relative to the current working directory/repo root, while the real local secrets live in the external bot secret root.
 
 ### What changed
 - `apps/bot/src/whatsapp-identity.ts`: self-chat detection now accepts owner self-chat when the WhatsApp chat id is the owner chat, while still rejecting other contacts/groups.
 - `apps/bot/src/wwebjs-client.ts`: message handling now reads `m.getChat().id._serialized` and passes it into the self-chat guard; drop logs now include safe address kinds (`contact`, `group`, `newsletter`, `status`, `lid`, `empty`) without raw phone numbers.
-- `scripts/watchdog-heartbeat.ts`: env lookup now includes repo-root absolute paths so scheduled/background runs can still find `.env.local`.
+- `scripts/watchdog-heartbeat.ts`: env lookup now includes repo-root absolute paths and the external bot secret root (`~/.nitsyclaw/secrets/.env.local`) so scheduled/background runs can still find the database env.
 
 ### Verification
 - Red test first: messy self-chat envelope failed before the fix.
@@ -1664,3 +1664,5 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - `pnpm --filter @nitsyclaw/bot build` passed.
 - Dry-run watchdog from `C:\Windows\System32` passed using repo-root resolution.
 - Local bot restarted through `launch-bot.ps1` and wrote fresh `READY` heartbeat at `2026-05-08T12:46:28.504Z`.
+- Real watchdog heartbeat published successfully after loading the external secret root.
+- `pnpm run release:preflight` passed after the watchdog fix: lint, typecheck, build, coverage, e2e, and deep security.

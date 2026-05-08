@@ -24,10 +24,14 @@ describe("watchdog heartbeat error safety", () => {
   });
 
   it("resolves env files from both cwd and repo root", () => {
-    const paths = resolveLocalEnvPaths("C:\\Users\\Nitesh\\projects\\NitsyClaw");
+    const paths = resolveLocalEnvPaths(
+      "C:\\Users\\Nitesh\\projects\\NitsyClaw",
+      "C:\\Users\\Nitesh",
+    );
 
     expect(paths).toContain(".env.local");
     expect(paths).toContain(".env");
+    expect(paths).toContain("C:\\Users\\Nitesh\\.nitsyclaw\\secrets\\.env.local");
     expect(paths).toContain("C:\\Users\\Nitesh\\projects\\NitsyClaw\\.env.local");
     expect(paths).toContain("C:\\Users\\Nitesh\\projects\\NitsyClaw\\apps\\dashboard\\.env.local");
   });

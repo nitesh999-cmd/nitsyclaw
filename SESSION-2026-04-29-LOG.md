@@ -208,3 +208,6 @@ Sleep well.
 - Fixed watchdog heartbeat env loading for scheduled/background contexts.
 - Restarted only the local bot process tree via `launch-bot.ps1`.
 - Fresh local proof: `logs/whatsapp-health-last-ok.txt` wrote `2026-05-08T12:46:28.504Z READY`.
+- Follow-up fix: watchdog now loads the external bot secret root (`~/.nitsyclaw/secrets/.env.local`), which is where the real local DB env lives.
+- Real `pnpm run watchdog:heartbeat` now succeeds.
+- Final proof: `pnpm run release:preflight` passed, and WhatsApp health wrote `2026-05-08T12:50:28.536Z CONNECTED`.
