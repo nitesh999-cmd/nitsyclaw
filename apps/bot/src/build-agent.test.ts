@@ -80,6 +80,31 @@ describe("runDailyBuildAgent", () => {
     expect(mocks.insertMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("rate-limits phone push even when the WhatsApp queue summary is fresh", async () => {
+    mocks.listPendingFeatureRequests.mockResolvedValue([featureRequest("05608bae")]);
+    mocks.claimSystemNotification
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const deps = fakeDeps();
+
+    await runDailyBuildAgent(deps, "+61430008008");
+
+    expect(mocks.claimSystemNotification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: "build-agent-feature-notify" }),
+    );
+    expect(mocks.claimSystemNotification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: "build-agent-feature-ntfy-rate-limit",
+        fingerprint: "pending-feature-summary",
+      }),
+    );
+    expect(mocks.pushNotify).not.toHaveBeenCalled();
+    expect(deps.whatsapp.send).toHaveBeenCalledTimes(1);
+    expect(mocks.insertMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("uses a stable fingerprint independent of database ordering", () => {
     const first = [
       featureRequest("bbbbbbbb", new Date("2026-05-09T01:00:00.000Z")),

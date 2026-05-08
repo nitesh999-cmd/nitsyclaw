@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { logBotError } from "./safe-log.js";
 
 const FEATURE_NOTIFICATION_SOURCE = "build-agent-feature-notify";
+const FEATURE_NTFY_RATE_LIMIT_SOURCE = "build-agent-feature-ntfy-rate-limit";
 const DEFAULT_FEATURE_NOTIFY_COOLDOWN_MS = 20 * 60 * 60 * 1000;
 
 export async function runDailyBuildAgent(
@@ -64,16 +65,36 @@ export async function runDailyBuildAgent(
     lines +
     `\n\nNext: these are queued for the local operator workflow. I will not claim a feature is shipped until it is committed, tested, and marked done.`;
 
-  // ntfy push (phone + PC notification)
-  await pushNotify(
-    `${pending.length} pending feature(s). Details on WhatsApp.`,
-    {
-      title: "NitsyClaw: features pending",
-      tags: ["gear"],
-      priority: "default",
-      click: process.env.DASHBOARD_URL ?? "https://nitsyclaw.vercel.app",
+  // Phone/PC push is rate-limited separately so queue churn does not spam notifications.
+  const notifyClaimed = await claimSystemNotification(deps.db, {
+    source: FEATURE_NTFY_RATE_LIMIT_SOURCE,
+    fingerprint: "pending-feature-summary",
+    now,
+    cooldownMs: featureNotifyCooldownMs(),
+    metadata: {
+      pendingCount: pending.length,
+      queueFingerprint: fingerprint,
     },
-  ).catch(() => {});
+  }).catch((e) => {
+    logBotError("[build-agent] ntfy rate-limit claim failed", e, {
+      pendingCount: pending.length,
+    });
+    return false;
+  });
+
+  if (notifyClaimed) {
+    await pushNotify(
+      `${pending.length} pending feature(s). Details on WhatsApp.`,
+      {
+        title: "NitsyClaw: features pending",
+        tags: ["gear"],
+        priority: "default",
+        click: process.env.DASHBOARD_URL ?? "https://nitsyclaw.vercel.app",
+      },
+    ).catch(() => {});
+  } else {
+    console.log(`[build-agent] suppressed duplicate ntfy pending-feature push (${pending.length} pending)`);
+  }
 
   // WhatsApp self-message so Nitesh sees the list on his phone
   try {
