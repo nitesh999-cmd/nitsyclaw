@@ -20,6 +20,11 @@
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after voice input error-copy improvement.
 - `pnpm lint` passed after the latest safe-build cycle.
 - `pnpm test` passed after the latest safe-build cycle: 127 test files, 493 tests.
+- `pnpm build` passed after the latest safe-build cycle.
+- `pnpm run security:audit` passed: no known vulnerabilities found.
+- `pnpm run security:semgrep` passed: 0 findings across 377 tracked files.
+- `pnpm run security:snyk` passed across 4 projects with no vulnerable paths found. Snyk also reported the monthly private-test limit is now reached for the `nitesh999` org.
+- `pnpm run security:deep` passed: Semgrep plus dependency audit.
 
 ## Guardrails kept
 
