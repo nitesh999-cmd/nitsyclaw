@@ -104,9 +104,18 @@ async function getCurrentLocation(_input: Record<string, never>, ctx: ToolContex
       location: value.location,
       expiresHint: value.expiresHint,
       expiresAt: saved.expiresAt?.toISOString(),
+      setAt: value.setAt,
       source: "saved_current_location",
     };
   }
+
+  const staleLocationIgnored = saved && value?.location && saved.expiresAt && saved.expiresAt.getTime() <= ctx.now.getTime()
+    ? {
+        location: value.location,
+        expiredAt: saved.expiresAt.toISOString(),
+        expiresHint: value.expiresHint,
+      }
+    : undefined;
 
   return {
     location:
@@ -114,6 +123,7 @@ async function getCurrentLocation(_input: Record<string, never>, ctx: ToolContex
       ctx.deps.profile?.homeLocation ??
       "Melbourne, Victoria, Australia",
     expiresHint: undefined,
+    staleLocationIgnored,
     source: "profile_default",
   };
 }

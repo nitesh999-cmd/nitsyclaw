@@ -271,3 +271,10 @@ Sleep well.
 - Changed send-burst trips to a timed cooldown that auto-resets; true echo-loop matches still require manual reset.
 - Loop-breaker incidents now include reset timing, safer notification wording, and deduped P0 bug queueing by incident type.
 - Focused verification passed: loop-breaker and router integration tests.
+
+## 2026-05-09 Location/memory quality control
+
+- Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
+- The reply now states the exact weather/default location source.
+- Expired travel locations are reported as ignored instead of silently influencing later weather answers.
+- This targets the earlier Sydney-vs-Melbourne failure mode without pretending WhatsApp can read real GPS.

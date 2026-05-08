@@ -1740,3 +1740,9 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Loop-breaker incidents now include `resetAt` when auto-reset is scheduled.
 - Auto-created P0 bug rows are typed as bugs and deduped by incident class.
 - Focused verification passed: `whatsapp-loop-breaker` and `router.integration` tests.
+
+### Follow-up: location quality control
+- Added WhatsApp shortcuts for `where am I?`, `location status`, and `what location are you using`.
+- Location status answers now show the weather/default location and source.
+- Expired travel locations are surfaced as ignored stale context, so old city data is visible instead of silently affecting weather.
+- This does not claim GPS access; location is still explicit saved/profile context only.

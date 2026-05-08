@@ -182,6 +182,20 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers weather location status directly", async () => {
+    await router.handle({
+      id: "x-location-status",
+      from: OWNER,
+      body: "where am I?",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Weather/default location");
+    expect(wa.sent[0].body).toContain("Melbourne");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("ignores duplicate WhatsApp events with the same message id", async () => {
     const inbound = {
       id: "x-duplicate",

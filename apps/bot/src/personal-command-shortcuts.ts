@@ -3,6 +3,10 @@ export interface LocationShortcut {
   expiresHint?: string;
 }
 
+export interface LocationStatusShortcut {
+  kind: "location-status";
+}
+
 export interface FeatureQueueShortcut {
   limit: number;
 }
@@ -92,6 +96,20 @@ export function parseLocationShortcut(text: string): LocationShortcut | null {
     if (city) return { city, expiresHint: cleanHint(match?.[2]) };
   }
 
+  return null;
+}
+
+export function parseLocationStatusShortcut(text: string): LocationStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/, "");
+  if (
+    trimmed === "location status" ||
+    trimmed === "weather location" ||
+    trimmed === "where am i" ||
+    trimmed === "what location are you using" ||
+    trimmed === "which city are you using for weather"
+  ) {
+    return { kind: "location-status" };
+  }
   return null;
 }
 

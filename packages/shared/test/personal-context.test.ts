@@ -7,6 +7,10 @@ type LocationOutput = {
   expiresHint?: string;
   location?: string;
   source?: string;
+  staleLocationIgnored?: {
+    location?: string;
+    expiredAt?: string;
+  };
 };
 type BugReportOutput = {
   status?: string;
@@ -66,6 +70,10 @@ describe("personal context tools", () => {
 
     expect(resolved.location).toBe("Melbourne, Victoria, Australia");
     expect(resolved.source).toBe("profile_default");
+    expect(resolved.staleLocationIgnored).toMatchObject({
+      location: "Sydney, New South Wales, Australia",
+      expiredAt: "2026-04-24T23:59:59.999Z",
+    });
   });
 
   it("falls back to the profile default location", async () => {

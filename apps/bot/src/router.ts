@@ -75,6 +75,7 @@ import {
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
   parseHomeAssistantShortcut,
+  parseLocationStatusShortcut,
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
@@ -655,6 +656,40 @@ export class Router {
         );
       } catch (locationError) {
         await this.sendPublicFailure("location save", "Couldn't save that location. I logged it; try again shortly.", locationError);
+      }
+      return;
+    }
+
+    const locationStatusShortcut = parseLocationStatusShortcut(effectiveText);
+    if (locationStatusShortcut) {
+      const tool = this.registry.get("get_current_location");
+      try {
+        const out = tool
+          ? ((await tool.handler(
+              {},
+              {
+                userPhone: msg.from,
+                now: this.deps.now(),
+                timezone: this.deps.timezone,
+                deps: this.deps,
+              },
+            )) as {
+              location?: string;
+              expiresAt?: string;
+              expiresHint?: string;
+              source?: string;
+              staleLocationIgnored?: { location?: string; expiredAt?: string };
+            })
+          : null;
+        const suffix = out?.expiresAt ? ` until ${out.expiresHint ?? out.expiresAt}` : "";
+        const stale = out?.staleLocationIgnored?.location
+          ? `\nIgnored expired travel location: ${out.staleLocationIgnored.location}.`
+          : "";
+        await this.sendAndPersist(
+          `Weather/default location: ${out?.location ?? "Melbourne, Victoria, Australia"}${suffix}.\nSource: ${out?.source ?? "profile_default"}.${stale}`,
+        );
+      } catch (locationStatusError) {
+        await this.sendPublicFailure("location status", "Couldn't check the saved location. I logged it; try again shortly.", locationStatusError);
       }
       return;
     }

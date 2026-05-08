@@ -4,6 +4,7 @@ import {
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
   parseHomeAssistantShortcut,
+  parseLocationStatusShortcut,
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
 
@@ -29,6 +30,12 @@ describe("personal command shortcuts", () => {
   it("does not treat ordinary sentences as location commands", () => {
     expect(parseLocationShortcut("I'm in trouble with a client")).toBeNull();
     expect(parseLocationShortcut("weather today")).toBeNull();
+  });
+
+  it("parses current weather location status commands", () => {
+    expect(parseLocationStatusShortcut("location status")).toEqual({ kind: "location-status" });
+    expect(parseLocationStatusShortcut("where am I?")).toEqual({ kind: "location-status" });
+    expect(parseLocationStatusShortcut("what location are you using")).toEqual({ kind: "location-status" });
   });
 
   it("parses feature queue/status commands", () => {
