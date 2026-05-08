@@ -18,6 +18,8 @@
 - `pnpm --filter @nitsyclaw/shared typecheck` passed after feature-capture coverage.
 - `pnpm exec vitest run apps/dashboard/src/lib/voice-errors.test.ts dashboard-voice-language.test.ts` passed: 2 files, 3 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after voice input error-copy improvement.
+- `pnpm lint` passed after the latest safe-build cycle.
+- `pnpm test` passed after the latest safe-build cycle: 127 test files, 493 tests.
 
 ## Guardrails kept
 
