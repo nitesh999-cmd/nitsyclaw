@@ -3,6 +3,7 @@
 
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import type { HistoryTurn } from "@nitsyclaw/shared/agent";
 import { detectIntent } from "@nitsyclaw/shared/utils";
 import {
   registerAllFeatures,
@@ -77,6 +78,7 @@ import {
   parseHomeAssistantShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
+  parseRepeatLastMessageShortcut,
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { logBotError } from "./safe-log.js";
@@ -477,6 +479,37 @@ export class Router {
     }
   }
 
+  private formatRepeatLastMessageReply(
+    history: HistoryTurn[],
+    shortcut: NonNullable<ReturnType<typeof parseRepeatLastMessageShortcut>>,
+    currentText: string,
+  ): string {
+    const newestFirst = [...history].reverse();
+    const candidates = newestFirst
+      .map((turn) => ({ ...turn, content: turn.content.trim() }))
+      .filter((turn) => turn.content && !isRepeatNoise(turn.content, currentText));
+
+    const voiceTurn = candidates.find((turn) => {
+      if (turn.role === "user" && turn.mediaType === "voice" && turn.content.length > 0) return true;
+      return /^📝\s*Transcribed\./i.test(turn.content) || /^Transcribed\./i.test(turn.content);
+    });
+    const userTurn = candidates.find((turn) => turn.role === "user");
+    const fallbackTurn = candidates[0];
+
+    const selected = shortcut.preferVoice ? (voiceTurn ?? userTurn ?? fallbackTurn) : (userTurn ?? voiceTurn ?? fallbackTurn);
+    if (!selected) {
+      return "I could not find a previous message yet. Send it again and I will read it back.";
+    }
+
+    const cleaned = extractReadableLastMessage(selected.content);
+    const label = /^📝?\s*Transcribed\./i.test(selected.content) || selected.mediaType === "voice"
+      ? "Last voice transcript I have"
+      : selected.role === "user"
+        ? "Last message I have from you"
+        : "Last reply I sent";
+    return `${label}:\n${clipForWhatsApp(cleaned)}`;
+  }
+
   async handle(msg: InboundMessage): Promise<void> {
     if (msg.from !== this.ownerPhone) return; // R2 — only owner
     if (!this.rememberExternalMessageId(msg.id)) return;
@@ -691,6 +724,12 @@ export class Router {
       } catch (locationStatusError) {
         await this.sendPublicFailure("location status", "Couldn't check the saved location. I logged it; try again shortly.", locationStatusError);
       }
+      return;
+    }
+
+    const repeatLastMessage = parseRepeatLastMessageShortcut(effectiveText);
+    if (repeatLastMessage) {
+      await this.sendAndPersist(this.formatRepeatLastMessageReply(history, repeatLastMessage, effectiveText));
       return;
     }
 
@@ -911,4 +950,28 @@ function confirmationActionLabel(action: string): string {
     default:
       return "Pending actions";
   }
+}
+
+function extractReadableLastMessage(content: string): string {
+  return content
+    .replace(/^📝\s*Transcribed\.\s*I will reply in English\.\s*/i, "")
+    .replace(/^Transcribed\.\s*I will reply in English\.\s*/i, "")
+    .trim();
+}
+
+function isRepeatNoise(content: string, currentText: string): boolean {
+  const normalized = normalizeForRepeat(content);
+  if (!normalized) return true;
+  if (normalized === normalizeForRepeat(currentText)) return true;
+  if (/^(yes|yep|yeah|approved|approve|confirm|confirmed|ok|okay|no|thanks|thank you)$/.test(normalized)) return true;
+  return parseRepeatLastMessageShortcut(content) !== null;
+}
+
+function normalizeForRepeat(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
+}
+
+function clipForWhatsApp(value: string, max = 1200): string {
+  const clean = value.trim();
+  return clean.length > max ? `${clean.slice(0, max - 20).trim()}...` : clean;
 }

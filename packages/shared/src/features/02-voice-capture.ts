@@ -1,9 +1,10 @@
 // Feature 2: Voice capture → transcribe → file.
 
 import { z } from "zod";
-import { insertMemory } from "../db/repo.js";
+import { insertMemory, updateMessageTranscript } from "../db/repo.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { Transcriber } from "../agent/deps.js";
+import { encryptForStorage } from "../utils/crypto.js";
 
 export async function transcribeAndStore(args: {
   audio: Buffer;
@@ -15,6 +16,9 @@ export async function transcribeAndStore(args: {
   if (args.audio.byteLength === 0) throw new Error("empty audio");
   const transcript = await args.transcriber.transcribe(args.audio, args.mimetype);
   if (!transcript.trim()) throw new Error("transcription empty");
+  if (args.sourceMessageId) {
+    await updateMessageTranscript(args.db, args.sourceMessageId, encryptForStorage(transcript));
+  }
   const mem = await insertMemory(args.db, {
     kind: "note",
     content: transcript,

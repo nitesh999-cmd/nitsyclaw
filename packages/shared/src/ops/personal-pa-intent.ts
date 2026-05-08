@@ -13,9 +13,15 @@ const VAGUE_REFERENCE_RE = /\b(him|her|them|it|this|that|someone|something|there
 const EMOTIONAL_RE = /\b(stressed|overwhelmed|angry|upset|annoyed|panic|worried|scared|tired|too much|can't deal|cannot deal|fed up|frustrated)\b/i;
 const SMALL_TALK_OR_CONFIRMATION_RE = /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|thanks|thank you)[.!? ]*$/i;
 const FEATURE_CAPTURE_RE = /^(\/addfeature|feature request:|add feature\b|new feature\b|bug:|problem:)/i;
+const SAFE_REPEAT_LAST_MESSAGE_RE =
+  /^(?:(?:hear|play|listen to)\s+(?:my\s+)?(?:last\s+)?(?:voice\s+)?message|(?:hear|play|listen to)\s+it|(?:read|repeat|show)\s+(?:my\s+)?last\s+message|what\s+did\s+i\s+just\s+say|what\s+was\s+my\s+last\s+message|(?:say|show|repeat)\s+that\s+again)[.!? ]*$/i;
 
 export function analyzePersonalPaIntent(input: string): PersonalPaIntentDecision {
   const text = input.trim();
+
+  if (SAFE_REPEAT_LAST_MESSAGE_RE.test(text)) {
+    return actionable();
+  }
 
   if (FEATURE_CAPTURE_RE.test(text)) {
     return actionable();

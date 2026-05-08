@@ -1746,3 +1746,10 @@ The dashboard tsconfig pulls bot files transitively via `04-morning-brief.ts`/`0
 - Location status answers now show the weather/default location and source.
 - Expired travel locations are surfaced as ignored stale context, so old city data is visible instead of silently affecting weather.
 - This does not claim GPS access; location is still explicit saved/profile context only.
+
+### Follow-up: voice replay regression
+- Live screenshot showed a voice backend fallback, then `hear my last message` / `hear it` routed like an approval-gated action.
+- The backend fallback matched the prior send-burst loop-breaker pause; loop-breaker cooldown was already fixed.
+- Added transcript persistence on the original inbound voice message and a safe repeat/read/hear shortcut that replies from recent history.
+- Repeat requests now skip noise such as `approved` and do not create command jobs or approval-gated receipts.
+- Focused verification passed: personal PA intent and router integration tests.

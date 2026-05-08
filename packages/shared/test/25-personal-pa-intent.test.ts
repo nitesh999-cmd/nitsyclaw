@@ -51,6 +51,12 @@ describe("personal PA intent clarification", () => {
     expect(result.question).toBeUndefined();
   });
 
+  it("treats repeat/read/hear last-message requests as safe local recall", () => {
+    expect(analyzePersonalPaIntent("hear my last message").kind).toBe("actionable");
+    expect(analyzePersonalPaIntent("read my last message").kind).toBe("actionable");
+    expect(analyzePersonalPaIntent("what did I just say").kind).toBe("actionable");
+  });
+
   it("treats feature capture as safe even when the requested feature mentions risky actions", () => {
     const result = analyzePersonalPaIntent("/addfeature send email drafts after I approve them");
 

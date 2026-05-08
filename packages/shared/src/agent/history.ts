@@ -11,6 +11,7 @@ export interface HistoryTurn {
   role: "user" | "assistant";
   content: string;
   surface?: "whatsapp" | "dashboard";
+  mediaType?: string | null;
   createdAt?: string;
 }
 
@@ -45,6 +46,7 @@ export async function loadCrossSurfaceHistory(
       body: messages.body,
       transcript: messages.transcript,
       surface: messages.surface,
+      mediaType: messages.mediaType,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -58,6 +60,7 @@ export async function loadCrossSurfaceHistory(
       role: (r.direction === "out" ? "assistant" : "user") as "user" | "assistant",
       content: safeDecrypt(r.transcript ?? r.body ?? ""),
       surface: r.surface,
+      mediaType: r.mediaType,
       createdAt: r.createdAt.toISOString(),
     }))
     .filter((t) => t.content.trim().length > 0);

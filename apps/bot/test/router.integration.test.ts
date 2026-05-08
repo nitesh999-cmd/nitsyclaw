@@ -256,6 +256,47 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(true);
   });
 
+  it("hears the last voice message without creating an approval-gated job", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: fakeTranscriber,
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "got it" }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-voice-repeat-source",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-05-09T01:25:00Z"),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+    await router.handle({
+      id: "x-voice-repeat-approval-noise",
+      from: OWNER,
+      body: "approved",
+      timestamp: new Date("2026-05-09T01:30:00Z"),
+      hasMedia: false,
+    });
+    wa.sent = [];
+
+    await router.handle({
+      id: "x-voice-repeat",
+      from: OWNER,
+      body: "hear my last message",
+      timestamp: new Date("2026-05-09T01:31:00Z"),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(wa.sent[0].body).toContain("Last voice transcript I have");
+    expect(wa.sent[0].body).toContain("this is a transcribed voice note");
+    expect(wa.sent[0].body).not.toContain("Needs your approval");
+    expect(state.command_jobs.some((job) => job.sourceExternalId === "x-voice-repeat")).toBe(false);
+  });
+
   it("receipt image → expense logged + ack", async () => {
     deps = makeAgentDeps({ whatsapp: wa, imageAnalyzer: fakeImageAnalyzer });
     router = new Router(deps, OWNER);

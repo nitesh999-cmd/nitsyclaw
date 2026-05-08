@@ -278,3 +278,11 @@ Sleep well.
 - The reply now states the exact weather/default location source.
 - Expired travel locations are reported as ignored instead of silently influencing later weather answers.
 - This targets the earlier Sydney-vs-Melbourne failure mode without pretending WhatsApp can read real GPS.
+
+## 2026-05-09 WhatsApp voice replay regression fix
+
+- User screenshot showed a voice-flow backend error followed by `hear my last message` being treated as an approval-gated action.
+- Root cause: the older loop-breaker pause caused the backend failure, and the command intent gate treated `message` wording as risky external sending.
+- Stored voice transcripts on the original inbound message row, keeping them available to cross-surface history.
+- Added a deterministic WhatsApp shortcut for `hear/read/repeat my last message` and `hear it`, skipping approval gates and ignoring confirmation noise like `approved`.
+- Focused verification passed: personal PA intent tests and WhatsApp router integration tests.

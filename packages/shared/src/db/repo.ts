@@ -34,6 +34,10 @@ export async function insertMessage(db: DB, m: NewMessage) {
   return row!;
 }
 
+export async function updateMessageTranscript(db: DB, id: string, transcript: string) {
+  await db.update(messages).set({ transcript }).where(eq(messages.id, id));
+}
+
 /** Delete messages created before `cutoff`. Returns count of deleted rows (best-effort). */
 export async function pruneOldMessages(db: DB, cutoff: Date): Promise<number> {
   const result = await db.delete(messages).where(lt(messages.createdAt, cutoff));

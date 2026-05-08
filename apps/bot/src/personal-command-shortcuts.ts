@@ -15,6 +15,10 @@ export interface BuildAgentShortcut {
   dryRun: boolean;
 }
 
+export interface RepeatLastMessageShortcut {
+  preferVoice: boolean;
+}
+
 export interface BugReportShortcut {
   description: string;
 }
@@ -153,6 +157,25 @@ export function parseBuildAgentShortcut(text: string): BuildAgentShortcut | null
     trimmed === "preview build queue"
   ) {
     return { dryRun: true };
+  }
+  return null;
+}
+
+export function parseRepeatLastMessageShortcut(text: string): RepeatLastMessageShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/, "");
+  if (
+    /^(?:hear|play|listen to)\s+(?:my\s+)?(?:last\s+)?(?:voice\s+)?message$/.test(trimmed) ||
+    /^(?:hear|play|listen to)\s+it$/.test(trimmed)
+  ) {
+    return { preferVoice: true };
+  }
+  if (
+    /^(?:read|repeat|show)\s+(?:my\s+)?last\s+message$/.test(trimmed) ||
+    /^what\s+did\s+i\s+just\s+say$/.test(trimmed) ||
+    /^what\s+was\s+my\s+last\s+message$/.test(trimmed) ||
+    /^(?:say|show|repeat)\s+that\s+again$/.test(trimmed)
+  ) {
+    return { preferVoice: false };
   }
   return null;
 }
