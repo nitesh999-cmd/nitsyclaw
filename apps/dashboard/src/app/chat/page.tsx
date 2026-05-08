@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { CHAT_QUICK_ACTIONS } from "../../lib/chat-quick-actions";
+import { speechRecognitionErrorMessage } from "../../lib/voice-errors";
 
 interface Msg {
   role: "user" | "assistant";
@@ -146,9 +147,9 @@ export default function ChatPage() {
       setInput(t);
     };
     r.onend = () => setRecording(false);
-    r.onerror = () => {
+    r.onerror = (event: SpeechRecognitionErrorEventLike) => {
       setRecording(false);
-      setVoiceError("Microphone is blocked. Allow microphone access for this site, then try again.");
+      setVoiceError(speechRecognitionErrorMessage(event.error));
     };
     recognitionRef.current = r;
   }, [speechLanguage]);
@@ -553,10 +554,13 @@ interface SpeechRecognitionLike {
   lang: string;
   onresult: ((e: SpeechRecognitionEventLike) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEventLike) => void) | null;
   start(): void;
   stop(): void;
 }
 interface SpeechRecognitionEventLike {
   results: ArrayLike<{ [index: number]: { transcript: string } }>;
+}
+interface SpeechRecognitionErrorEventLike {
+  error?: string;
 }
