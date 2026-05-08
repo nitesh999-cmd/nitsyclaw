@@ -2,6 +2,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("dashboard stream privacy", () => {
+  it("keeps streaming chat search-capable when SERPER_API_KEY is configured", () => {
+    const route = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
+
+    expect(route).toContain('from "@nitsyclaw/shared/search"');
+    expect(route).toContain("makeSerperSearch(process.env.SERPER_API_KEY)");
+  });
+
   it("does not stream raw tool input payloads to the browser", () => {
     const route = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
 

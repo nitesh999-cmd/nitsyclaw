@@ -22,6 +22,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest, logAudit, redactAuditString } from "@nitsyclaw/shared/db";
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import {
   completeCommandJob,
   createCommandJob,
@@ -45,7 +46,6 @@ import type {
   ImageAnalyzer,
   LlmClient,
   Transcriber,
-  WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import type { WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 
@@ -79,7 +79,6 @@ const noopTranscriber: Transcriber = {
     throw new Error("Audio transcription not available in dashboard chat");
   },
 };
-const noopWebSearch: WebSearcher = { async search() { return []; } };
 const noopCalendar: CalendarClient = {
   async suggestSlots() { return []; },
   async createEvent() { return { id: "noop", htmlLink: undefined }; },
@@ -162,7 +161,9 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
     whatsapp: new NoopWhatsApp(),
     llm,
     transcriber: noopTranscriber,
-    webSearch: noopWebSearch,
+    webSearch: process.env.SERPER_API_KEY
+      ? makeSerperSearch(process.env.SERPER_API_KEY)
+      : noopWebSearch,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
     embedder: openaiKey ? makeOpenAiEmbedder(openaiKey) : { async embed() { return []; } },
