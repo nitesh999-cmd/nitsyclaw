@@ -78,7 +78,7 @@ const MONTHS: Record<string, number> = {
   mar: 2,
   march: 2,
   apr: 3,
-  april: 4 - 1,
+  april: 3,
   may: 4,
   jun: 5,
   june: 5,
