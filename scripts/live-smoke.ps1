@@ -73,6 +73,10 @@ Invoke-SmokeHead -Url "$root/privacy" -ExpectedStatus 200
 Invoke-SmokeHead -Url "$root/terms" -ExpectedStatus 200
 [void](Invoke-SmokeGet -Url "$root/api/sale-readiness" -ExpectedStatus 401)
 [void](Invoke-SmokeGet -Url "$root/api/chat/history" -ExpectedStatus 401)
+$commandRedirect = Invoke-SmokeGet -Url "$root/command" -ExpectedStatus 307
+if ($commandRedirect -notmatch "(?im)^Location:\s*/login\?next=%2Fcommand\s*$") {
+    throw "/command did not redirect unauthenticated users to /login?next=%2Fcommand."
+}
 
 $login = Invoke-SmokeGet -Url "$root/login" -ExpectedStatus 200
 if ($login -notmatch [regex]::Escape($ExpectedLoginText)) {

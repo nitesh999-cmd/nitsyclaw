@@ -4,6 +4,8 @@ import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
+const queueLifecycleText = "Saved -> Ready -> Running -> Done/Blocked";
+
 async function loadQueue(status?: string) {
   const db = getDb();
   if (status && ["pending", "in_progress", "done", "rejected"].includes(status)) {
@@ -96,11 +98,15 @@ export default async function QueuePage({
 
       <section className="nc-section">
         <div className="nc-eyebrow">How queued work becomes real</div>
-        <div className="mt-2 grid gap-3 md:grid-cols-3">
+        <div className="mt-2 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-100">
+          {queueLifecycleText}
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-4">
           {[
-            { step: "1. Capture", desc: "WhatsApp, Chat, Command, or /addfeature saves the request here." },
-            { step: "2. Claim", desc: "Operator runner claims one safe item and marks it in progress." },
-            { step: "3. Verify", desc: "Code changes still need tests, review, and an intentional deploy." },
+            { step: "1. Saved", desc: "WhatsApp, Chat, Command, or /addfeature saves the request here." },
+            { step: "2. Ready", desc: "Ready means safe enough for a runner to claim." },
+            { step: "3. Running", desc: "Operator runner claims one safe item and marks it in progress." },
+            { step: "4. Done or blocked", desc: "Done or blocked means shipped with proof or waiting on a real blocker." },
           ].map(({ step, desc }) => (
             <div key={step} className="nc-tile">
               <div className="text-sm font-semibold text-slate-100">{step}</div>

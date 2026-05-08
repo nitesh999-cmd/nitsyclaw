@@ -12,6 +12,9 @@ describe("queue admin controls", () => {
     expect(source).toContain('name="note"');
     expect(source).toContain("Queue is a holding area, not an auto-deploy button");
     expect(source).toContain("How queued work becomes real");
+    expect(source).toContain("Saved -> Ready -> Running -> Done/Blocked");
+    expect(source).toContain("Ready means safe enough for a runner to claim");
+    expect(source).toContain("Done or blocked means shipped with proof or waiting on a real blocker");
     expect(source).toContain("Operator runner claims one safe item");
   });
 
