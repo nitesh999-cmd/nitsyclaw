@@ -58,6 +58,8 @@ export interface DocumentTextExtractionInput {
   mimetype?: string;
   filename?: string;
   maxBytes?: number;
+  maxTextChars?: number;
+  parseTimeoutMs?: number;
 }
 
 export interface DocumentTextExtractionResult {
@@ -76,7 +78,7 @@ const MONTHS: Record<string, number> = {
   mar: 2,
   march: 2,
   apr: 3,
-  april: 3,
+  april: 4 - 1,
   may: 4,
   jun: 5,
   june: 5,
@@ -108,6 +110,9 @@ const TEXT_MIMETYPES = new Set([
   "text/plain",
   "text/xml",
 ]);
+const DEFAULT_MAX_DOCUMENT_BYTES = 10_000_000;
+const DEFAULT_MAX_DOCUMENT_TEXT_CHARS = 12_000;
+const DEFAULT_PDF_PARSE_TIMEOUT_MS = 5_000;
 
 function lowerExtension(filename: string | undefined): string {
   const match = filename?.toLowerCase().match(/\.[a-z0-9]+$/);
@@ -129,7 +134,9 @@ function looksBinary(text: string): boolean {
 }
 
 export async function extractDocumentTextFromMedia(input: DocumentTextExtractionInput): Promise<DocumentTextExtractionResult> {
-  const maxBytes = input.maxBytes ?? 10_000_000;
+  const maxBytes = input.maxBytes ?? DEFAULT_MAX_DOCUMENT_BYTES;
+  const maxTextChars = input.maxTextChars ?? DEFAULT_MAX_DOCUMENT_TEXT_CHARS;
+  const parseTimeoutMs = input.parseTimeoutMs ?? DEFAULT_PDF_PARSE_TIMEOUT_MS;
   const byteLength = input.data.byteLength;
   const mimetype = input.mimetype?.split(";")[0]?.trim().toLowerCase();
   const filename = input.filename?.trim();
@@ -148,8 +155,13 @@ export async function extractDocumentTextFromMedia(input: DocumentTextExtraction
     try {
       const { PDFParse } = await import("pdf-parse");
       parser = new PDFParse({ data: Buffer.from(input.data) });
-      const result = await parser.getText();
-      const text = normalizeText(result.text ?? "");
+      const result = await withTimeout(
+        parser.getText(),
+        parseTimeoutMs,
+        "PDF text extraction timed out. Try a smaller file or screenshot.",
+      );
+      const extracted = limitText(normalizeText(result.text ?? ""), maxTextChars);
+      const text = extracted.text;
       if (!text) {
         return {
           supported: false,
@@ -161,13 +173,13 @@ export async function extractDocumentTextFromMedia(input: DocumentTextExtraction
       return {
         supported: true,
         text,
-        truncated: false,
+        truncated: extracted.truncated,
         byteLength,
       };
-    } catch (_error) {
+    } catch (error) {
       return {
         supported: false,
-        reason: "Could not extract PDF text safely. PDF/OCR fallback is still needed for this file.",
+        reason: error instanceof Error && error.message ? error.message : "Could not extract PDF text safely. PDF/OCR fallback is still needed for this file.",
         truncated: false,
         byteLength,
       };
@@ -196,12 +208,32 @@ export async function extractDocumentTextFromMedia(input: DocumentTextExtraction
     };
   }
 
+  const extracted = limitText(normalizeText(text), maxTextChars);
   return {
     supported: true,
-    text: normalizeText(text),
-    truncated: byteLength > maxBytes,
+    text: extracted.text,
+    truncated: byteLength > maxBytes || extracted.truncated,
     byteLength,
   };
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), Math.max(1, timeoutMs));
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function limitText(text: string, maxChars: number): { text: string; truncated: boolean } {
+  if (text.length <= maxChars) return { text, truncated: false };
+  return { text: text.slice(0, Math.max(0, maxChars)).trim(), truncated: true };
 }
 
 function normalizeText(value: string): string {

@@ -1,7 +1,7 @@
 import { config as dotenvConfig } from "dotenv";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 const WINDOWS_ABSOLUTE_RE = /^[A-Za-z]:[\\/]/;
 
@@ -9,11 +9,29 @@ function isAbsoluteLike(path: string): boolean {
   return isAbsolute(path) || WINDOWS_ABSOLUTE_RE.test(path);
 }
 
+function isSubPath(root: string, candidate: string): boolean {
+  const normalizedRoot = resolve(root);
+  const normalizedCandidate = resolve(candidate);
+  const relativePath = relative(normalizedRoot, normalizedCandidate);
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsoluteLike(relativePath));
+}
+
 function joinRoot(root: string, name: string): string {
-  if (WINDOWS_ABSOLUTE_RE.test(root) && !isAbsolute(root)) {
-    return `${root.replace(/[\\/]+$/, "")}/${name}`;
+  if (isAbsoluteLike(name)) {
+    throw new Error("Secret file names must be relative to NITSYCLAW_SECRET_ROOT.");
   }
-  return resolve(root, name);
+  if (WINDOWS_ABSOLUTE_RE.test(root) && !isAbsolute(root)) {
+    const joined = `${root.replace(/[\\/]+$/, "")}/${name}`;
+    if (name.split(/[\\/]+/).includes("..")) {
+      throw new Error("Secret file names must stay inside NITSYCLAW_SECRET_ROOT.");
+    }
+    return joined;
+  }
+  const joined = resolve(root, name);
+  if (!isSubPath(root, joined)) {
+    throw new Error("Secret file names must stay inside NITSYCLAW_SECRET_ROOT.");
+  }
+  return joined;
 }
 
 export function repoRoot(): string {
@@ -59,6 +77,9 @@ export function loadBotDotenv(): void {
 
 export function whatsappSessionDir(input?: string): string {
   if (!input || input === ".wa-session") return secretPath(".wa-session");
-  if (isAbsoluteLike(input)) return input;
+  if (isAbsoluteLike(input)) {
+    if (process.env.NITSYCLAW_ALLOW_ABSOLUTE_SECRET_PATHS === "1") return input;
+    throw new Error("WHATSAPP_SESSION_DIR must be relative unless NITSYCLAW_ALLOW_ABSOLUTE_SECRET_PATHS=1.");
+  }
   return joinRoot(secretRoot(), input);
 }

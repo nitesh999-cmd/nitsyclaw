@@ -174,4 +174,36 @@ describe("life admin intake", () => {
       ]),
     );
   });
+
+  it("caps extracted document text before it reaches analysis", async () => {
+    const extracted = await extractDocumentTextFromMedia({
+      data: Buffer.from("A".repeat(1000)),
+      mimetype: "text/plain",
+      filename: "large.txt",
+      maxTextChars: 120,
+    });
+
+    expect(extracted.supported).toBe(true);
+    expect(extracted.truncated).toBe(true);
+    expect(extracted.text).toHaveLength(120);
+  });
+
+  it("caps selectable PDF text before it reaches analysis", async () => {
+    const extracted = await extractDocumentTextFromMedia({
+      data: makeSimplePdf([
+        "AGL Energy electricity bill",
+        "Amount due $248.60",
+        "Due date 17 May 2026",
+        "Usage " + "620 kWh ".repeat(200),
+      ]),
+      mimetype: "application/pdf",
+      filename: "bill.pdf",
+      maxTextChars: 35,
+    });
+
+    expect(extracted.supported).toBe(true);
+    expect(extracted.truncated).toBe(true);
+    expect(extracted.text?.length).toBeLessThanOrEqual(35);
+    expect(extracted.text).toContain("AGL Energy electricity bill");
+  });
 });
