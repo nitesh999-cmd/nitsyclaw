@@ -62,6 +62,9 @@
 - `pnpm test` passed after the extra safe-build cycle: 130 test files, 503 tests.
 - `pnpm build` passed after the extra safe-build cycle.
 - `pnpm run security:deep` passed after the extra safe-build cycle: Semgrep 0 findings plus dependency audit.
+- Applied `likePatternForSearchTerm` to the memory page search and expense merchant filter — both were building raw `%${q}%` patterns without escaping `%`, `_`, or `\`, making wildcard characters in user input behave as SQL wildcards. Both now use the shared escaping utility with an explicit `ESCAPE '\'` clause.
+- `pnpm -r typecheck` passed after memory and expense wildcard hardening.
+- `pnpm test` passed after memory and expense wildcard hardening: 130 test files, 503 tests.
 
 ## Guardrails kept
 
