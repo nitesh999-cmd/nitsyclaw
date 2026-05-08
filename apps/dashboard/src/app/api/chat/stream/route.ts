@@ -29,7 +29,7 @@ import {
   markCommandJobWorking,
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
-import { validateChatBody, validateContentLength } from "../../../../lib/chat-validation";
+import { parseLimitedJsonBody, validateChatBody } from "../../../../lib/chat-validation";
 import {
   encryptDashboardText,
   getOwnerIdentity,
@@ -203,18 +203,11 @@ export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ reply: CHAT_CONFIG_ERROR }, { status: 503, headers: NO_STORE });
   }
-  const lengthError = validateContentLength(req.headers.get("content-length"));
-  if (lengthError) {
-    return NextResponse.json({ reply: lengthError.reply }, { status: lengthError.status, headers: NO_STORE });
+  const rawBody = await parseLimitedJsonBody(req);
+  if (!rawBody.ok) {
+    return NextResponse.json({ reply: rawBody.reply }, { status: rawBody.status, headers: NO_STORE });
   }
-
-  let rawBody: unknown;
-  try {
-    rawBody = await req.json();
-  } catch {
-    return NextResponse.json({ reply: "Bad request" }, { status: 400, headers: NO_STORE });
-  }
-  const parsedBody = validateChatBody(rawBody);
+  const parsedBody = validateChatBody(rawBody.body);
   if (!parsedBody.ok) {
     return NextResponse.json({ reply: parsedBody.reply }, { status: parsedBody.status, headers: NO_STORE });
   }

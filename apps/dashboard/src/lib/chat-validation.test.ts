@@ -5,6 +5,7 @@ import {
   CHAT_MAX_MESSAGE_CHARS,
   validateChatBody,
   validateContentLength,
+  parseLimitedJsonBody,
 } from "./chat-validation.js";
 
 describe("chat validation", () => {
@@ -37,6 +38,34 @@ describe("chat validation", () => {
     expect(validateChatBody({ history: [{ role: "user", content: "hello" }] })).toMatchObject({
       ok: true,
       last: { role: "user", content: "hello" },
+    });
+  });
+
+  it("rejects oversized JSON bodies even when content-length is absent", async () => {
+    const request = new Request("https://nitsyclaw.vercel.app/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        history: [{ role: "user", content: "x".repeat(CHAT_MAX_BODY_BYTES) }],
+      }),
+    });
+
+    await expect(parseLimitedJsonBody(request)).resolves.toEqual({
+      ok: false,
+      status: 413,
+      reply: "Message is too large",
+    });
+  });
+
+  it("returns bad request for malformed JSON", async () => {
+    const request = new Request("https://nitsyclaw.vercel.app/api/chat", {
+      method: "POST",
+      body: "{bad json",
+    });
+
+    await expect(parseLimitedJsonBody(request)).resolves.toEqual({
+      ok: false,
+      status: 400,
+      reply: "Bad request",
     });
   });
 });

@@ -25,6 +25,10 @@ export interface ChatValidationError {
 
 export type ChatValidationResult = ChatValidationOk | ChatValidationError;
 
+export type JsonBodyParseResult =
+  | { ok: true; body: unknown }
+  | ChatValidationError;
+
 export function validateContentLength(header: string | null): ChatValidationError | null {
   if (!header) return null;
   const size = Number(header);
@@ -35,6 +39,28 @@ export function validateContentLength(header: string | null): ChatValidationErro
     return { ok: false, status: 413, reply: "Message is too large" };
   }
   return null;
+}
+
+export async function parseLimitedJsonBody(request: Request): Promise<JsonBodyParseResult> {
+  const lengthError = validateContentLength(request.headers.get("content-length"));
+  if (lengthError) return lengthError;
+
+  let text: string;
+  try {
+    text = await request.text();
+  } catch {
+    return { ok: false, status: 400, reply: "Bad request" };
+  }
+
+  if (new TextEncoder().encode(text).length > CHAT_MAX_BODY_BYTES) {
+    return { ok: false, status: 413, reply: "Message is too large" };
+  }
+
+  try {
+    return { ok: true, body: JSON.parse(text) as unknown };
+  } catch {
+    return { ok: false, status: 400, reply: "Bad request" };
+  }
 }
 
 export function validateChatBody(raw: unknown): ChatValidationResult {

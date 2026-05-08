@@ -11,6 +11,7 @@
 - Restored Serper web-search capability in streaming dashboard chat so `/api/chat/stream` matches normal `/api/chat` search behavior when `SERPER_API_KEY` is configured.
 - Made streaming dashboard chat return failing HTTP status codes for pre-stream backend configuration errors instead of a 200 response with an error event.
 - Updated the away-from-desk go-live runbook with the verified `operator:next` / `DATABASE_URL` blocker.
+- Hardened dashboard chat JSON parsing so oversized request bodies are rejected even when `Content-Length` is missing.
 
 ## Verification
 
@@ -46,6 +47,8 @@
 - `pnpm run security:deep` passed after the latest route hardening cycle: Semgrep 0 findings plus dependency audit.
 - `pnpm test:e2e` passed after the latest route hardening cycle: 12 Playwright tests.
 - `pnpm exec vitest run docs-go-live-without-nitesh.test.ts` passed: 1 file, 3 tests.
+- `pnpm exec vitest run apps/dashboard/src/lib/chat-validation.test.ts apps/dashboard/src/app/api/chat/route.test.ts apps/dashboard/src/app/api/chat/stream/route.test.ts dashboard-stream-privacy.test.ts` passed: 4 files, 12 tests.
+- `pnpm --filter @nitsyclaw/dashboard typecheck` passed after chat body-size hardening.
 
 ## Guardrails kept
 
