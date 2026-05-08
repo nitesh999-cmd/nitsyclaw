@@ -28,6 +28,7 @@
 - `pnpm test:e2e` passed: 12 Playwright tests. Local test logs still warn that dashboard auth bypass is active because `NITSYCLAW_DASHBOARD_PASSWORD` is intentionally not set in this local test environment.
 - `pnpm run release:preflight` passed: git/secret checks, lint, workspace typecheck, build, coverage, e2e, and deep security.
 - `pnpm run release:live-smoke` passed against `https://nitsyclaw.vercel.app`: health, privacy, terms, login copy, and protected API auth boundaries.
+- `pnpm run audit:doctor` failed with 2 local environment blockers: Docker is missing for OWASP ZAP, and Windows symlink privilege is unavailable for local Vercel artifact packaging. Vercel CLI, curl, and live health passed.
 
 ## Guardrails kept
 
