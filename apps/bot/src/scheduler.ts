@@ -2,6 +2,7 @@
 // due reminders, memory pruner, confirmation expiry pruner, and local build-agent notification.
 
 import cron from "node-cron";
+import type { ScheduledTask } from "node-cron";
 import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } from "@nitsyclaw/shared/db";
@@ -23,7 +24,7 @@ export interface SchedulerOpts {
 }
 
 export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
-  const tasks: cron.ScheduledTask[] = [];
+  const tasks: ScheduledTask[] = [];
 
   async function writeHeartbeat(
     source: string,
