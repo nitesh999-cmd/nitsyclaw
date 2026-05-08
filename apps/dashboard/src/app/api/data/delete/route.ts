@@ -72,11 +72,17 @@ export async function POST(req: Request) {
     if (!constantTimeEqual(currentPassword, process.env.NITSYCLAW_DASHBOARD_PASSWORD ?? "")) {
       return redirectToSettings(req, { deleteError: "reauth", scope });
     }
-    if (!verifyExportProof({
-      proof: exportProof,
-      snapshotId: exportSnapshotId,
-      sessionToken: sessionTokenFromRequest(req),
-    })) {
+    let verifiedExportProof = false;
+    try {
+      verifiedExportProof = Boolean(verifyExportProof({
+        proof: exportProof,
+        snapshotId: exportSnapshotId,
+        sessionToken: sessionTokenFromRequest(req),
+      }));
+    } catch (e) {
+      logDashboardError("data.delete.export_proof", e);
+    }
+    if (!verifiedExportProof) {
       return redirectToSettings(req, { deleteError: "export", scope });
     }
   }
