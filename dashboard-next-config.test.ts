@@ -36,6 +36,7 @@ describe("dashboard Next config", () => {
     expect(dashboardPackage).not.toContain("tsc --noEmit");
     expect(nextEnvFix).toContain("./.next/dev/types/routes.d.ts");
     expect(nextEnvFix).toContain("./.next/types/routes.d.ts");
+    expect(nextEnvFix).toContain("copyFileSync(stableRoutesPath, devRoutesPath)");
     expect(nextEnvFix).toContain("finally");
   });
 });

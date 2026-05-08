@@ -15,7 +15,7 @@ describe("package scripts", () => {
       "next typegen && node ../../scripts/next-typegen-dev.mjs",
     );
     expect(readFileSync("scripts/next-typegen-dev.mjs", "utf8")).toContain(
-      "Next route typegen did not create",
+      "or ${stableRoutesPath}",
     );
   });
 

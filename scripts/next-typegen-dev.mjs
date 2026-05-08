@@ -1,10 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 const dashboardRoot = resolve(process.cwd());
 const nextEnvPath = resolve(dashboardRoot, "next-env.d.ts");
 const devRoutesPath = resolve(dashboardRoot, ".next/dev/types/routes.d.ts");
+const stableRoutesPath = resolve(dashboardRoot, ".next/types/routes.d.ts");
 const devImport = './.next/dev/types/routes.d.ts';
 const stableImport = './.next/types/routes.d.ts';
 
@@ -12,8 +13,13 @@ if (!existsSync(nextEnvPath)) {
   throw new Error(`next-env.d.ts not found at ${nextEnvPath}`);
 }
 
+if (!existsSync(devRoutesPath) && existsSync(stableRoutesPath)) {
+  mkdirSync(dirname(devRoutesPath), { recursive: true });
+  copyFileSync(stableRoutesPath, devRoutesPath);
+}
+
 if (!existsSync(devRoutesPath)) {
-  throw new Error(`Next route typegen did not create ${devRoutesPath}`);
+  throw new Error(`Next route typegen did not create ${devRoutesPath} or ${stableRoutesPath}`);
 }
 
 const originalSource = readFileSync(nextEnvPath, "utf8");
