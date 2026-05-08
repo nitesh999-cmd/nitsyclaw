@@ -38,6 +38,7 @@
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming chat search parity.
 - `pnpm exec vitest run apps/dashboard/src/app/api/chat/stream/route.test.ts dashboard-stream-privacy.test.ts apps/dashboard/src/lib/chat-validation.test.ts` passed: 3 files, 9 tests.
 - `pnpm --filter @nitsyclaw/dashboard typecheck` passed after streaming chat status hardening.
+- `pnpm run operator:next` failed safely because local `DATABASE_URL` is not configured. The runner reported that no queue state was changed.
 
 ## Guardrails kept
 
