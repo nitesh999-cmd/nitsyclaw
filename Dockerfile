@@ -4,7 +4,7 @@
 FROM node:22-slim
 
 # Install Chromium and the libraries it needs at runtime.
-# We use Debian's chromium since node:20-slim is Debian-based, not Ubuntu.
+# We use Debian's chromium since node:22-slim is Debian-based, not Ubuntu.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
@@ -41,8 +41,16 @@ RUN pnpm install --frozen-lockfile
 # Copy the rest of the source
 COPY . .
 
+# Runtime writes WhatsApp session and local secret files under the non-root
+# node user's home directory, not inside the repository.
+RUN mkdir -p /home/node/.nitsyclaw/secrets \
+    && chown -R node:node /app /home/node/.nitsyclaw
+
 # Set the working directory to the bot app for runtime
 WORKDIR /app/apps/bot
+
+# Do not run the WhatsApp worker as root in Railway.
+USER node
 
 # Start command
 CMD ["pnpm", "start"]
