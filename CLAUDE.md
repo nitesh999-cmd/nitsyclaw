@@ -13,6 +13,7 @@ Claude Code subagent policy:
 - Do not add Claude-only agents for Codex workflows.
 - Prefer a few read-only reviewers for security, UI, performance, or ops over broad autonomous writers.
 - Any subagent that can write files, run shell commands, deploy, send messages, or touch secrets must be explicitly justified and reviewed first.
+- Current approved project agents are read-only reviewers in `.claude/agents/`; keep them aligned with `docs/tool-adoption.md`.
 
 Execution rules:
 - Fix P0/P1 before P2/P3.

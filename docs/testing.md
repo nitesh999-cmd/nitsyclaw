@@ -2,10 +2,12 @@
 
 Per Constitution **R15**, every P0 feature has unit + integration coverage. CI gates: 70% lines, 65% branches.
 
-Current verified gate from the latest local preflight:
+Current verified gate from the latest local check:
 
-- `pnpm run release:preflight` passes.
-- Vitest coverage: 102 files, 418 tests.
+- `pnpm lint` passes.
+- `pnpm typecheck` passes.
+- `pnpm test` passes: 134 files, 535 tests.
+- `pnpm build` passes.
 - Playwright E2E: 12 dashboard specs.
 - Semgrep: 0 findings.
 - `pnpm audit --audit-level=moderate`: no known vulnerabilities.
@@ -35,7 +37,7 @@ Current verified gate from the latest local preflight:
 
 | Layer | Files | Tests |
 |---|---|---|
-| Unit + integration | 102 | 418 |
+| Unit + integration | 134 | 535 |
 | E2E | 1 | 12 |
 
 ## Running

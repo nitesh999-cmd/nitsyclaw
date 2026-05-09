@@ -13,6 +13,7 @@ Execution rules:
 - Keep changes small, reversible, and backed by tests.
 - Do not clone random agent/skill repos into this project.
 - Do not install new tools permanently unless the benefit clearly beats setup, security, maintenance, token, and cost burden.
+- Record tool/skill decisions in `docs/tool-adoption.md` before making them sticky.
 - Prefer existing gates: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm test:e2e`, `pnpm run security:audit`, `pnpm run security:semgrep`.
 - Use Lighthouse manually for UI/performance/SEO investigations only after confirming it is stable on the current machine.
 
