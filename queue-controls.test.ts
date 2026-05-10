@@ -10,12 +10,12 @@ describe("queue admin controls", () => {
     expect(source).toContain('value="in_progress"');
     expect(source).toContain('value="rejected"');
     expect(source).toContain('name="note"');
-    expect(source).toContain("Queue is a holding area, not an auto-deploy button");
-    expect(source).toContain("How queued work becomes real");
-    expect(source).toContain("Saved -> Ready -> Running -> Done/Blocked");
-    expect(source).toContain("Ready means safe enough for a runner to claim");
+    expect(source).toContain("safe holding area, not an auto-send or auto-deploy button");
+    expect(source).toContain("How requests become real");
+    expect(source).toContain("Saved -> Ready -> Working -> Done/Blocked");
+    expect(source).toContain("Ready means safe enough to start");
     expect(source).toContain("Done or blocked means shipped with proof or waiting on a real blocker");
-    expect(source).toContain("Operator runner claims one safe item");
+    expect(source).toContain("One safe item is picked up");
   });
 
   it("validates queue update inputs before mutating DB", () => {

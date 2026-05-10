@@ -81,16 +81,33 @@ test.describe("dashboard routes render", () => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "Home Today" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("link", { name: "Saved notes" }).click();
+    await page.getByRole("link", { name: "Keep Remember" }).click();
     await expect(page).toHaveURL(/\/memory$/);
   });
 
   test("refreshed queue UI exposes status filters and update controls", async ({ page }) => {
     await page.goto("/queue");
-    await expect(page.getByRole("heading", { name: "Feature Queue" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
+    await expect(page.locator(".nc-hero").getByText("Feature Queue")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "pending", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "in progress", exact: true })).toBeVisible();
     await expect(page.locator(".nc-hero")).toBeVisible();
+  });
+
+  test("mobile daily surfaces keep the main action reachable", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/chat");
+
+    await expect(page.getByRole("link", { name: "Today" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ask" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Review" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Remember" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Do" })).toHaveCount(0);
+    await expect(page.getByRole("textbox")).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(overflow).toBe(false);
   });
 
   test("blocks cross-origin destructive API posts", async ({ request }) => {

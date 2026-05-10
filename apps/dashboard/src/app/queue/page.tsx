@@ -4,7 +4,7 @@ import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
-const queueLifecycleText = "Saved -> Ready -> Running -> Done/Blocked";
+const queueLifecycleText = "Saved -> Ready -> Working -> Done/Blocked";
 
 async function loadQueue(status?: string) {
   const db = getDb();
@@ -73,9 +73,9 @@ export default async function QueuePage({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="nc-eyebrow">Home requests</div>
-            <h2 className="mt-2 text-3xl font-semibold">Feature Queue</h2>
+            <h2 className="mt-2 text-3xl font-semibold">Requests</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-              Requests captured from WhatsApp and the dashboard. Queue is a holding area, not an auto-deploy button. Use{" "}
+              Things you asked NitsyClaw to remember, prepare, or build. This is a safe holding area, not an auto-send or auto-deploy button. Use{" "}
               <code className="font-semibold text-[#d8b75d]">/addfeature your idea</code> to add one.
             </p>
           </div>
@@ -97,15 +97,15 @@ export default async function QueuePage({
       ) : null}
 
       <section className="nc-section">
-        <div className="nc-eyebrow">How queued work becomes real</div>
+        <div className="nc-eyebrow">How requests become real</div>
         <div className="mt-2 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-100">
           {queueLifecycleText}
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           {[
-            { step: "1. Saved", desc: "WhatsApp, Chat, Command, or /addfeature saves the request here." },
-            { step: "2. Ready", desc: "Ready means safe enough for a runner to claim." },
-            { step: "3. Running", desc: "Operator runner claims one safe item and marks it in progress." },
+            { step: "1. Saved", desc: "WhatsApp, Ask, Work desk, or /addfeature saves the request here." },
+            { step: "2. Ready", desc: "Ready means safe enough to start." },
+            { step: "3. Working", desc: "One safe item is picked up and marked in progress." },
             { step: "4. Done or blocked", desc: "Done or blocked means shipped with proof or waiting on a real blocker." },
           ].map(({ step, desc }) => (
             <div key={step} className="nc-tile">
@@ -135,7 +135,7 @@ export default async function QueuePage({
       <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/30">
         {rows.length === 0 ? (
           <div className="px-4 py-10">
-            <div className="nc-empty">No feature requests match this filter.</div>
+            <div className="nc-empty">No requests match this filter.</div>
           </div>
         ) : (
           rows.map((row) => (

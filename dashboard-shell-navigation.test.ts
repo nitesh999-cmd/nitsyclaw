@@ -11,12 +11,14 @@ describe("dashboard shell navigation", () => {
 
     expect(mobileSection).toContain('label: "Today"');
     expect(mobileSection).toContain('label: "Ask"');
-    expect(mobileSection).toContain('label: "Do"');
-    expect(mobileSection).toContain('label: "Remind"');
-    expect(mobileSection).toContain('label: "Saved"');
+    expect(mobileSection).toContain('label: "Review"');
+    expect(mobileSection).toContain('label: "Remember"');
+    expect(mobileSection).toContain('label: "Settings"');
+    expect(mobileSection).not.toContain('label: "Do"');
     expect(mobileSection).not.toContain('label: "Command"');
     expect(mobileSection).not.toContain('label: "Queue"');
     expect(source).toContain("nc-mobile-nav");
-    expect(source).toContain('label: "Do"');
+    expect(source).toContain('label: "Advanced"');
+    expect(source).toContain('label: "Requests"');
   });
 });
