@@ -119,7 +119,13 @@ export function parseLocationStatusShortcut(text: string): LocationStatusShortcu
 
 export function parseFeatureQueueShortcut(text: string): FeatureQueueShortcut | null {
   const trimmed = text.trim().toLowerCase();
+  if (!mentionsFeatureQueueStatus(trimmed)) return null;
   if (/\b(weather|forecast|rain|temperature)\b/.test(trimmed)) return null;
+  return { limit: 5 };
+}
+
+export function mentionsFeatureQueueStatus(text: string): boolean {
+  const trimmed = text.trim().toLowerCase();
   if (
     trimmed === "feature status" ||
     trimmed === "feature queue" ||
@@ -134,9 +140,9 @@ export function parseFeatureQueueShortcut(text: string): FeatureQueueShortcut | 
     /\b(features?|bugs?|items?)\s+(pending|queued|awaiting|left)\b/.test(trimmed) ||
     /\bwhat(?:'s| is)\s+(?:still\s+)?(?:pending|queued|left)\b/.test(trimmed)
   ) {
-    return { limit: 5 };
+    return true;
   }
-  return null;
+  return false;
 }
 
 export function parseBuildAgentShortcut(text: string): BuildAgentShortcut | null {

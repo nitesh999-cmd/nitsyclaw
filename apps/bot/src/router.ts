@@ -75,6 +75,7 @@ import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
+  mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
@@ -136,6 +137,15 @@ export class Router {
   private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
     logBotError("[router] handler failed", error, { label });
     await this.sendAndPersist(userMessage);
+  }
+
+  private async sendFeatureQueueStatus(limit: number): Promise<void> {
+    const [rows, completed] = await Promise.all([
+      listPendingFeatureRequests(this.deps.db),
+      listRecentFeatureRequestsByStatus(this.deps.db, "done", limit),
+    ]);
+    const summary = summarizeFeatureQueueStatus({ pending: rows, completed, limit });
+    await this.sendAndPersist(formatFeatureQueueStatusForWhatsApp(summary));
   }
 
   private formatLifeAdminIntakeReply(result: ReturnType<typeof analyzeLifeAdminIntake>): string {
@@ -759,12 +769,7 @@ export class Router {
     const featureQueue = parseFeatureQueueShortcut(effectiveText);
     if (featureQueue) {
       try {
-        const [rows, completed] = await Promise.all([
-          listPendingFeatureRequests(this.deps.db),
-          listRecentFeatureRequestsByStatus(this.deps.db, "done", featureQueue.limit),
-        ]);
-        const summary = summarizeFeatureQueueStatus({ pending: rows, completed, limit: featureQueue.limit });
-        await this.sendAndPersist(formatFeatureQueueStatusForWhatsApp(summary));
+        await this.sendFeatureQueueStatus(featureQueue.limit);
       } catch (queueError) {
         await this.sendPublicFailure("feature queue load", "Couldn't load the feature queue. I logged it; try again shortly.", queueError);
       }
@@ -864,6 +869,7 @@ export class Router {
     }
 
     // 4. Default — record the command first, then run the agent loop.
+    const shouldAppendFeatureQueueStatus = mentionsFeatureQueueStatus(effectiveText);
     const commandJob = await createCommandJob(this.deps.db, {
       source: "whatsapp",
       ownerHash: hashPhone(this.ownerPhone),
@@ -910,6 +916,14 @@ export class Router {
       } else if (result.finalText.trim()) {
         deliveredText = result.finalText;
         await this.sendAndPersist(result.finalText);
+      }
+      if (shouldAppendFeatureQueueStatus) {
+        try {
+          await this.sendFeatureQueueStatus(5);
+          deliveredText = [deliveredText.trim(), "Feature queue status sent."].filter(Boolean).join("\n\n");
+        } catch (queueError) {
+          await this.sendPublicFailure("feature queue load", "Couldn't load the feature queue. I logged it; try again shortly.", queueError);
+        }
       }
       await completeCommandJob(this.deps.db, commandJob.id, deliveredText.trim() || "Done.");
     } catch (e) {

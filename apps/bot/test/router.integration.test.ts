@@ -182,6 +182,49 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("appends live feature queue status when a normal question also asks what is pending", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "Weather answer from the model." }),
+    });
+    router = new Router(deps, OWNER);
+    const state = getFakeDbState(deps.db);
+    state.feature_requests.push(
+      {
+        id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+        description: "Read and send emails on behalf of the user via Gmail and Outlook",
+        type: "feature",
+        size: "M",
+        status: "pending",
+        source: "whatsapp",
+        createdAt: new Date("2026-04-28T17:00:00Z"),
+      },
+      {
+        id: "3010d991-9152-43ea-bec9-df3a8c6b4c72",
+        description: "Improve dashboard mobile navigation labels",
+        type: "feature",
+        size: "S",
+        status: "pending",
+        source: "dashboard",
+        createdAt: new Date("2026-04-28T18:00:00Z"),
+      },
+    );
+
+    await router.handle({
+      id: "x-weather-and-queue",
+      from: OWNER,
+      body: "how's the weather tomorrow and is there any pending features you're still about to add?",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Weather answer from the model."))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Feature queue: 2 pending"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Improve dashboard mobile navigation labels"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Claude Code"))).toBe(false);
+    expect(wa.sent.some((m) => m.body.includes("*nwp"))).toBe(false);
+  });
+
   it("answers weather location status directly", async () => {
     await router.handle({
       id: "x-location-status",
