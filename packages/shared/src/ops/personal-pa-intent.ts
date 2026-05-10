@@ -71,6 +71,11 @@ export function isRiskyPersonalPaAction(input: string): boolean {
   return RISKY_ACTION_RE.test(input);
 }
 
+export function canAgentClarifySafely(input: string): boolean {
+  const decision = analyzePersonalPaIntent(input);
+  return decision.kind === "needs_clarification" && decision.reason === "unclear_goal";
+}
+
 function actionable(): PersonalPaIntentDecision {
   return {
     kind: "actionable",

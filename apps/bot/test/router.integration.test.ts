@@ -373,6 +373,33 @@ describe("Router (integration)", () => {
     });
   });
 
+  it("lets terse safe WhatsApp follow-ups reach the agent instead of asking a generic outcome question", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      llm: fakeLlmWithToolCall("reply_to_user", {
+        text: "I checked the last thing and here is the next step.",
+      }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-terse-followup",
+      from: OWNER,
+      body: "it says",
+      timestamp: new Date("2026-05-09T02:05:00Z"),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-terse-followup",
+      status: "done",
+      riskLevel: "safe",
+    });
+    expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
+    expect(wa.sent.some((m) => m.body.includes("I checked the last thing"))).toBe(true);
+  });
+
   it("receipt image → expense logged + ack", async () => {
     deps = makeAgentDeps({ whatsapp: wa, imageAnalyzer: fakeImageAnalyzer });
     router = new Router(deps, OWNER);

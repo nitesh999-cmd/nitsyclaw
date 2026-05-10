@@ -68,6 +68,7 @@ import {
   markCommandJobWorking,
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
+import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
 import { encryptForStorage, hashPhone, maskPhone, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
@@ -877,7 +878,7 @@ export class Router {
       sourceMessageId: persisted.id,
       sourceExternalId: msg.id,
       dedupeKey: `whatsapp:${msg.id}`,
-      allowAgentClarification: effectiveTextFromVoice,
+      allowAgentClarification: effectiveTextFromVoice || canAgentClarifySafely(effectiveText),
     });
     await this.sendAndPersist(commandJob.receiptText);
     if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;
