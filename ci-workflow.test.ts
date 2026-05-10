@@ -51,8 +51,8 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("VERCEL_TOKEN");
     expect(workflow).toContain("VERCEL_ORG_ID");
     expect(workflow).toContain("VERCEL_PROJECT_ID");
-    expect(workflow).toContain('GITHUB_REF" = "refs/heads/main"');
-    expect(workflow).toContain("::error::Set VERCEL_TOKEN");
+    expect(workflow).toContain("::warning::Skipping Vercel packaging check");
+    expect(workflow).toContain("Production deploy proof must come from Vercel deployment status plus release:live-smoke");
     expect(workflow).toContain("configured=false");
     expect(workflow).toContain("steps.vercel-secrets.outputs.configured == 'true'");
     expect(workflow).toContain("pnpm exec vercel build --yes --token");
