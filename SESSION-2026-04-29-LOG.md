@@ -295,6 +295,14 @@ Sleep well.
 - Fixed the matching Playwright e2e expectation after the safer button wording change.
 - Verification passed: `pnpm test:e2e`.
 
+## 2026-05-11 WhatsApp capability and local status commands
+
+- Added a deterministic `status` WhatsApp command with clear `Ready now`, `Pending`, `Needs setup`, and `Recently shipped` sections.
+- Added local-only WhatsApp status commands for `local status`, `files`, `reminders`, `expense summary`, and `summary commands`.
+- Document uploads now store safe file metadata so WhatsApp can show recent local document uploads without needing Drive/OneDrive access.
+- Added DB helpers for upcoming reminder and local expense summaries.
+- Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts`.
+
 
 - Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
 - The reply now states the exact weather/default location source.

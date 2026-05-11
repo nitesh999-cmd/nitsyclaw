@@ -19,6 +19,16 @@ export interface HelpShortcut {
   kind: "help";
 }
 
+export interface CapabilityStatusShortcut {
+  kind: "capability-status";
+}
+
+export type LocalStatusShortcutKind = "all" | "files" | "reminders" | "expenses" | "summaries";
+
+export interface LocalStatusShortcut {
+  kind: LocalStatusShortcutKind;
+}
+
 export interface RepeatLastMessageShortcut {
   preferVoice: boolean;
 }
@@ -183,6 +193,69 @@ export function parseHelpShortcut(text: string): HelpShortcut | null {
     trimmed === "show me what works"
   ) {
     return { kind: "help" };
+  }
+  return null;
+}
+
+export function parseCapabilityStatusShortcut(text: string): CapabilityStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "status" ||
+    trimmed === "nitsyclaw status" ||
+    trimmed === "feature matrix" ||
+    trimmed === "ready features" ||
+    trimmed === "what is ready" ||
+    trimmed === "what's ready" ||
+    trimmed === "what is ready and pending" ||
+    trimmed === "pending items" ||
+    trimmed === "pending features" ||
+    trimmed === "needs setup" ||
+    trimmed === "what needs setup" ||
+    trimmed === "ready pending setup" ||
+    trimmed === "show ready pending setup"
+  ) {
+    return { kind: "capability-status" };
+  }
+  return null;
+}
+
+export function parseLocalStatusShortcut(text: string): LocalStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (trimmed === "local status" || trimmed === "local features" || trimmed === "safe local features") {
+    return { kind: "all" };
+  }
+  if (
+    trimmed === "file status" ||
+    trimmed === "files" ||
+    trimmed === "documents" ||
+    trimmed === "document status" ||
+    trimmed === "what files can you read"
+  ) {
+    return { kind: "files" };
+  }
+  if (
+    trimmed === "reminders" ||
+    trimmed === "reminder status" ||
+    trimmed === "pending reminders" ||
+    trimmed === "what reminders do i have"
+  ) {
+    return { kind: "reminders" };
+  }
+  if (
+    trimmed === "expenses" ||
+    trimmed === "expense summary" ||
+    trimmed === "spending summary" ||
+    trimmed === "this month spending"
+  ) {
+    return { kind: "expenses" };
+  }
+  if (
+    trimmed === "summaries" ||
+    trimmed === "summary commands" ||
+    trimmed === "what can you summarize" ||
+    trimmed === "what can you summarise"
+  ) {
+    return { kind: "summaries" };
   }
   return null;
 }

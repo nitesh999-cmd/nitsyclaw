@@ -38,6 +38,14 @@ export async function updateMessageTranscript(db: DB, id: string, transcript: st
   await db.update(messages).set({ transcript }).where(eq(messages.id, id));
 }
 
+export async function updateMessageMetadata(
+  db: DB,
+  id: string,
+  metadata: Record<string, unknown>,
+) {
+  await db.update(messages).set({ metadata }).where(eq(messages.id, id));
+}
+
 /** Delete messages created before `cutoff`. Returns count of deleted rows (best-effort). */
 export async function pruneOldMessages(db: DB, cutoff: Date): Promise<number> {
   const result = await db.delete(messages).where(lt(messages.createdAt, cutoff));
@@ -89,6 +97,24 @@ export async function dueReminders(db: DB, now: Date): Promise<Reminder[]> {
     .where(and(eq(reminders.status, "pending"), lte(reminders.fireAt, now)));
 }
 
+export async function listPendingReminders(
+  db: DB,
+  now: Date,
+  limit = 5,
+): Promise<Reminder[]> {
+  const rows = await db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.status, "pending"))
+    .orderBy(asc(reminders.fireAt))
+    .limit(100);
+
+  return rows
+    .filter((row) => row.fireAt >= now)
+    .sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime())
+    .slice(0, limit);
+}
+
 export async function markReminderFired(db: DB, id: string) {
   await db.update(reminders).set({ status: "fired" }).where(eq(reminders.id, id));
 }
@@ -103,6 +129,21 @@ export async function expensesBetween(db: DB, from: Date, to: Date) {
     .select()
     .from(expenses)
     .where(and(gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)));
+}
+
+export async function recentExpensesBetween(
+  db: DB,
+  from: Date,
+  to: Date,
+  limit = 200,
+) {
+  const rows = await db
+    .select()
+    .from(expenses)
+    .orderBy(desc(expenses.occurredAt))
+    .limit(limit);
+
+  return rows.filter((row) => row.occurredAt >= from && row.occurredAt <= to);
 }
 
 export async function upsertBrief(db: DB, forDate: string, body: string) {

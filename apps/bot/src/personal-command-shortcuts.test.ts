@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
+  parseCapabilityStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parseHomeAssistantShortcut,
+  parseLocalStatusShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
 } from "./personal-command-shortcuts.js";
@@ -61,6 +63,22 @@ describe("personal command shortcuts", () => {
     expect(parseHelpShortcut("commands")).toEqual({ kind: "help" });
     expect(parseHelpShortcut("how do I use this?")).toEqual({ kind: "help" });
     expect(parseHelpShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects ready/pending/setup status requests", () => {
+    expect(parseCapabilityStatusShortcut("status")).toEqual({ kind: "capability-status" });
+    expect(parseCapabilityStatusShortcut("pending items")).toEqual({ kind: "capability-status" });
+    expect(parseCapabilityStatusShortcut("what needs setup?")).toEqual({ kind: "capability-status" });
+    expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects safe local status shortcuts", () => {
+    expect(parseLocalStatusShortcut("local status")).toEqual({ kind: "all" });
+    expect(parseLocalStatusShortcut("files")).toEqual({ kind: "files" });
+    expect(parseLocalStatusShortcut("pending reminders")).toEqual({ kind: "reminders" });
+    expect(parseLocalStatusShortcut("expense summary")).toEqual({ kind: "expenses" });
+    expect(parseLocalStatusShortcut("summary commands")).toEqual({ kind: "summaries" });
+    expect(parseLocalStatusShortcut("email status")).toBeNull();
   });
 
   it("does not parse normal build words as build agent triggers", () => {

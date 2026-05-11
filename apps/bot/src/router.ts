@@ -60,8 +60,12 @@ import {
   getLatestPendingConfirmation,
   insertMessage,
   insertFeatureRequest,
+  listPendingReminders,
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
+  recentExpensesBetween,
+  recentMessages,
+  updateMessageMetadata,
 } from "@nitsyclaw/shared/db";
 import {
   completeCommandJob,
@@ -76,10 +80,12 @@ import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
+  parseCapabilityStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
+  parseLocalStatusShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
   parseRepeatLastMessageShortcut,
@@ -151,6 +157,126 @@ export class Router {
     await this.sendAndPersist(formatFeatureQueueStatusForWhatsApp(summary));
   }
 
+  private async sendCapabilityStatus(limit: number): Promise<void> {
+    const [rows, completed] = await Promise.all([
+      listPendingFeatureRequests(this.deps.db),
+      listRecentFeatureRequestsByStatus(this.deps.db, "done", limit),
+    ]);
+    const summary = summarizeFeatureQueueStatus({ pending: rows, completed, limit });
+    const localNext = summary.quickWins.length
+      ? summary.quickWins.slice(0, 4).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
+      : "- No small local queue item found. Use local status for commands that already work.";
+    const setupNext = summary.setupHeavy.length
+      ? summary.setupHeavy.slice(0, 5).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
+      : "- None found in the current pending queue.";
+    const shipped = summary.recentCompleted.length
+      ? summary.recentCompleted.slice(0, 4).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
+      : "- No recent completed rows found.";
+
+    await this.sendAndPersist([
+      "NitsyClaw status",
+      "",
+      "Ready now:",
+      "- Voice notes, normal questions, reminders, memory/search, documents, receipts, CSV expense import, message checks, call scripts, lists, and local summaries.",
+      "",
+      `Pending: ${summary.pendingCount} item(s).`,
+      "Best local/code-only next:",
+      localNext,
+      "",
+      "Needs setup before real action:",
+      setupNext,
+      "",
+      "Recently shipped:",
+      shipped,
+      "",
+      "Useful commands: local status, files, reminders, expense summary, summary commands, feature queue.",
+    ].join("\n"));
+  }
+
+  private async formatLocalStatusReply(
+    kind: NonNullable<ReturnType<typeof parseLocalStatusShortcut>>["kind"],
+    userPhone: string,
+  ): Promise<string> {
+    const sections: string[] = [];
+    if (kind === "all" || kind === "files") sections.push(await this.formatFilesStatus(userPhone));
+    if (kind === "all" || kind === "reminders") sections.push(await this.formatRemindersStatus());
+    if (kind === "all" || kind === "expenses") sections.push(await this.formatExpenseStatus());
+    if (kind === "all" || kind === "summaries") sections.push(this.formatSummaryStatus());
+    return sections.join("\n\n");
+  }
+
+  private async formatFilesStatus(userPhone: string): Promise<string> {
+    const rows = await recentMessages(this.deps.db, hashPhone(userPhone), 80);
+    const documents = rows.filter((row) => row.mediaType === "document").slice(0, 5);
+    const recent = documents.length
+      ? documents.map((row, index) => {
+          const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+          const filename = typeof metadata.filename === "string" ? metadata.filename : "document";
+          const mimetype = typeof metadata.mimetype === "string" ? metadata.mimetype : "unknown type";
+          return `${index + 1}. ${filename} (${mimetype})`;
+        }).join("\n")
+      : "No recent document uploads found in local history.";
+    return [
+      "Files/documents",
+      "Ready now: upload text, CSV, JSON, Markdown, HTML, or selectable PDF files. I can summarize and extract key bill/admin details.",
+      "Still needs setup: Drive/OneDrive browsing requires provider OAuth and a file picker.",
+      `Recent local uploads:\n${recent}`,
+    ].join("\n");
+  }
+
+  private async formatRemindersStatus(): Promise<string> {
+    const rows = await listPendingReminders(this.deps.db, this.deps.now(), 5);
+    const reminders = rows.length
+      ? rows.map((row, index) => `${index + 1}. ${row.text} - ${row.fireAt.toISOString().slice(0, 16).replace("T", " ")}`).join("\n")
+      : "No upcoming pending reminders found.";
+    return [
+      "Reminders",
+      `Next reminders:\n${reminders}`,
+      "Try: remind me to call dentist tomorrow 9am",
+    ].join("\n");
+  }
+
+  private async formatExpenseStatus(): Promise<string> {
+    const now = this.deps.now();
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    if (rows.length === 0) {
+      return [
+        "Expenses",
+        "No expenses found for this month.",
+        "Try: upload a bank CSV, send a receipt photo, or say spent $18.75 on Uber.",
+      ].join("\n");
+    }
+    const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
+    const currency = rows[0]?.currency ?? "AUD";
+    const byCategory = new Map<string, number>();
+    for (const row of rows) byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
+    const categories = [...byCategory.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([category, cents]) => `- ${category}: ${currency} ${(cents / 100).toFixed(2)}`)
+      .join("\n");
+    return [
+      "Expenses",
+      `This month: ${currency} ${(totalCents / 100).toFixed(2)} across ${rows.length} expense(s).`,
+      `Top categories:\n${categories}`,
+      "Safe mode: this uses local logged expenses only, not live bank feeds.",
+    ].join("\n");
+  }
+
+  private formatSummaryStatus(): string {
+    return [
+      "Summaries",
+      "Ready now:",
+      "- bill summary: paste bill text",
+      "- tidy note: paste messy notes",
+      "- next steps: paste a messy plan",
+      "- check before send: paste message",
+      "- upload a selectable PDF/text document",
+      "Still needs setup: OCR for scanned PDFs/photos and Drive/OneDrive browsing.",
+    ].join("\n");
+  }
+
   private formatLifeAdminIntakeReply(result: ReturnType<typeof analyzeLifeAdminIntake>): string {
     const facts = result.keyFacts.slice(0, 4).map((fact) => `- ${fact.label}: ${fact.value}`);
     const action = result.suggestedActions[0];
@@ -190,6 +316,8 @@ export class Router {
       "- Real email sending, Drive/Photos search, phone/SMS sending, bank feeds, Facebook birthdays, and full Spotify changes need account/provider access first.",
       "",
       "Try:",
+      "- status",
+      "- local status",
       "- feature queue",
       "- build status",
       "- bill summary: paste bill text",
@@ -652,6 +780,14 @@ export class Router {
     if (msg.mediaType === "document") {
       try {
         const media = msg.downloadMedia ? await msg.downloadMedia() : undefined;
+        if (media) {
+          await updateMessageMetadata(this.deps.db, persisted.id, {
+            masked: maskPhone(msg.from),
+            filename: media.filename,
+            mimetype: media.mimetype,
+            byteLength: media.data.byteLength,
+          });
+        }
         const extracted = media
           ? await extractDocumentTextFromMedia({
               data: media.data,
@@ -800,6 +936,26 @@ export class Router {
     const helpShortcut = parseHelpShortcut(effectiveText);
     if (helpShortcut) {
       await this.sendAndPersist(this.formatHelpReply());
+      return;
+    }
+
+    const capabilityStatus = parseCapabilityStatusShortcut(effectiveText);
+    if (capabilityStatus) {
+      try {
+        await this.sendCapabilityStatus(5);
+      } catch (statusError) {
+        await this.sendPublicFailure("capability status", "Couldn't load the current status. I logged it; try again shortly.", statusError);
+      }
+      return;
+    }
+
+    const localStatus = parseLocalStatusShortcut(effectiveText);
+    if (localStatus) {
+      try {
+        await this.sendAndPersist(await this.formatLocalStatusReply(localStatus.kind, msg.from));
+      } catch (localStatusError) {
+        await this.sendPublicFailure("local status", "Couldn't load local status. I logged it; try again shortly.", localStatusError);
+      }
       return;
     }
 
