@@ -27,6 +27,7 @@ import {
   extractBillSummary,
   extractActionItemsFromText,
   extractDocumentTextFromMedia,
+  importExpensesFromCsv,
   extractRenewalWatch,
   planHomeMaintenance,
   planAppointmentPrep,
@@ -159,6 +160,19 @@ export class Router {
       result.warnings[0],
     ].filter((line): line is string => Boolean(line));
     return lines.join("\n");
+  }
+
+  private formatCsvExpenseImportReply(result: Awaited<ReturnType<typeof importExpensesFromCsv>>): string {
+    const total = (result.totalAmountCents / 100).toFixed(2);
+    const skipped = result.skipped.length
+      ? `Skipped ${result.skipped.length} non-expense row${result.skipped.length === 1 ? "" : "s"}.`
+      : "Skipped 0 rows.";
+    return [
+      `Imported ${result.importedCount} expense${result.importedCount === 1 ? "" : "s"} from CSV.`,
+      `Total: ${result.currency} ${total}.`,
+      skipped,
+      "No bank connection was used.",
+    ].join("\n");
   }
 
   private formatHomeAssistantReply(shortcut: NonNullable<ReturnType<typeof parseHomeAssistantShortcut>>): string {
@@ -624,6 +638,20 @@ export class Router {
           : undefined;
         const extractedWarning = extracted && !extracted.supported ? extracted.reason : undefined;
         const documentText = [effectiveText, extracted?.text].filter((part) => part?.trim()).join("\n\n");
+        if (media && extracted?.supported && isCsvUpload(media.filename, media.mimetype)) {
+          const rawCsv = Buffer.from(media.data).toString("utf8").replace(/^\uFEFF/, "");
+          const imported = await importExpensesFromCsv({
+            csv: rawCsv,
+            db: this.deps.db,
+            now: this.deps.now(),
+            defaultCurrency: process.env.DEFAULT_CURRENCY ?? "AUD",
+            sourceMessageId: persisted.id,
+          });
+          if (imported.importedCount > 0) {
+            await this.sendAndPersist(this.formatCsvExpenseImportReply(imported));
+            return;
+          }
+        }
         const result = analyzeLifeAdminIntake({
           text: documentText,
           mediaType: "document",
@@ -968,6 +996,14 @@ function confirmationActionLabel(action: string): string {
     default:
       return "Pending actions";
   }
+}
+
+function isCsvUpload(filename?: string, mimetype?: string): boolean {
+  const type = mimetype?.split(";")[0]?.trim().toLowerCase();
+  return type === "text/csv" ||
+    type === "application/csv" ||
+    type === "application/vnd.ms-excel" ||
+    /\.csv$/i.test(filename ?? "");
 }
 
 function extractReadableLastMessage(content: string): string {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   categorizeExpense,
+  importExpensesFromCsv,
+  parseExpenseCsv,
   processReceiptImage,
   registerReceiptExpense,
 } from "../src/features/10-receipt-expense.js";
@@ -82,5 +84,60 @@ describe("log_expense_text tool", () => {
         { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("CSV expense import", () => {
+  it("parses debit-style bank CSV rows into expense candidates", () => {
+    const csv = [
+      "Date,Description,Debit,Credit",
+      "2026-05-01,Coles Point Cook,42.30,",
+      "2026-05-02,Salary,,1200.00",
+      "2026-05-03,Netflix,22.99,",
+    ].join("\n");
+
+    const result = parseExpenseCsv({ csv, now: new Date("2026-05-10T00:00:00Z"), defaultCurrency: "AUD" });
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]).toMatchObject({
+      amountCents: 4230,
+      currency: "AUD",
+      merchant: "Coles Point Cook",
+    });
+    expect(result.items[1]).toMatchObject({
+      amountCents: 2299,
+      category: "entertainment",
+      merchant: "Netflix",
+    });
+    expect(result.skipped).toEqual(expect.arrayContaining([
+      expect.objectContaining({ reason: "credit_or_income" }),
+    ]));
+  });
+
+  it("imports CSV expenses without needing a bank connection", async () => {
+    const { db, state } = makeFakeDb();
+    const csv = [
+      "Transaction Date,Details,Amount",
+      "09/05/2026,Uber Trip,-18.75",
+      "10/05/2026,Chemist Warehouse,-31.20",
+    ].join("\n");
+
+    const result = await importExpensesFromCsv({
+      csv,
+      db,
+      now: new Date("2026-05-10T00:00:00Z"),
+      defaultCurrency: "AUD",
+    });
+
+    expect(result.importedCount).toBe(2);
+    expect(result.totalAmountCents).toBe(4995);
+    expect(result.currency).toBe("AUD");
+    expect(state.expenses).toHaveLength(2);
+    expect(state.expenses[0]).toMatchObject({
+      amount: 1875,
+      currency: "AUD",
+      category: "transport",
+      merchant: "Uber Trip",
+    });
   });
 });

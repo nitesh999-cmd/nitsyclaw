@@ -274,6 +274,15 @@ Sleep well.
 
 ## 2026-05-09 Location/memory quality control
 
+## 2026-05-11 CSV-first expense import
+
+- Built the safe bank-feed stepping stone that does not need bank credentials.
+- Added CSV expense parsing/import for common bank/card exports.
+- WhatsApp `.csv` document uploads now import expense rows and skip income/credit rows.
+- Added regression coverage for parser/import behaviour, WhatsApp CSV document intake, and feature registry exposure.
+- Focused verification passed: `pnpm exec vitest run packages/shared/test/10-receipt-expense.test.ts apps/bot/test/router.integration.test.ts packages/shared/test/feature-registry-queued.test.ts`.
+
+
 - Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
 - The reply now states the exact weather/default location source.
 - Expired travel locations are reported as ignored instead of silently influencing later weather answers.

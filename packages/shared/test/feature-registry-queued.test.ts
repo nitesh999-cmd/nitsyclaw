@@ -20,6 +20,7 @@ describe("queued feature registry", () => {
     expect(names).toContain("prepare_sms_draft");
     expect(names).toContain("queue_phone_call_request");
     expect(names).toContain("queue_bank_csv_import_request");
+    expect(names).toContain("import_expenses_csv");
     expect(names).toContain("queue_birthday_import_request");
     expect(names).toContain("queue_social_video_analysis_request");
 

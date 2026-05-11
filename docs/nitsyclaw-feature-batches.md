@@ -104,3 +104,27 @@ Still not live-provider complete:
 - Phone/SMS needs a provider or companion app.
 - Bank feeds need CSV import first, then compliant provider evaluation.
 - Fuel prices need a reliable regional live data source.
+
+## Batch 4 - CSV-first expense import
+
+Implemented across:
+
+- `packages/shared/src/features/10-receipt-expense.ts`
+- `apps/bot/src/router.ts`
+
+What changed:
+
+1. Added `import_expenses_csv` so CSV bank/card exports can log expense rows without connecting to a bank.
+2. Added CSV parsing for common bank columns: date, description/details, debit, credit, amount, and currency.
+3. Skips income/credit rows instead of logging them as expenses.
+4. WhatsApp document uploads now detect `.csv` / `text/csv` files and import expense rows before generic document analysis.
+5. Reply stays honest: it says how many expenses were imported and how many non-expense rows were skipped.
+
+Verification:
+
+- `pnpm exec vitest run packages/shared/test/10-receipt-expense.test.ts apps/bot/test/router.integration.test.ts packages/shared/test/feature-registry-queued.test.ts`
+
+Still not live-provider complete:
+
+- Live bank feeds still need a compliant provider decision and account consent.
+- CSV import currently supports common export shapes, not every bank-specific format.

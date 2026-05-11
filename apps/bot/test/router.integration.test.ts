@@ -480,6 +480,32 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Next: Compare this bill.");
   });
 
+  it("CSV document upload imports expense rows before generic document analysis", async () => {
+    await router.handle({
+      id: "x-expense-csv",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-05-10T00:00:00Z"),
+      hasMedia: true,
+      mediaType: "document",
+      downloadMedia: async () => ({
+        data: Buffer.from("Date,Description,Debit,Credit\n2026-05-09,Uber Trip,18.75,\n2026-05-10,Salary,,1200.00"),
+        mimetype: "text/csv",
+        filename: "bank-export.csv",
+      }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.expenses).toHaveLength(1);
+    expect(state.expenses[0]).toMatchObject({
+      amount: 1875,
+      category: "transport",
+      merchant: "Uber Trip",
+    });
+    expect(wa.sent[0].body).toContain("Imported 1 expense");
+    expect(wa.sent[0].body).toContain("Skipped 1 non-expense row");
+  });
+
   it("'yes' reply with no pending falls through to the agent", async () => {
     await router.handle({
       id: "x",
