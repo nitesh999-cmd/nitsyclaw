@@ -292,6 +292,8 @@ Sleep well.
 
 - Updated the command page labels so "Top 20" and "Next 50" buttons clearly read as save-only actions.
 - Added copy that says saved build work does not run code, send messages, or deploy.
+- Fixed the matching Playwright e2e expectation after the safer button wording change.
+- Verification passed: `pnpm test:e2e`.
 
 
 - Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
