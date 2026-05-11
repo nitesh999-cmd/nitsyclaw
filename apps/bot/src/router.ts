@@ -77,6 +77,7 @@ import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
+  parseHelpShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
   parseLocationStatusShortcut,
@@ -172,6 +173,28 @@ export class Router {
       `Total: ${result.currency} ${total}.`,
       skipped,
       "No bank connection was used.",
+    ].join("\n");
+  }
+
+  private formatHelpReply(): string {
+    return [
+      "Working now:",
+      "- Ask normal questions and send voice notes.",
+      "- Remember things, search chat history, and manage reminders.",
+      "- Summarise bills, selectable PDFs, notes, receipts, and documents.",
+      "- Log receipt photos, text expenses, and CSV expense import files.",
+      "- Prepare replies, call scripts, complaints, lists, packing plans, shopping lists, and decision notes.",
+      "- Show feature queue status and save new feature or bug requests.",
+      "",
+      "Needs setup:",
+      "- Real email sending, Drive/Photos search, phone/SMS sending, bank feeds, Facebook birthdays, and full Spotify changes need account/provider access first.",
+      "",
+      "Try:",
+      "- feature queue",
+      "- build status",
+      "- bill summary: paste bill text",
+      "- check before send: paste message",
+      "- upload a CSV expense file",
     ].join("\n");
   }
 
@@ -771,6 +794,12 @@ export class Router {
     const repeatLastMessage = parseRepeatLastMessageShortcut(effectiveText);
     if (repeatLastMessage) {
       await this.sendAndPersist(this.formatRepeatLastMessageReply(history, repeatLastMessage, effectiveText));
+      return;
+    }
+
+    const helpShortcut = parseHelpShortcut(effectiveText);
+    if (helpShortcut) {
+      await this.sendAndPersist(this.formatHelpReply());
       return;
     }
 

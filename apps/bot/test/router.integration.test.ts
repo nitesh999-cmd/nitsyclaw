@@ -239,6 +239,21 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers what can you do with a deterministic working-feature list", async () => {
+    await router.handle({
+      id: "x-help-status",
+      from: OWNER,
+      body: "what can you do?",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Working now");
+    expect(wa.sent[0].body).toContain("CSV expense import");
+    expect(wa.sent[0].body).toContain("Needs setup");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("ignores duplicate WhatsApp events with the same message id", async () => {
     const inbound = {
       id: "x-duplicate",

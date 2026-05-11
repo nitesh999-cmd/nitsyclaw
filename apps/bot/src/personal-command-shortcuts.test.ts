@@ -3,6 +3,7 @@ import {
   parseBuildAgentShortcut,
   parseBugReportShortcut,
   parseFeatureQueueShortcut,
+  parseHelpShortcut,
   parseHomeAssistantShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
@@ -53,6 +54,13 @@ describe("personal command shortcuts", () => {
     expect(parseBuildAgentShortcut("trigger build agent")).toEqual({ dryRun: false });
     expect(parseBuildAgentShortcut("process feature queue")).toEqual({ dryRun: false });
     expect(parseBuildAgentShortcut("build status")).toEqual({ dryRun: true });
+  });
+
+  it("detects help and capability status requests", () => {
+    expect(parseHelpShortcut("what can you do")).toEqual({ kind: "help" });
+    expect(parseHelpShortcut("commands")).toEqual({ kind: "help" });
+    expect(parseHelpShortcut("how do I use this?")).toEqual({ kind: "help" });
+    expect(parseHelpShortcut("weather tomorrow")).toBeNull();
   });
 
   it("does not parse normal build words as build agent triggers", () => {

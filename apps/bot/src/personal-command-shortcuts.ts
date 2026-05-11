@@ -15,6 +15,10 @@ export interface BuildAgentShortcut {
   dryRun: boolean;
 }
 
+export interface HelpShortcut {
+  kind: "help";
+}
+
 export interface RepeatLastMessageShortcut {
   preferVoice: boolean;
 }
@@ -163,6 +167,22 @@ export function parseBuildAgentShortcut(text: string): BuildAgentShortcut | null
     trimmed === "preview build queue"
   ) {
     return { dryRun: true };
+  }
+  return null;
+}
+
+export function parseHelpShortcut(text: string): HelpShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "help" ||
+    trimmed === "commands" ||
+    trimmed === "what can you do" ||
+    trimmed === "what works" ||
+    trimmed === "what can nitsyclaw do" ||
+    trimmed === "how do i use this" ||
+    trimmed === "show me what works"
+  ) {
+    return { kind: "help" };
   }
   return null;
 }

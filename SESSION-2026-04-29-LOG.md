@@ -282,6 +282,12 @@ Sleep well.
 - Added regression coverage for parser/import behaviour, WhatsApp CSV document intake, and feature registry exposure.
 - Focused verification passed: `pnpm exec vitest run packages/shared/test/10-receipt-expense.test.ts apps/bot/test/router.integration.test.ts packages/shared/test/feature-registry-queued.test.ts`.
 
+## 2026-05-11 WhatsApp working-feature help
+
+- Added deterministic WhatsApp handling for "help", "commands", and "what can you do".
+- The reply lists what works now and what still needs account/provider setup, without relying on stale model memory.
+- Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts --testNamePattern "help|what can you do"`.
+
 
 - Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
 - The reply now states the exact weather/default location source.
