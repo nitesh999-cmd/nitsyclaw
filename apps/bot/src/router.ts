@@ -82,6 +82,7 @@ import {
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCapabilityStatusShortcut,
+  parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   mentionsFeatureQueueStatus,
@@ -204,6 +205,73 @@ export class Router {
     if (kind === "all" || kind === "expenses") sections.push(await this.formatExpenseStatus());
     if (kind === "all" || kind === "summaries") sections.push(this.formatSummaryStatus());
     return sections.join("\n\n");
+  }
+
+  private async formatDailyStatusReply(userPhone: string): Promise<string> {
+    const now = this.deps.now();
+    const date = now.toLocaleDateString("en-AU", {
+      timeZone: this.deps.timezone,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    const [reminders, documents, expenses, pendingQueue] = await Promise.all([
+      listPendingReminders(this.deps.db, now, 3),
+      this.getRecentDocumentLines(userPhone, 3),
+      this.getMonthlyExpenseSnapshot(),
+      listPendingFeatureRequests(this.deps.db),
+    ]);
+    const reminderLines = reminders.length
+      ? reminders.map((row) => `- ${row.text} (${row.fireAt.toISOString().slice(0, 16).replace("T", " ")})`).join("\n")
+      : "- No pending reminders found.";
+    const queueSummary = summarizeFeatureQueueStatus({ pending: pendingQueue, limit: 3 });
+    const nextQueue = queueSummary.recommendedNext ?? queueSummary.quickWins[0] ?? queueSummary.topPending[0];
+    return [
+      `Daily status - ${date}`,
+      "",
+      "Reminders",
+      reminderLines,
+      "",
+      "Expenses",
+      expenses,
+      "",
+      "Files",
+      documents,
+      "",
+      "Queue",
+      `- ${queueSummary.pendingCount} pending item(s).`,
+      nextQueue ? `- Best local next: ${nextQueue.shortId}: ${nextQueue.description}` : "- No pending queue rows found.",
+      "",
+      "No external accounts used. This is from local NitsyClaw history only.",
+    ].join("\n");
+  }
+
+  private async getRecentDocumentLines(userPhone: string, limit: number): Promise<string> {
+    const rows = await recentMessages(this.deps.db, hashPhone(userPhone), 80);
+    const documents = rows.filter((row) => row.mediaType === "document").slice(0, limit);
+    if (!documents.length) return "- No recent local document uploads found.";
+    return documents.map((row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+      const filename = typeof metadata.filename === "string" ? metadata.filename : "document";
+      return `- ${filename}`;
+    }).join("\n");
+  }
+
+  private async getMonthlyExpenseSnapshot(): Promise<string> {
+    const now = this.deps.now();
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    if (!rows.length) return "- No expenses logged this month.";
+    const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
+    const currency = rows[0]?.currency ?? "AUD";
+    const byCategory = new Map<string, number>();
+    for (const row of rows) byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
+    const topCategories = [...byCategory.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([category, cents]) => `- ${category}: ${currency} ${(cents / 100).toFixed(2)}`)
+      .join("\n");
+    return [`- This month: ${currency} ${(totalCents / 100).toFixed(2)} across ${rows.length} expense(s).`, topCategories].join("\n");
   }
 
   private async formatFilesStatus(userPhone: string): Promise<string> {
@@ -978,6 +1046,16 @@ export class Router {
     const autonomousWork = parseAutonomousWorkShortcut(effectiveText);
     if (autonomousWork) {
       await this.sendAndPersist(this.formatAutonomousWorkReply());
+      return;
+    }
+
+    const dailyStatus = parseDailyStatusShortcut(effectiveText);
+    if (dailyStatus) {
+      try {
+        await this.sendAndPersist(await this.formatDailyStatusReply(msg.from));
+      } catch (dailyStatusError) {
+        await this.sendPublicFailure("daily status", "Couldn't load daily status. I logged it; try again shortly.", dailyStatusError);
+      }
       return;
     }
 

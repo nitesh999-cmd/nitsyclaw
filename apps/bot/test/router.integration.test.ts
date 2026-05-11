@@ -358,6 +358,70 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers daily status from local state without the model loop", async () => {
+    await router.handle({
+      id: "x-doc-before-daily-status",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-04-24T08:00:00Z"),
+      hasMedia: true,
+      mediaType: "document",
+      downloadMedia: async () => ({
+        data: Buffer.from("AGL Energy electricity bill\nAmount due $19.50\nDue date 18 May 2026"),
+        mimetype: "text/plain",
+        filename: "agl-bill.txt",
+      }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    state.reminders.push({
+      id: "reminder-1",
+      text: "call dentist",
+      fireAt: new Date("2026-04-26T09:00:00Z"),
+      rrule: null,
+      status: "pending",
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+    });
+    state.expenses.push({
+      id: "expense-1",
+      amount: 1875,
+      currency: "AUD",
+      category: "transport",
+      merchant: "Uber Trip",
+      occurredAt: new Date("2026-04-25T07:00:00Z"),
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+    });
+    state.feature_requests.push({
+      id: "3010d991-9152-43ea-bec9-df3a8c6b4c72",
+      description: "Improve dashboard mobile navigation labels",
+      type: "feature",
+      size: "S",
+      status: "pending",
+      source: "dashboard",
+      createdAt: new Date("2026-04-28T18:00:00Z"),
+    });
+    wa.sent = [];
+
+    await router.handle({
+      id: "x-daily-status",
+      from: OWNER,
+      body: "daily status",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Daily status");
+    expect(wa.sent[0].body).toContain("Reminders");
+    expect(wa.sent[0].body).toContain("call dentist");
+    expect(wa.sent[0].body).toContain("Expenses");
+    expect(wa.sent[0].body).toContain("AUD 18.75");
+    expect(wa.sent[0].body).toContain("Files");
+    expect(wa.sent[0].body).toContain("agl-bill.txt");
+    expect(wa.sent[0].body).toContain("Queue");
+    expect(wa.sent[0].body).toContain("No external accounts used");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers what can run without Nitesh before the model loop", async () => {
     await router.handle({
       id: "x-autonomous-work",

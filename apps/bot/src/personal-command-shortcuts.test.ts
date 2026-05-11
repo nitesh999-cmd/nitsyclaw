@@ -4,6 +4,7 @@ import {
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCapabilityStatusShortcut,
+  parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parseHomeAssistantShortcut,
@@ -80,6 +81,13 @@ describe("personal command shortcuts", () => {
     expect(parseLocalStatusShortcut("expense summary")).toEqual({ kind: "expenses" });
     expect(parseLocalStatusShortcut("summary commands")).toEqual({ kind: "summaries" });
     expect(parseLocalStatusShortcut("email status")).toBeNull();
+  });
+
+  it("detects daily status shortcuts", () => {
+    expect(parseDailyStatusShortcut("daily status")).toEqual({ kind: "daily-status" });
+    expect(parseDailyStatusShortcut("today summary")).toEqual({ kind: "daily-status" });
+    expect(parseDailyStatusShortcut("morning brief")).toEqual({ kind: "daily-status" });
+    expect(parseDailyStatusShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects autonomous safe-work questions", () => {

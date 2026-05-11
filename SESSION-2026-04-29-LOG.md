@@ -301,7 +301,7 @@ Sleep well.
 - Added local-only WhatsApp status commands for `local status`, `files`, `reminders`, `expense summary`, and `summary commands`.
 - Document uploads now store safe file metadata so WhatsApp can show recent local document uploads without needing Drive/OneDrive access.
 - Added DB helpers for upcoming reminder and local expense summaries.
-- Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts`.
+- Verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts`, `pnpm lint`, `pnpm typecheck`, `pnpm audit --audit-level=moderate`, `pnpm test`, `pnpm build`, `pnpm test:e2e`.
 
 ## 2026-05-11 WhatsApp autonomous-work boundary
 
@@ -330,3 +330,10 @@ Sleep well.
 - Changed command jobs so voice transcripts can pass to the agent when they are safe-but-unclear, while still approval-gating risky actions like sending messages, calls, payments, and bookings.
 - Added router coverage proving a Telugu voice transcript reaches the agent and does not return the generic clarification prompt.
 - Focused verification passed: command-job, personal PA intent, router integration, and bot typecheck.
+
+## 2026-05-11 WhatsApp daily status
+
+- Added deterministic WhatsApp aliases: `daily status`, `today status`, `today summary`, `daily summary`, `morning status`, and `morning brief`.
+- The reply pulls from local NitsyClaw state only: pending reminders, this-month expenses, recent local document uploads, and feature queue count/next item.
+- Added parser and router integration coverage so the command returns a useful daily view without entering the model loop or requiring external account access.
+- Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts`.

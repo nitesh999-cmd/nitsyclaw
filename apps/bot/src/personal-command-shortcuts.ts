@@ -23,6 +23,10 @@ export interface CapabilityStatusShortcut {
   kind: "capability-status";
 }
 
+export interface DailyStatusShortcut {
+  kind: "daily-status";
+}
+
 export type LocalStatusShortcutKind = "all" | "files" | "reminders" | "expenses" | "summaries";
 
 export interface LocalStatusShortcut {
@@ -219,6 +223,23 @@ export function parseCapabilityStatusShortcut(text: string): CapabilityStatusSho
     trimmed === "show ready pending setup"
   ) {
     return { kind: "capability-status" };
+  }
+  return null;
+}
+
+export function parseDailyStatusShortcut(text: string): DailyStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "daily status" ||
+    trimmed === "today status" ||
+    trimmed === "today summary" ||
+    trimmed === "daily summary" ||
+    trimmed === "morning status" ||
+    trimmed === "morning brief" ||
+    trimmed === "what is my day" ||
+    trimmed === "what's my day"
+  ) {
+    return { kind: "daily-status" };
   }
   return null;
 }
