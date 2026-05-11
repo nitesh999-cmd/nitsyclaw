@@ -29,6 +29,10 @@ export interface LocalStatusShortcut {
   kind: LocalStatusShortcutKind;
 }
 
+export interface AutonomousWorkShortcut {
+  kind: "autonomous-work";
+}
+
 export interface RepeatLastMessageShortcut {
   preferVoice: boolean;
 }
@@ -256,6 +260,25 @@ export function parseLocalStatusShortcut(text: string): LocalStatusShortcut | nu
     trimmed === "what can you summarise"
   ) {
     return { kind: "summaries" };
+  }
+  return null;
+}
+
+export function parseAutonomousWorkShortcut(text: string): AutonomousWorkShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "what can you do without me" ||
+    trimmed === "what else can you do without me" ||
+    trimmed === "what can you do without my involvement" ||
+    trimmed === "what can you do while i am away" ||
+    trimmed === "what can you do on your own" ||
+    trimmed === "without me" ||
+    trimmed === "minimal effort" ||
+    trimmed === "what needs me" ||
+    trimmed === "what needs my involvement" ||
+    trimmed === "what needs setup from me"
+  ) {
+    return { kind: "autonomous-work" };
   }
   return null;
 }

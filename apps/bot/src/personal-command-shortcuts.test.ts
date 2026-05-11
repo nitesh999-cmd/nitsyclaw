@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseBuildAgentShortcut,
+  parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCapabilityStatusShortcut,
   parseFeatureQueueShortcut,
@@ -79,6 +80,13 @@ describe("personal command shortcuts", () => {
     expect(parseLocalStatusShortcut("expense summary")).toEqual({ kind: "expenses" });
     expect(parseLocalStatusShortcut("summary commands")).toEqual({ kind: "summaries" });
     expect(parseLocalStatusShortcut("email status")).toBeNull();
+  });
+
+  it("detects autonomous safe-work questions", () => {
+    expect(parseAutonomousWorkShortcut("what else can you do without me")).toEqual({ kind: "autonomous-work" });
+    expect(parseAutonomousWorkShortcut("what needs my involvement?")).toEqual({ kind: "autonomous-work" });
+    expect(parseAutonomousWorkShortcut("minimal effort")).toEqual({ kind: "autonomous-work" });
+    expect(parseAutonomousWorkShortcut("send email to Maya")).toBeNull();
   });
 
   it("does not parse normal build words as build agent triggers", () => {

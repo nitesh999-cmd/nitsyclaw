@@ -303,6 +303,12 @@ Sleep well.
 - Added DB helpers for upcoming reminder and local expense summaries.
 - Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts`.
 
+## 2026-05-11 WhatsApp autonomous-work boundary
+
+- Added deterministic WhatsApp handling for `what else can you do without me`, `what needs my involvement`, and `minimal effort`.
+- The reply lists safe autonomous work separately from account setup and external-action confirmation gates.
+- Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts`.
+
 
 - Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
 - The reply now states the exact weather/default location source.

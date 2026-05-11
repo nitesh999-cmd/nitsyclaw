@@ -358,6 +358,23 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers what can run without Nitesh before the model loop", async () => {
+    await router.handle({
+      id: "x-autonomous-work",
+      from: OWNER,
+      body: "what else can you do without me",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Safe work I can do without you");
+    expect(wa.sent[0].body).toContain("Log expenses");
+    expect(wa.sent[0].body).toContain("In the repo");
+    expect(wa.sent[0].body).toContain("Needs small action from you");
+    expect(wa.sent[0].body).toContain("external data needs explicit confirmation");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("ignores duplicate WhatsApp events with the same message id", async () => {
     const inbound = {
       id: "x-duplicate",

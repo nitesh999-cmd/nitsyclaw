@@ -79,6 +79,7 @@ import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
   parseBuildAgentShortcut,
+  parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCapabilityStatusShortcut,
   parseFeatureQueueShortcut,
@@ -274,6 +275,31 @@ export class Router {
       "- check before send: paste message",
       "- upload a selectable PDF/text document",
       "Still needs setup: OCR for scanned PDFs/photos and Drive/OneDrive browsing.",
+    ].join("\n");
+  }
+
+  private formatAutonomousWorkReply(): string {
+    return [
+      "Safe work I can do without you:",
+      "- Answer questions, handle voice notes, and keep WhatsApp replies moving.",
+      "- Summarise uploaded text/selectable PDF documents and bills.",
+      "- Log expenses from receipt photos, text, or bank/card CSV exports.",
+      "- Show reminders, expenses, files, feature queue, and current capability status.",
+      "- Draft replies, complaints, call scripts, packing lists, shopping lists, and decision notes.",
+      "- Capture feature requests and bugs into the queue.",
+      "- In the repo: add tests, fix safe bugs, run lint/typecheck/test/build/e2e/audit, update docs, and commit reversible changes.",
+      "",
+      "Needs small action from you:",
+      "- Gmail/Outlook, Drive/OneDrive, Google Photos, Spotify, phone/SMS, and bank feeds need account/provider setup.",
+      "- Anything that sends, calls, deletes, pays, books, or changes external data needs explicit confirmation.",
+      "",
+      "Useful commands:",
+      "- status",
+      "- local status",
+      "- feature queue",
+      "- expense summary",
+      "- reminders",
+      "- files",
     ].join("\n");
   }
 
@@ -946,6 +972,12 @@ export class Router {
       } catch (statusError) {
         await this.sendPublicFailure("capability status", "Couldn't load the current status. I logged it; try again shortly.", statusError);
       }
+      return;
+    }
+
+    const autonomousWork = parseAutonomousWorkShortcut(effectiveText);
+    if (autonomousWork) {
+      await this.sendAndPersist(this.formatAutonomousWorkReply());
       return;
     }
 
