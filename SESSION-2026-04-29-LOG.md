@@ -288,6 +288,11 @@ Sleep well.
 - The reply lists what works now and what still needs account/provider setup, without relying on stale model memory.
 - Focused verification passed: `pnpm exec vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/test/router.integration.test.ts --testNamePattern "help|what can you do"`.
 
+## 2026-05-11 Command page queue clarity
+
+- Updated the command page labels so "Top 20" and "Next 50" buttons clearly read as save-only actions.
+- Added copy that says saved build work does not run code, send messages, or deploy.
+
 
 - Added direct WhatsApp checks for `where am I?`, `location status`, and `what location are you using`.
 - The reply now states the exact weather/default location source.

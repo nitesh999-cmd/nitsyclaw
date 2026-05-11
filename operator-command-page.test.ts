@@ -20,11 +20,12 @@ describe("operator command page", () => {
     expect(client).toContain("What happens here");
     expect(client).toContain("safe holding area");
     expect(client).toContain("Saved to Requests");
+    expect(client).toContain("Saves only. Does not run code, send messages, or deploy.");
     expect(client).toContain("router.refresh");
     expect(client).toContain("Saved requests wait for the laptop runner");
     expect(client).toContain("\\u2019");
-    expect(client).toContain("Save Top 20 to Requests");
-    expect(client).toContain("Save Next 50 to Requests");
+    expect(client).toContain("Save Top 20 only");
+    expect(client).toContain("Save Next 50 only");
     expect(client).toContain("queue_next_50_item");
     expect(client).toContain("Desktop Gateway");
     expect(client).toContain("Codex Factory");

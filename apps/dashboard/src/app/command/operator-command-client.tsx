@@ -172,15 +172,15 @@ export function OperatorCommandClient() {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="nc-tile">
             <div className="text-sm font-semibold text-slate-100">Run one command</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">Sends one instruction to the assistant.</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Runs one safe dashboard/chat action now.</div>
           </div>
           <div className="nc-tile">
             <div className="text-sm font-semibold text-slate-100">Save build work</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">Adds the main operator missions to Requests for later execution.</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Saves only. Does not run code, send messages, or deploy.</div>
           </div>
           <div className="nc-tile">
             <div className="text-sm font-semibold text-slate-100">Save future ideas</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">Adds roadmap ideas to Requests. You still choose what gets built.</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">Adds roadmap ideas to Requests so they can be reviewed later.</div>
           </div>
         </div>
       </section>
@@ -266,7 +266,7 @@ export function OperatorCommandClient() {
             disabled={Boolean(missionBusy)}
             className="rounded-xl border border-[#d8b75d] bg-[#d8b75d]/10 px-4 py-2 text-sm font-semibold text-[#d8b75d] transition-colors hover:bg-[#d8b75d]/20 disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
           >
-            {missionBusy === "queue_all" ? "Saving" : "Save Top 20 to Requests"}
+            {missionBusy === "queue_all" ? "Saving" : "Save Top 20 only"}
           </button>
         </div>
 
@@ -288,7 +288,7 @@ export function OperatorCommandClient() {
               </div>
               <div className="mt-2 text-xs leading-5 text-slate-400">{mission.outcome}</div>
               <div className="mt-3 text-xs font-semibold text-[#d8b75d]">
-                {missionBusy === mission.id ? "Saving" : "Save to Requests"}
+                {missionBusy === mission.id ? "Saving" : "Save only"}
               </div>
             </button>
           ))}
@@ -309,7 +309,7 @@ export function OperatorCommandClient() {
             disabled={Boolean(missionBusy)}
             className="rounded-xl border border-[#d8b75d] bg-[#d8b75d]/10 px-4 py-2 text-sm font-semibold text-[#d8b75d] transition-colors hover:bg-[#d8b75d]/20 disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
           >
-            {missionBusy === "queue_next_50" ? "Saving" : "Save Next 50 to Requests"}
+            {missionBusy === "queue_next_50" ? "Saving" : "Save Next 50 only"}
           </button>
         </div>
 
@@ -331,7 +331,7 @@ export function OperatorCommandClient() {
               </div>
               <div className="mt-2 text-xs leading-5 text-slate-400">{item.why}</div>
               <div className="mt-3 text-xs font-semibold text-[#d8b75d]">
-                {missionBusy === item.id ? "Saving" : "Save this move"}
+                {missionBusy === item.id ? "Saving" : "Save only"}
               </div>
             </button>
           ))}
