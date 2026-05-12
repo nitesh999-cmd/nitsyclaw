@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-05 (session 38 - nuclear DeepSec audit + P1 security fixes)
+> Updated: 2026-05-12 (operator fallback + Next.js security patch)
 
 ---
 
@@ -30,7 +30,7 @@ One-line pitch: "Text or voice-note NitsyClaw on WhatsApp. It does the work. The
 | Voice (input) | OpenAI Whisper API |
 | DB | Supabase Postgres + pgvector |
 | ORM | Drizzle |
-| Dashboard | Next.js 15 + Tailwind + shadcn-flavored components |
+| Dashboard | Next.js 16.2.6 + Tailwind + shadcn-flavored components |
 | Tests | Vitest + Playwright |
 | Hosting (dashboard) | **Vercel — `nitsyclaw.vercel.app`** |
 | Hosting (bot) | **Local PC (always-on, hidden, auto-restart)** |
