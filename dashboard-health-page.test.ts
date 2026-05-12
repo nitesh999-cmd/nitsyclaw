@@ -10,6 +10,15 @@ describe("dashboard health page", () => {
     expect(source).toContain("whatsappFreshness");
   });
 
+  test("surfaces WhatsApp send failure telemetry from the database", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain('getSystemHeartbeat(db, "whatsapp-send")');
+    expect(source).toContain("WhatsApp replies");
+    expect(source).toContain("whatsappSendFreshness");
+    expect(source).toContain("Last send failure");
+  });
+
   test("surfaces public-sale readiness without exposing secrets", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 

@@ -16,6 +16,7 @@ async function loadHealth() {
     queueRows,
     latestAuditRows,
     whatsappHeartbeat,
+    whatsappSendHeartbeat,
     watchdogHeartbeat,
     schedulerHeartbeat,
     reminderHeartbeat,
@@ -27,6 +28,7 @@ async function loadHealth() {
     db.select().from(featureRequests).limit(200),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
     getSystemHeartbeat(db, "whatsapp-client"),
+    getSystemHeartbeat(db, "whatsapp-send"),
     getSystemHeartbeat(db, "local-watchdog"),
     getSystemHeartbeat(db, "bot-scheduler"),
     getSystemHeartbeat(db, "reminder-sweep"),
@@ -45,6 +47,8 @@ async function loadHealth() {
     latestAudit: latestAuditRows[0] ?? null,
     whatsappHeartbeat,
     whatsappFreshness: classifyHeartbeat(whatsappHeartbeat, new Date(), 2 * 60 * 1000),
+    whatsappSendHeartbeat,
+    whatsappSendFreshness: classifyHeartbeat(whatsappSendHeartbeat, new Date(), 10 * 60 * 1000),
     watchdogHeartbeat,
     watchdogFreshness: classifyHeartbeat(watchdogHeartbeat, new Date(), 6 * 60 * 1000),
     schedulerHeartbeat,
@@ -60,18 +64,28 @@ function status(ok: boolean) {
   return ok ? "text-emerald-300" : "text-red-300";
 }
 
+function heartbeatMetadataText(
+  heartbeat: { metadata: Record<string, unknown> | null } | null,
+  key: string,
+): string | null {
+  const value = heartbeat?.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.slice(0, 180) : null;
+}
+
 function HeartbeatTile({
   label,
   freshness,
   heartbeat,
   stale,
   reconnectCta,
+  detail,
 }: {
   label: string;
   freshness: string;
   heartbeat: { lastSeenAt: Date; status: string } | null;
   stale?: boolean;
   reconnectCta?: ReactNode;
+  detail?: ReactNode;
 }) {
   const ok = freshness === "ok" && heartbeat?.status !== "error";
   return (
@@ -83,6 +97,7 @@ function HeartbeatTile({
       <div className="mt-1 text-xs text-slate-500">
         {heartbeat ? new Date(heartbeat.lastSeenAt).toLocaleString() : "No heartbeat"}
       </div>
+      {detail ? <div className="mt-2 text-xs text-slate-400">{detail}</div> : null}
       {(stale || !ok) && reconnectCta ? (
         <div className="mt-2">{reconnectCta}</div>
       ) : null}
@@ -119,6 +134,8 @@ export default async function HealthPage() {
   ] as const;
 
   const whatsappStale = data ? data.whatsappFreshness !== "ok" || data.whatsappHeartbeat?.status !== "ok" : false;
+  const whatsappSendFailure = data?.whatsappSendHeartbeat?.status === "error";
+  const whatsappSendError = data ? heartbeatMetadataText(data.whatsappSendHeartbeat, "error") : null;
 
   return (
     <div className="nc-page">
@@ -137,6 +154,22 @@ export default async function HealthPage() {
             </div>
             <a href="/api/healthz" className="nc-button min-h-8 px-3 text-xs">
               Check /healthz
+            </a>
+          </div>
+        </div>
+      )}
+
+      {whatsappSendFailure && (
+        <div className="rounded-xl border border-red-700/40 bg-red-950/20 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-red-300">WhatsApp reply delivery failed</p>
+              <p className="mt-1 text-xs text-red-300/75">
+                Last send failure: {whatsappSendError ?? "No detail available"}
+              </p>
+            </div>
+            <a href="/health" className="nc-button min-h-8 px-3 text-xs">
+              Refresh health
             </a>
           </div>
         </div>
@@ -181,6 +214,13 @@ export default async function HealthPage() {
             reconnectCta={
               <span className="text-xs text-amber-400">Restart bot to reconnect</span>
             }
+          />
+          <HeartbeatTile
+            label="WhatsApp replies"
+            freshness={data.whatsappSendFreshness}
+            heartbeat={data.whatsappSendHeartbeat}
+            stale={whatsappSendFailure}
+            detail={whatsappSendError ? <>Last send failure: {whatsappSendError}</> : "No send failures recorded"}
           />
           <HeartbeatTile
             label="Bot scheduler"
