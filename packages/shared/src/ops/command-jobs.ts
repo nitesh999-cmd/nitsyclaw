@@ -126,7 +126,7 @@ export async function getCommandJob(db: DB, id: string): Promise<CommandJob> {
   return row;
 }
 
-async function getCommandJobByDedupeKey(db: DB, dedupeKey: string): Promise<CommandJob | null> {
+export async function getCommandJobByDedupeKey(db: DB, dedupeKey: string): Promise<CommandJob | null> {
   const [row] = await db
     .select()
     .from(commandJobs)

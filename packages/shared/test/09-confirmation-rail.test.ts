@@ -34,6 +34,22 @@ describe("resolveConfirmation", () => {
     expect(out?.decision).toBe("approved");
   });
 
+  it("approves when reply is 'approved' with the confirmation id", async () => {
+    const { db, state } = makeFakeDb();
+    state.confirmations.push({
+      id: "c1",
+      action: "create_calendar_event",
+      payload: { title: "x" },
+      status: "pending",
+      expiresAt: new Date("2026-04-25T09:00:00Z"),
+      createdAt: NOW,
+    });
+
+    const out = await resolveConfirmation({ db, reply: "approved", confirmationId: "c1", now: NOW });
+
+    expect(out?.decision).toBe("approved");
+  });
+
   it("rejects when reply is 'n'", async () => {
     const { db, state } = makeFakeDb();
     state.confirmations.push({

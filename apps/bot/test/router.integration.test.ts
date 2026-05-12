@@ -461,6 +461,178 @@ describe("Router (integration)", () => {
     expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
   });
 
+  it("ignores replayed WhatsApp events after router restart", async () => {
+    const inbound = {
+      id: "x-replayed-status",
+      from: OWNER,
+      body: "status",
+      timestamp: new Date(),
+      hasMedia: false,
+    };
+
+    await router.handle(inbound);
+    router = new Router(deps, OWNER);
+    await router.handle(inbound);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-replayed-status",
+      status: "done",
+    });
+    expect(wa.sent.filter((message) => message.body.includes("NitsyClaw status"))).toHaveLength(1);
+  });
+
+  it("retries replayed WhatsApp status after a partial send failure", async () => {
+    let sends = 0;
+    wa.send = async (message) => {
+      sends += 1;
+      if (sends === 1) throw new Error("temporary WhatsApp send failure");
+      wa.sent.push(message);
+      return { id: `mock-${wa.sent.length}` };
+    };
+    const inbound = {
+      id: "x-replayed-status-after-failure",
+      from: OWNER,
+      body: "status",
+      timestamp: new Date(),
+      hasMedia: false,
+    };
+
+    await router.handle(inbound);
+    router = new Router(deps, OWNER);
+    await router.handle(inbound);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-replayed-status-after-failure",
+      status: "done",
+    });
+    expect(wa.sent.some((message) => message.body.includes("Couldn't load the current status"))).toBe(true);
+    expect(wa.sent.filter((message) => message.body.includes("NitsyClaw status"))).toHaveLength(1);
+  });
+
+  it("does not replay a resolved confirmation after router restart", async () => {
+    const state = getFakeDbState(deps.db);
+    state.confirmations.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      action: "safe_test_action",
+      payload: {},
+      status: "pending",
+      expiresAt: new Date("2026-05-03T14:00:00Z"),
+      createdAt: new Date("2026-05-03T13:00:00Z"),
+    });
+    const inbound = {
+      id: "x-replayed-confirmation",
+      from: OWNER,
+      body: "approved 05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      timestamp: new Date(),
+      hasMedia: false,
+    };
+
+    await router.handle(inbound);
+    router = new Router(deps, OWNER);
+    await router.handle(inbound);
+
+    expect(state.confirmations[0].status).toBe("approved");
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-replayed-confirmation",
+      status: "done",
+    });
+    expect(wa.sent.filter((message) => message.body.includes("Confirmation: approved"))).toHaveLength(1);
+    expect(wa.sent.some((message) => message.body === "ack")).toBe(false);
+  });
+
+  it("does not let a confirmation send failure fall through to the agent on replay", async () => {
+    const state = getFakeDbState(deps.db);
+    state.confirmations.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      action: "safe_test_action",
+      payload: {},
+      status: "pending",
+      expiresAt: new Date("2026-05-03T14:00:00Z"),
+      createdAt: new Date("2026-05-03T13:00:00Z"),
+    });
+    let sends = 0;
+    wa.send = async (message) => {
+      sends += 1;
+      if (sends === 1) throw new Error("temporary WhatsApp send failure");
+      wa.sent.push(message);
+      return { id: `mock-${wa.sent.length}` };
+    };
+    const inbound = {
+      id: "x-confirmation-send-failure",
+      from: OWNER,
+      body: "approved 05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      timestamp: new Date(),
+      hasMedia: false,
+    };
+
+    await expect(router.handle(inbound)).rejects.toThrow("temporary WhatsApp send failure");
+    router = new Router(deps, OWNER);
+    await router.handle(inbound);
+
+    expect(state.confirmations[0].status).toBe("approved");
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-confirmation-send-failure",
+      status: "done",
+      resultText: "Confirmation: approved",
+    });
+    expect(wa.sent).toHaveLength(0);
+  });
+
+  it("does not rerun terminal failed command jobs on replay", async () => {
+    const state = getFakeDbState(deps.db);
+    state.command_jobs.push({
+      id: "failed-job-1",
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "Research better electricity plans for Melbourne.",
+      status: "failed",
+      riskLevel: "safe",
+      receiptText: "Saved. Working on it.",
+      attempts: 3,
+      maxAttempts: 3,
+      dedupeKey: "whatsapp:x-replayed-failed",
+      sourceExternalId: "x-replayed-failed",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await router.handle({
+      id: "x-replayed-failed",
+      from: OWNER,
+      body: "Research better electricity plans for Melbourne.",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent).toHaveLength(0);
+    expect(state.command_jobs[0].status).toBe("failed");
+    expect(state.command_jobs[0].attempts).toBe(3);
+  });
+
+  it("completes command job when feature request shortcut is too short", async () => {
+    await router.handle({
+      id: "x-short-feature",
+      from: OWNER,
+      body: "feature request: x",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(wa.sent[0].body).toContain("description is too short");
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-short-feature",
+      status: "done",
+    });
+  });
+
   it("asks for clarification instead of running unclear emotional speech", async () => {
     await router.handle({
       id: "x-clarify",
@@ -537,7 +709,10 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Last voice transcript I have");
     expect(wa.sent[0].body).toContain("this is a transcribed voice note");
     expect(wa.sent[0].body).not.toContain("Needs your approval");
-    expect(state.command_jobs.some((job) => job.sourceExternalId === "x-voice-repeat")).toBe(false);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-voice-repeat")).toMatchObject({
+      status: "done",
+      riskLevel: "safe",
+    });
   });
 
   it("lets non-English voice transcripts reach the agent instead of stopping at clarification", async () => {
@@ -717,6 +892,19 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("'approved' reply with no pending falls through to the agent instead of clarification", async () => {
+    await router.handle({
+      id: "x-approved-no-pending",
+      from: OWNER,
+      body: "approved",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
+    expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
+  });
+
   it("requires confirmation id before resolving pending email draft approval", async () => {
     const state = getFakeDbState(deps.db);
     state.confirmations.push({
@@ -742,6 +930,36 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent.some((m) => m.body.includes("Email drafts need the confirmation id"))).toBe(true);
+    expect(state.confirmations[0].status).toBe("pending");
+  });
+
+  it("requires confirmation id before resolving pending email draft when user says approved", async () => {
+    const state = getFakeDbState(deps.db);
+    state.confirmations.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      action: "email_create_draft",
+      payload: {
+        provider: "gmail",
+        to: ["nitesh@example.com"],
+        subject: "Hi",
+        body: "Private body",
+      },
+      status: "pending",
+      expiresAt: new Date("2026-05-03T14:00:00Z"),
+      createdAt: new Date("2026-05-03T13:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-approved-email-draft",
+      from: OWNER,
+      body: "approved",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.some((m) => m.body.includes("Email drafts need the confirmation id"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("05608bae-9152-43ea-bec9-df3a8c6b4c72"))).toBe(true);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
     expect(state.confirmations[0].status).toBe("pending");
   });
 

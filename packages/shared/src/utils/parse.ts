@@ -22,7 +22,7 @@ const RULES: Array<{ intent: Intent; pattern: RegExp }> = [
   { intent: "schedule_call", pattern: /\b(schedule (a )?(call|meeting)|book a slot|set up (a )?meeting)\b/i },
   { intent: "web_research", pattern: /\b(look up|research|google|find out about)\b/i },
   { intent: "log_expense", pattern: /\b(spent|paid|expense|received|bought|gave .* for|₹|rs\.?|inr|usd)\b/i },
-  { intent: "confirmation", pattern: /^\s*(y|yes|n|no|cancel|approve|reject)\b/i },
+  { intent: "confirmation", pattern: /^\s*(y|yes|ok|okay|n|no|cancel|approve|approved|confirm|confirmed|reject|rejected|abort)\b/i },
 ];
 
 export function detectIntent(text: string): Intent {

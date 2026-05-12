@@ -70,9 +70,11 @@ import {
 import {
   completeCommandJob,
   createCommandJob,
+  getCommandJobByDedupeKey,
   markCommandJobWorking,
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
+import type { CommandJob } from "@nitsyclaw/shared/db";
 import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
 import { encryptForStorage, hashPhone, maskPhone, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
@@ -148,6 +150,39 @@ export class Router {
   private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
     logBotError("[router] handler failed", error, { label });
     await this.sendAndPersist(userMessage);
+  }
+
+  private async createWhatsAppCommandJob(
+    msg: InboundMessage,
+    persistedId: string,
+    command: string,
+    allowAgentClarification: boolean,
+  ): Promise<CommandJob> {
+    return createCommandJob(this.deps.db, {
+      source: "whatsapp",
+      ownerHash: hashPhone(this.ownerPhone),
+      command,
+      sourceMessageId: persistedId,
+      sourceExternalId: msg.id,
+      dedupeKey: `whatsapp:${msg.id}`,
+      allowAgentClarification,
+    });
+  }
+
+  private async completeWhatsAppCommandJob(job: CommandJob, resultText: string): Promise<void> {
+    try {
+      await completeCommandJob(this.deps.db, job.id, resultText);
+    } catch (error) {
+      logBotError("[router] failed to complete command job", error, { commandJobId: job.id });
+    }
+  }
+
+  private async failWhatsAppCommandJob(job: CommandJob, error: unknown): Promise<void> {
+    try {
+      await recordCommandJobFailure(this.deps.db, job.id, error);
+    } catch (recordError) {
+      logBotError("[router] failed to record command job failure", recordError, { commandJobId: job.id });
+    }
   }
 
   private async sendFeatureQueueStatus(limit: number): Promise<void> {
@@ -923,15 +958,25 @@ export class Router {
       return;
     }
 
+    const dedupeKey = `whatsapp:${msg.id}`;
+    const existingCommandJob = await getCommandJobByDedupeKey(this.deps.db, dedupeKey);
+    if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
+    const commandJob = existingCommandJob ?? await this.createWhatsAppCommandJob(
+      msg,
+      persisted.id,
+      effectiveText,
+      effectiveTextFromVoice || canAgentClarifySafely(effectiveText),
+    );
+
     // 2.5 — feature request shortcuts (feature_request fr_96407890).
     //      Fast path for power users: skip the agent loop, persist directly.
     const featureShortcut = parseFeatureRequestShortcut(effectiveText);
     if (featureShortcut) {
       const description = featureShortcut.description;
       if (description.length < 5) {
-        await this.sendAndPersist(
-          `That description is too short. Try: feature request: voice input on dashboard /chat using Web Speech API`,
-        );
+        const reply = "That description is too short. Try: feature request: voice input on dashboard /chat using Web Speech API";
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
         return;
       }
       try {
@@ -942,10 +987,11 @@ export class Router {
           source: "whatsapp",
           requestedBy: hashPhone(this.ownerPhone),
         });
-        await this.sendAndPersist(
-          `✅ Queued! ID: ${row.id.slice(0, 8)}. Build agent picks it up at next run.`,
-        );
+        const reply = `✅ Queued! ID: ${row.id.slice(0, 8)}. Build agent picks it up at next run.`;
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (e) {
+        await this.failWhatsAppCommandJob(commandJob, e);
         await this.sendPublicFailure("feature queue", "Couldn't queue that feature. I logged it; try again shortly.", e);
       }
       return;
@@ -954,8 +1000,11 @@ export class Router {
     const homeShortcut = parseHomeAssistantShortcut(effectiveText);
     if (homeShortcut) {
       try {
-        await this.sendAndPersist(this.formatHomeAssistantReply(homeShortcut));
+        const reply = this.formatHomeAssistantReply(homeShortcut);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (homeShortcutError) {
+        await this.failWhatsAppCommandJob(commandJob, homeShortcutError);
         await this.sendPublicFailure("home helper shortcut", "Could not run that home helper. Try the same request in plain words.", homeShortcutError);
       }
       return;
@@ -976,12 +1025,13 @@ export class Router {
               },
             )) as { location?: string; expiresHint?: string })
           : null;
-        await this.sendAndPersist(
-          out?.expiresHint
-            ? `Location updated: ${out.location} until ${out.expiresHint}.`
-            : `Location updated: ${out?.location ?? locationShortcut.city}.`,
-        );
+        const reply = out?.expiresHint
+          ? `Location updated: ${out.location} until ${out.expiresHint}.`
+          : `Location updated: ${out?.location ?? locationShortcut.city}.`;
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (locationError) {
+        await this.failWhatsAppCommandJob(commandJob, locationError);
         await this.sendPublicFailure("location save", "Couldn't save that location. I logged it; try again shortly.", locationError);
       }
       return;
@@ -1012,10 +1062,11 @@ export class Router {
         const stale = out?.staleLocationIgnored?.location
           ? `\nIgnored expired travel location: ${out.staleLocationIgnored.location}.`
           : "";
-        await this.sendAndPersist(
-          `Weather/default location: ${out?.location ?? "Melbourne, Victoria, Australia"}${suffix}.\nSource: ${out?.source ?? "profile_default"}.${stale}`,
-        );
+        const reply = `Weather/default location: ${out?.location ?? "Melbourne, Victoria, Australia"}${suffix}.\nSource: ${out?.source ?? "profile_default"}.${stale}`;
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (locationStatusError) {
+        await this.failWhatsAppCommandJob(commandJob, locationStatusError);
         await this.sendPublicFailure("location status", "Couldn't check the saved location. I logged it; try again shortly.", locationStatusError);
       }
       return;
@@ -1023,13 +1074,17 @@ export class Router {
 
     const repeatLastMessage = parseRepeatLastMessageShortcut(effectiveText);
     if (repeatLastMessage) {
-      await this.sendAndPersist(this.formatRepeatLastMessageReply(history, repeatLastMessage, effectiveText));
+      const reply = this.formatRepeatLastMessageReply(history, repeatLastMessage, effectiveText);
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 
     const helpShortcut = parseHelpShortcut(effectiveText);
     if (helpShortcut) {
-      await this.sendAndPersist(this.formatHelpReply());
+      const reply = this.formatHelpReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 
@@ -1037,7 +1092,9 @@ export class Router {
     if (capabilityStatus) {
       try {
         await this.sendCapabilityStatus(5);
+        await this.completeWhatsAppCommandJob(commandJob, "NitsyClaw status sent.");
       } catch (statusError) {
+        await this.failWhatsAppCommandJob(commandJob, statusError);
         await this.sendPublicFailure("capability status", "Couldn't load the current status. I logged it; try again shortly.", statusError);
       }
       return;
@@ -1045,15 +1102,20 @@ export class Router {
 
     const autonomousWork = parseAutonomousWorkShortcut(effectiveText);
     if (autonomousWork) {
-      await this.sendAndPersist(this.formatAutonomousWorkReply());
+      const reply = this.formatAutonomousWorkReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 
     const dailyStatus = parseDailyStatusShortcut(effectiveText);
     if (dailyStatus) {
       try {
-        await this.sendAndPersist(await this.formatDailyStatusReply(msg.from));
+        const reply = await this.formatDailyStatusReply(msg.from);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (dailyStatusError) {
+        await this.failWhatsAppCommandJob(commandJob, dailyStatusError);
         await this.sendPublicFailure("daily status", "Couldn't load daily status. I logged it; try again shortly.", dailyStatusError);
       }
       return;
@@ -1062,8 +1124,11 @@ export class Router {
     const localStatus = parseLocalStatusShortcut(effectiveText);
     if (localStatus) {
       try {
-        await this.sendAndPersist(await this.formatLocalStatusReply(localStatus.kind, msg.from));
+        const reply = await this.formatLocalStatusReply(localStatus.kind, msg.from);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (localStatusError) {
+        await this.failWhatsAppCommandJob(commandJob, localStatusError);
         await this.sendPublicFailure("local status", "Couldn't load local status. I logged it; try again shortly.", localStatusError);
       }
       return;
@@ -1081,10 +1146,11 @@ export class Router {
           requestedBy: hashPhone(this.ownerPhone),
           dedupeKey: bugShortcut.description.toLowerCase().slice(0, 160),
         });
-        await this.sendAndPersist(
-          `Logged as bug ${row.id.slice(0, 8)}. I captured it as existing broken behavior, not a new feature.`,
-        );
+        const reply = `Logged as bug ${row.id.slice(0, 8)}. I captured it as existing broken behavior, not a new feature.`;
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (bugError) {
+        await this.failWhatsAppCommandJob(commandJob, bugError);
         await this.sendPublicFailure("bug queue", "Couldn't log that bug. I logged it; try again shortly.", bugError);
       }
       return;
@@ -1094,7 +1160,9 @@ export class Router {
     if (featureQueue) {
       try {
         await this.sendFeatureQueueStatus(featureQueue.limit);
+        await this.completeWhatsAppCommandJob(commandJob, "Feature queue status sent.");
       } catch (queueError) {
+        await this.failWhatsAppCommandJob(commandJob, queueError);
         await this.sendPublicFailure("feature queue load", "Couldn't load the feature queue. I logged it; try again shortly.", queueError);
       }
       return;
@@ -1105,7 +1173,9 @@ export class Router {
       try {
         const rows = await listPendingFeatureRequests(this.deps.db);
         if (rows.length === 0) {
-          await this.sendAndPersist("Build agent checked the queue. No pending features or bugs.");
+          const reply = "Build agent checked the queue. No pending features or bugs.";
+          await this.sendAndPersist(reply);
+          await this.completeWhatsAppCommandJob(commandJob, reply);
           return;
         }
 
@@ -1115,17 +1185,18 @@ export class Router {
           .join("\n");
 
         if (buildAgent.dryRun) {
-          await this.sendAndPersist(
-            `Build queue preview (${rows.length} pending):\n${preview}`,
-          );
+          const reply = `Build queue preview (${rows.length} pending):\n${preview}`;
+          await this.sendAndPersist(reply);
+          await this.completeWhatsAppCommandJob(commandJob, reply);
           return;
         }
 
-        await this.sendAndPersist(
-          `Build agent checked ${rows.length} pending item(s). I will post the queue summary here. Implementation happens through the local operator workflow and only counts as shipped after tests and commit.`,
-        );
+        const reply = `Build agent checked ${rows.length} pending item(s). I will post the queue summary here. Implementation happens through the local operator workflow and only counts as shipped after tests and commit.`;
+        await this.sendAndPersist(reply);
         await runDailyBuildAgent(this.deps, this.ownerPhone);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (e) {
+        await this.failWhatsAppCommandJob(commandJob, e);
         await this.sendPublicFailure("build agent run", "Build agent run failed. I logged it; try again shortly.", e);
       }
       return;
@@ -1136,7 +1207,7 @@ export class Router {
     if (intent === "confirmation") {
       const confirmationTool = this.registry.get("resolve_confirmation");
       const confirmationId = parseConfirmationId(effectiveText);
-      const reply = /^(y|yes|approve|confirm|ok|okay)\b/i.test(effectiveText.trim())
+      const reply = /^(y|yes|approve|approved|confirm|confirmed|ok|okay)\b/i.test(effectiveText.trim())
         ? "yes"
         : "no";
       let canResolveConfirmation = true;
@@ -1145,9 +1216,9 @@ export class Router {
         if (!latest) {
           canResolveConfirmation = false;
         } else if (confirmationNeedsExplicitId(latest.action)) {
-          await this.sendAndPersist(
-            `${confirmationActionLabel(latest.action)} need the confirmation id. Reply ${reply} ${latest.id} to resolve this safely.`,
-          );
+          const response = `${confirmationActionLabel(latest.action)} need the confirmation id. Reply ${reply} ${latest.id} to resolve this safely.`;
+          await this.sendAndPersist(response);
+          await this.completeWhatsAppCommandJob(commandJob, response);
           return;
         }
       }
@@ -1174,19 +1245,23 @@ export class Router {
           unavailable?: string;
         };
         if (resolved.playlist) {
-          await this.sendAndPersist(
-            `Done. Created Spotify playlist "${resolved.playlist.name ?? "playlist"}" with ${resolved.playlist.added ?? 0} tracks.\n${resolved.playlist.url ?? ""}`.trim(),
-          );
+          const response = `Done. Created Spotify playlist "${resolved.playlist.name ?? "playlist"}" with ${resolved.playlist.added ?? 0} tracks.\n${resolved.playlist.url ?? ""}`.trim();
+          await this.completeWhatsAppCommandJob(commandJob, response);
+          await this.sendAndPersist(response);
         } else if (resolved.link) {
-          await this.sendAndPersist(`Confirmation: ${resolved.decision}\n${resolved.link}`);
+          const response = `Confirmation: ${resolved.decision}\n${resolved.link}`;
+          await this.completeWhatsAppCommandJob(commandJob, response);
+          await this.sendAndPersist(response);
         } else if (resolved.action === "email_create_draft") {
-          await this.sendAndPersist(
-            resolved.draftCreated
-              ? `Email draft created in ${resolved.provider ?? "mailbox"}.\nDraft id: ${resolved.draftId ?? "unknown"}`
-              : `Email draft not created yet: ${resolved.unavailable ?? "email adapter unavailable"}`,
-          );
+          const response = resolved.draftCreated
+            ? `Email draft created in ${resolved.provider ?? "mailbox"}.\nDraft id: ${resolved.draftId ?? "unknown"}`
+            : `Email draft not created yet: ${resolved.unavailable ?? "email adapter unavailable"}`;
+          await this.completeWhatsAppCommandJob(commandJob, response);
+          await this.sendAndPersist(response);
         } else {
-          await this.sendAndPersist(`Confirmation: ${resolved.decision ?? "resolved"}`);
+          const response = `Confirmation: ${resolved.decision ?? "resolved"}`;
+          await this.completeWhatsAppCommandJob(commandJob, response);
+          await this.sendAndPersist(response);
         }
         return;
       }
@@ -1194,15 +1269,6 @@ export class Router {
 
     // 4. Default — record the command first, then run the agent loop.
     const shouldAppendFeatureQueueStatus = mentionsFeatureQueueStatus(effectiveText);
-    const commandJob = await createCommandJob(this.deps.db, {
-      source: "whatsapp",
-      ownerHash: hashPhone(this.ownerPhone),
-      command: effectiveText,
-      sourceMessageId: persisted.id,
-      sourceExternalId: msg.id,
-      dedupeKey: `whatsapp:${msg.id}`,
-      allowAgentClarification: effectiveTextFromVoice || canAgentClarifySafely(effectiveText),
-    });
     await this.sendAndPersist(commandJob.receiptText);
     if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;
 
@@ -1291,6 +1357,13 @@ function confirmationActionLabel(action: string): string {
     default:
       return "Pending actions";
   }
+}
+
+function isTerminalReplay(status: CommandJob["status"]): boolean {
+  return status === "done" ||
+    status === "failed" ||
+    status === "needs_approval" ||
+    status === "needs_clarification";
 }
 
 function isCsvUpload(filename?: string, mimetype?: string): boolean {

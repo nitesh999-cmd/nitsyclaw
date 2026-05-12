@@ -31,8 +31,8 @@ export async function resolveConfirmation(args: {
   confirmationId?: string;
 }): Promise<{ id: string; action: string; decision: ConfirmationDecision; payload: Record<string, unknown> } | null> {
   const r = args.reply.trim().toLowerCase();
-  const yes = /^(y|yes|approve|confirm|ok|okay)\b/.test(r);
-  const no = /^(n|no|cancel|reject|abort)\b/.test(r);
+  const yes = /^(y|yes|approve|approved|confirm|confirmed|ok|okay)\b/.test(r);
+  const no = /^(n|no|cancel|reject|rejected|abort)\b/.test(r);
   if (!yes && !no) return null;
 
   let row;
