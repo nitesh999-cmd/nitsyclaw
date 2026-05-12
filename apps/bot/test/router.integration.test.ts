@@ -908,6 +908,46 @@ describe("Router (integration)", () => {
     });
   });
 
+  it("treats 'hear it' as a safe repeat request after approval noise", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: fakeTranscriber,
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "got it" }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-voice-hear-it-source",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-05-09T01:25:00Z"),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+    await router.handle({
+      id: "x-voice-hear-it-approval-noise",
+      from: OWNER,
+      body: "approved",
+      timestamp: new Date("2026-05-09T01:30:00Z"),
+      hasMedia: false,
+    });
+    wa.sent = [];
+
+    await router.handle({
+      id: "x-voice-hear-it",
+      from: OWNER,
+      body: "hear it",
+      timestamp: new Date("2026-05-09T01:31:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Last voice transcript I have");
+    expect(wa.sent[0].body).toContain("this is a transcribed voice note");
+    expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
+    expect(wa.sent.some((m) => m.body.includes("Needs your approval"))).toBe(false);
+  });
+
   it("lets non-English voice transcripts reach the agent instead of stopping at clarification", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
