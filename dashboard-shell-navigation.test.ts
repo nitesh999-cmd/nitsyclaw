@@ -22,5 +22,7 @@ describe("dashboard shell navigation", () => {
     expect(source).toContain("nc-mobile-nav");
     expect(source).toContain('label: "Advanced"');
     expect(source).toContain('label: "Requests"');
+    expect(source).toContain('href: "/whatsapp-recovery"');
+    expect(source).toContain('label: "WA recovery"');
   });
 });

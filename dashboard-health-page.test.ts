@@ -47,6 +47,7 @@ describe("dashboard health page", () => {
     expect(source).toContain("Bot and dashboard are on different commits");
     expect(source).toContain("Railway may not have redeployed the WhatsApp worker yet");
     expect(source).toContain("Dashboard runtime");
+    expect(source).toContain("/whatsapp-recovery");
   });
 
   test("surfaces command job backlog and WhatsApp phone proof checklist", () => {

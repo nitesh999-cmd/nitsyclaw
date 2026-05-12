@@ -28,6 +28,7 @@ const navGroups = [
     items: [
       { href: "/command", label: "Work desk", mark: "Admin" },
       { href: "/health", label: "Health", mark: "OK" },
+      { href: "/whatsapp-recovery", label: "WA recovery", mark: "WA" },
       { href: "/activity", label: "Activity", mark: "Now" },
       { href: "/search", label: "Search", mark: "Find" },
       { href: "/stats", label: "Stats", mark: "Data" },

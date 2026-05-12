@@ -1,0 +1,194 @@
+import { getDb, getSystemHeartbeat } from "@nitsyclaw/shared/db";
+import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
+import { logDashboardError } from "../../lib/dashboard-runtime";
+import {
+  buildDashboardRuntimeMetadata,
+  runtimeCommitMismatch,
+} from "../../lib/runtime-identity";
+
+export const dynamic = "force-dynamic";
+
+type Heartbeat = Awaited<ReturnType<typeof getSystemHeartbeat>>;
+
+async function loadRecoveryState() {
+  const db = getDb();
+  const [
+    botRuntime,
+    whatsappClient,
+    whatsappSend,
+    whatsappLoopGuard,
+    scheduler,
+  ] = await Promise.all([
+    getSystemHeartbeat(db, "bot-runtime"),
+    getSystemHeartbeat(db, "whatsapp-client"),
+    getSystemHeartbeat(db, "whatsapp-send"),
+    getSystemHeartbeat(db, "whatsapp-loop-guard"),
+    getSystemHeartbeat(db, "bot-scheduler"),
+  ]);
+
+  return {
+    dashboardRuntime: buildDashboardRuntimeMetadata(process.env),
+    botRuntime,
+    whatsappClient,
+    whatsappClientFreshness: classifyHeartbeat(whatsappClient, new Date(), 2 * 60 * 1000),
+    whatsappSend,
+    whatsappSendFreshness: classifyHeartbeat(whatsappSend, new Date(), 10 * 60 * 1000),
+    whatsappLoopGuard,
+    whatsappLoopGuardFreshness: classifyHeartbeat(whatsappLoopGuard, new Date(), 10 * 60 * 1000),
+    scheduler,
+    schedulerFreshness: classifyHeartbeat(scheduler, new Date()),
+  };
+}
+
+function metadataText(heartbeat: Heartbeat, key: string): string | null {
+  const value = heartbeat?.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.slice(0, 160) : null;
+}
+
+function statusTone(ok: boolean): string {
+  return ok ? "text-emerald-300" : "text-amber-300";
+}
+
+function CheckRow({
+  label,
+  ok,
+  detail,
+}: {
+  label: string;
+  ok: boolean;
+  detail: string;
+}) {
+  return (
+    <div className="grid gap-2 border-t border-slate-800 px-4 py-3 text-sm md:grid-cols-[220px_100px_1fr]">
+      <div className="font-medium text-slate-100">{label}</div>
+      <div className={statusTone(ok)}>{ok ? "OK" : "Check"}</div>
+      <div className="text-slate-400">{detail}</div>
+    </div>
+  );
+}
+
+export default async function WhatsAppRecoveryPage() {
+  let state: Awaited<ReturnType<typeof loadRecoveryState>> | null = null;
+  let error: string | null = null;
+
+  try {
+    state = await loadRecoveryState();
+  } catch (e) {
+    logDashboardError("whatsapp-recovery.load", e);
+    error = "Could not load WhatsApp recovery state. Check database and dashboard env.";
+  }
+
+  const botCommit = state
+    ? metadataText(state.botRuntime, "commitShort") ?? metadataText(state.botRuntime, "commit") ?? "unknown"
+    : "unknown";
+  const dashboardCommit = state?.dashboardRuntime.commitShort ?? "unknown";
+  const versionMismatch = state ? runtimeCommitMismatch(state.dashboardRuntime.commit, state.botRuntime) : false;
+  const loopPaused = state?.whatsappLoopGuard?.status === "paused";
+  const sendFailed = state?.whatsappSend?.status === "error";
+  const clientFresh = state?.whatsappClientFreshness === "ok" && state.whatsappClient?.status === "ok";
+  const loopReason = state ? metadataText(state.whatsappLoopGuard, "reason") : null;
+  const loopResetAt = state ? metadataText(state.whatsappLoopGuard, "resetAt") : null;
+  const sendError = state ? metadataText(state.whatsappSend, "error") : null;
+
+  return (
+    <div className="nc-page">
+      <section className="nc-hero">
+        <div className="nc-eyebrow">Operations</div>
+        <h2 className="mt-2 text-3xl font-semibold">WhatsApp Recovery</h2>
+        <p className="mt-3 max-w-2xl text-sm text-slate-400">
+          One place to work out whether WhatsApp is blocked by Railway, stale bot code, loop guard, send failure, or phone proof.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <a href="/health" className="nc-button-primary">Open health</a>
+          <a href="/api/healthz" className="nc-button">Check API health</a>
+          <a href="/queue" className="nc-button">Open requests</a>
+        </div>
+      </section>
+
+      {error ? (
+        <div className="rounded-xl border border-red-700/40 bg-red-950/20 p-4 text-sm text-red-300">{error}</div>
+      ) : null}
+
+      {versionMismatch ? (
+        <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm">
+          <p className="font-medium text-amber-300">Railway bot worker may be stale</p>
+          <p className="mt-1 text-xs text-amber-400/75">
+            Dashboard commit: {dashboardCommit} | Bot commit: {botCommit}. Restart or redeploy Railway, then refresh this page.
+          </p>
+        </div>
+      ) : null}
+
+      <section className="nc-section">
+        <div className="nc-eyebrow">Recovery signals</div>
+        <div className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/45">
+          <CheckRow
+            label="Dashboard deployment"
+            ok={Boolean(state)}
+            detail={`Dashboard commit: ${dashboardCommit}`}
+          />
+          <CheckRow
+            label="Railway bot worker"
+            ok={Boolean(state?.botRuntime)}
+            detail={`Bot commit: ${botCommit}. ${state?.botRuntime ? "Runtime heartbeat exists." : "No bot-runtime heartbeat yet."}`}
+          />
+          <CheckRow
+            label="Version match"
+            ok={!versionMismatch}
+            detail={versionMismatch ? "Railway is probably running older bot code." : "No dashboard/bot commit mismatch detected."}
+          />
+          <CheckRow
+            label="WhatsApp client"
+            ok={Boolean(clientFresh)}
+            detail={state?.whatsappClient ? `Status: ${state.whatsappClient.status}` : "No WhatsApp client heartbeat."}
+          />
+          <CheckRow
+            label="Reply delivery"
+            ok={!sendFailed}
+            detail={sendFailed ? `Last send failure: ${sendError ?? "No detail"}` : "No active send failure recorded."}
+          />
+          <CheckRow
+            label="Loop guard"
+            ok={!loopPaused}
+            detail={
+              loopPaused
+                ? `Paused: ${loopReason ?? "No reason"}${loopResetAt ? ` | Auto-reset: ${loopResetAt}` : ""}`
+                : "No active loop pause recorded."
+            }
+          />
+          <CheckRow
+            label="Scheduler"
+            ok={state?.schedulerFreshness === "ok"}
+            detail={state?.scheduler ? `Status: ${state.scheduler.status}` : "No scheduler heartbeat."}
+          />
+        </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="nc-section">
+          <div className="nc-eyebrow">Phone proof script</div>
+          <ol className="mt-4 space-y-3 text-sm text-slate-300">
+            <li>1. Send: hi</li>
+            <li>2. Send: pending items</li>
+            <li>3. Send a voice note: what is the weather tomorrow?</li>
+            <li>4. Send: hear it</li>
+            <li>5. Send a risky request, such as: send a message to someone</li>
+          </ol>
+          <p className="mt-4 text-xs text-slate-500">
+            Expected result: normal replies work, voice is transcribed, replay works, and risky actions ask for confirmation.
+          </p>
+        </div>
+
+        <div className="nc-section">
+          <div className="nc-eyebrow">What each failure means</div>
+          <div className="mt-4 space-y-3 text-sm text-slate-300">
+            <p><span className="font-medium text-slate-100">No reply:</span> Railway bot is down, stale, disconnected, or not authenticated to WhatsApp.</p>
+            <p><span className="font-medium text-slate-100">Loop guard warning:</span> wait for auto-reset or investigate repeated sends.</p>
+            <p><span className="font-medium text-slate-100">Send failure:</span> WhatsApp client is not ready or the session needs repair.</p>
+            <p><span className="font-medium text-slate-100">Version mismatch:</span> Vercel deployed but Railway did not redeploy the bot worker.</p>
+            <p><span className="font-medium text-slate-100">Voice fails:</span> check transcription model/API keys and media handling.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

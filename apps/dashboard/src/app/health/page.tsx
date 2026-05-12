@@ -192,6 +192,10 @@ export default async function HealthPage() {
         <div className="nc-eyebrow">Operations</div>
         <h2 className="mt-2 text-3xl font-semibold">Health</h2>
         <p className="mt-3 max-w-2xl text-sm text-slate-400">Operational status without exposing secrets.</p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <a href="/whatsapp-recovery" className="nc-button-primary">WhatsApp recovery</a>
+          <a href="/api/healthz" className="nc-button">Check API health</a>
+        </div>
       </section>
 
       {whatsappStale && (
