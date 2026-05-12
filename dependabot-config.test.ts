@@ -11,5 +11,6 @@ describe("dependabot config", () => {
     expect(source).toContain("next-runtime");
     expect(source).toContain("- next");
     expect(source).toContain("open-pull-requests-limit: 5");
+    expect(source).toContain("version-update:semver-major");
   });
 });

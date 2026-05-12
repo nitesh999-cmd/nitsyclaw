@@ -26,6 +26,10 @@ updates:
           - typescript
     commit-message:
       prefix: deps
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
@@ -37,3 +41,7 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: ci
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
