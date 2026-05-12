@@ -39,6 +39,16 @@ describe("dashboard health page", () => {
     expect(source).toContain("Deployment:");
   });
 
+  test("warns when dashboard and bot commits differ", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain("buildDashboardRuntimeMetadata");
+    expect(source).toContain("runtimeCommitMismatch");
+    expect(source).toContain("Bot and dashboard are on different commits");
+    expect(source).toContain("Railway may not have redeployed the WhatsApp worker yet");
+    expect(source).toContain("Dashboard runtime");
+  });
+
   test("surfaces command job backlog and WhatsApp phone proof checklist", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 

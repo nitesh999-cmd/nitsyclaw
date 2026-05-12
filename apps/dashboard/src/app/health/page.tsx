@@ -4,6 +4,10 @@ import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
 import { logDashboardError } from "../../lib/dashboard-runtime";
+import {
+  buildDashboardRuntimeMetadata,
+  runtimeCommitMismatch,
+} from "../../lib/runtime-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +54,7 @@ async function loadHealth() {
   }, {});
   return {
     database: true,
+    dashboardRuntime: buildDashboardRuntimeMetadata(process.env),
     lastMessage: lastMessageRows[0] ?? null,
     pendingReminders: pendingReminderRows.length,
     pendingConfirmations: pendingConfirmationRows.length,
@@ -170,6 +175,11 @@ export default async function HealthPage() {
   const whatsappLoopPaused = data?.whatsappLoopGuardHeartbeat?.status === "paused";
   const whatsappLoopReason = data ? heartbeatMetadataText(data.whatsappLoopGuardHeartbeat, "reason") : null;
   const whatsappLoopResetAt = data ? heartbeatMetadataText(data.whatsappLoopGuardHeartbeat, "resetAt") : null;
+  const botVersionMismatch = data ? runtimeCommitMismatch(data.dashboardRuntime.commit, data.botRuntimeHeartbeat) : false;
+  const dashboardCommit = data?.dashboardRuntime.commitShort ?? "unknown";
+  const botRuntimeCommit = data
+    ? heartbeatMetadataText(data.botRuntimeHeartbeat, "commitShort") ?? heartbeatMetadataText(data.botRuntimeHeartbeat, "commit") ?? "unknown"
+    : "unknown";
   const commandJobTrouble = Boolean(
     (data?.commandJobCounts.failed ?? 0) > 0 ||
     (data?.commandJobCounts.retrying ?? 0) > 0 ||
@@ -222,6 +232,22 @@ export default async function HealthPage() {
               <p className="mt-1 text-xs text-red-300/75">
                 Loop guard reason: {whatsappLoopReason ?? "No detail available"}
                 {whatsappLoopResetAt ? ` | Auto-reset: ${whatsappLoopResetAt}` : ""}
+              </p>
+            </div>
+            <a href="/health" className="nc-button min-h-8 px-3 text-xs">
+              Refresh health
+            </a>
+          </div>
+        </div>
+      )}
+
+      {botVersionMismatch && (
+        <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-amber-300">Bot and dashboard are on different commits</p>
+              <p className="mt-1 text-xs text-amber-400/70">
+                Dashboard commit: {dashboardCommit} | Bot commit: {botRuntimeCommit}. Railway may not have redeployed the WhatsApp worker yet.
               </p>
             </div>
             <a href="/health" className="nc-button min-h-8 px-3 text-xs">
@@ -284,6 +310,17 @@ export default async function HealthPage() {
             </div>
           </a>
 
+          <HeartbeatTile
+            label="Dashboard runtime"
+            freshness="ok"
+            heartbeat={null}
+            detail={
+              <>
+                Commit: {data.dashboardRuntime.commitShort}
+                {data.dashboardRuntime.deploymentId ? <> | Deployment: {data.dashboardRuntime.deploymentId}</> : null}
+              </>
+            }
+          />
           <HeartbeatTile
             label="Bot runtime"
             freshness={data.botRuntimeFreshness}
