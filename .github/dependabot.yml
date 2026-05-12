@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+      time: "19:00"
+      timezone: Australia/Melbourne
+    open-pull-requests-limit: 5
+    groups:
+      next-runtime:
+        patterns:
+          - next
+          - react
+          - react-dom
+      test-tooling:
+        patterns:
+          - "@playwright/*"
+          - vitest
+          - "@vitest/*"
+      lint-typecheck:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - "@typescript-eslint/*"
+          - typescript
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "19:30"
+      timezone: Australia/Melbourne
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: ci
