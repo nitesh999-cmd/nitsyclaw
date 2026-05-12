@@ -18,6 +18,7 @@ async function loadHealth() {
     latestAuditRows,
     whatsappHeartbeat,
     whatsappSendHeartbeat,
+    whatsappLoopGuardHeartbeat,
     watchdogHeartbeat,
     schedulerHeartbeat,
     reminderHeartbeat,
@@ -31,6 +32,7 @@ async function loadHealth() {
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
     getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "whatsapp-send"),
+    getSystemHeartbeat(db, "whatsapp-loop-guard"),
     getSystemHeartbeat(db, "local-watchdog"),
     getSystemHeartbeat(db, "bot-scheduler"),
     getSystemHeartbeat(db, "reminder-sweep"),
@@ -56,6 +58,8 @@ async function loadHealth() {
     whatsappFreshness: classifyHeartbeat(whatsappHeartbeat, new Date(), 2 * 60 * 1000),
     whatsappSendHeartbeat,
     whatsappSendFreshness: classifyHeartbeat(whatsappSendHeartbeat, new Date(), 10 * 60 * 1000),
+    whatsappLoopGuardHeartbeat,
+    whatsappLoopGuardFreshness: classifyHeartbeat(whatsappLoopGuardHeartbeat, new Date(), 10 * 60 * 1000),
     watchdogHeartbeat,
     watchdogFreshness: classifyHeartbeat(watchdogHeartbeat, new Date(), 6 * 60 * 1000),
     schedulerHeartbeat,
@@ -143,6 +147,9 @@ export default async function HealthPage() {
   const whatsappStale = data ? data.whatsappFreshness !== "ok" || data.whatsappHeartbeat?.status !== "ok" : false;
   const whatsappSendFailure = data?.whatsappSendHeartbeat?.status === "error";
   const whatsappSendError = data ? heartbeatMetadataText(data.whatsappSendHeartbeat, "error") : null;
+  const whatsappLoopPaused = data?.whatsappLoopGuardHeartbeat?.status === "paused";
+  const whatsappLoopReason = data ? heartbeatMetadataText(data.whatsappLoopGuardHeartbeat, "reason") : null;
+  const whatsappLoopResetAt = data ? heartbeatMetadataText(data.whatsappLoopGuardHeartbeat, "resetAt") : null;
   const commandJobTrouble = Boolean(
     (data?.commandJobCounts.failed ?? 0) > 0 ||
     (data?.commandJobCounts.retrying ?? 0) > 0 ||
@@ -178,6 +185,23 @@ export default async function HealthPage() {
               <p className="font-medium text-red-300">WhatsApp reply delivery failed</p>
               <p className="mt-1 text-xs text-red-300/75">
                 Last send failure: {whatsappSendError ?? "No detail available"}
+              </p>
+            </div>
+            <a href="/health" className="nc-button min-h-8 px-3 text-xs">
+              Refresh health
+            </a>
+          </div>
+        </div>
+      )}
+
+      {whatsappLoopPaused && (
+        <div className="rounded-xl border border-red-700/40 bg-red-950/20 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-red-300">WhatsApp loop guard paused replies</p>
+              <p className="mt-1 text-xs text-red-300/75">
+                Loop guard reason: {whatsappLoopReason ?? "No detail available"}
+                {whatsappLoopResetAt ? ` | Auto-reset: ${whatsappLoopResetAt}` : ""}
               </p>
             </div>
             <a href="/health" className="nc-button min-h-8 px-3 text-xs">
@@ -255,6 +279,17 @@ export default async function HealthPage() {
             heartbeat={data.whatsappSendHeartbeat}
             stale={whatsappSendFailure}
             detail={whatsappSendError ? <>Last send failure: {whatsappSendError}</> : "No send failures recorded"}
+          />
+          <HeartbeatTile
+            label="WhatsApp loop guard"
+            freshness={data.whatsappLoopGuardFreshness}
+            heartbeat={data.whatsappLoopGuardHeartbeat}
+            stale={whatsappLoopPaused}
+            detail={
+              whatsappLoopReason
+                ? <>Loop guard reason: {whatsappLoopReason}{whatsappLoopResetAt ? <> | Auto-reset: {whatsappLoopResetAt}</> : null}</>
+                : "No loop guard pauses recorded"
+            }
           />
           <HeartbeatTile
             label="Bot scheduler"

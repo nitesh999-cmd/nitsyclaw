@@ -19,6 +19,16 @@ describe("dashboard health page", () => {
     expect(source).toContain("Last send failure");
   });
 
+  test("surfaces WhatsApp loop breaker telemetry from the database", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain('getSystemHeartbeat(db, "whatsapp-loop-guard")');
+    expect(source).toContain("WhatsApp loop guard");
+    expect(source).toContain("whatsappLoopGuardFreshness");
+    expect(source).toContain("Loop guard reason");
+    expect(source).toContain("Auto-reset");
+  });
+
   test("surfaces command job backlog and WhatsApp phone proof checklist", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 
