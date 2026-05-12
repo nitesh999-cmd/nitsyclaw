@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-12 (operator fallback + Next.js security patch)
+> Updated: 2026-05-12 (dependency/security maintenance + aggregator boundary verified)
 
 ---
 
@@ -39,3 +39,28 @@ One-line pitch: "Text or voice-note NitsyClaw on WhatsApp. It does the work. The
 | Email/calendar (Microsoft) | Microsoft Graph (device-code OAuth) |
 
 Cloud bot via Railway/whatsapp-web.js was attempted and **abandoned** (see §10).
+
+---
+
+## 3. Agent dependency boundary
+
+Current status: the multi-account aggregators are behind `AgentDeps`; shared feature code must not import from `apps/bot/*`.
+
+What is true in `main`:
+
+- `packages/shared/src/agent/deps.ts` exposes `aggregator?: AggregatorClient`.
+- `packages/shared/src/features/04-morning-brief.ts` uses `ctx.deps.aggregator?.fetchAllEventsToday(...)` and `ctx.deps.aggregator?.fetchAllUnreadEmails(...)`.
+- `packages/shared/src/features/05-whats-on-my-plate.ts` uses `args.deps.aggregator?.fetchAllEventsToday(...)`.
+- `apps/bot/src/adapters.ts` wires the real Google/Microsoft aggregators into `buildAgentDeps()`.
+- Dashboard deps leave `aggregator` undefined, so dashboard builds stay isolated from bot-only code and features safely fall back to empty arrays.
+
+Verification run on 2026-05-12:
+
+- `pnpm -r typecheck`
+- `pnpm run build`
+- `pnpm run release:preflight`
+
+Remaining parked work:
+
+- Yahoo IMAP integration is parked until usable auth is available.
+- Dashboard voice transcription is parked; dashboard chat still uses the no-op transcriber path.
