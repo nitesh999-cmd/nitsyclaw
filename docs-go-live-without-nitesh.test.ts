@@ -25,6 +25,7 @@ describe("go-live without Nitesh runbook", () => {
     expect(source).toContain("Docker is not installed/running locally");
     expect(source).toContain("Windows symlink privilege is unavailable");
     expect(source).toContain("pnpm run operator:next");
+    expect(source).toContain("offline safe dry-run");
     expect(source).toContain("DATABASE_URL");
     expect(source).toContain("Run `git status -sb` before push/deploy");
     expect(source).toContain("Public multi-user sale still needs account separation");

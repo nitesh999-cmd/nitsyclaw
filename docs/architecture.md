@@ -3,7 +3,7 @@
 NitsyClaw is a personal PA made of three main parts:
 
 1. Dashboard
-   - Next.js app in `apps/dashboard`.
+   - Next.js 16 app in `apps/dashboard`.
    - Runs on Vercel.
    - Main surfaces: Today, Ask, Command, Queue, Confirmations, Settings, Health.
    - API routes live under `apps/dashboard/src/app/api`.
@@ -38,6 +38,7 @@ NitsyClaw is a personal PA made of three main parts:
 - WhatsApp worker uptime and session health.
 - Claims about integrations that are not live yet.
 
-## Current launch blocker
+## Current launch blockers
 
-`command_jobs` migrations must be applied before deploying the latest command-spine code.
+- Local queue mutation needs `DATABASE_URL` in `.env.local` or `apps/dashboard/.env.local`.
+- Public multi-user launch still needs account separation, onboarding, billing, support, and legal/privacy controls.

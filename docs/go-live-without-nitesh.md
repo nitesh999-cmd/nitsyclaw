@@ -28,7 +28,7 @@ This is the safe work an operator can do while Nitesh is away from the desk.
 
 - Docker is not installed/running locally, so OWASP ZAP baseline is not verified on this machine.
 - Windows symlink privilege is unavailable, so local Vercel prebuilt packaging is blocked on this machine.
-- `pnpm run operator:next` cannot read queued feature work until `DATABASE_URL` is available in `.env.local` or `apps/dashboard/.env.local`.
+- `pnpm run operator:next` now gives an offline safe dry-run when `DATABASE_URL` is unavailable. Reading, claiming, rejecting, or updating live queue rows still needs `DATABASE_URL` in `.env.local` or `apps/dashboard/.env.local`.
 - The repo must stay clean before deployment. Run `git status -sb` before push/deploy and stop if unrelated files appear.
 - Public multi-user sale still needs account separation, onboarding, billing, support, and legal/privacy controls.
 

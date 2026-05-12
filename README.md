@@ -35,7 +35,7 @@ pnpm test               # unit + integration
 pnpm test:e2e           # Playwright e2e
 pnpm test:coverage      # coverage report (gate: 70% / 65%)
 pnpm run release:preflight
-pnpm run operator:next  # dry-run queued work; requires DATABASE_URL
+pnpm run operator:next  # dry-run queued work; falls back to offline plan without DATABASE_URL
 ```
 
 ## Deploy
