@@ -9,7 +9,7 @@
     "typecheck": "next typegen && node ../../scripts/next-typegen-dev.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
+    "@anthropic-ai/sdk": "^0.95.2",
     "@nitsyclaw/shared": "workspace:*",
     "autoprefixer": "^10.4.0",
     "drizzle-orm": "^0.36.0",
