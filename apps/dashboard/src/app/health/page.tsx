@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { getDb, messages, reminders, confirmations, featureRequests, auditLog, getSystemHeartbeat } from "@nitsyclaw/shared/db";
+import { getDb, messages, reminders, confirmations, featureRequests, auditLog, commandJobs, getSystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
@@ -14,6 +14,7 @@ async function loadHealth() {
     pendingReminderRows,
     pendingConfirmationRows,
     queueRows,
+    commandJobRows,
     latestAuditRows,
     whatsappHeartbeat,
     whatsappSendHeartbeat,
@@ -26,6 +27,7 @@ async function loadHealth() {
     db.select().from(reminders).where(eq(reminders.status, "pending")).limit(25),
     db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(25),
     db.select().from(featureRequests).limit(200),
+    db.select().from(commandJobs).orderBy(desc(commandJobs.createdAt)).limit(100),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
     getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "whatsapp-send"),
@@ -38,12 +40,17 @@ async function loadHealth() {
     acc[row.status] = (acc[row.status] ?? 0) + 1;
     return acc;
   }, {});
+  const commandJobCounts = commandJobRows.reduce<Record<string, number>>((acc, row) => {
+    acc[row.status] = (acc[row.status] ?? 0) + 1;
+    return acc;
+  }, {});
   return {
     database: true,
     lastMessage: lastMessageRows[0] ?? null,
     pendingReminders: pendingReminderRows.length,
     pendingConfirmations: pendingConfirmationRows.length,
     queueCounts,
+    commandJobCounts,
     latestAudit: latestAuditRows[0] ?? null,
     whatsappHeartbeat,
     whatsappFreshness: classifyHeartbeat(whatsappHeartbeat, new Date(), 2 * 60 * 1000),
@@ -136,6 +143,11 @@ export default async function HealthPage() {
   const whatsappStale = data ? data.whatsappFreshness !== "ok" || data.whatsappHeartbeat?.status !== "ok" : false;
   const whatsappSendFailure = data?.whatsappSendHeartbeat?.status === "error";
   const whatsappSendError = data ? heartbeatMetadataText(data.whatsappSendHeartbeat, "error") : null;
+  const commandJobTrouble = Boolean(
+    (data?.commandJobCounts.failed ?? 0) > 0 ||
+    (data?.commandJobCounts.retrying ?? 0) > 0 ||
+    (data?.commandJobCounts.working ?? 0) > 3,
+  );
 
   return (
     <div className="nc-page">
@@ -175,6 +187,22 @@ export default async function HealthPage() {
         </div>
       )}
 
+      {commandJobTrouble && (
+        <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-amber-300">Command jobs need attention</p>
+              <p className="mt-1 text-xs text-amber-400/70">
+                failed: {data?.commandJobCounts.failed ?? 0} | retrying: {data?.commandJobCounts.retrying ?? 0} | working: {data?.commandJobCounts.working ?? 0}
+              </p>
+            </div>
+            <a href="/command" className="nc-button min-h-8 px-3 text-xs">
+              Open command page
+            </a>
+          </div>
+        </div>
+      )}
+
       <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
         {rows.map(([label, ok, detail]) => (
           <div key={label} className="grid gap-3 px-4 py-3 md:grid-cols-[180px_120px_1fr]">
@@ -203,6 +231,12 @@ export default async function HealthPage() {
             <div className="nc-eyebrow">Feature queue</div>
             <div className="mt-2 text-sm text-slate-300">
               {Object.entries(data.queueCounts).map(([k, v]) => `${k}: ${v}`).join(" | ") || "Empty"}
+            </div>
+          </a>
+          <a href="/command" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+            <div className="nc-eyebrow">Command jobs</div>
+            <div className="mt-2 text-sm text-slate-300">
+              {Object.entries(data.commandJobCounts).map(([k, v]) => `${k}: ${v}`).join(" | ") || "Empty"}
             </div>
           </a>
 
@@ -242,6 +276,20 @@ export default async function HealthPage() {
             freshness={data.prunerFreshness}
             heartbeat={data.prunerHeartbeat}
           />
+
+          <div className="nc-section md:col-span-4">
+            <div className="nc-eyebrow">WhatsApp phone proof</div>
+            <div className="mt-2 grid gap-2 text-sm text-slate-300 md:grid-cols-5">
+              {["hi", "hear it", "pending items", "voice: weather tomorrow", "risky: send a message"].map((item) => (
+                <div key={item} className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+                  {item}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Use these five checks after a deploy. If any one fails, fix that path before adding more features.
+            </p>
+          </div>
 
           <div className="nc-section md:col-span-4">
             <div className="nc-eyebrow">Latest tool signal</div>

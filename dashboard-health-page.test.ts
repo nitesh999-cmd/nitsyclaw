@@ -19,6 +19,17 @@ describe("dashboard health page", () => {
     expect(source).toContain("Last send failure");
   });
 
+  test("surfaces command job backlog and WhatsApp phone proof checklist", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain("commandJobs");
+    expect(source).toContain("Command jobs");
+    expect(source).toContain("failed:");
+    expect(source).toContain("WhatsApp phone proof");
+    expect(source).toContain("hear it");
+    expect(source).toContain("pending items");
+  });
+
   test("surfaces public-sale readiness without exposing secrets", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 
