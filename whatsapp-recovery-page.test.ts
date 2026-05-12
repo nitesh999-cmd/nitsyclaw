@@ -11,6 +11,11 @@ describe("WhatsApp recovery page", () => {
     expect(source).toContain('getSystemHeartbeat(db, "whatsapp-loop-guard")');
     expect(source).toContain("Railway bot worker");
     expect(source).toContain("Phone proof script");
+    expect(source).toContain("Recovery action log");
+    expect(source).toContain("/api/whatsapp-recovery/log-action");
+    expect(source).toContain("railway_auth_checked");
+    expect(source).toContain("phone_proof_passed");
+    expect(source).toContain("whatsapp_recovery_action");
     expect(source).toContain("What each failure means");
     expect(source).toContain("hi");
     expect(source).toContain("pending items");

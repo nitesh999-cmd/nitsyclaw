@@ -1,5 +1,6 @@
-import { getDb, getSystemHeartbeat } from "@nitsyclaw/shared/db";
+import { auditLog, getDb, getSystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
+import { desc, eq } from "drizzle-orm";
 import { logDashboardError } from "../../lib/dashboard-runtime";
 import {
   buildDashboardRuntimeMetadata,
@@ -18,12 +19,19 @@ async function loadRecoveryState() {
     whatsappSend,
     whatsappLoopGuard,
     scheduler,
+    recoveryActionRows,
   ] = await Promise.all([
     getSystemHeartbeat(db, "bot-runtime"),
     getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "whatsapp-send"),
     getSystemHeartbeat(db, "whatsapp-loop-guard"),
     getSystemHeartbeat(db, "bot-scheduler"),
+    db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.tool, "whatsapp_recovery_action"))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(8),
   ]);
 
   return {
@@ -37,6 +45,7 @@ async function loadRecoveryState() {
     whatsappLoopGuardFreshness: classifyHeartbeat(whatsappLoopGuard, new Date(), 10 * 60 * 1000),
     scheduler,
     schedulerFreshness: classifyHeartbeat(scheduler, new Date()),
+    recoveryActions: recoveryActionRows,
   };
 }
 
@@ -65,6 +74,24 @@ function CheckRow({
       <div className="text-slate-400">{detail}</div>
     </div>
   );
+}
+
+const recoveryActions = [
+  ["railway_auth_checked", "Railway auth checked"],
+  ["railway_restarted", "Railway restarted"],
+  ["phone_proof_started", "Phone proof started"],
+  ["phone_proof_passed", "Phone proof passed"],
+  ["phone_proof_failed", "Phone proof failed"],
+] as const;
+
+function recoveryActionLabel(action: unknown): string {
+  const found = recoveryActions.find(([value]) => value === action);
+  return found?.[1] ?? "Recovery action";
+}
+
+function recoveryActionValue(input: Record<string, unknown> | null): string | null {
+  const action = input?.action;
+  return typeof action === "string" ? action : null;
 }
 
 export default async function WhatsAppRecoveryPage() {
@@ -187,6 +214,41 @@ export default async function WhatsAppRecoveryPage() {
             <p><span className="font-medium text-slate-100">Version mismatch:</span> Vercel deployed but Railway did not redeploy the bot worker.</p>
             <p><span className="font-medium text-slate-100">Voice fails:</span> check transcription model/API keys and media handling.</p>
           </div>
+        </div>
+      </section>
+
+      <section className="nc-section">
+        <div className="nc-eyebrow">Recovery action log</div>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">
+          Use these fixed buttons tomorrow so recovery attempts are recorded without storing freeform private data.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {recoveryActions.map(([value, label]) => (
+            <form key={value} action="/api/whatsapp-recovery/log-action" method="post">
+              <input type="hidden" name="action" value={value} />
+              <button type="submit" className="nc-button min-h-9 px-3 text-xs">
+                {label}
+              </button>
+            </form>
+          ))}
+        </div>
+        <div className="mt-5 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/45">
+          {(state?.recoveryActions.length ?? 0) > 0 ? (
+            state?.recoveryActions.map((entry) => {
+              const action = recoveryActionValue(entry.input);
+              return (
+                <div key={entry.id} className="grid gap-2 border-t border-slate-800 px-4 py-3 text-sm md:grid-cols-[220px_100px_1fr]">
+                  <div className="font-medium text-slate-100">{recoveryActionLabel(action)}</div>
+                  <div className={entry.success ? "text-emerald-300" : "text-red-300"}>
+                    {entry.success ? "logged" : "failed"}
+                  </div>
+                  <div className="text-slate-400">{new Date(entry.createdAt).toLocaleString()}</div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="px-4 py-3 text-sm text-slate-400">No recovery actions logged yet.</div>
+          )}
         </div>
       </section>
     </div>
