@@ -24,12 +24,17 @@ vi.mock("@nitsyclaw/shared/utils", () => ({
   hashPhone: mocks.hashPhone,
 }));
 
-const { pendingFeatureQueueFingerprint, runDailyBuildAgent } = await import("./build-agent.js");
+const {
+  pendingFeatureQueueFingerprint,
+  resetBuildAgentNotificationGuardsForTest,
+  runDailyBuildAgent,
+} = await import("./build-agent.js");
 
 describe("runDailyBuildAgent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    resetBuildAgentNotificationGuardsForTest();
     mocks.insertMessage.mockResolvedValue({});
     mocks.pushNotify.mockResolvedValue(undefined);
   });
@@ -103,6 +108,18 @@ describe("runDailyBuildAgent", () => {
     expect(mocks.pushNotify).not.toHaveBeenCalled();
     expect(deps.whatsapp.send).toHaveBeenCalledTimes(1);
     expect(mocks.insertMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses repeated ntfy pushes in-process even if the db claim repeats", async () => {
+    mocks.listPendingFeatureRequests.mockResolvedValue([featureRequest("05608bae")]);
+    mocks.claimSystemNotification.mockResolvedValue(true);
+    const deps = fakeDeps();
+
+    await runDailyBuildAgent(deps, "+61430008008");
+    await runDailyBuildAgent(deps, "+61430008008");
+
+    expect(mocks.pushNotify).toHaveBeenCalledTimes(1);
+    expect(deps.whatsapp.send).toHaveBeenCalledTimes(2);
   });
 
   it("uses a stable fingerprint independent of database ordering", () => {

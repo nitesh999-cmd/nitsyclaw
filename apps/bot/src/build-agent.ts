@@ -16,6 +16,7 @@ import { logBotError } from "./safe-log.js";
 const FEATURE_NOTIFICATION_SOURCE = "build-agent-feature-notify";
 const FEATURE_NTFY_RATE_LIMIT_SOURCE = "build-agent-feature-ntfy-rate-limit";
 const DEFAULT_FEATURE_NOTIFY_COOLDOWN_MS = 20 * 60 * 60 * 1000;
+const localNtfyPushes = new Map<string, number>();
 
 export async function runDailyBuildAgent(
   deps: AgentDeps,
@@ -82,7 +83,7 @@ export async function runDailyBuildAgent(
     return false;
   });
 
-  if (notifyClaimed) {
+  if (notifyClaimed && claimLocalNtfyPush("pending-feature-summary", now, featureNotifyCooldownMs())) {
     await pushNotify(
       `${pending.length} pending feature(s). Details on WhatsApp.`,
       {
@@ -128,10 +129,23 @@ export function pendingFeatureQueueFingerprint(pending: Pick<FeatureRequest, "id
   return createHash("sha256").update(raw).digest("hex");
 }
 
+export function resetBuildAgentNotificationGuardsForTest(): void {
+  localNtfyPushes.clear();
+}
+
 function featureNotifyCooldownMs(): number {
   const hours = Number(process.env.BUILD_AGENT_NOTIFY_COOLDOWN_HOURS);
   if (Number.isFinite(hours) && hours >= 1 && hours <= 72) {
     return hours * 60 * 60 * 1000;
   }
   return DEFAULT_FEATURE_NOTIFY_COOLDOWN_MS;
+}
+
+function claimLocalNtfyPush(fingerprint: string, now: Date, cooldownMs: number): boolean {
+  const previous = localNtfyPushes.get(fingerprint);
+  if (previous !== undefined && now.getTime() - previous < cooldownMs) {
+    return false;
+  }
+  localNtfyPushes.set(fingerprint, now.getTime());
+  return true;
 }
