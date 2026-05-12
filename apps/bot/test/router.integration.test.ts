@@ -671,6 +671,199 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(true);
   });
 
+  it("does not reprocess a replayed voice note after router restart", async () => {
+    let transcribeCalls = 0;
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          transcribeCalls += 1;
+          return "this is a replay-safe voice note";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "got it" }),
+    });
+    router = new Router(deps, OWNER);
+    const message = {
+      id: "x-voice-replay",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice" as const,
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    };
+
+    await router.handle(message);
+    const sentAfterFirstRun = wa.sent.length;
+    router = new Router(deps, OWNER);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(transcribeCalls).toBe(1);
+    expect(wa.sent).toHaveLength(sentAfterFirstRun);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-voice-replay")).toMatchObject({
+      command: "this is a replay-safe voice note",
+      status: "done",
+      dedupeKey: "whatsapp:x-voice-replay",
+    });
+  });
+
+  it("approval-gates risky voice transcripts before the agent can act", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "send a message to Mukesh saying I am running late";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "should not run" }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-risky-voice",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice")).toMatchObject({
+      command: "send a message to Mukesh saying I am running late",
+      status: "needs_approval",
+      riskLevel: "approval_required",
+    });
+    expect(wa.sent.some((message) => message.body.includes("Needs your approval"))).toBe(true);
+    expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
+  });
+
+  it("resends a risky voice approval gate on replay if the first prompt failed to send", async () => {
+    let approvalPromptFailures = 0;
+    wa.send = async (message) => {
+      if (message.body.includes("Needs your approval") && approvalPromptFailures === 0) {
+        approvalPromptFailures += 1;
+        throw new Error("temporary WhatsApp send failure");
+      }
+      wa.sent.push(message);
+      return { id: `mock-${wa.sent.length}` };
+    };
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "send a message to Mukesh saying I am running late";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "should not run" }),
+    });
+    router = new Router(deps, OWNER);
+    const message = {
+      id: "x-risky-voice-approval-replay",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice" as const,
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    };
+
+    await router.handle(message);
+    router = new Router(deps, OWNER);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice-approval-replay")).toMatchObject({
+      status: "needs_approval",
+      riskLevel: "approval_required",
+    });
+    expect(wa.sent.filter((sent) => sent.body.includes("Needs your approval"))).toHaveLength(1);
+    expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
+  });
+
+  it("resends a risky voice approval gate on same-process replay", async () => {
+    let approvalPromptFailures = 0;
+    wa.send = async (message) => {
+      if (message.body.includes("Needs your approval") && approvalPromptFailures === 0) {
+        approvalPromptFailures += 1;
+        throw new Error("temporary WhatsApp send failure");
+      }
+      wa.sent.push(message);
+      return { id: `mock-${wa.sent.length}` };
+    };
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "send a message to Mukesh saying I am running late";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "should not run" }),
+    });
+    router = new Router(deps, OWNER);
+    const message = {
+      id: "x-risky-voice-same-process-replay",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice" as const,
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    };
+
+    await router.handle(message);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice-same-process-replay")).toMatchObject({
+      status: "needs_approval",
+      riskLevel: "approval_required",
+    });
+    expect(wa.sent.filter((sent) => sent.body.includes("Needs your approval"))).toHaveLength(1);
+    expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
+  });
+
+  it("still processes a safe voice command when the transcription notice cannot send", async () => {
+    let sends = 0;
+    wa.send = async (message) => {
+      sends += 1;
+      if (sends === 1) throw new Error("temporary WhatsApp send failure");
+      wa.sent.push(message);
+      return { id: `mock-${wa.sent.length}` };
+    };
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "check the weather tomorrow";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "Weather checked." }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-voice-notice-send-failure",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-voice-notice-send-failure")).toMatchObject({
+      command: "check the weather tomorrow",
+      status: "done",
+      riskLevel: "safe",
+    });
+    expect(wa.sent.some((message) => message.body.includes("Weather checked."))).toBe(true);
+  });
+
   it("hears the last voice message without creating an approval-gated job", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
@@ -790,6 +983,62 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toMatch(/Logged INR 250/);
   });
 
+  it("does not reprocess a replayed receipt image after router restart", async () => {
+    deps = makeAgentDeps({ whatsapp: wa, imageAnalyzer: fakeImageAnalyzer });
+    router = new Router(deps, OWNER);
+    const message = {
+      id: "x-image-replay",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "image" as const,
+      downloadMedia: async () => ({ data: Buffer.from("img"), mimetype: "image/jpeg" }),
+    };
+
+    await router.handle(message);
+    const sentAfterFirstRun = wa.sent.length;
+    router = new Router(deps, OWNER);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.expenses).toHaveLength(1);
+    expect(wa.sent).toHaveLength(sentAfterFirstRun);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-image-replay")).toMatchObject({
+      status: "done",
+      dedupeKey: "whatsapp:x-image-replay",
+    });
+  });
+
+  it("does not convert a receipt send failure into image fallback or duplicate expense", async () => {
+    deps = makeAgentDeps({ whatsapp: wa, imageAnalyzer: fakeImageAnalyzer });
+    router = new Router(deps, OWNER);
+    wa.send = async () => {
+      throw new Error("temporary WhatsApp send failure");
+    };
+    const message = {
+      id: "x-image-send-failure",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "image" as const,
+      downloadMedia: async () => ({ data: Buffer.from("img"), mimetype: "image/jpeg" }),
+    };
+
+    await router.handle(message);
+    router = new Router(deps, OWNER);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.expenses).toHaveLength(1);
+    expect(wa.sent).toHaveLength(0);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-image-send-failure")).toMatchObject({
+      status: "done",
+      resultText: expect.stringContaining("Logged INR 250"),
+    });
+  });
+
   it("unsupported PDF-like upload gets an honest extraction fallback", async () => {
     await router.handle({
       id: "x",
@@ -879,6 +1128,66 @@ describe("Router (integration)", () => {
     });
     expect(wa.sent[0].body).toContain("Imported 1 expense");
     expect(wa.sent[0].body).toContain("Skipped 1 non-expense row");
+  });
+
+  it("does not reprocess a replayed CSV document after router restart", async () => {
+    const message = {
+      id: "x-document-replay",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-05-10T00:00:00Z"),
+      hasMedia: true,
+      mediaType: "document" as const,
+      downloadMedia: async () => ({
+        data: Buffer.from("Date,Description,Debit,Credit\n2026-05-09,Uber Trip,18.75,\n2026-05-10,Salary,,1200.00"),
+        mimetype: "text/csv",
+        filename: "bank-export.csv",
+      }),
+    };
+
+    await router.handle(message);
+    const sentAfterFirstRun = wa.sent.length;
+    router = new Router(deps, OWNER);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.expenses).toHaveLength(1);
+    expect(wa.sent).toHaveLength(sentAfterFirstRun);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-document-replay")).toMatchObject({
+      status: "done",
+      dedupeKey: "whatsapp:x-document-replay",
+    });
+  });
+
+  it("does not mark a successful CSV import failed when the WhatsApp reply cannot send", async () => {
+    wa.send = async () => {
+      throw new Error("temporary WhatsApp send failure");
+    };
+    const message = {
+      id: "x-document-send-failure",
+      from: OWNER,
+      body: "",
+      timestamp: new Date("2026-05-10T00:00:00Z"),
+      hasMedia: true,
+      mediaType: "document" as const,
+      downloadMedia: async () => ({
+        data: Buffer.from("Date,Description,Debit,Credit\n2026-05-09,Uber Trip,18.75,\n2026-05-10,Salary,,1200.00"),
+        mimetype: "text/csv",
+        filename: "bank-export.csv",
+      }),
+    };
+
+    await router.handle(message);
+    router = new Router(deps, OWNER);
+    await router.handle(message);
+
+    const state = getFakeDbState(deps.db);
+    expect(state.expenses).toHaveLength(1);
+    expect(wa.sent).toHaveLength(0);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-document-send-failure")).toMatchObject({
+      status: "done",
+      resultText: expect.stringContaining("Imported 1 expense"),
+    });
   });
 
   it("'yes' reply with no pending falls through to the agent", async () => {

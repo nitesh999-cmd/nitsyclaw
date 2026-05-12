@@ -72,6 +72,7 @@ import {
   createCommandJob,
   getCommandJobByDedupeKey,
   markCommandJobWorking,
+  refreshCommandJobIntent,
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
 import type { CommandJob } from "@nitsyclaw/shared/db";
@@ -152,11 +153,20 @@ export class Router {
     await this.sendAndPersist(userMessage);
   }
 
+  private async sendAndPersistBestEffort(body: string, label: string): Promise<void> {
+    try {
+      await this.sendAndPersist(body);
+    } catch (error) {
+      logBotError("[router] best-effort reply delivery failed", error, { label });
+    }
+  }
+
   private async createWhatsAppCommandJob(
     msg: InboundMessage,
     persistedId: string,
     command: string,
     allowAgentClarification: boolean,
+    opts: { maxAttempts?: number } = {},
   ): Promise<CommandJob> {
     return createCommandJob(this.deps.db, {
       source: "whatsapp",
@@ -166,6 +176,7 @@ export class Router {
       sourceExternalId: msg.id,
       dedupeKey: `whatsapp:${msg.id}`,
       allowAgentClarification,
+      maxAttempts: opts.maxAttempts,
     });
   }
 
@@ -817,6 +828,13 @@ export class Router {
 
   async handle(msg: InboundMessage): Promise<void> {
     if (msg.from !== this.ownerPhone) return; // R2 — only owner
+    const dedupeKey = `whatsapp:${msg.id}`;
+    const existingCommandJob = await getCommandJobByDedupeKey(this.deps.db, dedupeKey);
+    if (existingCommandJob && isGateReplay(existingCommandJob.status)) {
+      await this.sendAndPersistBestEffort(existingCommandJob.receiptText, "command gate replay");
+      return;
+    }
+    if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
     if (!this.rememberExternalMessageId(msg.id)) return;
 
     // Load cross-surface history BEFORE persisting current turn so it isn't included.
@@ -843,7 +861,14 @@ export class Router {
 
     // 1. Voice note → transcribe → continue as if it were text.
     let effectiveText = msg.body;
-    let effectiveTextFromVoice = false;
+    let commandJob = existingCommandJob ?? await this.createWhatsAppCommandJob(
+      msg,
+      persisted.id,
+      buildWhatsAppCommandSummary(msg, effectiveText),
+      msg.mediaType ? true : canAgentClarifySafely(effectiveText),
+      msg.mediaType ? { maxAttempts: 1 } : {},
+    );
+
     if (msg.mediaType === "voice" && msg.downloadMedia) {
       try {
         const media = await msg.downloadMedia();
@@ -855,11 +880,17 @@ export class Router {
           sourceMessageId: persisted.id,
         });
         effectiveText = transcript;
-        effectiveTextFromVoice = true;
-        await this.sendAndPersist(
+        commandJob = await refreshCommandJobIntent(this.deps.db, commandJob.id, effectiveText, true);
+        await this.sendAndPersistBestEffort(
           `📝 Transcribed. I will reply in English.\n${transcript}`,
+          "voice transcription notice",
         );
+        if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
+          await this.sendAndPersistBestEffort(commandJob.receiptText, "voice command gate");
+          return;
+        }
       } catch (e) {
+        await this.failWhatsAppCommandJob(commandJob, e);
         await this.sendPublicFailure("voice transcription", "Couldn't transcribe that voice note. I logged it; try again shortly.", e);
         return;
       }
@@ -879,25 +910,26 @@ export class Router {
           sourceMessageId: persisted.id,
         });
         if (out && out.amount && out.amount > 0) {
-          await this.sendAndPersist(
-            `💸 Logged ${out.currency} ${out.amount} (${out.category}) at ${out.merchant ?? "unknown"}`,
-          );
+          const reply = `💸 Logged ${out.currency} ${out.amount} (${out.category}) at ${out.merchant ?? "unknown"}`;
+          await this.completeWhatsAppCommandJob(commandJob, reply);
+          await this.sendAndPersistBestEffort(reply, "image receipt");
           return;
         }
         // Receipt extraction returned nothing useful — treat as general image.
         const description = await this.identifyImage(media.data, media.mimetype);
-        await this.sendAndPersist(
-          `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder about this", "log expense ${out?.rawText ? `(${out.rawText})` : ""}", or just describe what you want.`,
-        );
+        const reply = `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder about this", "log expense ${out?.rawText ? `(${out.rawText})` : ""}", or just describe what you want.`;
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+        await this.sendAndPersistBestEffort(reply, "image description");
       } catch (_imageError) {
         // Even receipt parsing crashed (vision API failure, etc.). Try general path.
         try {
           const media = await msg.downloadMedia();
           const description = await this.identifyImage(media.data, media.mimetype);
-          await this.sendAndPersist(
-            `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder", or describe what you want.`,
-          );
+          const reply = `📸 I see: ${description}\n\nWhat would you like to do? Reply with: "save as memory", "set a reminder", or describe what you want.`;
+          await this.completeWhatsAppCommandJob(commandJob, reply);
+          await this.sendAndPersistBestEffort(reply, "image fallback description");
         } catch (e2) {
+          await this.failWhatsAppCommandJob(commandJob, e2);
           await this.sendPublicFailure("image read", "Couldn't read that image. I logged it; try again shortly.", e2);
         }
       }
@@ -936,7 +968,9 @@ export class Router {
             sourceMessageId: persisted.id,
           });
           if (imported.importedCount > 0) {
-            await this.sendAndPersist(this.formatCsvExpenseImportReply(imported));
+            const reply = this.formatCsvExpenseImportReply(imported);
+            await this.completeWhatsAppCommandJob(commandJob, reply);
+            await this.sendAndPersistBestEffort(reply, "csv expense import");
             return;
           }
         }
@@ -951,22 +985,14 @@ export class Router {
           ...result,
           warnings: [...result.warnings, ...(extractedWarning ? [extractedWarning] : [])],
         });
-        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+        await this.sendAndPersistBestEffort(reply, "document intake");
       } catch (documentError) {
+        await this.failWhatsAppCommandJob(commandJob, documentError);
         await this.sendPublicFailure("document intake", "I received the document, but couldn't inspect it safely. Try pasting the key text or uploading a screenshot.", documentError);
       }
       return;
     }
-
-    const dedupeKey = `whatsapp:${msg.id}`;
-    const existingCommandJob = await getCommandJobByDedupeKey(this.deps.db, dedupeKey);
-    if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
-    const commandJob = existingCommandJob ?? await this.createWhatsAppCommandJob(
-      msg,
-      persisted.id,
-      effectiveText,
-      effectiveTextFromVoice || canAgentClarifySafely(effectiveText),
-    );
 
     // 2.5 — feature request shortcuts (feature_request fr_96407890).
     //      Fast path for power users: skip the agent loop, persist directly.
@@ -1360,10 +1386,20 @@ function confirmationActionLabel(action: string): string {
 }
 
 function isTerminalReplay(status: CommandJob["status"]): boolean {
-  return status === "done" ||
-    status === "failed" ||
-    status === "needs_approval" ||
-    status === "needs_clarification";
+  return status === "done" || status === "failed";
+}
+
+function isGateReplay(status: CommandJob["status"]): boolean {
+  return status === "needs_approval" || status === "needs_clarification";
+}
+
+function buildWhatsAppCommandSummary(msg: InboundMessage, text: string): string {
+  const trimmed = text.trim();
+  if (trimmed) return trimmed;
+  if (msg.mediaType === "voice") return "[WhatsApp voice note]";
+  if (msg.mediaType === "image") return "[WhatsApp image]";
+  if (msg.mediaType === "document") return "[WhatsApp document]";
+  return "[WhatsApp message]";
 }
 
 function isCsvUpload(filename?: string, mimetype?: string): boolean {

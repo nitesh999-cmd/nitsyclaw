@@ -94,6 +94,47 @@ export async function completeCommandJob(
   });
 }
 
+export async function updateCommandJobCommand(
+  db: DB,
+  id: string,
+  command: string,
+): Promise<CommandJob> {
+  return updateCommandJob(db, id, {
+    command: command.trim(),
+    updatedAt: new Date(),
+  });
+}
+
+export async function refreshCommandJobIntent(
+  db: DB,
+  id: string,
+  command: string,
+  allowAgentClarification: boolean,
+): Promise<CommandJob> {
+  const intent = analyzePersonalPaIntent(command);
+  const riskLevel = intent.kind === "approval_required" ? "approval_required" : "safe";
+  const status: CommandJobStatus =
+    intent.kind === "approval_required"
+      ? "needs_approval"
+      : intent.kind === "needs_clarification"
+        ? allowAgentClarification
+          ? "received"
+          : "needs_clarification"
+        : "received";
+  const receiptText =
+    intent.kind === "needs_clarification" && allowAgentClarification
+      ? buildReceiptText("received")
+      : intent.userFacingText;
+
+  return updateCommandJob(db, id, {
+    command: command.trim(),
+    status,
+    riskLevel,
+    receiptText,
+    updatedAt: new Date(),
+  });
+}
+
 export async function recordCommandJobFailure(
   db: DB,
   id: string,
