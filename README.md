@@ -14,7 +14,7 @@ pnpm dev                            # bot + dashboard in parallel
 ## Read these in order
 
 1. `mind.md` — living technical reference
-2. `NitsyClaw-Constitution-v1.0.md` — immutable rules (R1–R16)
+2. `NitsyClaw-Constitution-v1.0.md` — immutable rules (currently R1–R61)
 3. `ideas/06-p0-shortlist.md` — the 10 features built first
 
 ## Launch and operations docs

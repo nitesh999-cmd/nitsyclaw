@@ -5,7 +5,6 @@ This is the safe work an operator can do while Nitesh is away from the desk.
 ## Safe to do autonomously
 
 - Run `pnpm run release:preflight`.
-- Run `pnpm run security:snyk`.
 - Run `pnpm run release:live-smoke`.
 - Run `pnpm run audit:doctor` and record machine blockers.
 - Fix local code issues found by lint, typecheck, tests, build, Semgrep, audit, or live smoke.
@@ -13,6 +12,7 @@ This is the safe work an operator can do while Nitesh is away from the desk.
 - Update audit, release, and feature-batch docs.
 - Improve dashboard copy, mobile readability, and empty states without changing data contracts.
 - Improve bot reliability guards: loop breaker, presence unavailable, health heartbeat, and safe error reporting.
+- Run `pnpm run security:snyk` only when Snyk CLI auth is already configured and the account has private-test quota available.
 
 ## Do not do without Nitesh
 
@@ -36,8 +36,13 @@ This is the safe work an operator can do while Nitesh is away from the desk.
 
 ```powershell
 pnpm run release:preflight
-pnpm run security:snyk
 pnpm run release:live-smoke
 pnpm run audit:doctor
+```
+
+Optional authenticated security check:
+
+```powershell
+pnpm run security:snyk
 ```
 

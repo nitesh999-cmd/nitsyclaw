@@ -6,9 +6,9 @@ Current verified gate from the latest local check:
 
 - `pnpm lint` passes.
 - `pnpm typecheck` passes.
-- `pnpm test` passes: 134 files, 535 tests.
+- `pnpm test` passes.
 - `pnpm build` passes.
-- Playwright E2E: 12 dashboard specs.
+- Playwright E2E dashboard specs pass.
 - Semgrep: 0 findings.
 - `pnpm audit --audit-level=moderate`: no known vulnerabilities.
 
@@ -35,10 +35,7 @@ Current verified gate from the latest local check:
 
 ## Current counts
 
-| Layer | Files | Tests |
-|---|---|---|
-| Unit + integration | 134 | 535 |
-| E2E | 1 | 12 |
+Do not hard-code current test counts in this doc. Vitest and Playwright print the exact file/spec counts during each run, and those numbers drift whenever coverage improves.
 
 ## Running
 

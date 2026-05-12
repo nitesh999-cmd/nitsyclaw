@@ -7,10 +7,10 @@ describe("go-live without Nitesh runbook", () => {
   test("keeps autonomous work limited to safe local actions", () => {
     expect(source).toContain("Safe to do autonomously");
     expect(source).toContain("Run `pnpm run release:preflight`");
-    expect(source).toContain("Run `pnpm run security:snyk`");
     expect(source).toContain("Run `pnpm run release:live-smoke`");
     expect(source).toContain("Run `pnpm run audit:doctor`");
     expect(source).toContain("Fix local code issues");
+    expect(source).toContain("Snyk CLI auth is already configured");
   });
 
   test("blocks deploy, push, data deletion, and real outbound actions without Nitesh", () => {

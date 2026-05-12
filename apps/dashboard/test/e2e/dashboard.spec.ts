@@ -102,7 +102,8 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByRole("link", { name: "Ask" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Review" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Remember" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Requests" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Do" })).toHaveCount(0);
     await expect(page.getByRole("textbox")).toBeVisible();
 
