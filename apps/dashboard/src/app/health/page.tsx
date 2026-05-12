@@ -16,6 +16,7 @@ async function loadHealth() {
     queueRows,
     commandJobRows,
     latestAuditRows,
+    botRuntimeHeartbeat,
     whatsappHeartbeat,
     whatsappSendHeartbeat,
     whatsappLoopGuardHeartbeat,
@@ -30,6 +31,7 @@ async function loadHealth() {
     db.select().from(featureRequests).limit(200),
     db.select().from(commandJobs).orderBy(desc(commandJobs.createdAt)).limit(100),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
+    getSystemHeartbeat(db, "bot-runtime"),
     getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "whatsapp-send"),
     getSystemHeartbeat(db, "whatsapp-loop-guard"),
@@ -54,6 +56,8 @@ async function loadHealth() {
     queueCounts,
     commandJobCounts,
     latestAudit: latestAuditRows[0] ?? null,
+    botRuntimeHeartbeat,
+    botRuntimeFreshness: classifyHeartbeat(botRuntimeHeartbeat, new Date(), 30 * 24 * 60 * 60 * 1000),
     whatsappHeartbeat,
     whatsappFreshness: classifyHeartbeat(whatsappHeartbeat, new Date(), 2 * 60 * 1000),
     whatsappSendHeartbeat,
@@ -81,6 +85,22 @@ function heartbeatMetadataText(
 ): string | null {
   const value = heartbeat?.metadata?.[key];
   return typeof value === "string" && value.trim() ? value.slice(0, 180) : null;
+}
+
+function heartbeatDeployDetail(heartbeat: { metadata: Record<string, unknown> | null } | null): ReactNode {
+  const commit = heartbeatMetadataText(heartbeat, "commitShort") ?? heartbeatMetadataText(heartbeat, "commit");
+  const deployment = heartbeatMetadataText(heartbeat, "deploymentId");
+  const startedAt = heartbeatMetadataText(heartbeat, "startedAt");
+
+  if (!commit && !deployment && !startedAt) return "No deploy identity recorded";
+
+  return (
+    <>
+      {commit ? <>Commit: {commit}</> : null}
+      {deployment ? <>{commit ? " | " : ""}Deployment: {deployment}</> : null}
+      {startedAt ? <>{commit || deployment ? " | " : ""}Started: {startedAt}</> : null}
+    </>
+  );
 }
 
 function HeartbeatTile({
@@ -264,6 +284,12 @@ export default async function HealthPage() {
             </div>
           </a>
 
+          <HeartbeatTile
+            label="Bot runtime"
+            freshness={data.botRuntimeFreshness}
+            heartbeat={data.botRuntimeHeartbeat}
+            detail={heartbeatDeployDetail(data.botRuntimeHeartbeat)}
+          />
           <HeartbeatTile
             label="WhatsApp client"
             freshness={data.whatsappFreshness}

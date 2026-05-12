@@ -29,6 +29,16 @@ describe("dashboard health page", () => {
     expect(source).toContain("Auto-reset");
   });
 
+  test("surfaces bot runtime deploy identity from the database", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain('getSystemHeartbeat(db, "bot-runtime")');
+    expect(source).toContain("Bot runtime");
+    expect(source).toContain("botRuntimeFreshness");
+    expect(source).toContain("Commit:");
+    expect(source).toContain("Deployment:");
+  });
+
   test("surfaces command job backlog and WhatsApp phone proof checklist", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 

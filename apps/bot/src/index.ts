@@ -23,6 +23,7 @@ import { Router } from "./router.js";
 import { startScheduler } from "./scheduler.js";
 import { loadBotDotenv, whatsappSessionDir } from "./secret-paths.js";
 import { logBotError } from "./safe-log.js";
+import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 
 loadBotDotenv();
 
@@ -30,6 +31,11 @@ async function main() {
   const env = loadEnv();
   console.log(`[boot] NitsyClaw bot starting (TZ=${env.TIMEZONE})`);
   const db = getDb(env.DATABASE_URL ?? env.DATABASE_URL_DIRECT);
+  await upsertSystemHeartbeat(db, {
+    source: "bot-runtime",
+    status: "starting",
+    metadata: buildBotRuntimeMetadata(process.env),
+  });
 
   const rawWhatsapp = new WwebjsClient({
     sessionDir: whatsappSessionDir(env.WHATSAPP_SESSION_DIR),
@@ -106,6 +112,11 @@ async function main() {
   monitoredWhatsapp.onMessage(async (m) => router.handle(m));
 
   await monitoredWhatsapp.ready();
+  await upsertSystemHeartbeat(db, {
+    source: "bot-runtime",
+    status: "ok",
+    metadata: buildBotRuntimeMetadata(process.env),
+  });
   console.log("[boot] WhatsApp ready");
 
   if (env.ENABLE_HEARTBEAT) {
