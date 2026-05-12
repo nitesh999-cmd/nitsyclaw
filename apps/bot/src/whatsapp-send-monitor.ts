@@ -29,7 +29,18 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
 
   async send(msg: OutboundMessage): Promise<{ id: string }> {
     try {
-      return await this.inner.send(msg);
+      const result = await this.inner.send(msg);
+      await upsertSystemHeartbeat(this.opts.db, {
+        source: "whatsapp-send",
+        status: "ok",
+        metadata: {
+          at: this.now().toISOString(),
+          lastMessageId: result.id,
+        },
+      }).catch((heartbeatError) => {
+        logBotError("[whatsapp-send-monitor] failed to clear send heartbeat", heartbeatError);
+      });
+      return result;
     } catch (e) {
       const error = formatSafeLogError(e);
       await upsertSystemHeartbeat(this.opts.db, {

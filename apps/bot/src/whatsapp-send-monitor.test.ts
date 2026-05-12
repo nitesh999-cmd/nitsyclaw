@@ -42,15 +42,30 @@ afterEach(() => {
 });
 
 describe("WhatsAppSendMonitor", () => {
-  it("passes successful sends through without writing failure telemetry", async () => {
+  it("passes successful sends through and clears stale failure telemetry", async () => {
     const inner = new FakeWhatsApp();
-    const monitor = new WhatsAppSendMonitor(inner, { db: {} as never });
+    const monitor = new WhatsAppSendMonitor(inner, {
+      db: {} as never,
+      now: () => new Date("2026-05-07T01:02:03.000Z"),
+    });
 
     await expect(monitor.send({ to: "+61430008008", body: "hello" })).resolves.toEqual({ id: "sent-1" });
 
     expect(inner.sent).toEqual([{ to: "+61430008008", body: "hello" }]);
-    expect(upsertSystemHeartbeat).not.toHaveBeenCalled();
+    expect(upsertSystemHeartbeat).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        source: "whatsapp-send",
+        status: "ok",
+        metadata: {
+          at: "2026-05-07T01:02:03.000Z",
+          lastMessageId: "sent-1",
+        },
+      }),
+    );
     expect(pushNotify).not.toHaveBeenCalled();
+    expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("+61430008008");
+    expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("hello");
   });
 
   it("records redacted failure telemetry and rethrows the send error", async () => {
