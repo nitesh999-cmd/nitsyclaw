@@ -74,6 +74,45 @@ describe("WhatsAppLoopBreaker", () => {
     expect(inner.sent.map((msg) => msg.body)).toEqual(["one", "two"]);
   });
 
+  it("allows the normal phone proof flow without tripping the default send-burst guard", async () => {
+    const inner = new FakeWhatsApp();
+    const onTrip = vi.fn();
+    const breaker = new WhatsAppLoopBreaker(inner, { onTrip });
+
+    for (const body of [
+      "Saved. Working on it.",
+      "Hi. What can I do for you?",
+      "Last voice transcript I have:\nhello",
+      "Feature queue status sent.",
+      "Saved. Working on it.",
+      "Transcribed. I will reply in English.\nWhat's the weather tomorrow?",
+      "Melbourne tomorrow: cool and cloudy.",
+    ]) {
+      await breaker.send({ to: "+61430008008", body });
+    }
+
+    expect(onTrip).not.toHaveBeenCalled();
+    expect(breaker.isPaused()).toBe(false);
+    expect(inner.sent).toHaveLength(7);
+  });
+
+  it("still pauses an abnormal default send burst", async () => {
+    const inner = new FakeWhatsApp();
+    const onTrip = vi.fn();
+    const breaker = new WhatsAppLoopBreaker(inner, { onTrip });
+
+    for (let index = 1; index <= 12; index += 1) {
+      await breaker.send({ to: "+61430008008", body: `message ${index}` });
+    }
+
+    await expect(
+      breaker.send({ to: "+61430008008", body: "message 13" }),
+    ).rejects.toThrow("loop breaker");
+    expect(onTrip).toHaveBeenCalledWith(expect.objectContaining({
+      reason: "send burst: 13 sends in 90000ms",
+    }));
+  });
+
   it("auto-resets send burst cooldown instead of staying permanently paused", async () => {
     let now = 1_000;
     const inner = new FakeWhatsApp();

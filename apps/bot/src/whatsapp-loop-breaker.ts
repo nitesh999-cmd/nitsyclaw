@@ -22,6 +22,10 @@ export interface LoopBreakerIncident {
   recentOutboundPreviews: string[];
 }
 
+const DEFAULT_MAX_SENDS_PER_WINDOW = 12;
+const DEFAULT_SEND_WINDOW_MS = 90_000;
+const DEFAULT_SEND_BURST_COOLDOWN_MS = 2 * 60 * 1000;
+
 export class WhatsAppLoopBreaker implements WhatsAppClient {
   private recentOutbound: Array<{ body: string; sentAt: number }> = [];
   private recentSends: number[] = [];
@@ -41,9 +45,9 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
   ) {
     this.now = opts.now ?? (() => Date.now());
     this.outboundTtlMs = opts.outboundTtlMs ?? 2 * 60 * 1000;
-    this.maxSendsPerWindow = opts.maxSendsPerWindow ?? 6;
-    this.sendWindowMs = opts.sendWindowMs ?? 90_000;
-    this.sendBurstCooldownMs = opts.sendBurstCooldownMs ?? 2 * 60 * 1000;
+    this.maxSendsPerWindow = opts.maxSendsPerWindow ?? DEFAULT_MAX_SENDS_PER_WINDOW;
+    this.sendWindowMs = opts.sendWindowMs ?? DEFAULT_SEND_WINDOW_MS;
+    this.sendBurstCooldownMs = opts.sendBurstCooldownMs ?? DEFAULT_SEND_BURST_COOLDOWN_MS;
     this.onTrip = opts.onTrip;
     this.onReset = opts.onReset;
   }
