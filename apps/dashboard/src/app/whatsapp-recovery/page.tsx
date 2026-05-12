@@ -209,7 +209,7 @@ export default async function WhatsAppRecoveryPage() {
           <div className="nc-eyebrow">What each failure means</div>
           <div className="mt-4 space-y-3 text-sm text-slate-300">
             <p><span className="font-medium text-slate-100">No reply:</span> Railway bot is down, stale, disconnected, or not authenticated to WhatsApp.</p>
-            <p><span className="font-medium text-slate-100">Loop guard warning:</span> wait for auto-reset or investigate repeated sends.</p>
+            <p><span className="font-medium text-slate-100">Loop guard warning:</span> send <span className="font-mono text-slate-100">resume whatsapp</span>, wait for the resumed reply, then repeat the proof.</p>
             <p><span className="font-medium text-slate-100">Send failure:</span> WhatsApp client is not ready or the session needs repair.</p>
             <p><span className="font-medium text-slate-100">Version mismatch:</span> Vercel deployed but Railway did not redeploy the bot worker.</p>
             <p><span className="font-medium text-slate-100">Voice fails:</span> check transcription model/API keys and media handling.</p>

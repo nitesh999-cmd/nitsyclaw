@@ -55,6 +55,18 @@ Expected result:
 - risky action asks for confirmation
 - loop guard does not pause normal proof traffic
 
+If the loop guard is already paused, send:
+
+```text
+resume whatsapp
+```
+
+Expected reply:
+
+```text
+WhatsApp replies resumed. Send your request again if I missed it.
+```
+
 ## If something fails
 
 Use `/whatsapp-recovery` first.

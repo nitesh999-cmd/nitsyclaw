@@ -159,6 +159,25 @@ describe("WhatsAppLoopBreaker", () => {
     expect(onReset).toHaveBeenCalledOnce();
     expect(handler).toHaveBeenCalledOnce();
     expect(handler.mock.calls[0][0].body).toBe("fresh request");
+    expect(inner.sent.some((msg) => msg.body.includes("WhatsApp replies resumed"))).toBe(true);
+  });
+
+  it("accepts plain WhatsApp recovery phrases while paused", async () => {
+    const inner = new FakeWhatsApp();
+    const onReset = vi.fn();
+    const breaker = new WhatsAppLoopBreaker(inner, { onReset });
+    const handler = vi.fn();
+    breaker.onMessage(handler);
+
+    await breaker.send({ to: "+61430008008", body: "echo" });
+    inner.emit("echo");
+    inner.emit("resume whatsapp");
+    inner.emit("fresh request");
+
+    expect(breaker.isPaused()).toBe(false);
+    expect(onReset).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledOnce();
+    expect(inner.sent.some((msg) => msg.body.includes("WhatsApp replies resumed"))).toBe(true);
   });
 
   it("reports diagnostic incident data when tripped", async () => {

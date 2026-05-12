@@ -16,6 +16,7 @@ describe("WhatsApp recovery page", () => {
     expect(source).toContain("railway_auth_checked");
     expect(source).toContain("phone_proof_passed");
     expect(source).toContain("whatsapp_recovery_action");
+    expect(source).toContain("resume whatsapp");
     expect(source).toContain("What each failure means");
     expect(source).toContain("hi");
     expect(source).toContain("pending items");

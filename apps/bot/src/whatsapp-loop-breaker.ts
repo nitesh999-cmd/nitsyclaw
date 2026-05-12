@@ -25,6 +25,7 @@ export interface LoopBreakerIncident {
 const DEFAULT_MAX_SENDS_PER_WINDOW = 12;
 const DEFAULT_SEND_WINDOW_MS = 90_000;
 const DEFAULT_SEND_BURST_COOLDOWN_MS = 2 * 60 * 1000;
+const RESUME_ACK = "WhatsApp replies resumed. Send your request again if I missed it.";
 
 export class WhatsAppLoopBreaker implements WhatsAppClient {
   private recentOutbound: Array<{ body: string; sentAt: number }> = [];
@@ -84,6 +85,9 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
       if (this.isResumeCommand(body)) {
         if (this.pausedReason) {
           this.resetPause("manual reset consumed");
+          void this.inner.send({ to: msg.from, body: RESUME_ACK }).catch((e) => {
+            console.error("[loop-breaker] failed to send resume acknowledgement", e);
+          });
         }
         return;
       }
@@ -156,7 +160,7 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
   }
 
   private isResumeCommand(body: string): boolean {
-    return /^(resume|unlock|restart)\s+(nitsy|bot|nitsyclaw)$/i.test(body);
+    return /^(resume|unlock|restart)\s+(nitsy|bot|nitsyclaw|whatsapp|replies)$/i.test(body);
   }
 
   private normalize(body: string): string {
