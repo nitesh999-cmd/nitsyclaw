@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOperatorRunnerError } from "./operator-runner.js";
+import { formatOfflineOperatorRunReport, formatOperatorRunnerError } from "./operator-runner.js";
 
 describe("operator runner error safety", () => {
   it("keeps the safe DATABASE_URL guidance", () => {
@@ -25,5 +25,18 @@ describe("operator runner error safety", () => {
     expect(message).not.toContain("nitesh@example.com");
     expect(message).not.toContain("+61 430 008 008");
     expect(message).not.toContain("sk_live");
+  });
+
+  it("gives an honest offline dry-run plan when the live queue is unavailable", () => {
+    const message = formatOfflineOperatorRunReport();
+
+    expect(message).toContain("operator-queue=unavailable");
+    expect(message).toContain("mode=offline-safe-dry-run");
+    expect(message).toContain("No queue state was changed.");
+    expect(message).toContain("pnpm lint");
+    expect(message).toContain("pnpm typecheck");
+    expect(message).toContain("pnpm test");
+    expect(message).toContain("pnpm build");
+    expect(message).toContain("DATABASE_URL");
   });
 });

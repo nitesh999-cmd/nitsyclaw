@@ -98,6 +98,10 @@ async function main() {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   main().catch((error: unknown) => {
+    if (dryRun && isDatabaseUrlError(error)) {
+      console.log(formatOfflineOperatorRunReport());
+      return;
+    }
     console.error(formatOperatorRunnerError(error));
     process.exitCode = 1;
   });
@@ -108,9 +112,27 @@ const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
 const TOKEN_RE = /\b(?:(?:sk|pk)_(?:live|test)_[A-Za-z0-9._-]{8,}|(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,})\b/g;
 const POSTGRES_URL_RE = /\bpostgres(?:ql)?:\/\/\S+/gi;
 
+export function formatOfflineOperatorRunReport(): string {
+  return [
+    "operator-queue=unavailable",
+    "reason=DATABASE_URL is not configured",
+    "mode=offline-safe-dry-run",
+    "No queue state was changed.",
+    "",
+    "Safe next actions without live queue access:",
+    "1. pnpm lint",
+    "2. pnpm typecheck",
+    "3. pnpm test",
+    "4. pnpm build",
+    "5. Fix local-only WhatsApp/router/docs issues with tests, then commit.",
+    "",
+    "Needs DATABASE_URL: reading, claiming, rejecting, or updating live queued feature rows.",
+  ].join("\n");
+}
+
 export function formatOperatorRunnerError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("DATABASE_URL")) {
+  if (isDatabaseUrlError(error)) {
     return [
       "operator-runner failed: Operator runner cannot read queued work because DATABASE_URL is not configured.",
       "Copy the dashboard DATABASE_URL into .env.local or apps/dashboard/.env.local, then rerun pnpm operator:next.",
@@ -123,6 +145,11 @@ export function formatOperatorRunnerError(error: unknown): string {
     .replace(TOKEN_RE, "[redacted:token]")
     .replace(PHONE_RE, "[redacted:phone]");
   return `operator-runner failed: ${redacted.slice(0, 200)}`;
+}
+
+function isDatabaseUrlError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("DATABASE_URL");
 }
 
 function loadLocalEnv(paths: string[]): void {
