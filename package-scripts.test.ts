@@ -124,4 +124,15 @@ describe("package scripts", () => {
     expect(script).toBe("pnpm --filter @nitsyclaw/bot start");
     expect(botPackage.scripts?.start).toBeTruthy();
   });
+
+  test("Railway preflight checks bot worker access without mutating deployments", () => {
+    expect(rootPackage.scripts?.["railway:preflight"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
+    );
+
+    const source = readFileSync("scripts/railway-preflight.ps1", "utf8");
+    expect(source).toContain("RAILWAY_TOKEN missing");
+    expect(source).toContain("@railway/cli status");
+    expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
+  });
 });

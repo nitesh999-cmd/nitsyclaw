@@ -31,6 +31,7 @@ Authenticate Railway, then restart or redeploy the WhatsApp bot worker.
 Minimum proof after Railway is available:
 
 ```powershell
+pnpm run railway:preflight
 pnpm dlx @railway/cli status
 ```
 
