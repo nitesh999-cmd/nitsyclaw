@@ -23,7 +23,9 @@ $service = if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }
 
 $statusCommand = "pnpm dlx @railway/cli service list --project $projectId --environment $environment --json"
 Write-Host $statusCommand
-pnpm dlx @railway/cli service list --project $projectId --environment $environment --json
+$serviceListJsonRaw = pnpm dlx @railway/cli service list --project $projectId --environment $environment --json 2>&1
+$serviceListJson = $serviceListJsonRaw -join "`n"
+Write-Host $serviceListJson
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Railway status check failed"
     exit $LASTEXITCODE
@@ -73,9 +75,57 @@ if ($missingVars.Count -gt 0) {
     exit 1
 }
 
+function Get-RailwayVariableValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$RawJson,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    $parsed = $RawJson | ConvertFrom-Json
+    $property = $parsed.PSObject.Properties[$Name]
+    if ($property) {
+        return [string]$property.Value
+    }
+    return $null
+}
+
+$secretRootValue = Get-RailwayVariableValue -RawJson $variableJson -Name "NITSYCLAW_SECRET_ROOT"
+$sessionDirValue = Get-RailwayVariableValue -RawJson $variableJson -Name "WHATSAPP_SESSION_DIR"
+
+if (-not $secretRootValue.StartsWith("/")) {
+    Write-Host "NITSYCLAW_SECRET_ROOT must be an absolute Railway volume path."
+    exit 1
+}
+
+$unsafeSecretRoots = @("/", "/app", "/home", "/usr", "/var", "/tmp", "/etc", "/root")
+if ($unsafeSecretRoots -contains $secretRootValue) {
+    Write-Host "NITSYCLAW_SECRET_ROOT is too broad/unsafe: $secretRootValue"
+    exit 1
+}
+
+if ($sessionDirValue.StartsWith("/") -or $sessionDirValue -match '(^|[\\/])\.\.([\\/]|$)') {
+    Write-Host "WHATSAPP_SESSION_DIR must be relative and stay under NITSYCLAW_SECRET_ROOT."
+    exit 1
+}
+
+$serviceList = $serviceListJson | ConvertFrom-Json
+$selectedService = $serviceList | Where-Object { $_.name -eq $service } | Select-Object -First 1
+$volumeMountPaths = @($selectedService.volumes | ForEach-Object { $_.mountPath })
+if ($volumeMountPaths -notcontains $secretRootValue) {
+    Write-Host "NITSYCLAW_SECRET_ROOT must match a Railway volume mount path."
+    Write-Host ("Current NITSYCLAW_SECRET_ROOT: " + $secretRootValue)
+    Write-Host ("Railway volume mount paths: " + ($volumeMountPaths -join ", "))
+    exit 1
+}
+
 if (Test-RailwayVariablePresent -RawJson $variableJson -Name "NITSYCLAW_PRINT_QR_TO_LOGS") {
     Write-Host "Unsafe legacy QR log variable is still present: NITSYCLAW_PRINT_QR_TO_LOGS"
     Write-Host "Unset it. Use NITSYCLAW_QR_RECOVERY_TOKEN + NITSYCLAW_QR_RECOVERY_UNTIL instead."
+    exit 1
+}
+
+if (Test-RailwayVariablePresent -RawJson $variableJson -Name "NITSYCLAW_ALLOW_ABSOLUTE_SECRET_PATHS") {
+    Write-Host "Unsafe Railway variable is present: NITSYCLAW_ALLOW_ABSOLUTE_SECRET_PATHS"
+    Write-Host "Railway WhatsApp sessions must stay under NITSYCLAW_SECRET_ROOT on the mounted volume."
     exit 1
 }
 

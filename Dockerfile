@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \
     fonts-liberation \
+    gosu \
     libnss3 \
     libxss1 \
     libgbm1 \
@@ -46,11 +47,14 @@ COPY . .
 RUN mkdir -p /home/node/.nitsyclaw/secrets \
     && chown -R node:node /app /home/node/.nitsyclaw
 
+COPY scripts/docker-entrypoint.sh /usr/local/bin/nitsyclaw-entrypoint.sh
+RUN chmod 755 /usr/local/bin/nitsyclaw-entrypoint.sh
+
 # Set the working directory to the bot app for runtime
 WORKDIR /app/apps/bot
 
-# Do not run the WhatsApp worker as root in Railway.
-USER node
-
-# Start command
+# Start as root only long enough to make the mounted Railway volume writable,
+# then the entrypoint drops privileges to the non-root node user.
+USER root
+ENTRYPOINT ["sh", "/usr/local/bin/nitsyclaw-entrypoint.sh"]
 CMD ["pnpm", "start"]

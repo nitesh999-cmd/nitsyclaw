@@ -155,6 +155,8 @@ describe("package scripts", () => {
     expect(source).toContain("@railway/cli variable list");
     expect(source).toContain("NITSYCLAW_SECRET_ROOT");
     expect(source).toContain("NITSYCLAW_PRINT_QR_TO_LOGS");
+    expect(source).toContain("NITSYCLAW_ALLOW_ABSOLUTE_SECRET_PATHS");
+    expect(source).toContain("mountPath");
     expect(source).toContain("14a48d9f-310a-446f-9350-77a28ebdc239");
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
   });
