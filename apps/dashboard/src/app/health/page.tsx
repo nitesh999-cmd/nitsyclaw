@@ -208,6 +208,9 @@ export default async function HealthPage() {
             <a href="/api/healthz" className="nc-button min-h-8 px-3 text-xs">
               Check /healthz
             </a>
+            <a href="/whatsapp-recovery" className="nc-button min-h-8 px-3 text-xs">
+              Open recovery board
+            </a>
           </div>
         </div>
       )}
@@ -223,6 +226,9 @@ export default async function HealthPage() {
             </div>
             <a href="/health" className="nc-button min-h-8 px-3 text-xs">
               Refresh health
+            </a>
+            <a href="/whatsapp-recovery" className="nc-button min-h-8 px-3 text-xs">
+              Open recovery board
             </a>
           </div>
         </div>
@@ -240,6 +246,9 @@ export default async function HealthPage() {
             </div>
             <a href="/health" className="nc-button min-h-8 px-3 text-xs">
               Refresh health
+            </a>
+            <a href="/whatsapp-recovery" className="nc-button min-h-8 px-3 text-xs">
+              Open recovery board
             </a>
           </div>
         </div>
@@ -286,6 +295,44 @@ export default async function HealthPage() {
           </div>
         ))}
       </div>
+
+      <section className="nc-section">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="nc-eyebrow">Operator recovery runbook</div>
+            <h3 className="mt-2 text-xl font-semibold text-slate-100">WhatsApp checks to run before calling it fixed</h3>
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">
+              Use these commands after a bot change, deployment mismatch, or loop-breaker pause. They do not expose secrets.
+            </p>
+          </div>
+          <a href="/whatsapp-recovery" className="nc-button-primary">
+            Open recovery board
+          </a>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+            <div className="text-sm font-medium text-slate-200">1. Local proof</div>
+            <code className="mt-3 block rounded-md border border-slate-800 bg-black/30 px-3 py-2 text-xs text-emerald-200">
+              pnpm run whatsapp:proof-local
+            </code>
+            <p className="mt-3 text-xs text-slate-500">Runs WhatsApp smoke plus focused loop, replay, pending-items, and risky-action tests.</p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+            <div className="text-sm font-medium text-slate-200">2. Railway worker preflight</div>
+            <code className="mt-3 block rounded-md border border-slate-800 bg-black/30 px-3 py-2 text-xs text-emerald-200">
+              pnpm run railway:preflight
+            </code>
+            <p className="mt-3 text-xs text-slate-500">Checks the Railway CLI/token path before touching the WhatsApp worker deployment.</p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+            <div className="text-sm font-medium text-slate-200">3. Phone proof</div>
+            <code className="mt-3 block rounded-md border border-slate-800 bg-black/30 px-3 py-2 text-xs text-emerald-200">
+              resume whatsapp
+            </code>
+            <p className="mt-3 text-xs text-slate-500">Then send: hi, hear it, pending items, voice weather tomorrow, risky send-message test.</p>
+          </div>
+        </div>
+      </section>
 
       {data ? (
         <section className="grid gap-4 md:grid-cols-4">

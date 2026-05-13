@@ -305,6 +305,52 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers exact pending items command without the model loop", async () => {
+    const state = getFakeDbState(deps.db);
+    state.feature_requests.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      description: "Read and send emails on behalf of the user via Gmail and Outlook",
+      type: "feature",
+      size: "M",
+      status: "pending",
+      source: "whatsapp",
+      createdAt: new Date("2026-04-28T17:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-pending-items-exact",
+      from: OWNER,
+      body: "pending items",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("NitsyClaw status");
+    expect(wa.sent[0].body).toContain("Pending: 1 item");
+    expect(wa.sent[0].body).toContain("Read and send emails");
+    expect(wa.sent[0].body).toContain("Needs setup before real action");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("gates risky send-message requests before the model loop", async () => {
+    await router.handle({
+      id: "x-risky-send-message",
+      from: OWNER,
+      body: "send a message to Mukesh saying I am running late",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-risky-send-message",
+      status: "needs_approval",
+      riskLevel: "approval_required",
+    });
+    expect(wa.sent[0].body).toContain("Needs your approval");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers local files reminders expenses and summaries status", async () => {
     await router.handle({
       id: "x-doc-before-status",

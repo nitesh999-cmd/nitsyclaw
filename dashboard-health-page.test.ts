@@ -61,6 +61,16 @@ describe("dashboard health page", () => {
     expect(source).toContain("pending items");
   });
 
+  test("surfaces operator recovery commands for local and Railway checks", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain("Operator recovery runbook");
+    expect(source).toContain("pnpm run whatsapp:proof-local");
+    expect(source).toContain("pnpm run railway:preflight");
+    expect(source).toContain("resume whatsapp");
+    expect(source).toContain("Open recovery board");
+  });
+
   test("surfaces public-sale readiness without exposing secrets", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 
