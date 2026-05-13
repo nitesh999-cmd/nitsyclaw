@@ -33,6 +33,9 @@ if [ "$(id -u)" = "0" ]; then
   mkdir -p "$secret_root" "$session_root"
 
   chown node:node "$secret_root" "$session_root"
+  find "$session_root" -maxdepth 3 \
+    \( -name "SingletonLock" -o -name "SingletonSocket" -o -name "SingletonCookie" \) \
+    -exec rm -f {} +
 
   exec gosu node "$@"
 fi

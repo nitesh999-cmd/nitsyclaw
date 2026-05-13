@@ -38,6 +38,10 @@ describe("Railway Docker runtime", () => {
     expect(entrypoint).toContain('mkdir -p "$secret_root" "$session_root"');
     expect(entrypoint).toContain('chown node:node "$secret_root" "$session_root"');
     expect(entrypoint).not.toContain("chown -R");
+    expect(entrypoint).toContain('find "$session_root" -maxdepth 3');
+    expect(entrypoint).toContain('SingletonLock');
+    expect(entrypoint).toContain('SingletonSocket');
+    expect(entrypoint).toContain('SingletonCookie');
     expect(entrypoint).toContain('exec gosu node "$@"');
   });
 });
