@@ -21,11 +21,13 @@ describe("wwebjs client regressions", () => {
     expect(source).toContain("!this.qrPending");
   });
 
-  test("does not print WhatsApp QR pairing payloads in production logs", () => {
+  test("prints WhatsApp QR pairing payloads only behind an explicit recovery switch", () => {
     expect(source).toContain("NITSYCLAW_PRINT_QR_TO_LOGS");
-    expect(source).toContain('process.env.NODE_ENV !== "production"');
+    expect(source).toContain('process.env.NITSYCLAW_PRINT_QR_TO_LOGS === "1"');
+    expect(source).not.toContain('process.env.NODE_ENV !== "production"');
     expect(source).not.toContain("api.qrserver.com");
     expect(source).toContain("QR payload hidden");
+    expect(source).toContain("active WhatsApp recovery window");
   });
 
   test("redacts runtime status reasons before they can reach heartbeat metadata", () => {

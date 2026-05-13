@@ -150,7 +150,9 @@ describe("package scripts", () => {
     const source = readFileSync("scripts/railway-preflight.ps1", "utf8");
     expect(source).toContain("@railway/cli whoami --json");
     expect(source).toContain("pnpm run railway:login");
-    expect(source).toContain("@railway/cli status");
+    expect(source).toContain("@railway/cli service list");
+    expect(source).toContain("@railway/cli service status");
+    expect(source).toContain("14a48d9f-310a-446f-9350-77a28ebdc239");
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
   });
 

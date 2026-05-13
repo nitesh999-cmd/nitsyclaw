@@ -45,7 +45,7 @@ function messageMeta(body: string): string {
 }
 
 function shouldPrintQrToLogs(): boolean {
-  return process.env.NITSYCLAW_PRINT_QR_TO_LOGS === "1" && process.env.NODE_ENV !== "production";
+  return process.env.NITSYCLAW_PRINT_QR_TO_LOGS === "1";
 }
 
 function defaultHealthFilePath(): string {
@@ -335,7 +335,7 @@ export class WwebjsClient implements WhatsAppClient {
       if (shouldPrintQrToLogs()) {
         qrcode.generate(qr, { small: true });
       } else {
-        console.log("[wwebjs] QR payload hidden; set NITSYCLAW_PRINT_QR_TO_LOGS=1 outside production for local setup.");
+        console.log("[wwebjs] QR payload hidden; set NITSYCLAW_PRINT_QR_TO_LOGS=1 only during an active WhatsApp recovery window.");
       }
       void this.writeHealthHeartbeat("QR_REQUIRED");
       this.emitStatus({ status: "qr_required", qrAvailable: true });
