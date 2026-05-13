@@ -53,7 +53,7 @@ Remove-RailwayVariableIfPresent -Name "NITSYCLAW_PRINT_QR_TO_LOGS"
 pnpm dlx @railway/cli variable set "NITSYCLAW_QR_RECOVERY_TOKEN=$token" --project $ProjectId --environment $Environment --service $Service --skip-deploys --json | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Failed to set NITSYCLAW_QR_RECOVERY_TOKEN." }
 
-pnpm dlx @railway/cli variable set "NITSYCLAW_QR_RECOVERY_UNTIL=$until" --project $ProjectId --environment $Environment --service $Service --skip-deploys --json | Out-Null
+pnpm dlx @railway/cli variable set "NITSYCLAW_QR_RECOVERY_UNTIL=$until" --project $ProjectId --environment $Environment --service $Service --json | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Failed to set NITSYCLAW_QR_RECOVERY_UNTIL." }
 
 $afterSetVariables = Get-RailwayVariablesJson
@@ -62,11 +62,11 @@ if (Test-VariablePresent -RawJson $afterSetVariables -Name "NITSYCLAW_PRINT_QR_T
     throw "Unsafe legacy variable is still present: NITSYCLAW_PRINT_QR_TO_LOGS."
 }
 
-pnpm dlx @railway/cli service restart --project $ProjectId --environment $Environment --service $Service --yes --json | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Failed to restart Railway service." }
-
 $base = $PublicBaseUrl.TrimEnd("/")
 $url = "$base/recovery/whatsapp-qr"
+Write-Host ""
+Write-Host "Railway deployment was triggered so the running app receives the new token."
+Write-Host "Wait until Railway is healthy before loading the QR."
 Write-Host ""
 Write-Host "Open this URL on your PC:"
 Write-Host $url

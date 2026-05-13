@@ -46,7 +46,4 @@ foreach ($key in $keys) {
     }
 }
 
-pnpm dlx @railway/cli service restart --project $ProjectId --environment $Environment --service $Service --yes --json | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Failed to restart Railway service." }
-
-Write-Host "QR recovery variables removed and Railway service restarted."
+Write-Host "QR recovery variables removed. Railway deployment was triggered if any variable changed."

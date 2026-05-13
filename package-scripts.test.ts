@@ -174,6 +174,7 @@ describe("package scripts", () => {
     expect(openSource).toContain("NITSYCLAW_QR_RECOVERY_UNTIL");
     expect(openSource).toContain("RandomNumberGenerator");
     expect(openSource).toContain("GetBytes");
+    expect(openSource).toContain("Wait until Railway is healthy");
     expect(openSource).toContain("/recovery/whatsapp-qr");
     expect(openSource).not.toContain("/recovery/whatsapp-qr.svg?token=");
     expect(openSource).toContain('Remove-RailwayVariableIfPresent -Name "NITSYCLAW_PRINT_QR_TO_LOGS"');
@@ -185,6 +186,7 @@ describe("package scripts", () => {
     expect(closeSource).toContain("NITSYCLAW_PRINT_QR_TO_LOGS");
     expect(closeSource).toContain("already absent");
     expect(closeSource).toContain("Railway variable still present after close");
+    expect(closeSource).not.toContain("service restart");
   });
 
   test("Railway diagnose captures read-only crash logs without mutating deployments", () => {
