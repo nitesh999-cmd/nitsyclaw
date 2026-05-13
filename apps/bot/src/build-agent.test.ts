@@ -158,6 +158,43 @@ describe("runDailyBuildAgent", () => {
     );
   });
 
+  it("uses a queue-specific ntfy fallback when WhatsApp fails", async () => {
+    const firstQueue = [featureRequest("05608bae")];
+    const secondQueue = [featureRequest("05608bae"), featureRequest("fe082828")];
+    mocks.listPendingFeatureRequests
+      .mockResolvedValueOnce(firstQueue)
+      .mockResolvedValueOnce(secondQueue);
+    mocks.claimSystemNotification.mockResolvedValue(true);
+    const deps = fakeDeps();
+    deps.whatsapp.send.mockRejectedValue(new Error("send failed"));
+
+    await runDailyBuildAgent(deps, "+61430008008");
+    await runDailyBuildAgent(deps, "+61430008008");
+
+    expect(mocks.pushNotify).toHaveBeenCalledTimes(2);
+    expect(mocks.claimSystemNotification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: "build-agent-feature-ntfy-rate-limit",
+        fingerprint: expect.stringContaining("pending-feature-summary-whatsapp-failed:"),
+      }),
+    );
+  });
+
+  it("changes queue fingerprint when a feature is escalated to a critical bug", () => {
+    const ordinary = [
+      featureRequest("05608bae", new Date("2026-05-09T00:00:00.000Z")),
+    ];
+    const critical = [
+      featureRequest("05608bae", new Date("2026-05-09T00:00:00.000Z"), {
+        type: "bug",
+        severity: "P0",
+      }),
+    ];
+
+    expect(pendingFeatureQueueFingerprint(ordinary)).not.toBe(pendingFeatureQueueFingerprint(critical));
+  });
+
   it("suppresses repeated ntfy pushes in-process even if the db claim repeats", async () => {
     mocks.listPendingFeatureRequests.mockResolvedValue([
       featureRequest("05608bae", new Date("2026-05-09T00:00:00.000Z"), {

@@ -89,7 +89,7 @@ export async function runDailyBuildAgent(
   const criticalCount = countCriticalPendingItems(pending);
   if (!whatsappSummarySent) {
     await sendBuildAgentPushOnce(deps, {
-      fingerprint: "pending-feature-summary-whatsapp-failed",
+      fingerprint: `pending-feature-summary-whatsapp-failed:${fingerprint}`,
       now,
       metadata: { pendingCount: pending.length, queueFingerprint: fingerprint },
       message: `Build queue summary could not be sent on WhatsApp. ${pending.length} pending item(s).`,
@@ -112,13 +112,15 @@ export async function runDailyBuildAgent(
   console.log(`[build-agent] notified Nitesh about ${pending.length} pending feature(s)`);
 }
 
-export function pendingFeatureQueueFingerprint(pending: Pick<FeatureRequest, "id" | "createdAt" | "status">[]): string {
+export function pendingFeatureQueueFingerprint(
+  pending: Pick<FeatureRequest, "id" | "createdAt" | "status" | "type" | "severity">[],
+): string {
   const raw = pending
     .map((feature) => {
       const createdAt = feature.createdAt instanceof Date
         ? feature.createdAt.toISOString()
         : String(feature.createdAt ?? "");
-      return `${feature.id}:${feature.status}:${createdAt}`;
+      return `${feature.id}:${feature.status}:${feature.type}:${feature.severity ?? ""}:${createdAt}`;
     })
     .sort()
     .join("|");
