@@ -1295,7 +1295,9 @@ export class Router {
 
     // 4. Default — record the command first, then run the agent loop.
     const shouldAppendFeatureQueueStatus = mentionsFeatureQueueStatus(effectiveText);
-    await this.sendAndPersist(commandJob.receiptText);
+    if (shouldSendImmediateReceipt(effectiveText, commandJob)) {
+      await this.sendAndPersist(commandJob.receiptText);
+    }
     if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;
 
     try {
@@ -1391,6 +1393,15 @@ function isTerminalReplay(status: CommandJob["status"]): boolean {
 
 function isGateReplay(status: CommandJob["status"]): boolean {
   return status === "needs_approval" || status === "needs_clarification";
+}
+
+function shouldSendImmediateReceipt(text: string, job: CommandJob): boolean {
+  if (job.status === "needs_approval" || job.status === "needs_clarification") return true;
+  return !isCasualAck(text);
+}
+
+function isCasualAck(text: string): boolean {
+  return /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|thanks|thank you)[.!? ]*$/i.test(text.trim());
 }
 
 function buildWhatsAppCommandSummary(msg: InboundMessage, text: string): string {

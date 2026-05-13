@@ -84,6 +84,7 @@ describe("Router (integration)", () => {
     });
     // reply_to_user tool sends "ack"
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
+    expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
   });
 
   it("sanitizes manual Claude Code/nwp instructions from agent replies", async () => {
