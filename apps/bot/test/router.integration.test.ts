@@ -948,6 +948,49 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body.includes("Needs your approval"))).toBe(false);
   });
 
+  it("does not get stuck replaying its own repeat replies", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "Reminder noted." }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-repeat-loop-source",
+      from: OWNER,
+      body: "remind me to check the inverter tomorrow",
+      timestamp: new Date("2026-05-09T01:20:00Z"),
+      hasMedia: false,
+    });
+    await router.handle({
+      id: "x-repeat-loop-first",
+      from: OWNER,
+      body: "repeat that again",
+      timestamp: new Date("2026-05-09T01:21:00Z"),
+      hasMedia: false,
+    });
+    wa.sent = [];
+
+    await router.handle({
+      id: "x-repeat-loop-second",
+      from: OWNER,
+      body: "repeat that again",
+      timestamp: new Date("2026-05-09T01:22:00Z"),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0].body).toContain("Last message I have from you");
+    expect(wa.sent[0].body).toContain("remind me to check the inverter tomorrow");
+    expect(wa.sent[0].body).not.toContain("Last reply I sent");
+    expect(wa.sent[0].body).not.toContain("repeat that again");
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-repeat-loop-second")).toMatchObject({
+      status: "done",
+      riskLevel: "safe",
+    });
+  });
+
   it("lets non-English voice transcripts reach the agent instead of stopping at clarification", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
@@ -1006,6 +1049,32 @@ describe("Router (integration)", () => {
     });
     expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
     expect(wa.sent.some((m) => m.body.includes("I checked the last thing"))).toBe(true);
+  });
+
+  it("captures WhatsApp loop regressions as bugs without re-entering the model loop", async () => {
+    await router.handle({
+      id: "x-loop-bug-report",
+      from: OWNER,
+      body: "problem: WhatsApp loop came back after I said stop",
+      timestamp: new Date("2026-05-09T02:10:00Z"),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.feature_requests).toHaveLength(1);
+    expect(state.feature_requests[0]).toMatchObject({
+      type: "bug",
+      severity: "P1",
+      status: "pending",
+      source: "whatsapp",
+      description: "WhatsApp loop came back after I said stop",
+    });
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-loop-bug-report")).toMatchObject({
+      status: "done",
+      riskLevel: "safe",
+    });
+    expect(wa.sent[0].body).toContain("Logged as bug");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
   it("receipt image → expense logged + ack", async () => {

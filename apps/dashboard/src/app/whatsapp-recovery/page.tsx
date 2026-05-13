@@ -84,6 +84,20 @@ const recoveryActions = [
   ["phone_proof_failed", "Phone proof failed"],
 ] as const;
 
+const phoneProofSteps = [
+  ["hi", "Basic reply"],
+  ["pending items", "Queue status"],
+  ["voice: what is the weather tomorrow?", "Voice, transcription, weather context"],
+  ["hear it", "Repeat/replay"],
+  ["send a message to someone", "Risk confirmation"],
+] as const;
+
+const operatorCommands = [
+  ["Local proof, no Railway", "pnpm run whatsapp:proof-local"],
+  ["Railway access check", "pnpm run railway:preflight"],
+  ["Loop guard reset", "resume whatsapp"],
+] as const;
+
 function recoveryActionLabel(action: unknown): string {
   const found = recoveryActions.find(([value]) => value === action);
   return found?.[1] ?? "Recovery action";
@@ -125,6 +139,16 @@ export default async function WhatsAppRecoveryPage() {
         <p className="mt-3 max-w-2xl text-sm text-slate-400">
           One place to work out whether WhatsApp is blocked by Railway, stale bot code, loop guard, send failure, or phone proof.
         </p>
+        <div className="mt-5 grid gap-3 text-sm md:grid-cols-3">
+          {operatorCommands.map(([label, command]) => (
+            <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/45 p-3">
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">{label}</div>
+              <code className="mt-2 block overflow-x-auto whitespace-nowrap rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100">
+                {command}
+              </code>
+            </div>
+          ))}
+        </div>
         <div className="mt-5 flex flex-wrap gap-3">
           <a href="/health" className="nc-button-primary">Open health</a>
           <a href="/api/healthz" className="nc-button">Check API health</a>
@@ -193,12 +217,14 @@ export default async function WhatsAppRecoveryPage() {
       <section className="grid gap-4 md:grid-cols-2">
         <div className="nc-section">
           <div className="nc-eyebrow">Phone proof script</div>
-          <ol className="mt-4 space-y-3 text-sm text-slate-300">
-            <li>1. Send: hi</li>
-            <li>2. Send: pending items</li>
-            <li>3. Send a voice note: what is the weather tomorrow?</li>
-            <li>4. Send: hear it</li>
-            <li>5. Send a risky request, such as: send a message to someone</li>
+          <ol className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/45 text-sm">
+            {phoneProofSteps.map(([command, purpose], index) => (
+              <li key={command} className="grid gap-2 border-t border-slate-800 px-4 py-3 md:grid-cols-[32px_1fr_1fr]">
+                <span className="text-slate-500">{index + 1}</span>
+                <code className="text-slate-100">{command}</code>
+                <span className="text-slate-400">{purpose}</span>
+              </li>
+            ))}
           </ol>
           <p className="mt-4 text-xs text-slate-500">
             Expected result: normal replies work, voice is transcribed, replay works, and risky actions ask for confirmation.
