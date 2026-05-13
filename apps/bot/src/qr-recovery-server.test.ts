@@ -96,18 +96,23 @@ describe("QR recovery server", () => {
       expect(page.headers.get("cache-control")).toContain("no-store");
       expect(page.headers.get("referrer-policy")).toBe("no-referrer");
       const html = await page.text();
-      expect(html).toContain("Authorization");
+      expect(html).toContain("X-NitsyClaw-Recovery-Token");
       expect(html).not.toContain("?token=");
 
       const invalid = await fetch(`${base}/recovery/whatsapp-qr.svg?token=${TOKEN}`);
       expect(invalid.status).toBe(403);
 
       const svg = await fetch(`${base}/recovery/whatsapp-qr.svg`, {
-        headers: { Authorization: `Bearer ${TOKEN}` },
+        headers: { "X-NitsyClaw-Recovery-Token": TOKEN },
       });
       expect(svg.status).toBe(200);
       expect(svg.headers.get("content-type")).toContain("image/svg+xml");
       expect(svg.headers.get("x-robots-tag")).toContain("noindex");
+
+      const bearerSvg = await fetch(`${base}/recovery/whatsapp-qr.svg`, {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+      expect(bearerSvg.status).toBe(200);
     } finally {
       server!.close();
     }

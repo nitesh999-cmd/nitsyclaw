@@ -153,6 +153,8 @@ function send(res: ServerResponse, result: RenderResult): void {
 }
 
 function recoveryTokenFromRequest(req: IncomingMessage): string | null {
+  const custom = req.headers["x-nitsyclaw-recovery-token"];
+  if (typeof custom === "string" && custom.trim()) return custom.trim();
   const bearer = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   return bearer || null;
 }
@@ -200,7 +202,7 @@ function recoveryHtml(): string {
       try {
         const response = await fetch("/recovery/whatsapp-qr.svg", {
           cache: "no-store",
-          headers: { Authorization: "Bearer " + token.value.trim() },
+          headers: { "X-NitsyClaw-Recovery-Token": token.value.trim() },
         });
         const body = await response.text();
         if (!response.ok) {
