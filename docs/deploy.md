@@ -49,11 +49,12 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
 If Railway emails "Deploy Crashed", run the read-only diagnostic helper before restarting:
 
 ```bash
+pnpm run bot:doctor
 pnpm run railway:login
 pnpm run railway:diagnose
 ```
 
-The helper fetches the latest deployment/runtime logs into `logs/railway-diagnose/`. Check the first fatal line for missing env, invalid `ENCRYPTION_KEY`, missing DB migrations, WhatsApp session path errors, or Chromium launch errors. Railway CLI auth is only for local diagnosis; it does not run inside the deployed bot container.
+`bot:doctor` validates env, DB schema, and WhatsApp session-path rules without starting Chromium or sending messages. `railway:diagnose` fetches the latest deployment/runtime logs into `logs/railway-diagnose/`. Check the first fatal line for missing env, invalid `ENCRYPTION_KEY`, missing DB migrations, WhatsApp session path errors, or Chromium launch errors. Railway CLI auth is only for local diagnosis; it does not run inside the deployed bot container.
 
 ### Puppeteer args on Railway
 

@@ -125,6 +125,20 @@ describe("package scripts", () => {
     expect(botPackage.scripts?.start).toBeTruthy();
   });
 
+  test("bot startup doctor checks boot prerequisites without starting WhatsApp", () => {
+    expect(rootPackage.scripts?.["bot:doctor"]).toBe(
+      "pnpm exec tsx scripts/bot-startup-doctor.ts",
+    );
+
+    const source = readFileSync("scripts/bot-startup-doctor.ts", "utf8");
+    expect(source).toContain("loadEnv");
+    expect(source).toContain("system_heartbeats");
+    expect(source).toContain("command_jobs");
+    expect(source).toContain("whatsappSessionDir");
+    expect(source).not.toContain("WwebjsClient");
+    expect(source).not.toMatch(/\bsend\s*\(/);
+  });
+
   test("Railway preflight checks bot worker access without mutating deployments", () => {
     expect(rootPackage.scripts?.["railway:login"]).toBe(
       "pnpm dlx @railway/cli login --browserless",

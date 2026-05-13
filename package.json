@@ -37,6 +37,7 @@
     "bot:loop": "pnpm --filter @nitsyclaw/bot start",
     "dashboard": "pnpm --filter @nitsyclaw/dashboard dev",
     "google:auth": "pnpm --filter @nitsyclaw/bot google:auth",
+    "bot:doctor": "pnpm exec tsx scripts/bot-startup-doctor.ts",
     "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
   },
   "devDependencies": {
