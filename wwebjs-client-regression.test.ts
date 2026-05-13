@@ -47,4 +47,13 @@ describe("wwebjs client regressions", () => {
     expect(source).toContain("canSendFailureReply = true");
     expect(source).toContain('logBotError("[wwebjs] handler failure fallback send failed", fallbackError)');
   });
+
+  test("clears only stale Chromium singleton locks before creating a browser client", () => {
+    expect(source).toContain("CHROMIUM_SINGLETON_LOCK_FILES");
+    expect(source).toContain("SingletonLock");
+    expect(source).toContain("SingletonSocket");
+    expect(source).toContain("SingletonCookie");
+    expect(source).toContain("clearChromiumSingletonLocks(this.opts.sessionDir)");
+    expect(source).toContain("cleared stale Chromium profile lock");
+  });
 });

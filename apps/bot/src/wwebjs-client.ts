@@ -11,8 +11,9 @@ type WwebMessageWithEnvelope = Message & {
   to?: string;
 };
 
+import { readdirSync, rmSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type {
   InboundMessage,
   OutboundMessage,
@@ -38,6 +39,7 @@ const PUPPETEER_ARGS = process.platform === "win32"
   : ["--no-sandbox", "--disable-setuid-sandbox", "--single-process", "--no-zygote", "--disable-dev-shm-usage"];
 const WHATSAPP_HANDLER_FAILURE_REPLY =
   "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
+const CHROMIUM_SINGLETON_LOCK_FILES = new Set(["SingletonLock", "SingletonSocket", "SingletonCookie"]);
 
 function messageMeta(body: string): string {
   return `chars=${body.length}`;
@@ -49,6 +51,25 @@ function defaultHealthFilePath(): string {
     return resolve(cwd, "../../logs/whatsapp-health-last-ok.txt");
   }
   return resolve(cwd, "logs/whatsapp-health-last-ok.txt");
+}
+
+function clearChromiumSingletonLocks(root: string, depth = 0): number {
+  if (depth > 4) return 0;
+  try {
+    let cleared = 0;
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      const path = join(root, entry.name);
+      if (CHROMIUM_SINGLETON_LOCK_FILES.has(entry.name)) {
+        rmSync(path, { force: true });
+        cleared += 1;
+      } else if (entry.isDirectory()) {
+        cleared += clearChromiumSingletonLocks(path, depth + 1);
+      }
+    }
+    return cleared;
+  } catch {
+    return 0;
+  }
 }
 
 function safeRuntimeReason(reason: string | undefined): string | undefined {
@@ -145,6 +166,11 @@ export class WwebjsClient implements WhatsAppClient {
   }
 
   private createClient(): WwebjsClientInstance {
+    const clearedLocks = clearChromiumSingletonLocks(this.opts.sessionDir);
+    if (clearedLocks > 0) {
+      console.warn(`[wwebjs] cleared stale Chromium profile lock(s): count=${clearedLocks}`);
+    }
+
     return new Client({
       authStrategy: new LocalAuth({ dataPath: this.opts.sessionDir }),
       puppeteer: this.puppeteerOpts as never,
