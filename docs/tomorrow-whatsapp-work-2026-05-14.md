@@ -28,6 +28,12 @@ This means Codex cannot restart or verify the Railway WhatsApp worker yet.
 
 Authenticate Railway, then restart or redeploy the WhatsApp bot worker.
 
+If Railway is still parked, run the local proof command so we know the web app and WhatsApp code paths are still healthy:
+
+```powershell
+pnpm run whatsapp:proof-local
+```
+
 Minimum proof after Railway is available:
 
 ```powershell

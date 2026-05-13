@@ -135,4 +135,18 @@ describe("package scripts", () => {
     expect(source).toContain("@railway/cli status");
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
   });
+
+  test("local WhatsApp proof runs web smoke and WhatsApp tests without Railway credentials", () => {
+    expect(rootPackage.scripts?.["whatsapp:proof-local"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
+    );
+
+    const source = readFileSync("scripts/whatsapp-proof-local.ps1", "utf8");
+    expect(source).toContain("release:live-smoke");
+    expect(source).toContain("apps/bot/src/whatsapp-loop-breaker.test.ts");
+    expect(source).toContain("apps/bot/test/router.integration.test.ts");
+    expect(source).toContain("whatsapp-recovery-action-route.test.ts");
+    expect(source).not.toContain("railway-preflight.ps1");
+    expect(source).not.toContain("railway:preflight");
+  });
 });
