@@ -43,7 +43,7 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
    - `WHATSAPP_SESSION_DIR`
    - `OPENAI_API_KEY`
    - `ENCRYPTION_KEY` (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`)
-5. First boot: open Railway logs, scan the QR with WhatsApp on your phone (Settings → Linked Devices → Link a Device).
+5. First boot/recovery: do **not** expose the WhatsApp QR in logs. Run `pnpm run railway:qr-open`, open the printed protected URL on your PC, paste the printed token into the page, and scan the QR with WhatsApp on your phone (Settings → Linked Devices → Link a Device). Then run `pnpm run railway:qr-close`.
 6. Logs should show `[boot] WhatsApp ready` — you're live.
 
 If Railway emails "Deploy Crashed", run the read-only diagnostic helper before restarting:
@@ -52,9 +52,12 @@ If Railway emails "Deploy Crashed", run the read-only diagnostic helper before r
 pnpm run bot:doctor
 pnpm run railway:login
 pnpm run railway:diagnose
+pnpm run railway:preflight
 ```
 
 `bot:doctor` validates env, DB schema, and WhatsApp session-path rules without starting Chromium or sending messages. `railway:diagnose` fetches the latest deployment/runtime logs into `logs/railway-diagnose/`. Check the first fatal line for missing env, invalid `ENCRYPTION_KEY`, missing DB migrations, WhatsApp session path errors, or Chromium launch errors. Railway CLI auth is only for local diagnosis; it does not run inside the deployed bot container.
+
+QR recovery uses `NITSYCLAW_QR_RECOVERY_TOKEN` and `NITSYCLAW_QR_RECOVERY_UNTIL` for a short recovery window. The legacy `NITSYCLAW_PRINT_QR_TO_LOGS` variable must not exist in production.
 
 ### Puppeteer args on Railway
 

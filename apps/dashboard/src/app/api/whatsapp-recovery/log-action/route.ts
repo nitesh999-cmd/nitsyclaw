@@ -54,7 +54,7 @@ export async function POST(request: Request): Promise<Response> {
       actor: "user",
       tool: "whatsapp_recovery_action",
       input: { action },
-      output: { recorded: true },
+      output: { recorded: true, proof: "manual_operator_marker" },
       success: true,
       durationMs: Date.now() - started,
     });

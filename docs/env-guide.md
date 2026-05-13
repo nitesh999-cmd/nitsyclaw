@@ -22,6 +22,10 @@ Copy `.env.local.example` to `.env.local` for local work. Do not commit `.env.lo
 - `WHATSAPP_SESSION_DIR`
   - Defaults to `.wa-session`, which the bot resolves under `NITSYCLAW_SECRET_ROOT`.
   - Use an absolute path only when production has persistent storage mounted there.
+- `NITSYCLAW_QR_RECOVERY_TOKEN`, `NITSYCLAW_QR_RECOVERY_UNTIL`
+  - Temporary Railway-only variables created by `pnpm run railway:qr-open`.
+  - They enable a short-lived protected SVG QR endpoint for WhatsApp linking.
+  - Remove them with `pnpm run railway:qr-close` immediately after scan.
 - `NITSYCLAW_DASHBOARD_PASSWORD`
   - Required outside local dev bypass.
 - `ANTHROPIC_API_KEY`
@@ -41,6 +45,7 @@ Copy `.env.local.example` to `.env.local` for local work. Do not commit `.env.lo
 ## Production safety
 
 - Do not set `NITSYCLAW_DEV_AUTH_BYPASS` on Vercel.
+- Do not set `NITSYCLAW_PRINT_QR_TO_LOGS` in production. WhatsApp QR payloads are pairing credentials.
 - Rotate secrets if old Docker/Railway/Vercel images were built before `.dockerignore` and `.vercelignore` were hardened.
 - Do not deploy code that depends on new tables before `pnpm db:migrate` passes.
 - Use separate production secrets from local secrets.

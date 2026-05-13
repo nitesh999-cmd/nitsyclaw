@@ -8,6 +8,7 @@ const secretPatterns = [
   "google-token*.json",
   "ms-token.json",
   "**/.wa-session",
+  "logs",
   "package-lock.json",
 ] as const;
 

@@ -24,6 +24,7 @@ import { startScheduler } from "./scheduler.js";
 import { loadBotDotenv, whatsappSessionDir } from "./secret-paths.js";
 import { logBotError } from "./safe-log.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
+import { QrRecoveryController, startQrRecoveryServer } from "./qr-recovery-server.js";
 
 loadBotDotenv();
 
@@ -37,10 +38,15 @@ async function main() {
     metadata: buildBotRuntimeMetadata(process.env),
   });
 
+  const qrRecovery = new QrRecoveryController(process.env);
+  const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env);
+
   const rawWhatsapp = new WwebjsClient({
     sessionDir: whatsappSessionDir(env.WHATSAPP_SESSION_DIR),
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
     presenceUnavailableIntervalMs: env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS,
+    onQr: (payload) => qrRecovery.setQr(payload),
+    onQrCleared: () => qrRecovery.clearQr(),
     onStatus: (event) => {
       void upsertSystemHeartbeat(db, {
         source: "whatsapp-client",
@@ -136,6 +142,7 @@ async function main() {
     console.log(`[boot] shutting down (${signal})`);
     try {
       await monitoredWhatsapp.destroy();
+      qrRecoveryServer?.close();
       process.exit(0);
     } catch (e) {
       logBotError("[boot] shutdown failed", e);

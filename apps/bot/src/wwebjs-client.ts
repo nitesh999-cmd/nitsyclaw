@@ -13,7 +13,6 @@ type WwebMessageWithEnvelope = Message & {
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import qrcode from "qrcode-terminal";
 import type {
   InboundMessage,
   OutboundMessage,
@@ -42,10 +41,6 @@ const WHATSAPP_HANDLER_FAILURE_REPLY =
 
 function messageMeta(body: string): string {
   return `chars=${body.length}`;
-}
-
-function shouldPrintQrToLogs(): boolean {
-  return process.env.NITSYCLAW_PRINT_QR_TO_LOGS === "1";
 }
 
 function defaultHealthFilePath(): string {
@@ -86,6 +81,8 @@ export interface WwebjsOptions {
   presenceUnavailableIntervalMs?: number;
   healthFilePath?: string;
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
+  onQr?: (payload: string) => void | Promise<void>;
+  onQrCleared?: () => void | Promise<void>;
 }
 
 export class WwebjsClient implements WhatsAppClient {
@@ -332,11 +329,10 @@ export class WwebjsClient implements WhatsAppClient {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] QR code received - scan with your phone");
       this.qrPending = true;
-      if (shouldPrintQrToLogs()) {
-        qrcode.generate(qr, { small: true });
-      } else {
-        console.log("[wwebjs] QR payload hidden; set NITSYCLAW_PRINT_QR_TO_LOGS=1 only during an active WhatsApp recovery window.");
-      }
+      console.log("[wwebjs] QR payload hidden; use the protected recovery endpoint during an active WhatsApp recovery window.");
+      Promise.resolve(this.opts.onQr?.(qr)).catch((e) => {
+        logBotError("[wwebjs] QR recovery callback failed", e);
+      });
       void this.writeHealthHeartbeat("QR_REQUIRED");
       this.emitStatus({ status: "qr_required", qrAvailable: true });
     });
@@ -344,6 +340,9 @@ export class WwebjsClient implements WhatsAppClient {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] client ready");
       this.qrPending = false;
+      Promise.resolve(this.opts.onQrCleared?.()).catch((e) => {
+        logBotError("[wwebjs] QR clear callback failed", e);
+      });
       if (this.readyWatchdog) {
         clearTimeout(this.readyWatchdog);
         this.readyWatchdog = undefined;

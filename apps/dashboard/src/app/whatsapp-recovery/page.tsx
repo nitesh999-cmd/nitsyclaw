@@ -19,20 +19,27 @@ async function loadRecoveryState() {
     whatsappSend,
     whatsappLoopGuard,
     scheduler,
-    recoveryActionRows,
   ] = await Promise.all([
     getSystemHeartbeat(db, "bot-runtime"),
     getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "whatsapp-send"),
     getSystemHeartbeat(db, "whatsapp-loop-guard"),
     getSystemHeartbeat(db, "bot-scheduler"),
-    db
+  ]);
+
+  let recoveryActionRows: Array<typeof auditLog.$inferSelect> = [];
+  let recoveryActionWarning: string | null = null;
+  try {
+    recoveryActionRows = await db
       .select()
       .from(auditLog)
       .where(eq(auditLog.tool, "whatsapp_recovery_action"))
       .orderBy(desc(auditLog.createdAt))
-      .limit(8),
-  ]);
+      .limit(8);
+  } catch (e) {
+    logDashboardError("whatsapp-recovery.actions", e);
+    recoveryActionWarning = "Recovery action log is unavailable. Health signals are still shown.";
+  }
 
   return {
     dashboardRuntime: buildDashboardRuntimeMetadata(process.env),
@@ -46,6 +53,7 @@ async function loadRecoveryState() {
     scheduler,
     schedulerFreshness: classifyHeartbeat(scheduler, new Date()),
     recoveryActions: recoveryActionRows,
+    recoveryActionWarning,
   };
 }
 
@@ -78,7 +86,7 @@ function CheckRow({
 
 const recoveryActions = [
   ["railway_auth_checked", "Railway auth checked"],
-  ["railway_restarted", "Railway restarted"],
+  ["railway_restarted", "Railway restart marked"],
   ["phone_proof_started", "Phone proof started"],
   ["phone_proof_passed", "Phone proof passed"],
   ["phone_proof_failed", "Phone proof failed"],
@@ -248,6 +256,11 @@ export default async function WhatsAppRecoveryPage() {
         <p className="mt-2 max-w-2xl text-sm text-slate-400">
           Use these fixed buttons tomorrow so recovery attempts are recorded without storing freeform private data.
         </p>
+        {state?.recoveryActionWarning ? (
+          <div className="mt-4 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-sm text-amber-300">
+            {state.recoveryActionWarning}
+          </div>
+        ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
           {recoveryActions.map(([value, label]) => (
             <form key={value} action="/api/whatsapp-recovery/log-action" method="post">

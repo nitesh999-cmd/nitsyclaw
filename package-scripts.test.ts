@@ -152,8 +152,35 @@ describe("package scripts", () => {
     expect(source).toContain("pnpm run railway:login");
     expect(source).toContain("@railway/cli service list");
     expect(source).toContain("@railway/cli service status");
+    expect(source).toContain("@railway/cli variable list");
+    expect(source).toContain("NITSYCLAW_SECRET_ROOT");
+    expect(source).toContain("NITSYCLAW_PRINT_QR_TO_LOGS");
     expect(source).toContain("14a48d9f-310a-446f-9350-77a28ebdc239");
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
+  });
+
+  test("Railway QR recovery scripts use protected token windows instead of QR logs", () => {
+    expect(rootPackage.scripts?.["railway:qr-open"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1",
+    );
+    expect(rootPackage.scripts?.["railway:qr-close"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-close.ps1",
+    );
+
+    const openSource = readFileSync("scripts/railway-qr-open.ps1", "utf8");
+    expect(openSource).toContain("NITSYCLAW_QR_RECOVERY_TOKEN");
+    expect(openSource).toContain("NITSYCLAW_QR_RECOVERY_UNTIL");
+    expect(openSource).toContain("/recovery/whatsapp-qr");
+    expect(openSource).not.toContain("/recovery/whatsapp-qr.svg?token=");
+    expect(openSource).toContain('Remove-RailwayVariableIfPresent -Name "NITSYCLAW_PRINT_QR_TO_LOGS"');
+    expect(openSource).not.toContain("NITSYCLAW_PRINT_QR_TO_LOGS=1");
+
+    const closeSource = readFileSync("scripts/railway-qr-close.ps1", "utf8");
+    expect(closeSource).toContain("NITSYCLAW_QR_RECOVERY_TOKEN");
+    expect(closeSource).toContain("NITSYCLAW_QR_RECOVERY_UNTIL");
+    expect(closeSource).toContain("NITSYCLAW_PRINT_QR_TO_LOGS");
+    expect(closeSource).toContain("already absent");
+    expect(closeSource).toContain("Railway variable still present after close");
   });
 
   test("Railway diagnose captures read-only crash logs without mutating deployments", () => {

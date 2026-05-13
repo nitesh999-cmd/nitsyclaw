@@ -43,6 +43,21 @@ pnpm dlx @railway/cli status
 
 Then check `/health` and `/whatsapp-recovery` to confirm the bot runtime commit matches the dashboard commit.
 
+If WhatsApp asks for a QR again, use the protected recovery flow:
+
+```powershell
+pnpm run railway:qr-open
+```
+
+Open the printed URL, scan it from WhatsApp Linked Devices, then close the window:
+The helper prints the URL and token separately so the token is not stored in browser history.
+
+```powershell
+pnpm run railway:qr-close
+```
+
+Do not use QR screenshots or `NITSYCLAW_PRINT_QR_TO_LOGS`.
+
 ## Phone proof script
 
 Run these from WhatsApp after Railway restart:
