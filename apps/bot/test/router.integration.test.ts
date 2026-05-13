@@ -87,6 +87,23 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
   });
 
+  it.each(["thanks", "cheers", "got it", "cool", "perfect"])(
+    "does not send a working receipt for casual acknowledgement '%s'",
+    async (body) => {
+      await router.handle({
+        id: `x-casual-${body.replace(/\s+/g, "-")}`,
+        from: OWNER,
+        body,
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+
+      expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
+      expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
+      expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
+    },
+  );
+
   it("sanitizes manual Claude Code/nwp instructions from agent replies", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,

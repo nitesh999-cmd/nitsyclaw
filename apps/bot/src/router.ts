@@ -1401,7 +1401,7 @@ function shouldSendImmediateReceipt(text: string, job: CommandJob): boolean {
 }
 
 function isCasualAck(text: string): boolean {
-  return /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|thanks|thank you)[.!? ]*$/i.test(text.trim());
+  return /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|thanks|thank you|cheers|ta|got it|cool|perfect|nice)[.!? ]*$/i.test(text.trim());
 }
 
 function buildWhatsAppCommandSummary(msg: InboundMessage, text: string): string {

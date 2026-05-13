@@ -11,7 +11,7 @@ const RISKY_ACTION_RE = /\b(send|message|text|email|call|delete|remove|pay|spend
 const ACTION_RE = /\b(compare|find|research|summari[sz]e|explain|draft|write|prepare|plan|check|sort|save|remember|remind|create|make|look|help|choose|recommend|analyse|analyze|weather|forecast)\b/i;
 const VAGUE_REFERENCE_RE = /\b(him|her|them|it|this|that|someone|something|there)\b/i;
 const EMOTIONAL_RE = /\b(stressed|overwhelmed|angry|upset|annoyed|panic|worried|scared|tired|too much|can't deal|cannot deal|fed up|frustrated)\b/i;
-const SMALL_TALK_OR_CONFIRMATION_RE = /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|cancel|approve|approved|confirm|confirmed|reject|rejected|abort|thanks|thank you)(?:\s+[0-9a-f-]{8,})?[.!? ]*$/i;
+const SMALL_TALK_OR_CONFIRMATION_RE = /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|cancel|approve|approved|confirm|confirmed|reject|rejected|abort|thanks|thank you|cheers|ta|got it|cool|perfect|nice)(?:\s+[0-9a-f-]{8,})?[.!? ]*$/i;
 const FEATURE_CAPTURE_RE = /^(\/addfeature|feature request:|add feature\b|new feature\b|bug:|problem:)/i;
 const SAFE_REPEAT_LAST_MESSAGE_RE =
   /^(?:(?:hear|play|listen to)\s+(?:my\s+)?(?:last\s+)?(?:voice\s+)?message|(?:hear|play|listen to)\s+it|(?:read|repeat|show)\s+(?:my\s+)?last\s+message|what\s+did\s+i\s+just\s+say|what\s+was\s+my\s+last\s+message|(?:say|show|repeat)\s+that\s+again)[.!? ]*$/i;
