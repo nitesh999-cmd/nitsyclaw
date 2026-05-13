@@ -172,6 +172,8 @@ describe("package scripts", () => {
     const openSource = readFileSync("scripts/railway-qr-open.ps1", "utf8");
     expect(openSource).toContain("NITSYCLAW_QR_RECOVERY_TOKEN");
     expect(openSource).toContain("NITSYCLAW_QR_RECOVERY_UNTIL");
+    expect(openSource).toContain("RandomNumberGenerator");
+    expect(openSource).toContain("GetBytes");
     expect(openSource).toContain("/recovery/whatsapp-qr");
     expect(openSource).not.toContain("/recovery/whatsapp-qr.svg?token=");
     expect(openSource).toContain('Remove-RailwayVariableIfPresent -Name "NITSYCLAW_PRINT_QR_TO_LOGS"');

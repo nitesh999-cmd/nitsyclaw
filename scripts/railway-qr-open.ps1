@@ -13,7 +13,13 @@ if ($Minutes -lt 1 -or $Minutes -gt 120) {
 }
 
 $tokenBytes = [byte[]]::new(32)
-[System.Security.Cryptography.RandomNumberGenerator]::Fill($tokenBytes)
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+try {
+    $rng.GetBytes($tokenBytes)
+}
+finally {
+    $rng.Dispose()
+}
 $token = [Convert]::ToBase64String($tokenBytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
 $until = (Get-Date).ToUniversalTime().AddMinutes($Minutes).ToString("o")
 
