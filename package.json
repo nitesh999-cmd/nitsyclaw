@@ -16,6 +16,7 @@
     "release:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     "release:vercel-build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
     "release:live-smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live-smoke.ps1",
+    "railway:login": "pnpm dlx @railway/cli login --browserless",
     "railway:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
     "railway:diagnose": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",
     "whatsapp:proof-local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",

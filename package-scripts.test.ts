@@ -126,12 +126,16 @@ describe("package scripts", () => {
   });
 
   test("Railway preflight checks bot worker access without mutating deployments", () => {
+    expect(rootPackage.scripts?.["railway:login"]).toBe(
+      "pnpm dlx @railway/cli login --browserless",
+    );
     expect(rootPackage.scripts?.["railway:preflight"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
     );
 
     const source = readFileSync("scripts/railway-preflight.ps1", "utf8");
-    expect(source).toContain("RAILWAY_TOKEN missing");
+    expect(source).toContain("@railway/cli whoami --json");
+    expect(source).toContain("pnpm run railway:login");
     expect(source).toContain("@railway/cli status");
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
   });
@@ -142,7 +146,8 @@ describe("package scripts", () => {
     );
 
     const source = readFileSync("scripts/railway-diagnose.ps1", "utf8");
-    expect(source).toContain("RAILWAY_TOKEN missing");
+    expect(source).toContain("@railway/cli whoami --json");
+    expect(source).toContain("pnpm run railway:login");
     expect(source).toContain("@railway/cli");
     expect(source).toContain("--deployment");
     expect(source).toContain("--latest");

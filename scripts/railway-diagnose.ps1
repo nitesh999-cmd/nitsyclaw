@@ -3,17 +3,18 @@ $ErrorActionPreference = "Stop"
 Write-Host "== NitsyClaw Railway crash diagnose =="
 Write-Host "Read-only: recent logs only. No service mutation."
 
-if (-not $env:RAILWAY_TOKEN) {
-    Write-Host "RAILWAY_TOKEN missing"
-    Write-Host "Cannot fetch Railway logs from this terminal until auth is available."
-    Write-Host "Use: railway login"
-    exit 1
-}
-
 $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue
 if (-not $pnpm) {
     Write-Host "pnpm missing"
     exit 1
+}
+
+Write-Host "pnpm dlx @railway/cli whoami --json"
+pnpm dlx @railway/cli whoami --json
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Railway CLI is not authenticated for this terminal."
+    Write-Host "Use: pnpm run railway:login"
+    exit $LASTEXITCODE
 }
 
 $projectId = if ($env:RAILWAY_PROJECT_ID) { $env:RAILWAY_PROJECT_ID } else { "14a48d9f-310a-446f-9350-77a28ebdc239" }

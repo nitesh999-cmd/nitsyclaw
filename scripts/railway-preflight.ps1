@@ -2,17 +2,19 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "== NitsyClaw Railway preflight =="
 
-if (-not $env:RAILWAY_TOKEN) {
-    Write-Host "RAILWAY_TOKEN missing"
-    Write-Host "Railway CLI cannot manage the bot worker from this terminal until auth is available."
-    Write-Host "Use: railway login"
-    exit 1
-}
-
 $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue
 if (-not $pnpm) {
     Write-Host "pnpm missing"
     exit 1
+}
+
+$whoamiCommand = "pnpm dlx @railway/cli whoami --json"
+Write-Host $whoamiCommand
+pnpm dlx @railway/cli whoami --json
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Railway CLI is not authenticated for this terminal."
+    Write-Host "Use: pnpm run railway:login"
+    exit $LASTEXITCODE
 }
 
 $statusCommand = "pnpm dlx @railway/cli status"
