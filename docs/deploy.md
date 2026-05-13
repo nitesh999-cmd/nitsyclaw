@@ -46,6 +46,14 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
 5. First boot: open Railway logs, scan the QR with WhatsApp on your phone (Settings → Linked Devices → Link a Device).
 6. Logs should show `[boot] WhatsApp ready` — you're live.
 
+If Railway emails "Deploy Crashed", run the read-only diagnostic helper before restarting:
+
+```bash
+pnpm run railway:diagnose
+```
+
+The helper fetches the latest deployment/runtime logs into `logs/railway-diagnose/`. Check the first fatal line for missing env, invalid `ENCRYPTION_KEY`, missing DB migrations, WhatsApp session path errors, or Chromium launch errors. `RAILWAY_TOKEN` is only for local CLI access; it does not run inside the deployed bot container.
+
 ### Puppeteer args on Railway
 
 Already wired in `apps/bot/src/wwebjs-client.ts`:

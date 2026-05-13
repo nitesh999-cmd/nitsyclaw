@@ -16,6 +16,7 @@ import { logBotError } from "./safe-log.js";
 const FEATURE_NOTIFICATION_SOURCE = "build-agent-feature-notify";
 const FEATURE_NTFY_RATE_LIMIT_SOURCE = "build-agent-feature-ntfy-rate-limit";
 const DEFAULT_FEATURE_NOTIFY_COOLDOWN_MS = 20 * 60 * 60 * 1000;
+const DASHBOARD_URL = process.env.DASHBOARD_URL ?? "https://nitsyclaw.vercel.app";
 const localNtfyPushes = new Map<string, number>();
 
 export async function runDailyBuildAgent(
@@ -66,38 +67,9 @@ export async function runDailyBuildAgent(
     lines +
     `\n\nNext: these are queued for the local operator workflow. I will not claim a feature is shipped until it is committed, tested, and marked done.`;
 
-  // Phone/PC push is rate-limited separately so queue churn does not spam notifications.
-  const notifyClaimed = await claimSystemNotification(deps.db, {
-    source: FEATURE_NTFY_RATE_LIMIT_SOURCE,
-    fingerprint: "pending-feature-summary",
-    now,
-    cooldownMs: featureNotifyCooldownMs(),
-    metadata: {
-      pendingCount: pending.length,
-      queueFingerprint: fingerprint,
-    },
-  }).catch((e) => {
-    logBotError("[build-agent] ntfy rate-limit claim failed", e, {
-      pendingCount: pending.length,
-    });
-    return false;
-  });
-
-  if (notifyClaimed && claimLocalNtfyPush("pending-feature-summary", now, featureNotifyCooldownMs())) {
-    await pushNotify(
-      `${pending.length} pending feature(s). Details on WhatsApp.`,
-      {
-        title: "NitsyClaw: features pending",
-        tags: ["gear"],
-        priority: "default",
-        click: process.env.DASHBOARD_URL ?? "https://nitsyclaw.vercel.app",
-      },
-    ).catch(() => {});
-  } else {
-    console.log(`[build-agent] suppressed duplicate ntfy pending-feature push (${pending.length} pending)`);
-  }
-
-  // WhatsApp self-message so Nitesh sees the list on his phone
+  // WhatsApp is the normal queue surface. ntfy is reserved for critical items
+  // or as a fallback when WhatsApp cannot receive the queue summary.
+  let whatsappSummarySent = false;
   try {
     await deps.whatsapp.send({ to: ownerPhone, body });
     const enc = encryptForStorage(body);
@@ -107,9 +79,33 @@ export async function runDailyBuildAgent(
       fromNumber: hashPhone(ownerPhone),
       body: enc,
     });
+    whatsappSummarySent = true;
   } catch (e) {
     logBotError("[build-agent] failed to send WhatsApp notification", e, {
       pendingCount: pending.length,
+    });
+  }
+
+  const criticalCount = countCriticalPendingItems(pending);
+  if (!whatsappSummarySent) {
+    await sendBuildAgentPushOnce(deps, {
+      fingerprint: "pending-feature-summary-whatsapp-failed",
+      now,
+      metadata: { pendingCount: pending.length, queueFingerprint: fingerprint },
+      message: `Build queue summary could not be sent on WhatsApp. ${pending.length} pending item(s).`,
+      title: "NitsyClaw: WhatsApp queue failed",
+      priority: "high",
+      tags: ["warning"],
+    });
+  } else if (criticalCount > 0) {
+    await sendBuildAgentPushOnce(deps, {
+      fingerprint: `critical-pending-feature-summary:${fingerprint}`,
+      now,
+      metadata: { pendingCount: pending.length, criticalCount, queueFingerprint: fingerprint },
+      message: `${criticalCount} critical pending item(s). Details sent on WhatsApp.`,
+      title: "NitsyClaw: critical queue item",
+      priority: "high",
+      tags: ["warning"],
     });
   }
 
@@ -139,6 +135,48 @@ function featureNotifyCooldownMs(): number {
     return hours * 60 * 60 * 1000;
   }
   return DEFAULT_FEATURE_NOTIFY_COOLDOWN_MS;
+}
+
+function countCriticalPendingItems(pending: Pick<FeatureRequest, "type" | "severity">[]): number {
+  return pending.filter((feature) =>
+    feature.type === "bug" && (feature.severity === "P0" || feature.severity === "P1")
+  ).length;
+}
+
+async function sendBuildAgentPushOnce(
+  deps: AgentDeps,
+  input: {
+    fingerprint: string;
+    now: Date;
+    metadata: Record<string, unknown>;
+    message: string;
+    title: string;
+    priority: "default" | "high" | "urgent";
+    tags: string[];
+  },
+): Promise<void> {
+  const notifyClaimed = await claimSystemNotification(deps.db, {
+    source: FEATURE_NTFY_RATE_LIMIT_SOURCE,
+    fingerprint: input.fingerprint,
+    now: input.now,
+    cooldownMs: featureNotifyCooldownMs(),
+    metadata: input.metadata,
+  }).catch((e) => {
+    logBotError("[build-agent] ntfy rate-limit claim failed", e, input.metadata);
+    return false;
+  });
+
+  if (!notifyClaimed || !claimLocalNtfyPush(input.fingerprint, input.now, featureNotifyCooldownMs())) {
+    console.log(`[build-agent] suppressed duplicate ntfy push (${input.fingerprint})`);
+    return;
+  }
+
+  await pushNotify(input.message, {
+    title: input.title,
+    tags: input.tags,
+    priority: input.priority,
+    click: DASHBOARD_URL,
+  }).catch(() => {});
 }
 
 function claimLocalNtfyPush(fingerprint: string, now: Date, cooldownMs: number): boolean {

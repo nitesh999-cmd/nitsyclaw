@@ -13,6 +13,8 @@ vi.mock("@nitsyclaw/shared/db", () => ({
   claimSystemNotification: mocks.claimSystemNotification,
   insertMessage: mocks.insertMessage,
   listPendingFeatureRequests: mocks.listPendingFeatureRequests,
+  redactAuditString: (value: string) => value,
+  sanitizeAuditPayload: (value: unknown) => value,
 }));
 
 vi.mock("@nitsyclaw/shared/notify", () => ({
@@ -61,7 +63,7 @@ describe("runDailyBuildAgent", () => {
     expect(mocks.insertMessage).not.toHaveBeenCalled();
   });
 
-  it("sends one notification when the pending queue state is claimed", async () => {
+  it("sends WhatsApp queue summary without ntfy for ordinary pending features", async () => {
     mocks.listPendingFeatureRequests.mockResolvedValue([featureRequest("05608bae")]);
     mocks.claimSystemNotification.mockResolvedValue(true);
     const deps = fakeDeps();
@@ -76,17 +78,43 @@ describe("runDailyBuildAgent", () => {
         metadata: { pendingCount: 1 },
       }),
     );
-    expect(mocks.pushNotify).toHaveBeenCalledTimes(1);
-    expect(mocks.pushNotify).toHaveBeenCalledWith(
-      "1 pending feature(s). Details on WhatsApp.",
-      expect.objectContaining({ title: "NitsyClaw: features pending" }),
-    );
+    expect(mocks.pushNotify).not.toHaveBeenCalled();
     expect(deps.whatsapp.send).toHaveBeenCalledTimes(1);
     expect(mocks.insertMessage).toHaveBeenCalledTimes(1);
   });
 
-  it("rate-limits phone push even when the WhatsApp queue summary is fresh", async () => {
-    mocks.listPendingFeatureRequests.mockResolvedValue([featureRequest("05608bae")]);
+  it("sends a high-priority ntfy push for critical pending bugs after WhatsApp summary", async () => {
+    mocks.listPendingFeatureRequests.mockResolvedValue([
+      featureRequest("05608bae", new Date("2026-05-09T00:00:00.000Z"), {
+        type: "bug",
+        severity: "P1",
+      }),
+    ]);
+    mocks.claimSystemNotification.mockResolvedValue(true);
+    const deps = fakeDeps();
+
+    await runDailyBuildAgent(deps, "+61430008008");
+
+    expect(deps.whatsapp.send).toHaveBeenCalledTimes(1);
+    expect(mocks.insertMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.pushNotify).toHaveBeenCalledTimes(1);
+    expect(mocks.pushNotify).toHaveBeenCalledWith(
+      "1 critical pending item(s). Details sent on WhatsApp.",
+      expect.objectContaining({
+        title: "NitsyClaw: critical queue item",
+        priority: "high",
+        tags: ["warning"],
+      }),
+    );
+  });
+
+  it("rate-limits critical phone push even when the WhatsApp queue summary is fresh", async () => {
+    mocks.listPendingFeatureRequests.mockResolvedValue([
+      featureRequest("05608bae", new Date("2026-05-09T00:00:00.000Z"), {
+        type: "bug",
+        severity: "P0",
+      }),
+    ]);
     mocks.claimSystemNotification
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false);
@@ -102,7 +130,7 @@ describe("runDailyBuildAgent", () => {
       expect.anything(),
       expect.objectContaining({
         source: "build-agent-feature-ntfy-rate-limit",
-        fingerprint: "pending-feature-summary",
+        fingerprint: expect.stringContaining("critical-pending-feature-summary:"),
       }),
     );
     expect(mocks.pushNotify).not.toHaveBeenCalled();
@@ -110,8 +138,33 @@ describe("runDailyBuildAgent", () => {
     expect(mocks.insertMessage).toHaveBeenCalledTimes(1);
   });
 
-  it("suppresses repeated ntfy pushes in-process even if the db claim repeats", async () => {
+  it("uses ntfy fallback if WhatsApp cannot receive the queue summary", async () => {
     mocks.listPendingFeatureRequests.mockResolvedValue([featureRequest("05608bae")]);
+    mocks.claimSystemNotification.mockResolvedValue(true);
+    const deps = fakeDeps();
+    deps.whatsapp.send.mockRejectedValueOnce(new Error("send failed"));
+
+    await runDailyBuildAgent(deps, "+61430008008");
+
+    expect(mocks.insertMessage).not.toHaveBeenCalled();
+    expect(mocks.pushNotify).toHaveBeenCalledTimes(1);
+    expect(mocks.pushNotify).toHaveBeenCalledWith(
+      "Build queue summary could not be sent on WhatsApp. 1 pending item(s).",
+      expect.objectContaining({
+        title: "NitsyClaw: WhatsApp queue failed",
+        priority: "high",
+        tags: ["warning"],
+      }),
+    );
+  });
+
+  it("suppresses repeated ntfy pushes in-process even if the db claim repeats", async () => {
+    mocks.listPendingFeatureRequests.mockResolvedValue([
+      featureRequest("05608bae", new Date("2026-05-09T00:00:00.000Z"), {
+        type: "bug",
+        severity: "P1",
+      }),
+    ]);
     mocks.claimSystemNotification.mockResolvedValue(true);
     const deps = fakeDeps();
 
@@ -147,12 +200,19 @@ function fakeDeps() {
   };
 }
 
-function featureRequest(id: string, createdAt = new Date("2026-05-09T00:00:00.000Z")) {
+function featureRequest(
+  id: string,
+  createdAt = new Date("2026-05-09T00:00:00.000Z"),
+  overrides: Partial<{
+    type: string;
+    severity: string | null;
+  }> = {},
+) {
   return {
     id,
     description: "Read and send emails on behalf of the user via Gmail and Outlook",
-    type: "feature",
-    severity: null,
+    type: overrides.type ?? "feature",
+    severity: overrides.severity ?? null,
     size: "M",
     status: "pending",
     source: "whatsapp",

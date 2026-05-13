@@ -136,6 +136,20 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bremove\b|\bdelete\b/);
   });
 
+  test("Railway diagnose captures read-only crash logs without mutating deployments", () => {
+    expect(rootPackage.scripts?.["railway:diagnose"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",
+    );
+
+    const source = readFileSync("scripts/railway-diagnose.ps1", "utf8");
+    expect(source).toContain("RAILWAY_TOKEN missing");
+    expect(source).toContain("@railway/cli");
+    expect(source).toContain("--deployment");
+    expect(source).toContain("--latest");
+    expect(source).toContain("--lines");
+    expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
+  });
+
   test("local WhatsApp proof runs web smoke and WhatsApp tests without Railway credentials", () => {
     expect(rootPackage.scripts?.["whatsapp:proof-local"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
