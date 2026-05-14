@@ -168,7 +168,7 @@ export class WwebjsClient implements WhatsAppClient {
   private createClient(): WwebjsClientInstance {
     const clearedLocks = clearChromiumSingletonLocks(this.opts.sessionDir);
     if (clearedLocks > 0) {
-      console.warn(`[wwebjs] cleared stale Chromium profile lock(s): count=${clearedLocks}`);
+      console.log(`[wwebjs] cleared stale Chromium profile lock(s): count=${clearedLocks}`);
     }
 
     return new Client({
