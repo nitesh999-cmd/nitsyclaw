@@ -23,6 +23,7 @@ describe("Railway Docker runtime", () => {
     expect(dockerfile).toContain("gosu");
     expect(dockerfile).toContain("ENTRYPOINT");
     expect(dockerfile).toContain("nitsyclaw-entrypoint.sh");
+    expect(dockerfile).toContain("nosemgrep: dockerfile.security.last-user-is-root.last-user-is-root");
     expect(dockerfile).toContain("USER root");
     expect(dockerfile).not.toContain("USER node\n\n# Start command");
 

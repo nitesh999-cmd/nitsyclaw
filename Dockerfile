@@ -55,6 +55,7 @@ WORKDIR /app/apps/bot
 
 # Start as root only long enough to make the mounted Railway volume writable,
 # then the entrypoint drops privileges to the non-root node user.
+# nosemgrep: dockerfile.security.last-user-is-root.last-user-is-root
 USER root
 ENTRYPOINT ["sh", "/usr/local/bin/nitsyclaw-entrypoint.sh"]
 CMD ["pnpm", "start"]
