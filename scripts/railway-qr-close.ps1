@@ -5,11 +5,28 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+$env:CI = "1"
+$env:PNPM_CONFIG_LOGLEVEL = "error"
+$pnpmExe = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
+$pnpmCommand = if ($pnpmExe) { $pnpmExe.Source } else { "pnpm" }
+
+function Invoke-RailwayCli {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CliArgs)
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $pnpmCommand dlx @railway/cli @CliArgs 2>&1
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+}
 
 Write-Host "Closing WhatsApp QR recovery window."
 
 function Get-RailwayVariablesJson {
-    $raw = pnpm dlx @railway/cli variable list --project $ProjectId --environment $Environment --service $Service --json 2>&1
+    $raw = Invoke-RailwayCli variable list --project $ProjectId --environment $Environment --service $Service --json
     return ($raw -join "`n")
 }
 
@@ -34,7 +51,7 @@ foreach ($key in $keys) {
         Write-Host "$key already absent."
         continue
     }
-    pnpm dlx @railway/cli variable delete $key --project $ProjectId --environment $Environment --service $Service --json | Out-Null
+    Invoke-RailwayCli variable delete $key --project $ProjectId --environment $Environment --service $Service --json | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Failed to remove Railway variable $key." }
 }
 

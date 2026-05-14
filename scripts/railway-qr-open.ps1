@@ -7,6 +7,23 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+$env:CI = "1"
+$env:PNPM_CONFIG_LOGLEVEL = "error"
+$pnpmExe = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
+$pnpmCommand = if ($pnpmExe) { $pnpmExe.Source } else { "pnpm" }
+
+function Invoke-RailwayCli {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CliArgs)
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $pnpmCommand dlx @railway/cli @CliArgs 2>&1
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+}
 
 if ($Minutes -lt 1 -or $Minutes -gt 120) {
     throw "Minutes must be between 1 and 120."
@@ -27,7 +44,7 @@ Write-Host "Opening a short WhatsApp QR recovery window for $Minutes minute(s)."
 Write-Host "No QR payload will be written to Railway logs."
 
 function Get-RailwayVariablesJson {
-    $raw = pnpm dlx @railway/cli variable list --project $ProjectId --environment $Environment --service $Service --json 2>&1
+    $raw = Invoke-RailwayCli variable list --project $ProjectId --environment $Environment --service $Service --json
     return ($raw -join "`n")
 }
 
@@ -44,16 +61,16 @@ function Remove-RailwayVariableIfPresent {
     $variables = Get-RailwayVariablesJson
     if ($LASTEXITCODE -ne 0) { throw "Failed to list Railway variables before removing $Name." }
     if (-not (Test-VariablePresent -RawJson $variables -Name $Name)) { return }
-    pnpm dlx @railway/cli variable delete $Name --project $ProjectId --environment $Environment --service $Service --json | Out-Null
+    Invoke-RailwayCli variable delete $Name --project $ProjectId --environment $Environment --service $Service --json | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Failed to remove Railway variable $Name." }
 }
 
 Remove-RailwayVariableIfPresent -Name "NITSYCLAW_PRINT_QR_TO_LOGS"
 
-pnpm dlx @railway/cli variable set "NITSYCLAW_QR_RECOVERY_TOKEN=$token" --project $ProjectId --environment $Environment --service $Service --skip-deploys --json | Out-Null
+Invoke-RailwayCli variable set "NITSYCLAW_QR_RECOVERY_TOKEN=$token" --project $ProjectId --environment $Environment --service $Service --skip-deploys --json | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Failed to set NITSYCLAW_QR_RECOVERY_TOKEN." }
 
-pnpm dlx @railway/cli variable set "NITSYCLAW_QR_RECOVERY_UNTIL=$until" --project $ProjectId --environment $Environment --service $Service --json | Out-Null
+Invoke-RailwayCli variable set "NITSYCLAW_QR_RECOVERY_UNTIL=$until" --project $ProjectId --environment $Environment --service $Service --json | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Failed to set NITSYCLAW_QR_RECOVERY_UNTIL." }
 
 $afterSetVariables = Get-RailwayVariablesJson
