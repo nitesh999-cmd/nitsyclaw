@@ -32,9 +32,13 @@ export function registerTextCommand(registry: ToolRegistry): void {
       text: z.string().min(1).describe("The plain-text reply to send"),
     }),
     handler: async (input: { text: string }, ctx: ToolContext) => {
+      const body = sanitizeUserFacingReply(input.text);
+      if (!body) {
+        return { messageId: "suppressed-empty-receipt" };
+      }
       const out = await ctx.deps.whatsapp.send({
         to: ctx.userPhone,
-        body: sanitizeUserFacingReply(input.text),
+        body,
       });
       return { messageId: out.id };
     },

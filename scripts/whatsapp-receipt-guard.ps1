@@ -36,6 +36,7 @@ if ($matches.Count -gt 0) {
 }
 
 pnpm exec vitest run `
+    packages/shared/test/01-text-command.test.ts `
     apps/bot/test/router.integration.test.ts `
     packages/shared/test/24-command-jobs.test.ts `
     packages/shared/test/25-personal-pa-intent.test.ts `
