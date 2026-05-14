@@ -10,6 +10,9 @@ type WwebMessageWithEnvelope = Message & {
   from?: string;
   to?: string;
 };
+type WwebChatWithContact = Awaited<ReturnType<Message["getChat"]>> & {
+  getContact?: () => Promise<{ isMe?: boolean }>;
+};
 
 import { readdirSync, rmSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -439,9 +442,14 @@ export class WwebjsClient implements WhatsAppClient {
         const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = envelope.to ?? "";
         let chatId = "";
+        let chatIsMe = false;
         try {
-          const chat = await m.getChat();
+          const chat = await m.getChat() as WwebChatWithContact;
           chatId = chat.id?._serialized ?? "";
+          if (typeof chat.getContact === "function") {
+            const contact = await chat.getContact();
+            chatIsMe = contact?.isMe === true;
+          }
         } catch (chatError) {
           logBotError("[wwebjs] failed to read chat id", chatError);
         }
@@ -451,10 +459,11 @@ export class WwebjsClient implements WhatsAppClient {
             fromMe,
             to: toRaw,
             chatId,
+            chatIsMe,
             ownerNumber: this.opts.ownerNumber,
           })
         ) {
-          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)}`);
+          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)} chatIsMe=${chatIsMe}`);
           return;
         }
 

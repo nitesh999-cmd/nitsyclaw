@@ -40,6 +40,32 @@ describe("WhatsApp identity helpers", () => {
     ).toBe(true);
   });
 
+  it("accepts WhatsApp LID self-chat only when chat contact is the current user", () => {
+    expect(
+      isOwnerSelfChat({
+        from: "61430008008@c.us",
+        fromMe: true,
+        to: "129274421981381@lid",
+        chatId: "129274421981381@lid",
+        chatIsMe: true,
+        ownerNumber: "+61430008008",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects WhatsApp LID direct chats when chat contact is not the current user", () => {
+    expect(
+      isOwnerSelfChat({
+        from: "61430008008@c.us",
+        fromMe: true,
+        to: "129274421981381@lid",
+        chatId: "129274421981381@lid",
+        chatIsMe: false,
+        ownerNumber: "+61430008008",
+      }),
+    ).toBe(false);
+  });
+
   it("rejects non-self chats", () => {
     expect(
       isOwnerSelfChat({
