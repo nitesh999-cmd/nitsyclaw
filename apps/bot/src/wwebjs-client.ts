@@ -20,6 +20,7 @@ import type {
   WhatsAppClient,
 } from "@nitsyclaw/shared/whatsapp";
 import { redactAuditString } from "@nitsyclaw/shared/db";
+import { sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import {
   isHealthyWhatsAppState,
   shouldRestartWhatsAppClient,
@@ -78,6 +79,10 @@ function safeRuntimeReason(reason: string | undefined): string | undefined {
 
 function safeRestartReason(label: string, error: unknown): string {
   return `${label}: ${formatSafeLogError(error)}`;
+}
+
+export function prepareOutboundBodyForWhatsApp(body: string): string {
+  return sanitizeUserFacingReply(body);
 }
 
 function addressKind(value: string): string {
@@ -505,13 +510,15 @@ export class WwebjsClient implements WhatsAppClient {
   }
 
   async send(msg: OutboundMessage): Promise<{ id: string }> {
+    const body = prepareOutboundBodyForWhatsApp(msg.body);
+    if (!body) return { id: "suppressed-noisy-receipt" };
     const target = msg.to.includes("@") ? msg.to : `${msg.to}@c.us`;
     if (this.restarting) await this.restarting;
     await this.ready();
     const client = this.client;
     try {
-      this.echoGuard.rememberOutgoing(msg.body);
-      const sent = await client.sendMessage(target, msg.body);
+      this.echoGuard.rememberOutgoing(body);
+      const sent = await client.sendMessage(target, body);
       void markPresenceUnavailable(
         client,
         Math.min(this.healthProbeTimeoutMs, 2_000),
