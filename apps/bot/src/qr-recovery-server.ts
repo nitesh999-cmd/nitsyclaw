@@ -36,6 +36,7 @@ interface RenderResult {
 export interface BotHealthPayload {
   service: "nitsyclaw-bot";
   status: "starting" | "ok" | "degraded";
+  runtime?: Record<string, unknown>;
   whatsapp: {
     ready: boolean;
     loopBreaker?: unknown;

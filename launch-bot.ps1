@@ -59,6 +59,18 @@ function Get-BotDevProcesses {
         }
 }
 
+function Test-LocalWhatsAppAllowed {
+    if ($env:NITSYCLAW_ALLOW_LOCAL_WHATSAPP -eq '1') { return $true }
+    if (Test-Path -LiteralPath "$root\.allow-local-whatsapp") { return $true }
+    return $false
+}
+
+if (-not (Test-LocalWhatsAppAllowed)) {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: blocked because local WhatsApp is disabled. Set NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1 or create $root\.allow-local-whatsapp to run this laptop bot." |
+        Out-File -Append "$logDir\launcher.log"
+    exit 0
+}
+
 $dev = @(Get-BotDevProcesses)
 if ($dev.Count -gt 0) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: stopping dev/watch bot before production start" |

@@ -25,17 +25,22 @@ import { loadBotDotenv, whatsappSessionDir } from "./secret-paths.js";
 import { logBotError } from "./safe-log.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { QrRecoveryController, startQrRecoveryServer } from "./qr-recovery-server.js";
+import { assertWhatsAppRuntimeAllowed } from "./whatsapp-runtime-guard.js";
 
 loadBotDotenv();
 
 async function main() {
   const env = loadEnv();
-  console.log(`[boot] NitsyClaw bot starting (TZ=${env.TIMEZONE})`);
+  const runtimeMetadata = buildBotRuntimeMetadata(process.env);
+  assertWhatsAppRuntimeAllowed(process.env);
+  console.log(
+    `[boot] NitsyClaw bot starting (TZ=${env.TIMEZONE}, platform=${runtimeMetadata.platform}, runtime=${runtimeMetadata.runtimeId}, commit=${runtimeMetadata.commitShort})`,
+  );
   const db = getDb(env.DATABASE_URL ?? env.DATABASE_URL_DIRECT);
   await upsertSystemHeartbeat(db, {
     source: "bot-runtime",
     status: "starting",
-    metadata: buildBotRuntimeMetadata(process.env),
+    metadata: runtimeMetadata,
   });
 
   const qrRecovery = new QrRecoveryController(process.env);
@@ -121,7 +126,7 @@ async function main() {
   await upsertSystemHeartbeat(db, {
     source: "bot-runtime",
     status: "ok",
-    metadata: buildBotRuntimeMetadata(process.env),
+    metadata: runtimeMetadata,
   });
   console.log("[boot] WhatsApp ready");
   qrRecoveryServer?.setHealthProvider(() => {
@@ -133,6 +138,7 @@ async function main() {
         ready: true,
         loopBreaker,
       },
+      runtime: runtimeMetadata,
       at: new Date().toISOString(),
     };
   });

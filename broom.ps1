@@ -74,6 +74,12 @@ function Start-Bot {
     )
 }
 
+function Test-LocalWhatsAppAllowed {
+    if ($env:NITSYCLAW_ALLOW_LOCAL_WHATSAPP -eq '1') { return $true }
+    if (Test-Path -LiteralPath "$root\.allow-local-whatsapp") { return $true }
+    return $false
+}
+
 function Confirm-BotRestart {
     param([string]$Reason)
     for ($i = 0; $i -lt 6; $i++) {
@@ -115,6 +121,15 @@ function Restart-Bot {
 }
 
 $bot = @(Get-BotRuntimeProcesses)
+
+if (-not (Test-LocalWhatsAppAllowed)) {
+    if ($bot.Count -gt 0) {
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: local WhatsApp disabled -> stopping local bot" |
+            Out-File -Append "$logDir\broom.log"
+        Stop-ProcessTree -Roots $bot
+    }
+    exit 0
+}
 
 if ($bot.Count -eq 0) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot dead -> launch-bot.ps1" |

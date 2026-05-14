@@ -31,7 +31,8 @@ describe("bot runtime metadata", () => {
   test("falls back cleanly when Railway variables are absent", () => {
     const metadata = buildBotRuntimeMetadata({}, new Date("2026-05-13T02:00:00.000Z"));
 
-    expect(metadata.platform).toBe("unknown");
+    expect(metadata.platform).toBe("local");
+    expect(metadata.runtimeOwner).toBe("local");
     expect(metadata.commit).toBe("unknown");
     expect(metadata.commitShort).toBe("unknown");
     expect(metadata.startedAt).toBe("2026-05-13T02:00:00.000Z");
