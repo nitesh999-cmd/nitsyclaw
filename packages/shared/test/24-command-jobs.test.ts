@@ -19,8 +19,8 @@ describe("command execution jobs", () => {
 
     expect(job.status).toBe("received");
     expect(job.riskLevel).toBe("safe");
-    expect(job.receiptText).toContain("Saved");
     expect(job.receiptText).toContain("Working on it");
+    expect(job.receiptText).not.toContain("Saved");
     expect(state.command_jobs).toHaveLength(1);
     expect(state.command_jobs[0]).toMatchObject({
       source: "whatsapp",
@@ -69,8 +69,8 @@ describe("command execution jobs", () => {
 
     expect(job.status).toBe("received");
     expect(job.riskLevel).toBe("safe");
-    expect(job.receiptText).toContain("Saved");
     expect(job.receiptText).toContain("Working on it");
+    expect(job.receiptText).not.toContain("Saved");
   });
 
   it("still approval-gates risky voice transcripts", async () => {

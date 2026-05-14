@@ -23,6 +23,7 @@ describe("personal PA intent clarification", () => {
 
     expect(result.kind).toBe("approval_required");
     expect(result.userFacingText).toContain("approval");
+    expect(result.userFacingText).not.toContain("Saved");
   });
 
   it("approval-gates normal human wording for bookings and orders", () => {
@@ -42,6 +43,7 @@ describe("personal PA intent clarification", () => {
 
     expect(result.kind).toBe("actionable");
     expect(result.question).toBeUndefined();
+    expect(result.userFacingText).not.toContain("Saved");
   });
 
   it("treats short weather requests as actionable", () => {

@@ -56,7 +56,7 @@ export function analyzePersonalPaIntent(input: string): PersonalPaIntentDecision
     return {
       kind: "approval_required",
       reason: "external_or_destructive_action",
-      userFacingText: "Saved. Needs your approval before I act.",
+      userFacingText: "Needs your approval before I act.",
     };
   }
 
@@ -80,7 +80,7 @@ function actionable(): PersonalPaIntentDecision {
   return {
     kind: "actionable",
     reason: "clear_safe_request",
-    userFacingText: "Saved. Working on it.",
+    userFacingText: "Working on it.",
   };
 }
 

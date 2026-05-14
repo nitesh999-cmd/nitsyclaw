@@ -80,11 +80,11 @@ describe("WhatsAppLoopBreaker", () => {
     const breaker = new WhatsAppLoopBreaker(inner, { onTrip });
 
     for (const body of [
-      "Saved. Working on it.",
+      "Working on it.",
       "Hi. What can I do for you?",
       "Last voice transcript I have:\nhello",
       "Feature queue status sent.",
-      "Saved. Working on it.",
+      "Working on it.",
       "Transcribed. I will reply in English.\nWhat's the weather tomorrow?",
       "Melbourne tomorrow: cool and cloudy.",
     ]) {

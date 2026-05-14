@@ -831,7 +831,7 @@ export class Router {
     const dedupeKey = `whatsapp:${msg.id}`;
     const existingCommandJob = await getCommandJobByDedupeKey(this.deps.db, dedupeKey);
     if (existingCommandJob && isGateReplay(existingCommandJob.status)) {
-      await this.sendAndPersistBestEffort(existingCommandJob.receiptText, "command gate replay");
+      await this.sendAndPersistBestEffort(formatCommandReceiptForWhatsApp(existingCommandJob.receiptText), "command gate replay");
       return;
     }
     if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
@@ -886,7 +886,7 @@ export class Router {
           "voice transcription notice",
         );
         if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
-          await this.sendAndPersistBestEffort(commandJob.receiptText, "voice command gate");
+          await this.sendAndPersistBestEffort(formatCommandReceiptForWhatsApp(commandJob.receiptText), "voice command gate");
           return;
         }
       } catch (e) {
@@ -1295,8 +1295,8 @@ export class Router {
 
     // 4. Default — record the command first, then run the agent loop.
     const shouldAppendFeatureQueueStatus = mentionsFeatureQueueStatus(effectiveText);
-    if (shouldSendImmediateReceipt(effectiveText, commandJob)) {
-      await this.sendAndPersist(commandJob.receiptText);
+    if (shouldSendImmediateReceipt(commandJob)) {
+      await this.sendAndPersist(formatCommandReceiptForWhatsApp(commandJob.receiptText));
     }
     if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") return;
 
@@ -1395,13 +1395,13 @@ function isGateReplay(status: CommandJob["status"]): boolean {
   return status === "needs_approval" || status === "needs_clarification";
 }
 
-function shouldSendImmediateReceipt(text: string, job: CommandJob): boolean {
+function shouldSendImmediateReceipt(job: CommandJob): boolean {
   if (job.status === "needs_approval" || job.status === "needs_clarification") return true;
-  return !isCasualAck(text);
+  return false;
 }
 
-function isCasualAck(text: string): boolean {
-  return /^(hi|hello|hey|yo|yes|yep|yeah|ok|okay|no|thanks|thank you|cheers|ta|got it|cool|perfect|nice)[.!? ]*$/i.test(text.trim());
+function formatCommandReceiptForWhatsApp(receiptText: string): string {
+  return receiptText.replace(/^Saved\.\s+/i, "");
 }
 
 function buildWhatsAppCommandSummary(msg: InboundMessage, text: string): string {

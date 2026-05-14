@@ -126,7 +126,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body.includes("*nwp"))).toBe(false);
   });
 
-  it("creates a durable command job and receipt before the default agent loop", async () => {
+  it("creates a durable command job without sending a noisy receipt before the default agent loop", async () => {
     await router.handle({
       id: "x-job",
       from: OWNER,
@@ -144,8 +144,8 @@ describe("Router (integration)", () => {
       status: "done",
       riskLevel: "safe",
     });
-    expect(wa.sent[0].body).toContain("Saved");
-    expect(wa.sent[0].body).toContain("Working on it");
+    expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
+    expect(wa.sent.some((m) => m.body === "Working on it.")).toBe(false);
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
@@ -521,8 +521,39 @@ describe("Router (integration)", () => {
       sourceExternalId: "x-duplicate",
       dedupeKey: "whatsapp:x-duplicate",
     });
-    expect(wa.sent.filter((message) => message.body.includes("Saved"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.includes("Saved"))).toHaveLength(0);
+    expect(wa.sent.filter((message) => message.body === "Working on it.")).toHaveLength(0);
     expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+  });
+
+  it("strips old Saved prefix when replaying an existing approval gate", async () => {
+    const state = getFakeDbState(deps.db);
+    state.command_jobs.push({
+      id: "old-approval-job",
+      source: "whatsapp",
+      ownerHash: "owner-hash",
+      command: "send this message to Mukesh",
+      status: "needs_approval",
+      riskLevel: "approval_required",
+      receiptText: "Saved. Needs your approval before I act.",
+      attempts: 0,
+      maxAttempts: 3,
+      dedupeKey: "whatsapp:x-old-approval",
+      sourceExternalId: "x-old-approval",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await router.handle({
+      id: "x-old-approval",
+      from: OWNER,
+      body: "send this message to Mukesh",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0].body).toBe("Needs your approval before I act.");
   });
 
   it("ignores replayed WhatsApp events after router restart", async () => {
@@ -657,7 +688,7 @@ describe("Router (integration)", () => {
       command: "Research better electricity plans for Melbourne.",
       status: "failed",
       riskLevel: "safe",
-      receiptText: "Saved. Working on it.",
+      receiptText: "Working on it.",
       attempts: 3,
       maxAttempts: 3,
       dedupeKey: "whatsapp:x-replayed-failed",

@@ -198,9 +198,9 @@ export function buildReceiptText(status: CommandJobStatus): string {
     return "What is the main thing you want me to help with right now?";
   }
   if (status === "needs_approval") {
-    return "Saved. Needs your approval before I act.";
+    return "Needs your approval before I act.";
   }
-  return "Saved. Working on it.";
+  return "Working on it.";
 }
 
 export function isRiskyCommand(command: string): boolean {
