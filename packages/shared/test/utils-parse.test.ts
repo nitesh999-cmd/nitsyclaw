@@ -22,23 +22,30 @@ describe("parseExpenseText", () => {
   it("extracts amount only", () => {
     expect(parseExpenseText("paid 99")).toEqual({
       amountCents: 9900,
-      currency: "INR",
+      currency: "AUD",
     });
   });
 
   it("extracts amount + category + merchant", () => {
     expect(parseExpenseText("spent 250 on coffee at Starbucks")).toEqual({
       amountCents: 25000,
-      currency: "INR",
+      currency: "AUD",
       category: "coffee",
       merchant: "Starbucks",
     });
   });
 
-  it("handles USD", () => {
+  it("treats plain dollar amounts as the user's default currency", () => {
     const r = parseExpenseText("paid $12.50 for lunch");
     expect(r?.amountCents).toBe(1250);
-    expect(r?.currency).toBe("USD");
+    expect(r?.currency).toBe("AUD");
+  });
+
+  it("keeps explicit USD and INR currencies", () => {
+    expect(parseExpenseText("paid USD 12.50 for lunch")?.currency).toBe("USD");
+    expect(parseExpenseText("paid US$12.50 for lunch")?.currency).toBe("USD");
+    expect(parseExpenseText("paid ₹99 for lunch")?.currency).toBe("INR");
+    expect(parseExpenseText("paid rs 99 for lunch")?.currency).toBe("INR");
   });
 
   it("returns null when no amount", () => {

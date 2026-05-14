@@ -1,8 +1,9 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { planReminder, fireDueReminders } from "../src/features/03-reminders.js";
+import { planReminder, fireDueReminders, registerReminders } from "../src/features/03-reminders.js";
 import type { FakeDbState, FakeDbWithState } from "./helpers.js";
-import { makeFakeDb } from "./helpers.js";
+import { makeAgentDeps, makeFakeDb } from "./helpers.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
+import { ToolRegistry } from "../src/agent/tools.js";
 
 const NOW = new Date("2026-04-25T03:30:00Z"); // 09:00 IST
 
@@ -43,5 +44,28 @@ describe("fireDueReminders", () => {
     expect(count).toBe(2); // fake-db where() is permissive — see notes below
     // Real Drizzle path is exercised in integration test against pg-mem.
     expect(wa.sent.some((m) => m.body.includes("due"))).toBe(true);
+  });
+});
+
+describe("set_reminder tool", () => {
+  it("returns clear storage and WhatsApp delivery details", async () => {
+    const registry = new ToolRegistry();
+    registerReminders(registry);
+    const deps = makeAgentDeps({ timezone: "Australia/Melbourne" });
+    const tool = registry.get("set_reminder")!;
+
+    const out = await tool.handler(
+      { text: "call Mukesh", when: "tomorrow 10am" },
+      { userPhone: "+61430008008", now: new Date("2026-05-14T02:00:00Z"), timezone: "Australia/Melbourne", deps },
+    ) as {
+      savedIn?: string;
+      reminderChannel?: string;
+      userFacingSummary?: string;
+    };
+
+    expect(out.savedIn).toBe("NitsyClaw reminders");
+    expect(out.reminderChannel).toBe("WhatsApp");
+    expect(out.userFacingSummary).toContain("Saved in NitsyClaw reminders");
+    expect(out.userFacingSummary).toContain("WhatsApp");
   });
 });

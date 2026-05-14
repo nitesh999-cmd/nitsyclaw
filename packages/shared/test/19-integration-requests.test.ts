@@ -113,6 +113,8 @@ describe("integration request rails", () => {
       body: "Running 5 minutes late",
     });
     expect((out as { instruction: string }).instruction).toContain("has not sent it");
+    expect((out as { nextSetup?: string }).nextSetup).toContain("Connect");
+    expect((out as { safetyBoundary?: string }).safetyBoundary).toContain("explicit approval");
     expect(state.feature_requests).toHaveLength(0);
   });
 

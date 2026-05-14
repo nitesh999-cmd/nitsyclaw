@@ -84,7 +84,7 @@ export const reminders = pgTable(
 export const expenses = pgTable("expenses", {
   id: uuid("id").defaultRandom().primaryKey(),
   amount: integer("amount_cents").notNull(), // store cents to avoid float
-  currency: text("currency").notNull().default("INR"),
+  currency: text("currency").notNull().default("AUD"),
   category: text("category").notNull(),
   merchant: text("merchant"),
   occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),

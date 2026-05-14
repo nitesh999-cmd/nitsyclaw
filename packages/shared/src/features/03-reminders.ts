@@ -94,7 +94,15 @@ export function registerReminders(registry: ToolRegistry): void {
         fireAt: planned.fireAt,
         rrule: planned.rrule,
       });
-      return { id: r.id, fireAt: r.fireAt.toISOString(), rrule: r.rrule };
+      return {
+        id: r.id,
+        fireAt: r.fireAt.toISOString(),
+        rrule: r.rrule,
+        savedIn: "NitsyClaw reminders",
+        reminderChannel: "WhatsApp",
+        userFacingSummary:
+          `Saved in NitsyClaw reminders. I will remind you on WhatsApp at ${r.fireAt.toISOString()}.`,
+      };
     },
   });
 }

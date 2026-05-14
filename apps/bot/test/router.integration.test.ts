@@ -765,7 +765,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeFalsy();
   });
 
-  it("voice note → transcribed and acknowledged", async () => {
+  it("voice note → acts without sending a noisy transcription banner", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
       transcriber: fakeTranscriber,
@@ -781,7 +781,8 @@ describe("Router (integration)", () => {
       mediaType: "voice",
       downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
     });
-    expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(false);
+    expect(wa.sent.some((m) => m.body.includes("got it"))).toBe(true);
   });
 
   it("does not reprocess a replayed voice note after router restart", async () => {
@@ -939,14 +940,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
-  it("still processes a safe voice command when the transcription notice cannot send", async () => {
-    let sends = 0;
-    wa.send = async (message) => {
-      sends += 1;
-      if (sends === 1) throw new Error("temporary WhatsApp send failure");
-      wa.sent.push(message);
-      return { id: `mock-${wa.sent.length}` };
-    };
+  it("safe voice command sends the answer without a separate transcription notice", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
       transcriber: {
@@ -974,6 +968,7 @@ describe("Router (integration)", () => {
       status: "done",
       riskLevel: "safe",
     });
+    expect(wa.sent.some((message) => message.body.includes("Transcribed"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("Weather checked."))).toBe(true);
   });
 
@@ -1127,7 +1122,7 @@ describe("Router (integration)", () => {
     });
 
     const state = getFakeDbState(deps.db);
-    expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("Transcribed"))).toBe(false);
     expect(wa.sent.some((m) => m.body.includes("Tomorrow in Melbourne"))).toBe(true);
     expect(wa.sent.some((m) => m.body.includes("What outcome do you want"))).toBe(false);
     expect(state.command_jobs[0]).toMatchObject({

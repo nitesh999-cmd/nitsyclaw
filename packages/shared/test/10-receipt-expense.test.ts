@@ -11,6 +11,7 @@ import { ToolRegistry } from "../src/agent/tools.js";
 
 type LogExpenseOutput = {
   amountCents?: number;
+  currency?: string;
   merchant?: string;
 };
 
@@ -66,10 +67,11 @@ describe("log_expense_text tool", () => {
     const deps = makeAgentDeps();
     const tool = r.get("log_expense_text")!;
     const out = await tool.handler(
-      { text: "spent 200 on coffee at Starbucks" },
+      { text: "spent $6.50 on coffee at Starbucks" },
       { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
     ) as LogExpenseOutput;
-    expect(out.amountCents).toBe(20000);
+    expect(out.amountCents).toBe(650);
+    expect(out.currency).toBe("AUD");
     expect(out.merchant).toBe("Starbucks");
   });
 

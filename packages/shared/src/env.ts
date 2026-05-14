@@ -26,6 +26,8 @@ const envSchema = z.object({
   CURRENT_CITY: z.string().optional(),
   CURRENT_REGION: z.string().optional(),
   CURRENT_COUNTRY: z.string().optional(),
+  DEFAULT_CURRENCY: z.string().default("AUD"),
+  REPLY_LANGUAGE: z.string().default("English"),
   ANTHROPIC_API_KEY: z.string().min(1),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-6"),
   OPENAI_API_KEY: z.string().optional(),

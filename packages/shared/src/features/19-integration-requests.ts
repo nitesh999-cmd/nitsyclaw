@@ -149,6 +149,8 @@ export function registerIntegrationRequests(registry: ToolRegistry): void {
       body: input.body.trim().slice(0, 1000),
       purpose: input.purpose ? cleanOneLine(input.purpose, 300) : undefined,
       instruction: "Copy this into your SMS app. NitsyClaw has not sent it.",
+      safetyBoundary: "Automatic SMS sending requires an explicit approval step before any message leaves NitsyClaw.",
+      nextSetup: "Connect a compliant SMS provider or phone companion app before NitsyClaw can send this for you.",
     }),
   });
 

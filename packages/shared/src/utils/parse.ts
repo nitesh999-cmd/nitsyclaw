@@ -41,12 +41,12 @@ export function parseExpenseText(text: string): {
   category?: string;
   merchant?: string;
 } | null {
-  const m = text.match(/(?:₹|rs\.?|inr|usd|\$)?\s*(\d+(?:\.\d{1,2})?)\s*(?:rs\.?|inr|usd|\$)?/i);
+  const m = text.match(/(?:₹|rs\.?|inr|usd|us\$|aud|a\$|\$)?\s*(\d+(?:\.\d{1,2})?)\s*(?:rs\.?|inr|usd|us\$|aud|a\$|\$)?/i);
   if (!m) return null;
   const amount = parseFloat(m[1]!);
   if (isNaN(amount)) return null;
   const lower = text.toLowerCase();
-  const currency = /\$|usd/.test(lower) ? "USD" : "INR";
+  const currency = detectExpenseCurrency(lower);
 
   let category: string | undefined;
   let merchant: string | undefined;
@@ -55,5 +55,17 @@ export function parseExpenseText(text: string): {
   const atMatch = text.match(/\bat\s+([\w\s]+?)(?:\s*$|\s+for\s+)/i);
   if (atMatch) merchant = atMatch[1]!.trim();
 
-  return { amountCents: Math.round(amount * 100), currency, category, merchant };
+  return {
+    amountCents: Math.round(amount * 100),
+    currency,
+    ...(category ? { category } : {}),
+    ...(merchant ? { merchant } : {}),
+  };
+}
+
+function detectExpenseCurrency(lowerText: string): string {
+  if (/(?:\busd\b|us\$)/i.test(lowerText)) return "USD";
+  if (/(?:\baud\b|a\$)/i.test(lowerText)) return "AUD";
+  if (/(?:₹|\brs\.?\b|\binr\b)/i.test(lowerText)) return "INR";
+  return "AUD";
 }

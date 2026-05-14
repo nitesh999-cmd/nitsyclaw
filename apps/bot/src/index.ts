@@ -114,6 +114,8 @@ async function main() {
       CURRENT_CITY: env.CURRENT_CITY,
       CURRENT_REGION: env.CURRENT_REGION,
       CURRENT_COUNTRY: env.CURRENT_COUNTRY,
+      DEFAULT_CURRENCY: env.DEFAULT_CURRENCY,
+      REPLY_LANGUAGE: env.REPLY_LANGUAGE,
     },
     db,
     whatsapp: monitoredWhatsapp,

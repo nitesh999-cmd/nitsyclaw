@@ -62,7 +62,7 @@ export async function processReceiptImage(args: {
   const category = categorizeExpense({ merchant: fields.merchant, rawText: fields.rawText });
   const e = await insertExpense(args.db, {
     amount: Math.round(fields.amount * 100),
-    currency: fields.currency ?? "INR",
+    currency: fields.currency ?? "AUD",
     category,
     merchant: fields.merchant,
     occurredAt: fields.date ?? args.now,

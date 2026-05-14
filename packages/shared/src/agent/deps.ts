@@ -26,6 +26,8 @@ export interface UserProfile {
   homeLocation?: string;
   currentLocation?: string;
   timezone?: string;
+  defaultCurrency?: string;
+  replyLanguage?: string;
 }
 
 export interface LlmClient {

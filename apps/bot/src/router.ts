@@ -882,10 +882,6 @@ export class Router {
         });
         effectiveText = transcript;
         commandJob = await refreshCommandJobIntent(this.deps.db, commandJob.id, effectiveText, true);
-        await this.sendAndPersistBestEffort(
-          `📝 Transcribed. I will reply in English.\n${transcript}`,
-          "voice transcription notice",
-        );
         if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
           await this.sendAndPersistBestEffort(formatCommandReceiptForWhatsApp(commandJob.receiptText), "voice command gate");
           return;

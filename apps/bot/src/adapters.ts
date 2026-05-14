@@ -254,6 +254,8 @@ export interface BotConfigEnv {
   CURRENT_CITY?: string;
   CURRENT_REGION?: string;
   CURRENT_COUNTRY?: string;
+  DEFAULT_CURRENCY?: string;
+  REPLY_LANGUAGE?: string;
 }
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
@@ -311,6 +313,8 @@ export function buildAgentDeps(args: {
           args.env.HOME_COUNTRY ?? "Australia",
         ),
       timezone: args.env.TIMEZONE,
+      defaultCurrency: args.env.DEFAULT_CURRENCY ?? "AUD",
+      replyLanguage: args.env.REPLY_LANGUAGE ?? "English",
     },
   };
 }

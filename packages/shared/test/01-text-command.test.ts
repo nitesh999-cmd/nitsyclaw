@@ -79,4 +79,32 @@ describe("reply_to_user tool", () => {
     expect(wa.sent).toHaveLength(1);
     expect(wa.sent[0].body).toBe("Hey Nitesh! What can I do for you today?");
   });
+
+  it("repairs non-English script replies into English when the profile requires English", async () => {
+    const r = new ToolRegistry();
+    registerTextCommand(r);
+    const wa = new MockWhatsAppClient();
+    const deps = makeAgentDeps({
+      whatsapp: wa,
+      profile: { replyLanguage: "English" },
+      llm: {
+        async complete() {
+          return { text: "The current Chief Minister of Gujarat is Bhupendra Patel." };
+        },
+        async toolStep() {
+          return { stopReason: "end_turn", toolCalls: [], text: "" };
+        },
+      },
+    });
+    const tool = r.get("reply_to_user")!;
+
+    await tool.handler(
+      { text: "ગુજરાતના હાલના મુખ્યમંત્રી ભૂપેન્દ્રભાઈ પટેલ છે." },
+      { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
+    );
+
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0].body).toBe("The current Chief Minister of Gujarat is Bhupendra Patel.");
+    expect(wa.sent[0].body).not.toMatch(/[\u0A80-\u0AFF]/);
+  });
 });
