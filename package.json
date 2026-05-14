@@ -22,6 +22,7 @@
     "railway:qr-open": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1",
     "railway:qr-close": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-close.ps1",
     "whatsapp:proof-local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
+    "whatsapp:receipt-guard": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-receipt-guard.ps1",
     "audit:doctor": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit-doctor.ps1",
     "security:semgrep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/semgrep-scan.ps1",
     "security:audit": "pnpm audit --audit-level=moderate",
