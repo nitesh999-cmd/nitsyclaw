@@ -99,4 +99,51 @@ describe("WhatsAppSendMonitor", () => {
     expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("nitesh@example.com");
     expect(JSON.stringify(vi.mocked(pushNotify).mock.calls)).not.toContain("sk_live");
   });
+
+  it("suppresses noisy saved/working receipts before they reach WhatsApp", async () => {
+    const inner = new FakeWhatsApp();
+    const monitor = new WhatsAppSendMonitor(inner, {
+      db: {} as never,
+      now: () => new Date("2026-05-07T01:02:03.000Z"),
+    });
+
+    await expect(monitor.send({ to: "+61430008008", body: "Saved. Working on it." })).resolves.toEqual({
+      id: "suppressed-noisy-receipt",
+    });
+
+    expect(inner.sent).toHaveLength(0);
+    expect(upsertSystemHeartbeat).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        source: "whatsapp-send",
+        status: "ok",
+        metadata: {
+          at: "2026-05-07T01:02:03.000Z",
+          suppressed: "noisy_receipt",
+        },
+      }),
+    );
+  });
+
+  it("strips noisy receipt lines before forwarding real answers", async () => {
+    const inner = new FakeWhatsApp();
+    const monitor = new WhatsAppSendMonitor(inner, {
+      db: {} as never,
+      now: () => new Date("2026-05-07T01:02:03.000Z"),
+    });
+
+    await expect(
+      monitor.send({
+        to: "+61430008008",
+        body: "Saved. Working on it.\nHey Nitesh! What can I do for you today?",
+      }),
+    ).resolves.toEqual({ id: "sent-1" });
+
+    expect(inner.sent).toEqual([
+      {
+        to: "+61430008008",
+        body: "Hey Nitesh! What can I do for you today?",
+      },
+    ]);
+  });
 });

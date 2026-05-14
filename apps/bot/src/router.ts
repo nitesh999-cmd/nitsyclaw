@@ -133,6 +133,7 @@ export class Router {
    *  block the others. */
   private async sendAndPersist(body: string): Promise<void> {
     body = sanitizeUserFacingReply(body);
+    if (!body) return;
     await this.deps.whatsapp.send({ to: this.ownerPhone, body });
     try {
       const enc = encryptForStorage(body);

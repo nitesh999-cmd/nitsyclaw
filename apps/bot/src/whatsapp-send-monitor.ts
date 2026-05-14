@@ -6,6 +6,7 @@ import type {
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
 import type { DB } from "@nitsyclaw/shared/db";
+import { sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import { formatSafeLogError, logBotError } from "./safe-log.js";
 
 export interface WhatsAppSendMonitorOptions {
@@ -28,8 +29,23 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
   }
 
   async send(msg: OutboundMessage): Promise<{ id: string }> {
+    const body = sanitizeUserFacingReply(msg.body);
+    if (!body) {
+      await upsertSystemHeartbeat(this.opts.db, {
+        source: "whatsapp-send",
+        status: "ok",
+        metadata: {
+          at: this.now().toISOString(),
+          suppressed: "noisy_receipt",
+        },
+      }).catch((heartbeatError) => {
+        logBotError("[whatsapp-send-monitor] failed to write suppressed send heartbeat", heartbeatError);
+      });
+      return { id: "suppressed-noisy-receipt" };
+    }
+
     try {
-      const result = await this.inner.send(msg);
+      const result = await this.inner.send({ ...msg, body });
       await upsertSystemHeartbeat(this.opts.db, {
         source: "whatsapp-send",
         status: "ok",

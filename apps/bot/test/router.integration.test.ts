@@ -149,6 +149,24 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
+  it("suppresses a model-generated saved/working receipt in the default agent loop", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "Saved. Working on it." }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-model-receipt",
+      from: OWNER,
+      body: "Hi",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent).toHaveLength(0);
+  });
+
   it("answers next moves from the live feature queue without the model loop", async () => {
     const state = getFakeDbState(deps.db);
     state.feature_requests.push(
