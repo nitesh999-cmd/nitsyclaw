@@ -218,4 +218,35 @@ describe("WhatsAppLoopBreaker", () => {
       resetAt: "2026-05-09T00:02:00.000Z",
     }));
   });
+
+  it("exposes a safe diagnostic status for bot health checks", async () => {
+    let now = Date.UTC(2026, 4, 9, 0, 0, 0);
+    const inner = new FakeWhatsApp();
+    const breaker = new WhatsAppLoopBreaker(inner, {
+      now: () => now,
+      maxSendsPerWindow: 1,
+      sendWindowMs: 60_000,
+      sendBurstCooldownMs: 120_000,
+    });
+
+    await breaker.send({ to: "+61430008008", body: "one" });
+    await expect(
+      breaker.send({ to: "+61430008008", body: "two" }),
+    ).rejects.toThrow("loop breaker");
+
+    expect(breaker.status()).toEqual({
+      paused: true,
+      reason: "send burst: 2 sends in 60000ms",
+      resetAt: "2026-05-09T00:02:00.000Z",
+      recentSendCount: 2,
+      recentOutboundCount: 1,
+    });
+
+    now += 121_000;
+    expect(breaker.status()).toEqual({
+      paused: false,
+      recentSendCount: 0,
+      recentOutboundCount: 0,
+    });
+  });
 });

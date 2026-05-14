@@ -33,6 +33,18 @@ interface RenderResult {
   headers?: Record<string, string>;
 }
 
+export interface BotHealthPayload {
+  service: "nitsyclaw-bot";
+  status: "starting" | "ok" | "degraded";
+  whatsapp: {
+    ready: boolean;
+    loopBreaker?: unknown;
+  };
+  at: string;
+}
+
+export type BotHealthProvider = () => BotHealthPayload;
+
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
@@ -223,14 +235,29 @@ function recoveryHtml(): string {
 export function startQrRecoveryServer(
   controller: QrRecoveryController,
   env: QrRecoveryEnv = process.env,
-): Server | null {
+): (Server & { setHealthProvider(provider: BotHealthProvider): void }) | null {
   const port = Number(env.PORT);
   if (!Number.isFinite(port) || port < 0) return null;
+
+  let healthProvider: BotHealthProvider = () => ({
+    service: "nitsyclaw-bot",
+    status: "starting",
+    whatsapp: { ready: false },
+    at: new Date().toISOString(),
+  });
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/healthz") {
       send(res, { status: 200, contentType: "text/plain; charset=utf-8", body: "ok" });
+      return;
+    }
+    if (url.pathname === "/health") {
+      send(res, {
+        status: 200,
+        contentType: "application/json; charset=utf-8",
+        body: JSON.stringify(healthProvider()),
+      });
       return;
     }
     if (url.pathname === "/recovery/whatsapp-qr") {
@@ -261,5 +288,9 @@ export function startQrRecoveryServer(
   server.listen(port, "0.0.0.0", () => {
     console.log(`[qr-recovery] HTTP recovery server listening on port ${port}`);
   });
-  return server;
+  return Object.assign(server, {
+    setHealthProvider(provider: BotHealthProvider) {
+      healthProvider = provider;
+    },
+  });
 }

@@ -117,4 +117,49 @@ describe("QR recovery server", () => {
       server!.close();
     }
   });
+
+  test("HTTP health endpoint reports startup and runtime health without secrets", async () => {
+    const env = { PORT: "0" };
+    const controller = new QrRecoveryController(env, 60_000);
+    const server = startQrRecoveryServer(controller, env);
+    expect(server).toBeTruthy();
+    await once(server!, "listening");
+    const address = server!.address();
+    if (!address || typeof address === "string") throw new Error("expected TCP test server");
+    const base = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const startup = await fetch(`${base}/health`);
+      expect(startup.status).toBe(200);
+      expect(startup.headers.get("content-type")).toContain("application/json");
+      await expect(startup.json()).resolves.toMatchObject({
+        service: "nitsyclaw-bot",
+        status: "starting",
+        whatsapp: { ready: false },
+      });
+
+      server!.setHealthProvider(() => ({
+        service: "nitsyclaw-bot",
+        status: "ok",
+        whatsapp: {
+          ready: true,
+          loopBreaker: {
+            paused: false,
+            recentSendCount: 0,
+            recentOutboundCount: 0,
+          },
+        },
+        at: "2026-05-14T00:00:00.000Z",
+      }));
+
+      const ready = await fetch(`${base}/health`);
+      const body = await ready.text();
+      expect(body).toContain("\"status\":\"ok\"");
+      expect(body).toContain("\"ready\":true");
+      expect(body).not.toContain(TOKEN);
+      expect(ready.headers.get("cache-control")).toContain("no-store");
+    } finally {
+      server!.close();
+    }
+  });
 });

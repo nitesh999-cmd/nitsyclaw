@@ -22,6 +22,14 @@ export interface LoopBreakerIncident {
   recentOutboundPreviews: string[];
 }
 
+export interface LoopBreakerStatus {
+  paused: boolean;
+  reason?: string;
+  resetAt?: string;
+  recentSendCount: number;
+  recentOutboundCount: number;
+}
+
 const DEFAULT_MAX_SENDS_PER_WINDOW = 12;
 const DEFAULT_SEND_WINDOW_MS = 90_000;
 const DEFAULT_SEND_BURST_COOLDOWN_MS = 2 * 60 * 1000;
@@ -94,13 +102,13 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
 
       this.resetIfCooldownExpired();
       if (this.isPaused()) {
-        console.error("[loop-breaker] dropped inbound while paused");
+        console.log("[loop-breaker] dropped inbound while paused");
         return;
       }
 
       if (body && this.recentOutbound.some((entry) => entry.body === body)) {
         this.trip("inbound matched recent outbound");
-        console.error("[loop-breaker] dropped suspected self-reply echo");
+        console.log("[loop-breaker] dropped suspected self-reply echo");
         return;
       }
 
@@ -115,6 +123,18 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
   isPaused(): boolean {
     this.resetIfCooldownExpired();
     return this.pausedReason !== null;
+  }
+
+  status(): LoopBreakerStatus {
+    this.prune();
+    this.resetIfCooldownExpired();
+    return {
+      paused: this.pausedReason !== null,
+      ...(this.pausedReason ? { reason: this.pausedReason } : {}),
+      ...(this.pausedUntilMs ? { resetAt: new Date(this.pausedUntilMs).toISOString() } : {}),
+      recentSendCount: this.recentSends.length,
+      recentOutboundCount: this.recentOutbound.length,
+    };
   }
 
   private trip(reason: string, autoResetMs?: number): void {
@@ -147,7 +167,7 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
     const reason = this.pausedReason;
     this.pausedReason = null;
     this.pausedUntilMs = null;
-    console.error(`[loop-breaker] ${label}; previous reason=${reason}`);
+    console.log(`[loop-breaker] ${label}; previous reason=${reason}`);
     this.onReset?.(reason);
   }
 

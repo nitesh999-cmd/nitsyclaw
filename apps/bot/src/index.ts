@@ -84,7 +84,7 @@ async function main() {
       ).catch((e) => logBotError("[boot] loop guard notify failed", e));
     },
     onReset: (reason) => {
-      console.error(`[boot] WhatsApp loop breaker reset after: ${reason}`);
+      console.log(`[boot] WhatsApp loop breaker reset after: ${reason}`);
       void upsertSystemHeartbeat(db, {
         source: "whatsapp-loop-guard",
         status: "ok",
@@ -124,6 +124,18 @@ async function main() {
     metadata: buildBotRuntimeMetadata(process.env),
   });
   console.log("[boot] WhatsApp ready");
+  qrRecoveryServer?.setHealthProvider(() => {
+    const loopBreaker = whatsapp.status();
+    return {
+      service: "nitsyclaw-bot",
+      status: loopBreaker.paused ? "degraded" : "ok",
+      whatsapp: {
+        ready: true,
+        loopBreaker,
+      },
+      at: new Date().toISOString(),
+    };
+  });
 
   if (env.ENABLE_HEARTBEAT) {
     startScheduler({
