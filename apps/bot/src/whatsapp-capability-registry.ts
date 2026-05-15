@@ -1,3 +1,6 @@
+import type { WhatsAppProviderReadinessKey, WhatsAppProviderReadiness } from "./whatsapp-provider-readiness.js";
+import { formatProviderReadinessLine, getWhatsAppProviderReadiness } from "./whatsapp-provider-readiness.js";
+
 export type WhatsAppCapabilityStatus = "ready" | "needs_setup" | "approval_required";
 
 export interface WhatsAppCapability {
@@ -7,6 +10,7 @@ export interface WhatsAppCapability {
   summary: string;
   setup?: string;
   safety?: string;
+  providerKeys?: readonly WhatsAppProviderReadinessKey[];
   examples: readonly string[];
 }
 
@@ -75,6 +79,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     summary: "Queue mailbox setup requests for reading, searching, drafting, and approved sending.",
     setup: "Needs OAuth account connection and strict send confirmation.",
     safety: "No mailbox is accessed until OAuth setup is complete.",
+    providerKeys: ["gmail", "outlook"],
     examples: ["connect Gmail so you can draft replies", "set up Outlook search"],
   },
   {
@@ -84,6 +89,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     summary: "Queue file and document access requests.",
     setup: "Needs account picker/OAuth and selected-file permission boundaries.",
     safety: "No cloud file account is accessed from WhatsApp yet.",
+    providerKeys: ["drive", "onedrive"],
     examples: ["browse my Google Drive files", "connect OneDrive documents"],
   },
   {
@@ -93,6 +99,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     summary: "Queue photo search and selected-media import requests.",
     setup: "Needs Google Photos access approval and selected-library rules.",
     safety: "No photo library is accessed until setup is complete.",
+    providerKeys: ["google-photos"],
     examples: ["set up Google Photos search for family pictures"],
   },
   {
@@ -101,6 +108,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     status: "needs_setup",
     summary: "Queue playlist and music assistant requests.",
     setup: "Needs Spotify OAuth.",
+    providerKeys: ["spotify"],
     examples: ["create suggested playlist in Spotify"],
   },
   {
@@ -110,6 +118,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     summary: "Use CSV/manual imports now; queue live bank-feed requests for later.",
     setup: "Live feeds need a compliant financial data provider and consent flow.",
     safety: "No bank account is connected from WhatsApp yet.",
+    providerKeys: ["bank-feeds"],
     examples: ["connect bank feeds for expenses", "import card feed expenses"],
   },
   {
@@ -118,6 +127,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     status: "needs_setup",
     summary: "Queue Facebook birthday or birthday message setup requests.",
     setup: "Needs a lawful source such as manual import, contacts export, or approved API.",
+    providerKeys: ["birthdays"],
     examples: ["connect Facebook birthdays"],
   },
   {
@@ -127,6 +137,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     summary: "Drafts are available now; real calling or sending needs provider setup and user confirmation.",
     setup: "Needs phone companion app or compliant telephony/SMS provider.",
     safety: "Wrong-recipient actions must remain approval-gated.",
+    providerKeys: ["phone-sms"],
     examples: ["set up phone/SMS", "access SMS logs"],
   },
   {
@@ -135,6 +146,7 @@ export const WHATSAPP_CAPABILITY_REGISTRY = [
     status: "needs_setup",
     summary: "Queue public URL or upload analysis requests for Instagram, YouTube, TikTok, and Facebook.",
     setup: "Public URLs/uploads can be queued; private platform access needs approved APIs.",
+    providerKeys: ["social-video"],
     examples: ["analyse this Instagram reel https://example.com/reel/1"],
   },
 ] as const satisfies readonly WhatsAppCapability[];
@@ -147,10 +159,18 @@ export function formatCapabilitySummaryLine(capability: WhatsAppCapability): str
   return `${capability.label}: ${capability.summary}`;
 }
 
-export function formatCapabilitySetupLine(capability: WhatsAppCapability): string {
+export function formatCapabilitySetupLine(
+  capability: WhatsAppCapability,
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
   const detail = capability.setup ?? capability.safety ?? capability.summary;
   const safety = capability.safety && capability.safety !== detail ? ` Safety: ${capability.safety}` : "";
-  return `${capability.label}: ${detail}${safety}`;
+  const providerDetails = (capability.providerKeys ?? [])
+    .map((key) => providerReadiness[key])
+    .filter(Boolean)
+    .map(formatProviderReadinessLine);
+  const runtime = providerDetails.length ? ` Runtime: ${providerDetails.join(" ")}` : "";
+  return `${capability.label}: ${detail}${safety}${runtime}`;
 }
 
 export function formatCapabilityExamples(limit = 8): string[] {

@@ -31,6 +31,8 @@ describe("WhatsApp capability registry", () => {
     expect(matrix).toContain("if something is not ready");
     expect(matrix).toContain("Gmail and Outlook");
     expect(matrix).toContain("No mailbox is accessed until OAuth setup is complete");
+    expect(matrix).toContain("Runtime:");
+    expect(matrix).toContain("Next:");
     expect(matrix).not.toContain("Gmail is connected");
     expect(matrix).not.toContain("Bank feeds: connected");
   });

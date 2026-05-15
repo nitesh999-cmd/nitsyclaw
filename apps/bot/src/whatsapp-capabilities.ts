@@ -4,13 +4,17 @@ import {
   formatCapabilitySummaryLine,
   getCapabilitiesByStatus,
 } from "./whatsapp-capability-registry.js";
+import { getWhatsAppProviderReadiness } from "./whatsapp-provider-readiness.js";
 
 export const WHATSAPP_READY_CAPABILITIES = getCapabilitiesByStatus("ready").map(formatCapabilitySummaryLine);
 
-export const WHATSAPP_SETUP_CAPABILITIES = [
-  ...getCapabilitiesByStatus("needs_setup").map(formatCapabilitySetupLine),
-  ...getCapabilitiesByStatus("approval_required").map(formatCapabilitySetupLine),
-] as const;
+export function getWhatsAppSetupCapabilities(): string[] {
+  const providerReadiness = getWhatsAppProviderReadiness();
+  return [
+    ...getCapabilitiesByStatus("needs_setup").map((capability) => formatCapabilitySetupLine(capability, providerReadiness)),
+    ...getCapabilitiesByStatus("approval_required").map((capability) => formatCapabilitySetupLine(capability, providerReadiness)),
+  ];
+}
 
 export const WHATSAPP_SAFETY_LIMITS = [
   "SMS drafts only until a phone/SMS provider is connected and approved.",
@@ -49,7 +53,7 @@ export function formatWhatsAppHelpReply(): string {
     ...bulletList(WHATSAPP_READY_CAPABILITIES),
     "",
     "Needs setup:",
-    ...bulletList(WHATSAPP_SETUP_CAPABILITIES),
+    ...bulletList(getWhatsAppSetupCapabilities()),
     "",
     "Safety limits:",
     ...bulletList(WHATSAPP_SAFETY_LIMITS),
@@ -67,7 +71,7 @@ export function formatWhatsAppCapabilityMatrix(): string {
     ...bulletList(WHATSAPP_READY_CAPABILITIES),
     "",
     "Needs setup or approval:",
-    ...bulletList(WHATSAPP_SETUP_CAPABILITIES),
+    ...bulletList(getWhatsAppSetupCapabilities()),
     "",
     "Rule: if something is not ready, I should say that clearly and explain the next step.",
   ].join("\n");
