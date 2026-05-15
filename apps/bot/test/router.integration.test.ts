@@ -287,6 +287,8 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Working now");
     expect(wa.sent[0].body).toContain("CSV expense import");
     expect(wa.sent[0].body).toContain("Needs setup");
+    expect(wa.sent[0].body).toContain("Safety limits");
+    expect(wa.sent[0].body).toContain("SMS drafts only");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -365,6 +367,49 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Pending: 1 item");
     expect(wa.sent[0].body).toContain("Read and send emails");
     expect(wa.sent[0].body).toContain("Needs setup before real action");
+    expect(wa.sent[0].body).toContain("Safety limits");
+    expect(wa.sent[0].body).toContain("SMS drafts only");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("logs plain text expenses deterministically before the model loop", async () => {
+    await router.handle({
+      id: "x-text-expense-deterministic",
+      from: OWNER,
+      body: "I spent $18.40 at Chemist Warehouse for medicine, log it as health.",
+      timestamp: new Date("2026-05-14T12:49:00Z"),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.expenses).toHaveLength(1);
+    expect(state.expenses[0]).toMatchObject({
+      amount: 1840,
+      currency: "AUD",
+      category: "health",
+      merchant: "Chemist Warehouse",
+    });
+    expect(wa.sent[0].body).toContain("Expense logged");
+    expect(wa.sent[0].body).toContain("AUD 18.40");
+    expect(wa.sent[0].body).toContain("health");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("sets clear WhatsApp reminders deterministically before the model loop", async () => {
+    await router.handle({
+      id: "x-reminder-deterministic",
+      from: OWNER,
+      body: "Remind me to call Mukesh tomorrow at 10 am",
+      timestamp: new Date("2026-05-14T12:49:00Z"),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.reminders).toHaveLength(1);
+    expect(state.reminders[0]?.text).toContain("call Mukesh");
+    expect(wa.sent[0].body).toContain("Reminder set");
+    expect(wa.sent[0].body).toContain("Saved in NitsyClaw reminders");
+    expect(wa.sent[0].body).toContain("WhatsApp");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

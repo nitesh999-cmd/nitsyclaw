@@ -19,6 +19,7 @@ import {
   createLeaveHomeChecklist,
   createMedicineList,
   createMoveChecklist,
+  categorizeExpense,
   createHouseholdChoreSplit,
   createPetCarePlan,
   createShoppingList,
@@ -50,6 +51,7 @@ import {
   splitBudget,
   suggestKidActivity,
   suggestGiftIdeas,
+  planReminder,
   trackWarranty,
   triageLifeAdminNote,
   formatFeatureQueueStatusForWhatsApp,
@@ -59,6 +61,8 @@ import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import {
   getLatestPendingConfirmation,
   insertMessage,
+  insertExpense,
+  insertReminder,
   insertFeatureRequest,
   listPendingReminders,
   listPendingFeatureRequests,
@@ -77,7 +81,7 @@ import {
 } from "@nitsyclaw/shared/ops/command-jobs";
 import type { CommandJob } from "@nitsyclaw/shared/db";
 import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
-import { encryptForStorage, hashPhone, maskPhone, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
+import { encryptForStorage, hashPhone, maskPhone, parseExpenseText, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
@@ -97,6 +101,11 @@ import {
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { logBotError } from "./safe-log.js";
+import {
+  formatReadyCapabilitiesOneLine,
+  formatWhatsAppHelpReply,
+  formatWhatsAppSafetyLimitsBlock,
+} from "./whatsapp-capabilities.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -226,7 +235,7 @@ export class Router {
       "NitsyClaw status",
       "",
       "Ready now:",
-      "- Voice notes, normal questions, reminders, memory/search, documents, receipts, CSV expense import, message checks, call scripts, lists, and local summaries.",
+      `- ${formatReadyCapabilitiesOneLine()}`,
       "",
       `Pending: ${summary.pendingCount} item(s).`,
       "Best local/code-only next:",
@@ -237,6 +246,8 @@ export class Router {
       "",
       "Recently shipped:",
       shipped,
+      "",
+      formatWhatsAppSafetyLimitsBlock(),
       "",
       "Useful commands: local status, files, reminders, expense summary, summary commands, feature queue.",
     ].join("\n"));
@@ -443,28 +454,75 @@ export class Router {
     ].join("\n");
   }
 
-  private formatHelpReply(): string {
-    return [
-      "Working now:",
-      "- Ask normal questions and send voice notes.",
-      "- Remember things, search chat history, and manage reminders.",
-      "- Summarise bills, selectable PDFs, notes, receipts, and documents.",
-      "- Log receipt photos, text expenses, and CSV expense import files.",
-      "- Prepare replies, call scripts, complaints, lists, packing plans, shopping lists, and decision notes.",
-      "- Show feature queue status and save new feature or bug requests.",
-      "",
-      "Needs setup:",
-      "- Real email sending, Drive/Photos search, phone/SMS sending, bank feeds, Facebook birthdays, and full Spotify changes need account/provider access first.",
-      "",
-      "Try:",
-      "- status",
-      "- local status",
-      "- feature queue",
-      "- build status",
-      "- bill summary: paste bill text",
-      "- check before send: paste message",
-      "- upload a CSV expense file",
+  private async handleTextExpenseShortcut(effectiveText: string, commandJob: CommandJob, persistedId: string): Promise<boolean> {
+    const parsed = parseExpenseText(effectiveText);
+    if (!parsed) {
+      const reply = "I can log that expense, but I need the amount. Try: spent $18.40 at Chemist Warehouse for medicine.";
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return true;
+    }
+
+    const category = parsed.category ?? categorizeExpense({ merchant: parsed.merchant, rawText: effectiveText });
+    const expense = await insertExpense(this.deps.db, {
+      amount: parsed.amountCents,
+      currency: parsed.currency,
+      category,
+      merchant: parsed.merchant,
+      occurredAt: this.deps.now(),
+      sourceMessageId: persistedId,
+    });
+    const amount = `${expense.currency} ${(expense.amount / 100).toFixed(2)}`;
+    const lines = [
+      `Expense logged: ${amount}`,
+      `Category: ${expense.category}`,
+      expense.merchant ? `Merchant: ${expense.merchant}` : undefined,
+      "Saved in NitsyClaw expenses. No bank connection was used.",
+    ].filter((line): line is string => Boolean(line));
+    const reply = lines.join("\n");
+    await this.sendAndPersist(reply);
+    await this.completeWhatsAppCommandJob(commandJob, reply);
+    return true;
+  }
+
+  private async handleTextReminderShortcut(effectiveText: string, commandJob: CommandJob): Promise<boolean> {
+    const planned = planReminder({
+      text: effectiveText,
+      now: this.deps.now(),
+      timezone: this.deps.timezone,
+    });
+    if (!planned) {
+      const reply = "I can set that reminder, but I need a time. Try: remind me to call Mukesh tomorrow at 10 am.";
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return true;
+    }
+
+    const reminder = await insertReminder(this.deps.db, {
+      text: planned.text,
+      fireAt: planned.fireAt,
+      rrule: planned.rrule,
+    });
+    const when = new Intl.DateTimeFormat("en-AU", {
+      timeZone: this.deps.timezone,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(reminder.fireAt);
+    const reply = [
+      `Reminder set: ${reminder.text}`,
+      `When: ${when}`,
+      "Saved in NitsyClaw reminders. I will remind you on WhatsApp.",
     ].join("\n");
+    await this.sendAndPersist(reply);
+    await this.completeWhatsAppCommandJob(commandJob, reply);
+    return true;
+  }
+
+  private formatHelpReply(): string {
+    return formatWhatsAppHelpReply();
   }
 
   private formatHomeAssistantReply(shortcut: NonNullable<ReturnType<typeof parseHomeAssistantShortcut>>): string {
@@ -1225,8 +1283,28 @@ export class Router {
       return;
     }
 
-    // 3. Confirmation y/n short-circuit (no LLM needed).
+    // 3. Deterministic common commands before the model loop.
     const intent = detectIntent(effectiveText);
+    if (intent === "log_expense") {
+      try {
+        if (await this.handleTextExpenseShortcut(effectiveText, commandJob, persisted.id)) return;
+      } catch (expenseError) {
+        await this.failWhatsAppCommandJob(commandJob, expenseError);
+        await this.sendPublicFailure("text expense", "Couldn't log that expense. I logged the error; try again shortly.", expenseError);
+        return;
+      }
+    }
+    if (intent === "set_reminder") {
+      try {
+        if (await this.handleTextReminderShortcut(effectiveText, commandJob)) return;
+      } catch (reminderError) {
+        await this.failWhatsAppCommandJob(commandJob, reminderError);
+        await this.sendPublicFailure("text reminder", "Couldn't set that reminder. I logged the error; try again shortly.", reminderError);
+        return;
+      }
+    }
+
+    // 4. Confirmation y/n short-circuit (no LLM needed).
     if (intent === "confirmation") {
       const confirmationTool = this.registry.get("resolve_confirmation");
       const confirmationId = parseConfirmationId(effectiveText);
@@ -1290,7 +1368,7 @@ export class Router {
       }
     }
 
-    // 4. Default — record the command first, then run the agent loop.
+    // 5. Default — record the command first, then run the agent loop.
     const shouldAppendFeatureQueueStatus = mentionsFeatureQueueStatus(effectiveText);
     if (shouldSendImmediateReceipt(commandJob)) {
       await this.sendAndPersist(formatCommandReceiptForWhatsApp(commandJob.receiptText));

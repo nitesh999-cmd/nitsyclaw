@@ -41,6 +41,7 @@
     "dashboard": "pnpm --filter @nitsyclaw/dashboard dev",
     "google:auth": "pnpm --filter @nitsyclaw/bot google:auth",
     "bot:doctor": "pnpm exec tsx scripts/bot-startup-doctor.ts",
+    "whatsapp:smoke": "vitest run apps/bot/test/router.integration.test.ts apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/wwebjs-client.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts",
     "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
   },
   "devDependencies": {
