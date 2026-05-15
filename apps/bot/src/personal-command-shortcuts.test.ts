@@ -9,6 +9,7 @@ import {
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parseWhatsAppSelfTestShortcut,
+  parseWhatsAppIncidentSummaryShortcut,
   parseHomeAssistantShortcut,
   parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
@@ -26,6 +27,12 @@ describe("personal command shortcuts", () => {
       city: "Sydney",
       expiresHint: "this week",
     });
+  });
+
+  it("detects WhatsApp incident summary requests", () => {
+    expect(parseWhatsAppIncidentSummaryShortcut("what went wrong")).toEqual({ kind: "whatsapp-incident-summary" });
+    expect(parseWhatsAppIncidentSummaryShortcut("recent failures")).toEqual({ kind: "whatsapp-incident-summary" });
+    expect(parseWhatsAppIncidentSummaryShortcut("normal question")).toBeNull();
   });
 
   it("parses a return-home location command", () => {

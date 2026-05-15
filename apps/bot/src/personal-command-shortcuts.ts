@@ -31,6 +31,10 @@ export interface WhatsAppSelfTestShortcut {
   kind: "whatsapp-self-test";
 }
 
+export interface WhatsAppIncidentSummaryShortcut {
+  kind: "whatsapp-incident-summary";
+}
+
 export interface QueuedIntegrationShortcut {
   toolName:
     | "queue_email_connection_request"
@@ -282,6 +286,24 @@ export function parseWhatsAppSelfTestShortcut(text: string): WhatsAppSelfTestSho
     trimmed === "test whatsapp"
   ) {
     return { kind: "whatsapp-self-test" };
+  }
+  return null;
+}
+
+export function parseWhatsAppIncidentSummaryShortcut(text: string): WhatsAppIncidentSummaryShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "what went wrong" ||
+    trimmed === "why did it fail" ||
+    trimmed === "recent failures" ||
+    trimmed === "failure summary" ||
+    trimmed === "incident summary" ||
+    trimmed === "whatsapp incidents" ||
+    trimmed === "whatsapp failures" ||
+    trimmed === "what broke" ||
+    trimmed === "show incidents"
+  ) {
+    return { kind: "whatsapp-incident-summary" };
   }
   return null;
 }

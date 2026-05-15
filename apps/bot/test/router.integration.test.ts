@@ -439,6 +439,67 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers WhatsApp incident summary without leaking heartbeat secrets", async () => {
+    const state = getFakeDbState(deps.db);
+    state.system_heartbeats.push(
+      {
+        source: "whatsapp-client",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:00Z"),
+        metadata: { state: "READY" },
+      },
+      {
+        source: "whatsapp-send",
+        status: "fail",
+        lastSeenAt: new Date("2026-04-25T07:59:00Z"),
+        metadata: { error: "send failed for [redacted]", secret: "must-not-leak" },
+      },
+      {
+        source: "whatsapp-loop-guard",
+        status: "cooldown",
+        lastSeenAt: new Date("2026-04-25T07:59:00Z"),
+        metadata: { reason: "send burst", resetAt: "2026-04-25T08:02:00Z" },
+      },
+    );
+    state.command_jobs.push({
+      id: "05608bae-9152-43ea-bec9-df3a8c6b4c72",
+      source: "whatsapp",
+      ownerHash: "owner",
+      command: "send message to John",
+      status: "failed",
+      riskLevel: "safe",
+      receiptText: "Working on it.",
+      resultText: null,
+      error: "temporary WhatsApp send failure",
+      attempts: 3,
+      maxAttempts: 3,
+      sourceMessageId: null,
+      sourceExternalId: "x-failed",
+      dedupeKey: "whatsapp:x-failed",
+      nextRunAt: null,
+      completedAt: null,
+      updatedAt: new Date("2026-04-25T07:59:00Z"),
+      createdAt: new Date("2026-04-25T07:59:00Z"),
+    });
+
+    await router.handle({
+      id: "x-incident-summary",
+      from: OWNER,
+      body: "what went wrong",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("WhatsApp incident summary");
+    expect(wa.sent[0].body).toContain("Live health");
+    expect(wa.sent[0].body).toContain("WhatsApp send: fail");
+    expect(wa.sent[0].body).toContain("Loop guard: cooldown");
+    expect(wa.sent[0].body).toContain("send message to John");
+    expect(wa.sent[0].body).toContain("resume whatsapp");
+    expect(wa.sent[0].body).not.toContain("must-not-leak");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("queues setup-heavy integration requests deterministically before the model loop", async () => {
     await router.handle({
       id: "x-connect-google-photos",

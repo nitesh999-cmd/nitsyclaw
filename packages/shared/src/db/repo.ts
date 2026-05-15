@@ -14,6 +14,7 @@ import {
   profileContext,
   connectedAccounts,
   systemHeartbeats,
+  commandJobs,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -27,6 +28,7 @@ import {
   type ConnectedAccount,
   type NewConnectedAccount,
   type SystemHeartbeat,
+  type CommandJob,
 } from "./schema.js";
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -403,6 +405,29 @@ export async function getSystemHeartbeat(
     .where(eq(systemHeartbeats.source, source))
     .limit(1);
   return row ?? null;
+}
+
+export async function listRecentCommandJobs(
+  db: DB,
+  args: {
+    source?: "whatsapp" | "dashboard";
+    limit?: number;
+  } = {},
+): Promise<CommandJob[]> {
+  const limit = Math.max(1, Math.min(args.limit ?? 8, 20));
+  const query = db
+    .select()
+    .from(commandJobs)
+    .orderBy(desc(commandJobs.createdAt))
+    .limit(limit);
+
+  if (!args.source) return query;
+  return db
+    .select()
+    .from(commandJobs)
+    .where(eq(commandJobs.source, args.source))
+    .orderBy(desc(commandJobs.createdAt))
+    .limit(limit);
 }
 
 export async function claimSystemNotification(

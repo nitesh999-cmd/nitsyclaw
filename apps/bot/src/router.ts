@@ -66,6 +66,7 @@ import {
   insertFeatureRequest,
   getConnectedAccount,
   getSystemHeartbeat,
+  listRecentCommandJobs,
   listPendingReminders,
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
@@ -97,6 +98,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseWhatsAppIncidentSummaryShortcut,
   parseWhatsAppSelfTestShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
@@ -457,6 +459,7 @@ export class Router {
       "- status",
       "- local status",
       "- feature queue",
+      "- what went wrong",
       "- expense summary",
       "- reminders",
       "- files",
@@ -593,6 +596,56 @@ export class Router {
       "",
       "If WhatsApp feels stuck, send: resume whatsapp",
       "For features, send: status",
+    ].join("\n");
+  }
+
+  private async formatWhatsAppIncidentSummaryReply(): Promise<string> {
+    const now = this.deps.now();
+    const [whatsappClient, whatsappSend, whatsappLoopGuard, recentJobs] = await Promise.all([
+      getSystemHeartbeat(this.deps.db, "whatsapp-client"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-send"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
+      listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 8 }),
+    ]);
+    const failedJobs = recentJobs.filter((job) => job.status === "failed" || job.status === "retrying").slice(0, 4);
+    const blockedJobs = recentJobs.filter((job) => job.status === "needs_approval" || job.status === "needs_clarification").slice(0, 3);
+    const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
+    const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
+    const sendError = heartbeatMetadataText(whatsappSend, "error");
+
+    const healthLines = [
+      heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
+      heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
+      heartbeatLine(
+        "Loop guard",
+        whatsappLoopGuard,
+        now,
+        10 * 60 * 1000,
+        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+      ),
+    ];
+
+    const failureLines = failedJobs.length
+      ? failedJobs.map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 120)}${job.error ? ` (${clipForWhatsApp(job.error, 100)})` : ""}`)
+      : ["- No recent failed/retrying WhatsApp command jobs found."];
+    const blockedLines = blockedJobs.length
+      ? blockedJobs.map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 120)}`)
+      : ["- No recent commands waiting on approval or clarification."];
+
+    return [
+      "WhatsApp incident summary",
+      "",
+      "Live health:",
+      ...healthLines,
+      "",
+      "Recent failed/retrying commands:",
+      ...failureLines,
+      "",
+      "Waiting on you:",
+      ...blockedLines,
+      "",
+      "Safe next step:",
+      loopReason || sendError ? "Send: self test. If loop guard is still active, send: resume whatsapp." : "No active failure signal found. If a reply still feels wrong, send: bug: <what happened>.",
     ].join("\n");
   }
 
@@ -1332,6 +1385,19 @@ export class Router {
       } catch (selfTestError) {
         await this.failWhatsAppCommandJob(commandJob, selfTestError);
         await this.sendPublicFailure("whatsapp self-test", "Couldn't run the WhatsApp self-test. I logged it; try again shortly.", selfTestError);
+      }
+      return;
+    }
+
+    const incidentSummary = parseWhatsAppIncidentSummaryShortcut(effectiveText);
+    if (incidentSummary) {
+      try {
+        const reply = await this.formatWhatsAppIncidentSummaryReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (incidentError) {
+        await this.failWhatsAppCommandJob(commandJob, incidentError);
+        await this.sendPublicFailure("whatsapp incident summary", "Couldn't load the incident summary. I logged it; try again shortly.", incidentError);
       }
       return;
     }
