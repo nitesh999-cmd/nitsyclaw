@@ -23,6 +23,10 @@ export interface CapabilityStatusShortcut {
   kind: "capability-status";
 }
 
+export interface CommandContractShortcut {
+  kind: "command-contract";
+}
+
 export interface DailyStatusShortcut {
   kind: "daily-status";
 }
@@ -223,6 +227,21 @@ export function parseCapabilityStatusShortcut(text: string): CapabilityStatusSho
     trimmed === "show ready pending setup"
   ) {
     return { kind: "capability-status" };
+  }
+  return null;
+}
+
+export function parseCommandContractShortcut(text: string): CommandContractShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "command contract" ||
+    trimmed === "whatsapp command contract" ||
+    trimmed === "how do you handle commands" ||
+    trimmed === "what happens when a command fails" ||
+    trimmed === "what happens if a command fails" ||
+    trimmed === "explain command outcomes"
+  ) {
+    return { kind: "command-contract" };
   }
   return null;
 }

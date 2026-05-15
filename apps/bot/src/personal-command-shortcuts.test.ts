@@ -4,6 +4,7 @@ import {
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCapabilityStatusShortcut,
+  parseCommandContractShortcut,
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
@@ -72,6 +73,13 @@ describe("personal command shortcuts", () => {
     expect(parseCapabilityStatusShortcut("pending items")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("what needs setup?")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects WhatsApp command contract requests", () => {
+    expect(parseCommandContractShortcut("command contract")).toEqual({ kind: "command-contract" });
+    expect(parseCommandContractShortcut("how do you handle commands?")).toEqual({ kind: "command-contract" });
+    expect(parseCommandContractShortcut("what happens when a command fails")).toEqual({ kind: "command-contract" });
+    expect(parseCommandContractShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects safe local status shortcuts", () => {

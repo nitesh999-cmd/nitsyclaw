@@ -44,6 +44,17 @@ const PUPPETEER_ARGS = process.platform === "win32"
 const WHATSAPP_HANDLER_FAILURE_REPLY =
   "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
 const CHROMIUM_SINGLETON_LOCK_FILES = new Set(["SingletonLock", "SingletonSocket", "SingletonCookie"]);
+const NON_SELF_CHAT_NOTICE_COOLDOWN_MS = 10 * 60 * 1000;
+const COMMAND_LIKE_NON_SELF_CHAT_PATTERNS = [
+  /\bnitsyclaw\b/i,
+  /\bwhat\s+can\s+you\s+do\b/i,
+  /\b(status|pending|feature queue|ready features|needs setup)\b/i,
+  /\b(remind me|reminder|nudge me|don'?t let me forget)\b/i,
+  /\b(spent|paid|expense|log it|log this|receipt)\b/i,
+  /\b(weather|forecast|rain|temperature)\b/i,
+  /\b(local status|daily status|build status|what works)\b/i,
+  /\b(hear my last message|repeat that|show pending features)\b/i,
+];
 
 function messageMeta(body: string): string {
   return `chars=${body.length}`;
@@ -86,6 +97,30 @@ function safeRestartReason(label: string, error: unknown): string {
 
 export function prepareOutboundBodyForWhatsApp(body: string): string {
   return sanitizeUserFacingReply(body);
+}
+
+export function shouldSendNonSelfChatDropNotice(args: {
+  body: string;
+  fromMe: boolean;
+  nowMs: number;
+  lastNoticeAtMs: number;
+  cooldownMs?: number;
+}): boolean {
+  if (!args.fromMe) return false;
+  const body = args.body.trim();
+  if (!body) return false;
+  if (!COMMAND_LIKE_NON_SELF_CHAT_PATTERNS.some((pattern) => pattern.test(body))) return false;
+  const cooldownMs = args.cooldownMs ?? NON_SELF_CHAT_NOTICE_COOLDOWN_MS;
+  if (args.lastNoticeAtMs > 0 && args.nowMs - args.lastNoticeAtMs < cooldownMs) return false;
+  return true;
+}
+
+export function formatNonSelfChatDropNotice(): string {
+  return [
+    "I ignored a WhatsApp command outside your Message Yourself chat.",
+    "I did not reply in that other chat.",
+    "To run NitsyClaw, send the command to your own WhatsApp self-chat.",
+  ].join("\n");
 }
 
 function addressKind(value: string): string {
@@ -137,6 +172,7 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly presenceUnavailableIntervalMs: number;
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
+  private lastNonSelfChatNoticeAtMs = 0;
 
   constructor(private opts: WwebjsOptions) {
     this.healthProbeIntervalMs = opts.healthProbeIntervalMs ?? 60_000;
@@ -464,6 +500,22 @@ export class WwebjsClient implements WhatsAppClient {
           })
         ) {
           console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)} chatIsMe=${chatIsMe}`);
+          if (
+            shouldSendNonSelfChatDropNotice({
+              body,
+              fromMe: Boolean(fromMe),
+              nowMs: Date.now(),
+              lastNoticeAtMs: this.lastNonSelfChatNoticeAtMs,
+            })
+          ) {
+            this.lastNonSelfChatNoticeAtMs = Date.now();
+            await this.send({
+              to: this.opts.ownerNumber,
+              body: formatNonSelfChatDropNotice(),
+            }).catch((noticeError: unknown) => {
+              logBotError("[wwebjs] non-self chat diagnostic send failed", noticeError);
+            });
+          }
           return;
         }
 

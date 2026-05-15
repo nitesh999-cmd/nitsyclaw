@@ -28,6 +28,16 @@ export const WHATSAPP_TRY_COMMANDS = [
   "upload a CSV expense file",
 ] as const;
 
+export const WHATSAPP_COMMAND_OUTCOMES = [
+  "answered: I understood and replied.",
+  "saved: I stored the note, reminder, expense, file, or request.",
+  "needs clarification: I need one short answer before acting.",
+  "needs approval: the action is risky, so I wait for confirmation.",
+  "needs setup: the feature requires account/provider access first.",
+  "blocked for safety: I will not do unsafe or wrong-recipient actions.",
+  "failed with reason: I hit an error and tell you the safest next step.",
+] as const;
+
 function bulletList(items: readonly string[]): string[] {
   return items.map((item) => `- ${item}`);
 }
@@ -54,4 +64,15 @@ export function formatWhatsAppHelpReply(): string {
 
 export function formatWhatsAppSafetyLimitsBlock(): string {
   return ["Safety limits:", ...bulletList(WHATSAPP_SAFETY_LIMITS)].join("\n");
+}
+
+export function formatWhatsAppCommandContractReply(): string {
+  return [
+    "WhatsApp command contract",
+    "",
+    "Every command should end as one of these:",
+    ...bulletList(WHATSAPP_COMMAND_OUTCOMES),
+    "",
+    "Rule: no silent failures. If I cannot act, I should say why.",
+  ].join("\n");
 }

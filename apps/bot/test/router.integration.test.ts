@@ -372,6 +372,24 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("explains the WhatsApp command contract without the model loop", async () => {
+    await router.handle({
+      id: "x-command-contract",
+      from: OWNER,
+      body: "command contract",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("WhatsApp command contract");
+    expect(wa.sent[0].body).toContain("answered");
+    expect(wa.sent[0].body).toContain("needs approval");
+    expect(wa.sent[0].body).toContain("needs setup");
+    expect(wa.sent[0].body).toContain("blocked for safety");
+    expect(wa.sent[0].body).toContain("failed with reason");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("logs plain text expenses deterministically before the model loop", async () => {
     await router.handle({
       id: "x-text-expense-deterministic",

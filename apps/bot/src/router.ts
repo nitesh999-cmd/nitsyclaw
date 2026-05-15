@@ -89,6 +89,7 @@ import {
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCapabilityStatusShortcut,
+  parseCommandContractShortcut,
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
@@ -103,6 +104,7 @@ import { runDailyBuildAgent } from "./build-agent.js";
 import { logBotError } from "./safe-log.js";
 import {
   formatReadyCapabilitiesOneLine,
+  formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
   formatWhatsAppSafetyLimitsBlock,
 } from "./whatsapp-capabilities.js";
@@ -1178,6 +1180,14 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, statusError);
         await this.sendPublicFailure("capability status", "Couldn't load the current status. I logged it; try again shortly.", statusError);
       }
+      return;
+    }
+
+    const commandContract = parseCommandContractShortcut(effectiveText);
+    if (commandContract) {
+      const reply = formatWhatsAppCommandContractReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 
