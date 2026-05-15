@@ -43,6 +43,7 @@ export const WHATSAPP_SAFETY_LIMITS = [
 
 export const WHATSAPP_TRY_COMMANDS = [
   "status",
+  "self test",
   "local status",
   "feature queue",
   ...formatCapabilityExamples(8),

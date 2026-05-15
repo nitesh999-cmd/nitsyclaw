@@ -65,6 +65,7 @@ import {
   insertReminder,
   insertFeatureRequest,
   getConnectedAccount,
+  getSystemHeartbeat,
   listPendingReminders,
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
@@ -81,6 +82,8 @@ import {
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
 import type { CommandJob } from "@nitsyclaw/shared/db";
+import type { SystemHeartbeat } from "@nitsyclaw/shared/db";
+import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
 import { encryptForStorage, hashPhone, maskPhone, parseExpenseText, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
@@ -94,6 +97,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseWhatsAppSelfTestShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
   parseQueuedIntegrationShortcut,
@@ -103,6 +107,7 @@ import {
   parseRepeatLastMessageShortcut,
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
+import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { logBotError } from "./safe-log.js";
 import {
   formatReadyCapabilitiesOneLine,
@@ -278,7 +283,7 @@ export class Router {
       "",
       formatWhatsAppSafetyLimitsBlock(),
       "",
-      "Useful commands: local status, files, reminders, expense summary, summary commands, feature queue.",
+      "Useful commands: self test, local status, files, reminders, expense summary, feature queue.",
     ].join("\n"));
   }
 
@@ -552,6 +557,43 @@ export class Router {
 
   private formatHelpReply(): string {
     return formatWhatsAppHelpReply();
+  }
+
+  private async formatWhatsAppSelfTestReply(): Promise<string> {
+    const now = this.deps.now();
+    const [botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard] = await Promise.all([
+      getSystemHeartbeat(this.deps.db, "bot-runtime"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-client"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-send"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
+    ]);
+    const runtime = buildBotRuntimeMetadata(process.env, now);
+    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
+      ?? heartbeatMetadataText(botRuntime, "commit")
+      ?? runtime.commitShort;
+    const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
+    const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
+    const sendError = heartbeatMetadataText(whatsappSend, "error");
+
+    return [
+      "NitsyClaw self-test",
+      "",
+      `Router: ready at ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+      `Runtime: ${runtime.platform}, commit ${deployedCommit}`,
+      heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000),
+      heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
+      heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
+      heartbeatLine(
+        "Loop guard",
+        whatsappLoopGuard,
+        now,
+        10 * 60 * 1000,
+        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+      ),
+      "",
+      "If WhatsApp feels stuck, send: resume whatsapp",
+      "For features, send: status",
+    ].join("\n");
   }
 
   private formatQueuedIntegrationReply(
@@ -1281,6 +1323,19 @@ export class Router {
       return;
     }
 
+    const selfTest = parseWhatsAppSelfTestShortcut(effectiveText);
+    if (selfTest) {
+      try {
+        const reply = await this.formatWhatsAppSelfTestReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (selfTestError) {
+        await this.failWhatsAppCommandJob(commandJob, selfTestError);
+        await this.sendPublicFailure("whatsapp self-test", "Couldn't run the WhatsApp self-test. I logged it; try again shortly.", selfTestError);
+      }
+      return;
+    }
+
     const autonomousWork = parseAutonomousWorkShortcut(effectiveText);
     if (autonomousWork) {
       const reply = this.formatAutonomousWorkReply();
@@ -1541,6 +1596,28 @@ export class Router {
 
 function parseConfirmationId(text: string): string | undefined {
   return text.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)?.[0];
+}
+
+function heartbeatLine(
+  label: string,
+  heartbeat: SystemHeartbeat | null,
+  now: Date,
+  staleAfterMs: number,
+  detail?: string,
+): string {
+  const freshness = classifyHeartbeat(heartbeat, now, staleAfterMs);
+  if (!heartbeat) return `${label}: missing`;
+  const ageSeconds = Math.max(0, Math.round((now.getTime() - heartbeat.lastSeenAt.getTime()) / 1000));
+  const suffix = detail ? ` - ${detail}` : "";
+  return `${label}: ${heartbeat.status} (${freshness}, ${ageSeconds}s ago)${suffix}`;
+}
+
+function heartbeatMetadataText(heartbeat: SystemHeartbeat | null, key: string): string | null {
+  const metadata = heartbeat?.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const value = (metadata as Record<string, unknown>)[key];
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
+  return String(value).slice(0, 160);
 }
 
 function confirmationNeedsExplicitId(action: string): boolean {

@@ -8,7 +8,7 @@ pnpm exec vitest run `
     apps/bot/test/router.integration.test.ts `
     apps/bot/src/whatsapp-provider-readiness.test.ts `
     apps/bot/src/whatsapp-capability-registry.test.ts `
-    --testNamePattern "Saved|working receipt|what can you do|ready pending setup status|pending items|provider readiness|capability"
+    --testNamePattern "Saved|working receipt|what can you do|ready pending setup status|pending items|provider readiness|capability|self-test"
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

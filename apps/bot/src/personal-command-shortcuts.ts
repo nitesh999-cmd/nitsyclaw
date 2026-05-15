@@ -27,6 +27,10 @@ export interface CommandContractShortcut {
   kind: "command-contract";
 }
 
+export interface WhatsAppSelfTestShortcut {
+  kind: "whatsapp-self-test";
+}
+
 export interface QueuedIntegrationShortcut {
   toolName:
     | "queue_email_connection_request"
@@ -260,6 +264,24 @@ export function parseCommandContractShortcut(text: string): CommandContractShort
     trimmed === "explain command outcomes"
   ) {
     return { kind: "command-contract" };
+  }
+  return null;
+}
+
+export function parseWhatsAppSelfTestShortcut(text: string): WhatsAppSelfTestShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "self test" ||
+    trimmed === "self-test" ||
+    trimmed === "whatsapp self test" ||
+    trimmed === "whatsapp self-test" ||
+    trimmed === "bot self test" ||
+    trimmed === "bot health" ||
+    trimmed === "whatsapp health" ||
+    trimmed === "diagnose whatsapp" ||
+    trimmed === "test whatsapp"
+  ) {
+    return { kind: "whatsapp-self-test" };
   }
   return null;
 }

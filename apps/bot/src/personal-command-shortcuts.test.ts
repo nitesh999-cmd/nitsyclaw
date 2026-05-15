@@ -8,6 +8,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseWhatsAppSelfTestShortcut,
   parseHomeAssistantShortcut,
   parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
@@ -139,6 +140,13 @@ describe("personal command shortcuts", () => {
     expect(parseCommandContractShortcut("how do you handle commands?")).toEqual({ kind: "command-contract" });
     expect(parseCommandContractShortcut("what happens when a command fails")).toEqual({ kind: "command-contract" });
     expect(parseCommandContractShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects WhatsApp self-test requests", () => {
+    expect(parseWhatsAppSelfTestShortcut("self test")).toEqual({ kind: "whatsapp-self-test" });
+    expect(parseWhatsAppSelfTestShortcut("whatsapp health")).toEqual({ kind: "whatsapp-self-test" });
+    expect(parseWhatsAppSelfTestShortcut("diagnose whatsapp")).toEqual({ kind: "whatsapp-self-test" });
+    expect(parseWhatsAppSelfTestShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects safe local status shortcuts", () => {
