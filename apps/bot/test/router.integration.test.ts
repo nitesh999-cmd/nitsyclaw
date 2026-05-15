@@ -284,9 +284,11 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Working now");
+    expect(wa.sent[0].body).toContain("NitsyClaw WhatsApp help");
+    expect(wa.sent[0].body).toContain("Use now");
     expect(wa.sent[0].body).toContain("CSV expense import");
-    expect(wa.sent[0].body).toContain("Needs setup");
+    expect(wa.sent[0].body).toContain("Needs setup before real action");
+    expect(wa.sent[0].body).toContain("self test");
     expect(wa.sent[0].body).toContain("Safety limits");
     expect(wa.sent[0].body).toContain("SMS drafts only");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);

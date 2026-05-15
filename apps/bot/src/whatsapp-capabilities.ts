@@ -44,6 +44,7 @@ export const WHATSAPP_SAFETY_LIMITS = [
 export const WHATSAPP_TRY_COMMANDS = [
   "status",
   "self test",
+  "help",
   "local status",
   "feature queue",
   ...formatCapabilityExamples(8),
@@ -79,19 +80,26 @@ export function formatWhatsAppProviderReadinessBlock(
 export function formatWhatsAppHelpReply(
   providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
 ): string {
+  const setupLines = getWhatsAppSetupCapabilities(providerReadiness).slice(0, 6);
   return [
-    "Working now:",
-    ...bulletList(WHATSAPP_READY_CAPABILITIES),
+    "NitsyClaw WhatsApp help",
     "",
-    formatWhatsAppProviderReadinessBlock(providerReadiness),
+    "Quick checks:",
+    "- status: ready, pending, and setup-heavy features",
+    "- self test: live WhatsApp health, deployed commit, and loop guard",
+    "- local status: reminders, expenses, files, and summaries",
+    "- feature queue: what is waiting to be built",
     "",
-    "Needs setup:",
-    ...bulletList(getWhatsAppSetupCapabilities(providerReadiness)),
+    "Use now:",
+    ...bulletList(WHATSAPP_READY_CAPABILITIES.slice(0, 8)),
+    "",
+    "Needs setup before real action:",
+    ...bulletList(setupLines),
     "",
     "Safety limits:",
     ...bulletList(WHATSAPP_SAFETY_LIMITS),
     "",
-    "Try:",
+    "Try these:",
     ...bulletList(WHATSAPP_TRY_COMMANDS),
   ].join("\n");
 }
