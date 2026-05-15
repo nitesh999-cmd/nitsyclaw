@@ -27,6 +27,21 @@ export interface CommandContractShortcut {
   kind: "command-contract";
 }
 
+export interface QueuedIntegrationShortcut {
+  toolName:
+    | "queue_email_connection_request"
+    | "queue_storage_file_import_request"
+    | "queue_google_photos_import_request"
+    | "prepare_sms_draft"
+    | "queue_phone_call_request"
+    | "queue_bank_csv_import_request"
+    | "queue_birthday_import_request"
+    | "queue_spotify_music_request"
+    | "queue_social_video_analysis_request";
+  label: string;
+  input: Record<string, unknown>;
+}
+
 export interface DailyStatusShortcut {
   kind: "daily-status";
 }
@@ -243,6 +258,130 @@ export function parseCommandContractShortcut(text: string): CommandContractShort
   ) {
     return { kind: "command-contract" };
   }
+  return null;
+}
+
+export function parseQueuedIntegrationShortcut(text: string): QueuedIntegrationShortcut | null {
+  const raw = text.trim().replace(/\s+/g, " ");
+  const trimmed = raw.toLowerCase().replace(/[.!?]+$/g, "");
+  if (trimmed.length < 4) return null;
+
+  const smsDraft = raw.match(/^(?:draft|prepare|write)\s+(?:an?\s+)?(?:sms|text)\s+to\s+(.+?)\s+saying\s+(.+)$/i);
+  if (smsDraft) {
+    const recipient = smsDraft[1]?.trim();
+    const body = smsDraft[2]?.trim();
+    if (!recipient || !body) return null;
+    return {
+      toolName: "prepare_sms_draft",
+      label: "SMS draft",
+      input: {
+        recipient,
+        body,
+        purpose: "WhatsApp requested SMS draft",
+      },
+    };
+  }
+
+  if (!/\b(connect|setup|set up|enable|add|import|sync|analyse|analyze|queue|can you|access|browse|search|create|make)\b/.test(trimmed)) {
+    return null;
+  }
+
+  if (/\b(gmail|outlook|email|mailbox|mail)\b/.test(trimmed)) {
+    const provider = /\bgmail\b/.test(trimmed) && /\boutlook\b/.test(trimmed)
+      ? "both"
+      : /\boutlook\b/.test(trimmed)
+        ? "outlook"
+        : /\bgmail\b/.test(trimmed)
+          ? "gmail"
+          : "both";
+    const requestedCapability = /\bsend\b/.test(trimmed)
+      ? "send_after_approval"
+      : /\bdraft|reply\b/.test(trimmed)
+        ? "draft"
+        : /\bsearch|find\b/.test(trimmed)
+          ? "search"
+          : "read";
+    return {
+      toolName: "queue_email_connection_request",
+      label: "Email",
+      input: { provider, requestedCapability, goal: raw },
+    };
+  }
+
+  if (/\b(google drive|drive|onedrive|one drive|file|files|document|documents)\b/.test(trimmed)) {
+    const provider = /\b(one\s*drive|onedrive)\b/.test(trimmed) ? "onedrive" : "google_drive";
+    return {
+      toolName: "queue_storage_file_import_request",
+      label: provider === "onedrive" ? "OneDrive" : "Google Drive",
+      input: { provider, goal: raw },
+    };
+  }
+
+  if (/\b(google photos|photos|photo|album|albums|pictures)\b/.test(trimmed)) {
+    return {
+      toolName: "queue_google_photos_import_request",
+      label: "Google Photos",
+      input: { mediaHint: raw, goal: raw },
+    };
+  }
+
+  if (/\b(spotify|playlist|music|songs?|suggested playlist)\b/.test(trimmed)) {
+    return {
+      toolName: "queue_spotify_music_request",
+      label: "Spotify",
+      input: { goal: raw },
+    };
+  }
+
+  if (/\b(bank|banking|bank feed|bank feeds|transaction|transactions|statement|card feed|card feeds)\b/.test(trimmed)) {
+    return {
+      toolName: "queue_bank_csv_import_request",
+      label: "Bank feeds",
+      input: { goal: raw },
+    };
+  }
+
+  if (/\b(facebook birthday|facebook birthdays|fb birthday|fb birthdays|birthdays?|birthday messages?)\b/.test(trimmed)) {
+    return {
+      toolName: "queue_birthday_import_request",
+      label: "Birthdays",
+      input: { source: "manual", goal: raw },
+    };
+  }
+
+  if (/\b(phone call|phone calls|call logs?|sms logs?|text logs?|phone logs?)\b/.test(trimmed)) {
+    return {
+      toolName: "queue_phone_call_request",
+      label: "Phone calls",
+      input: { contact: "not specified", purpose: raw },
+    };
+  }
+
+  if (/\b(sms|text message|send text|phone\/sms)\b/.test(trimmed)) {
+    return {
+      toolName: "queue_phone_call_request",
+      label: "Phone/SMS",
+      input: { contact: "not specified", purpose: raw },
+    };
+  }
+
+  if (/\b(instagram|youtube|facebook|tiktok|reel|shorts?|social video|video analysis)\b/.test(trimmed)) {
+    const platform = /\byoutube|shorts?\b/.test(trimmed)
+      ? "youtube"
+      : /\binstagram|reel\b/.test(trimmed)
+        ? "instagram"
+        : /\bfacebook\b/.test(trimmed)
+          ? "facebook"
+          : /\btiktok\b/.test(trimmed)
+            ? "tiktok"
+            : "other";
+    return {
+      toolName: "queue_social_video_analysis_request",
+      label: "Social video analysis",
+      input: { platform, urlOrUploadHint: raw, goal: raw },
+    };
+  }
+
   return null;
 }
 

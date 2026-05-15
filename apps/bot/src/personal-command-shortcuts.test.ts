@@ -9,6 +9,7 @@ import {
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parseHomeAssistantShortcut,
+  parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
@@ -73,6 +74,33 @@ describe("personal command shortcuts", () => {
     expect(parseCapabilityStatusShortcut("pending items")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("what needs setup?")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects queued integration setup requests", () => {
+    expect(parseQueuedIntegrationShortcut("connect Gmail so you can draft replies")).toMatchObject({
+      toolName: "queue_email_connection_request",
+      input: { provider: "gmail", requestedCapability: "draft" },
+    });
+    expect(parseQueuedIntegrationShortcut("set up Google Photos search for family pictures")).toMatchObject({
+      toolName: "queue_google_photos_import_request",
+    });
+    expect(parseQueuedIntegrationShortcut("connect my bank feeds for expenses")).toMatchObject({
+      toolName: "queue_bank_csv_import_request",
+    });
+    expect(parseQueuedIntegrationShortcut("can you set up Spotify suggested playlists?")).toMatchObject({
+      toolName: "queue_spotify_music_request",
+    });
+    expect(parseQueuedIntegrationShortcut("connect Facebook birthdays")).toMatchObject({
+      toolName: "queue_birthday_import_request",
+    });
+    expect(parseQueuedIntegrationShortcut("analyse this Instagram reel https://example.com/reel/1")).toMatchObject({
+      toolName: "queue_social_video_analysis_request",
+    });
+    expect(parseQueuedIntegrationShortcut("draft sms to John saying I am late")).toMatchObject({
+      toolName: "prepare_sms_draft",
+      input: { recipient: "John", body: "I am late" },
+    });
+    expect(parseQueuedIntegrationShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects WhatsApp command contract requests", () => {

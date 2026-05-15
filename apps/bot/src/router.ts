@@ -95,6 +95,7 @@ import {
   parseHelpShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
+  parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
@@ -525,6 +526,43 @@ export class Router {
 
   private formatHelpReply(): string {
     return formatWhatsAppHelpReply();
+  }
+
+  private formatQueuedIntegrationReply(
+    shortcut: NonNullable<ReturnType<typeof parseQueuedIntegrationShortcut>>,
+    out: unknown,
+  ): string {
+    const result = (out ?? {}) as {
+      queued?: boolean;
+      id?: string;
+      status?: string;
+      instruction?: string;
+      prepared?: boolean;
+      recipient?: string;
+      body?: string;
+      nextSetup?: string;
+      safetyBoundary?: string;
+    };
+
+    if (shortcut.toolName === "prepare_sms_draft") {
+      return [
+        `SMS draft for ${result.recipient ?? "recipient"}:`,
+        result.body ?? "",
+        "",
+        result.instruction ?? "NitsyClaw has not sent it.",
+        result.safetyBoundary,
+        result.nextSetup,
+      ].filter((line): line is string => Boolean(line)).join("\n");
+    }
+
+    return [
+      `Queued integration request: ${shortcut.label}`,
+      result.id ? `ID: ${result.id.slice(0, 8)}` : undefined,
+      result.status ? `Status: ${result.status}` : undefined,
+      "Needs setup before real action.",
+      result.instruction,
+      "No live external account was accessed.",
+    ].filter((line): line is string => Boolean(line)).join("\n");
   }
 
   private formatHomeAssistantReply(shortcut: NonNullable<ReturnType<typeof parseHomeAssistantShortcut>>): string {
@@ -1076,6 +1114,32 @@ export class Router {
       } catch (e) {
         await this.failWhatsAppCommandJob(commandJob, e);
         await this.sendPublicFailure("feature queue", "Couldn't queue that feature. I logged it; try again shortly.", e);
+      }
+      return;
+    }
+
+    const queuedIntegration = parseQueuedIntegrationShortcut(effectiveText);
+    if (queuedIntegration) {
+      try {
+        const tool = this.registry.get(queuedIntegration.toolName);
+        if (!tool) {
+          const reply = `That integration rail is not available yet: ${queuedIntegration.label}. I did not access any external account.`;
+          await this.sendAndPersist(reply);
+          await this.completeWhatsAppCommandJob(commandJob, reply);
+          return;
+        }
+        const out = await tool.handler(queuedIntegration.input, {
+          userPhone: msg.from,
+          now: this.deps.now(),
+          timezone: this.deps.timezone,
+          deps: this.deps,
+        });
+        const reply = this.formatQueuedIntegrationReply(queuedIntegration, out);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (integrationError) {
+        await this.failWhatsAppCommandJob(commandJob, integrationError);
+        await this.sendPublicFailure("queued integration", "Couldn't queue that integration request. I logged it; try again shortly.", integrationError);
       }
       return;
     }

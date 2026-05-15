@@ -372,6 +372,42 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("queues setup-heavy integration requests deterministically before the model loop", async () => {
+    await router.handle({
+      id: "x-connect-google-photos",
+      from: OWNER,
+      body: "set up Google Photos search for family pictures",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.feature_requests).toHaveLength(1);
+    expect(state.feature_requests[0].description).toContain("Google Photos selected-media request");
+    expect(state.feature_requests[0].implementationNotes).toContain("no live external access was claimed");
+    expect(wa.sent[0].body).toContain("Queued integration request");
+    expect(wa.sent[0].body).toContain("Google Photos");
+    expect(wa.sent[0].body).toContain("Needs setup");
+    expect(wa.sent[0].body).not.toContain("ack");
+  });
+
+  it("prepares SMS drafts deterministically without sending", async () => {
+    await router.handle({
+      id: "x-draft-sms",
+      from: OWNER,
+      body: "draft sms to John saying I am running late",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.feature_requests).toHaveLength(0);
+    expect(wa.sent[0].body).toContain("SMS draft for John");
+    expect(wa.sent[0].body).toContain("I am running late");
+    expect(wa.sent[0].body).toContain("NitsyClaw has not sent it");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("explains the WhatsApp command contract without the model loop", async () => {
     await router.handle({
       id: "x-command-contract",
