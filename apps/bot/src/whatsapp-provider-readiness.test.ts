@@ -39,4 +39,15 @@ describe("WhatsApp provider readiness", () => {
     expect(formatProviderReadinessLine(readiness.gmail)).toContain("confirmation-gated");
     expect(formatProviderReadinessLine(readiness.outlook)).toContain("confirmation-gated");
   });
+
+  it("uses runtime signals for stored Spotify account state without claiming auto-send", () => {
+    const readiness = getWhatsAppProviderReadiness({}, {
+      spotifyConnected: true,
+      spotifyExpiresAt: new Date("2026-05-16T10:00:00Z"),
+    });
+
+    expect(readiness.spotify.status).toBe("partial");
+    expect(formatProviderReadinessLine(readiness.spotify)).toContain("Spotify account token is stored");
+    expect(formatProviderReadinessLine(readiness.spotify)).toContain("playlist creation still needs confirmation");
+  });
 });

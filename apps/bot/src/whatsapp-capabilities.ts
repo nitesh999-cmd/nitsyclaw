@@ -4,12 +4,31 @@ import {
   formatCapabilitySummaryLine,
   getCapabilitiesByStatus,
 } from "./whatsapp-capability-registry.js";
-import { getWhatsAppProviderReadiness } from "./whatsapp-provider-readiness.js";
+import {
+  type WhatsAppProviderReadiness,
+  type WhatsAppProviderReadinessKey,
+  formatProviderReadinessShortLine,
+  getWhatsAppProviderReadiness,
+} from "./whatsapp-provider-readiness.js";
 
 export const WHATSAPP_READY_CAPABILITIES = getCapabilitiesByStatus("ready").map(formatCapabilitySummaryLine);
 
-export function getWhatsAppSetupCapabilities(): string[] {
-  const providerReadiness = getWhatsAppProviderReadiness();
+const PROVIDER_STATUS_ORDER: readonly WhatsAppProviderReadinessKey[] = [
+  "gmail",
+  "outlook",
+  "drive",
+  "onedrive",
+  "google-photos",
+  "spotify",
+  "bank-feeds",
+  "phone-sms",
+  "birthdays",
+  "social-video",
+];
+
+export function getWhatsAppSetupCapabilities(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string[] {
   return [
     ...getCapabilitiesByStatus("needs_setup").map((capability) => formatCapabilitySetupLine(capability, providerReadiness)),
     ...getCapabilitiesByStatus("approval_required").map((capability) => formatCapabilitySetupLine(capability, providerReadiness)),
@@ -47,13 +66,26 @@ export function formatReadyCapabilitiesOneLine(): string {
   return "Voice notes, normal questions, reminders, memory/search, documents, bills, expenses, SMS drafts, message checks, call scripts, lists, and feature queue status.";
 }
 
-export function formatWhatsAppHelpReply(): string {
+export function formatWhatsAppProviderReadinessBlock(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
+  return [
+    "Provider setup:",
+    ...bulletList(PROVIDER_STATUS_ORDER.map((key) => formatProviderReadinessShortLine(providerReadiness[key]))),
+  ].join("\n");
+}
+
+export function formatWhatsAppHelpReply(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
   return [
     "Working now:",
     ...bulletList(WHATSAPP_READY_CAPABILITIES),
     "",
+    formatWhatsAppProviderReadinessBlock(providerReadiness),
+    "",
     "Needs setup:",
-    ...bulletList(getWhatsAppSetupCapabilities()),
+    ...bulletList(getWhatsAppSetupCapabilities(providerReadiness)),
     "",
     "Safety limits:",
     ...bulletList(WHATSAPP_SAFETY_LIMITS),
@@ -63,7 +95,9 @@ export function formatWhatsAppHelpReply(): string {
   ].join("\n");
 }
 
-export function formatWhatsAppCapabilityMatrix(): string {
+export function formatWhatsAppCapabilityMatrix(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
   return [
     "What I can do from WhatsApp",
     "",
@@ -71,7 +105,7 @@ export function formatWhatsAppCapabilityMatrix(): string {
     ...bulletList(WHATSAPP_READY_CAPABILITIES),
     "",
     "Needs setup or approval:",
-    ...bulletList(getWhatsAppSetupCapabilities()),
+    ...bulletList(getWhatsAppSetupCapabilities(providerReadiness)),
     "",
     "Rule: if something is not ready, I should say that clearly and explain the next step.",
   ].join("\n");

@@ -30,6 +30,7 @@ Invoke-Step "WhatsApp smoke tests" {
 
 Invoke-Step "Capability registry tests" {
     pnpm exec vitest run `
+        apps/bot/src/whatsapp-provider-readiness.test.ts `
         apps/bot/src/whatsapp-capability-registry.test.ts `
         apps/bot/src/personal-command-shortcuts.test.ts `
         apps/bot/test/router.integration.test.ts

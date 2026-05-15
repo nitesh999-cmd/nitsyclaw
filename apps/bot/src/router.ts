@@ -64,6 +64,7 @@ import {
   insertExpense,
   insertReminder,
   insertFeatureRequest,
+  getConnectedAccount,
   listPendingReminders,
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
@@ -105,11 +106,16 @@ import { runDailyBuildAgent } from "./build-agent.js";
 import { logBotError } from "./safe-log.js";
 import {
   formatReadyCapabilitiesOneLine,
-  formatWhatsAppCapabilityMatrix,
   formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
+  formatWhatsAppProviderReadinessBlock,
   formatWhatsAppSafetyLimitsBlock,
 } from "./whatsapp-capabilities.js";
+import {
+  type WhatsAppProviderReadiness,
+  type WhatsAppProviderReadinessKey,
+  getWhatsAppProviderReadiness,
+} from "./whatsapp-provider-readiness.js";
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -219,6 +225,22 @@ export class Router {
     await this.sendAndPersist(formatFeatureQueueStatusForWhatsApp(summary));
   }
 
+  private async getProviderReadiness(): Promise<Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness>> {
+    let spotifyConnected = false;
+    let spotifyExpiresAt: Date | string | null | undefined;
+    try {
+      const account = await getConnectedAccount(this.deps.db, {
+        provider: "spotify",
+        ownerHash: hashPhone(this.ownerPhone),
+      });
+      spotifyConnected = Boolean(account);
+      spotifyExpiresAt = account?.expiresAt;
+    } catch (error) {
+      logBotError("[router] provider readiness check failed", error, { provider: "spotify" });
+    }
+    return getWhatsAppProviderReadiness(process.env, { spotifyConnected, spotifyExpiresAt });
+  }
+
   private async sendCapabilityStatus(limit: number): Promise<void> {
     const [rows, completed] = await Promise.all([
       listPendingFeatureRequests(this.deps.db),
@@ -226,20 +248,23 @@ export class Router {
     ]);
     const summary = summarizeFeatureQueueStatus({ pending: rows, completed, limit });
     const localNext = summary.quickWins.length
-      ? summary.quickWins.slice(0, 4).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
+      ? summary.quickWins.slice(0, 3).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
       : "- No small local queue item found. Use local status for commands that already work.";
     const setupNext = summary.setupHeavy.length
-      ? summary.setupHeavy.slice(0, 5).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
+      ? summary.setupHeavy.slice(0, 3).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
       : "- None found in the current pending queue.";
     const shipped = summary.recentCompleted.length
-      ? summary.recentCompleted.slice(0, 4).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
+      ? summary.recentCompleted.slice(0, 2).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
       : "- No recent completed rows found.";
+    const providerReadiness = await this.getProviderReadiness();
 
     await this.sendAndPersist([
       "NitsyClaw status",
       "",
       "Ready now:",
       `- ${formatReadyCapabilitiesOneLine()}`,
+      "",
+      formatWhatsAppProviderReadinessBlock(providerReadiness),
       "",
       `Pending: ${summary.pendingCount} item(s).`,
       "Best local/code-only next:",
@@ -252,8 +277,6 @@ export class Router {
       shipped,
       "",
       formatWhatsAppSafetyLimitsBlock(),
-      "",
-      formatWhatsAppCapabilityMatrix(),
       "",
       "Useful commands: local status, files, reminders, expense summary, summary commands, feature queue.",
     ].join("\n"));

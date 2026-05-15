@@ -26,6 +26,11 @@ export interface WhatsAppProviderReadiness {
   nextStep: string;
 }
 
+export interface WhatsAppProviderRuntimeSignals {
+  spotifyConnected?: boolean;
+  spotifyExpiresAt?: Date | string | null;
+}
+
 type EnvLike = Record<string, string | undefined>;
 
 function has(env: EnvLike, key: string): boolean {
@@ -66,12 +71,16 @@ function readiness(
   return { key, label, status, reason, nextStep };
 }
 
-export function getWhatsAppProviderReadiness(env: EnvLike = process.env): Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> {
+export function getWhatsAppProviderReadiness(
+  env: EnvLike = process.env,
+  signals: WhatsAppProviderRuntimeSignals = {},
+): Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> {
   const googleToken = hasGoogleToken(env);
   const googleCredentials = hasGoogleCredentials(env);
   const microsoftToken = hasMicrosoftToken(env);
   const microsoftClient = hasMicrosoftClient(env);
   const spotifyApp = hasSpotifyApp(env);
+  const spotifyExpiry = formatExpiry(signals.spotifyExpiresAt);
 
   return {
     gmail: googleToken
@@ -93,14 +102,23 @@ export function getWhatsAppProviderReadiness(env: EnvLike = process.env): Record
     "google-photos": googleToken
       ? readiness("google-photos", "Google Photos", "needs_adapter", "Google token exists, but Photos picker/API flow is not wired.", "Build selected-media Photos picker/import before claiming photo-library search.")
       : readiness("google-photos", "Google Photos", "needs_setup", "No Google account token detected for Photos.", "Connect Google OAuth, then add Photos picker/API consent."),
-    spotify: spotifyApp
-      ? readiness("spotify", "Spotify", "needs_account", "Spotify OAuth app is configured; user account connection is still required before live playlist actions.", "Open the Spotify connect flow and store the connected account token.")
-      : readiness("spotify", "Spotify", "needs_setup", "Spotify OAuth app env vars are incomplete.", "Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI."),
+    spotify: signals.spotifyConnected
+      ? readiness("spotify", "Spotify", "partial", `Spotify account token is stored${spotifyExpiry}.`, "Use read/search carefully; playlist creation still needs confirmation.")
+      : spotifyApp
+        ? readiness("spotify", "Spotify", "needs_account", "Spotify OAuth app is configured; user account connection is still required before live playlist actions.", "Open the Spotify connect flow and store the connected account token.")
+        : readiness("spotify", "Spotify", "needs_setup", "Spotify OAuth app env vars are incomplete.", "Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI."),
     "bank-feeds": readiness("bank-feeds", "Bank feeds", "needs_setup", "No compliant bank-feed provider is configured.", "Pick a bank-data provider and build consent, retry, dedupe, and import rules."),
     "phone-sms": readiness("phone-sms", "Phone/SMS", "approval_required", "Drafts work; real sending/calling is intentionally blocked.", "Choose a compliant provider or phone companion app, then keep wrong-recipient confirmation gates."),
     birthdays: readiness("birthdays", "Birthdays", "needs_setup", "No lawful birthday source is connected.", "Start with manual/CSV/contact import before platform scraping or private social access."),
     "social-video": readiness("social-video", "Social video", "needs_adapter", "Public URL analysis can be queued; private platform adapters are not wired.", "Add public URL/upload analysis first, then approved APIs for private accounts."),
   };
+}
+
+function formatExpiry(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `; expires ${date.toISOString().slice(0, 16).replace("T", " ")}`;
 }
 
 function statusLabel(status: WhatsAppProviderReadinessStatus): string {
@@ -122,4 +140,13 @@ function statusLabel(status: WhatsAppProviderReadinessStatus): string {
 
 export function formatProviderReadinessLine(item: WhatsAppProviderReadiness): string {
   return `${item.label} (${statusLabel(item.status)}): ${item.reason} Next: ${item.nextStep}`;
+}
+
+export function formatProviderReadinessShortLine(item: WhatsAppProviderReadiness): string {
+  const detail = item.status === "partial" || item.status === "ready" ? item.reason : item.nextStep;
+  return `${item.label}: ${statusLabel(item.status)} - ${clip(detail)}`;
+}
+
+function clip(value: string, max = 130): string {
+  return value.length > max ? `${value.slice(0, max - 3).trim()}...` : value;
 }

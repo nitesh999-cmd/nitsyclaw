@@ -324,6 +324,18 @@ describe("Router (integration)", () => {
         completedAt: new Date("2026-05-11T00:00:00Z"),
       },
     );
+    state.connected_accounts.push({
+      id: "spotify-account-1",
+      provider: "spotify",
+      ownerHash: "owner-hash",
+      accountLabel: "default",
+      accessToken: "encrypted-token",
+      scope: "playlist-read-private",
+      expiresAt: new Date("2026-05-16T10:00:00Z"),
+      metadata: {},
+      createdAt: new Date("2026-05-10T00:00:00Z"),
+      updatedAt: new Date("2026-05-10T00:00:00Z"),
+    });
 
     await router.handle({
       id: "x-clean-status",
@@ -335,12 +347,15 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("NitsyClaw status");
     expect(wa.sent[0].body).toContain("Ready now");
-    expect(wa.sent[0].body).toContain("What I can do from WhatsApp");
+    expect(wa.sent[0].body).toContain("Provider setup");
+    expect(wa.sent[0].body).toContain("Spotify: partly ready");
     expect(wa.sent[0].body).toContain("Pending: 2 item");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
     expect(wa.sent[0].body).toContain("Needs setup before real action");
     expect(wa.sent[0].body).toContain("Read and send emails");
     expect(wa.sent[0].body).toContain("Recently shipped");
+    expect(wa.sent[0].body).not.toContain("Runtime:");
+    expect(wa.sent[0].body.length).toBeLessThan(4000);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
