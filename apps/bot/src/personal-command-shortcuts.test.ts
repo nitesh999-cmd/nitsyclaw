@@ -73,6 +73,8 @@ describe("personal command shortcuts", () => {
     expect(parseCapabilityStatusShortcut("status")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("pending items")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("what needs setup?")).toEqual({ kind: "capability-status" });
+    expect(parseCapabilityStatusShortcut("capability map")).toEqual({ kind: "capability-status" });
+    expect(parseCapabilityStatusShortcut("what works and what needs setup")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
   });
 

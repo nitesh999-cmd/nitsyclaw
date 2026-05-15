@@ -335,6 +335,7 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("NitsyClaw status");
     expect(wa.sent[0].body).toContain("Ready now");
+    expect(wa.sent[0].body).toContain("NitsyClaw capability map");
     expect(wa.sent[0].body).toContain("Pending: 2 item");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
     expect(wa.sent[0].body).toContain("Needs setup before real action");
@@ -385,7 +386,7 @@ describe("Router (integration)", () => {
     expect(state.feature_requests).toHaveLength(1);
     expect(state.feature_requests[0].description).toContain("Google Photos selected-media request");
     expect(state.feature_requests[0].implementationNotes).toContain("no live external access was claimed");
-    expect(wa.sent[0].body).toContain("Queued integration request");
+    expect(wa.sent[0].body).toContain("Setup request saved");
     expect(wa.sent[0].body).toContain("Google Photos");
     expect(wa.sent[0].body).toContain("Needs setup");
     expect(wa.sent[0].body).not.toContain("ack");

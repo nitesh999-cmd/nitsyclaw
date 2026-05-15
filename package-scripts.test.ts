@@ -217,4 +217,16 @@ describe("package scripts", () => {
     expect(source).not.toContain("railway-preflight.ps1");
     expect(source).not.toContain("railway:preflight");
   });
+
+  test("WhatsApp release gate is local, deterministic, and non-mutating", () => {
+    expect(rootPackage.scripts?.["whatsapp:release-gate"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
+    );
+
+    const source = readFileSync("scripts/whatsapp-release-gate.ps1", "utf8");
+    expect(source).toContain("whatsapp:receipt-guard");
+    expect(source).toContain("whatsapp:smoke");
+    expect(source).toContain("whatsapp-capability-registry.test.ts");
+    expect(source).not.toMatch(/@railway|railway:|\bvercel\b|\bdeploy\b|\brestart\b|\bsend\s*\(/i);
+  });
 });

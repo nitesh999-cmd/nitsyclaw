@@ -239,7 +239,10 @@ export function parseCapabilityStatusShortcut(text: string): CapabilityStatusSho
     trimmed === "needs setup" ||
     trimmed === "what needs setup" ||
     trimmed === "ready pending setup" ||
-    trimmed === "show ready pending setup"
+    trimmed === "show ready pending setup" ||
+    trimmed === "capability map" ||
+    trimmed === "capabilities map" ||
+    trimmed === "what works and what needs setup"
   ) {
     return { kind: "capability-status" };
   }

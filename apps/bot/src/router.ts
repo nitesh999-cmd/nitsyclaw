@@ -105,6 +105,7 @@ import { runDailyBuildAgent } from "./build-agent.js";
 import { logBotError } from "./safe-log.js";
 import {
   formatReadyCapabilitiesOneLine,
+  formatWhatsAppCapabilityMatrix,
   formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
   formatWhatsAppSafetyLimitsBlock,
@@ -251,6 +252,8 @@ export class Router {
       shipped,
       "",
       formatWhatsAppSafetyLimitsBlock(),
+      "",
+      formatWhatsAppCapabilityMatrix(),
       "",
       "Useful commands: local status, files, reminders, expense summary, summary commands, feature queue.",
     ].join("\n"));
@@ -556,12 +559,12 @@ export class Router {
     }
 
     return [
-      `Queued integration request: ${shortcut.label}`,
+      `Setup request saved: ${shortcut.label}`,
       result.id ? `ID: ${result.id.slice(0, 8)}` : undefined,
       result.status ? `Status: ${result.status}` : undefined,
-      "Needs setup before real action.",
+      "Needs setup before I can do the real action.",
       result.instruction,
-      "No live external account was accessed.",
+      "I did not access any live external account.",
     ].filter((line): line is string => Boolean(line)).join("\n");
   }
 
