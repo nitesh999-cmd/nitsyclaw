@@ -8,6 +8,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseWhatsAppCanaryShortcut,
   parseWhatsAppSelfTestShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseHomeAssistantShortcut,
@@ -154,6 +155,13 @@ describe("personal command shortcuts", () => {
     expect(parseWhatsAppSelfTestShortcut("whatsapp health")).toEqual({ kind: "whatsapp-self-test" });
     expect(parseWhatsAppSelfTestShortcut("diagnose whatsapp")).toEqual({ kind: "whatsapp-self-test" });
     expect(parseWhatsAppSelfTestShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects explicit WhatsApp canary requests", () => {
+    expect(parseWhatsAppCanaryShortcut("canary test")).toEqual({ kind: "whatsapp-canary" });
+    expect(parseWhatsAppCanaryShortcut("whatsapp canary")).toEqual({ kind: "whatsapp-canary" });
+    expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary" });
+    expect(parseWhatsAppCanaryShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects safe local status shortcuts", () => {

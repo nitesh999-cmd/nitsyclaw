@@ -35,6 +35,10 @@ export interface WhatsAppIncidentSummaryShortcut {
   kind: "whatsapp-incident-summary";
 }
 
+export interface WhatsAppCanaryShortcut {
+  kind: "whatsapp-canary";
+}
+
 export interface QueuedIntegrationShortcut {
   toolName:
     | "queue_email_connection_request"
@@ -304,6 +308,20 @@ export function parseWhatsAppIncidentSummaryShortcut(text: string): WhatsAppInci
     trimmed === "show incidents"
   ) {
     return { kind: "whatsapp-incident-summary" };
+  }
+  return null;
+}
+
+export function parseWhatsAppCanaryShortcut(text: string): WhatsAppCanaryShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "canary test" ||
+    trimmed === "whatsapp canary" ||
+    trimmed === "run canary" ||
+    trimmed === "delivery test" ||
+    trimmed === "test delivery"
+  ) {
+    return { kind: "whatsapp-canary" };
   }
   return null;
 }

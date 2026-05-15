@@ -25,10 +25,11 @@ describe("WhatsApp capability registry", () => {
     const matrix = formatWhatsAppCapabilityMatrix();
 
     expect(formatReadyCapabilitiesOneLine()).toContain("SMS drafts");
-    expect(help).toContain("NitsyClaw WhatsApp help");
-    expect(help).toContain("Quick checks");
-    expect(help).toContain("Use now");
-    expect(help).toContain("Needs setup before real action");
+    expect(help).toContain("NitsyClaw can help with this");
+    expect(help).toContain("Good quick checks");
+    expect(help).toContain("Ready to use now");
+    expect(help).toContain("Needs setup first");
+    expect(help).toContain("canary test");
     expect(help).toContain("self test");
     expect(help).toContain("local status");
     expect(matrix).toContain("What I can do from WhatsApp");

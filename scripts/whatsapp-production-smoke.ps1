@@ -43,7 +43,7 @@ if (-not $SkipRailwayReady) {
 Invoke-Step "Safe WhatsApp prompt coverage" {
     pnpm exec vitest run `
         apps/bot/test/router.integration.test.ts `
-        --testNamePattern "text message .* agent loop|what can you do|WhatsApp self-test|WhatsApp incident summary|sets clear WhatsApp reminders|logs plain text expenses|answers exact pending items"
+        --testNamePattern "text message .* agent loop|what can you do|WhatsApp self-test|WhatsApp incident summary|WhatsApp canary|sets clear WhatsApp reminders|logs plain text expenses|answers exact pending items"
 }
 
 Invoke-Step "Reply shape gate" {

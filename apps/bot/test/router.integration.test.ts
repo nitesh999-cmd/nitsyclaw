@@ -284,12 +284,13 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw WhatsApp help");
-    expect(wa.sent[0].body).toContain("Use now");
+    expect(wa.sent[0].body).toContain("NitsyClaw can help with this");
+    expect(wa.sent[0].body).toContain("Ready to use now");
     expect(wa.sent[0].body).toContain("CSV expense import");
-    expect(wa.sent[0].body).toContain("Needs setup before real action");
+    expect(wa.sent[0].body).toContain("Needs setup first");
+    expect(wa.sent[0].body).toContain("canary test");
     expect(wa.sent[0].body).toContain("self test");
-    expect(wa.sent[0].body).toContain("Safety limits");
+    expect(wa.sent[0].body).toContain("Safety rules");
     expect(wa.sent[0].body).toContain("SMS drafts only");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
@@ -490,13 +491,30 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("WhatsApp incident summary");
-    expect(wa.sent[0].body).toContain("Live health");
+    expect(wa.sent[0].body).toContain("WhatsApp incident check");
+    expect(wa.sent[0].body).toContain("Current health");
     expect(wa.sent[0].body).toContain("WhatsApp send: fail");
     expect(wa.sent[0].body).toContain("Loop guard: cooldown");
     expect(wa.sent[0].body).toContain("send message to John");
     expect(wa.sent[0].body).toContain("resume whatsapp");
     expect(wa.sent[0].body).not.toContain("must-not-leak");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("answers WhatsApp canary test without touching external providers", async () => {
+    await router.handle({
+      id: "x-canary-test",
+      from: OWNER,
+      body: "canary test",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Canary reply received");
+    expect(wa.sent[0].body).toContain("Proof: WA-202604250800");
+    expect(wa.sent[0].body).toContain("outbound reply reached this chat");
+    expect(wa.sent[0].body).toContain("does not prove database storage");
+    expect(wa.sent[0].body).toContain("It does not test Gmail");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

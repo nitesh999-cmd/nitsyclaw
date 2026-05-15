@@ -43,6 +43,7 @@ export const WHATSAPP_SAFETY_LIMITS = [
 
 export const WHATSAPP_TRY_COMMANDS = [
   "status",
+  "canary test",
   "self test",
   "what went wrong",
   "help",
@@ -66,7 +67,7 @@ function bulletList(items: readonly string[]): string[] {
 }
 
 export function formatReadyCapabilitiesOneLine(): string {
-  return "Voice notes, normal questions, reminders, memory/search, documents, bills, expenses, SMS drafts, message checks, call scripts, lists, and feature queue status.";
+  return "Voice notes, normal questions, reminders, memory and recent-chat search, documents, bills, expenses, SMS drafts, message checks, call scripts, lists, and feature queue status.";
 }
 
 export function formatWhatsAppProviderReadinessBlock(
@@ -83,21 +84,22 @@ export function formatWhatsAppHelpReply(
 ): string {
   const setupLines = getWhatsAppSetupCapabilities(providerReadiness).slice(0, 6);
   return [
-    "NitsyClaw WhatsApp help",
+    "NitsyClaw can help with this",
     "",
-    "Quick checks:",
+    "Good quick checks:",
     "- status: ready, pending, and setup-heavy features",
+    "- canary test: proves this chat can receive a fresh reply",
     "- self test: live WhatsApp health, deployed commit, and loop guard",
     "- local status: reminders, expenses, files, and summaries",
     "- feature queue: what is waiting to be built",
     "",
-    "Use now:",
+    "Ready to use now:",
     ...bulletList(WHATSAPP_READY_CAPABILITIES.slice(0, 8)),
     "",
-    "Needs setup before real action:",
+    "Needs setup first:",
     ...bulletList(setupLines),
     "",
-    "Safety limits:",
+    "Safety rules:",
     ...bulletList(WHATSAPP_SAFETY_LIMITS),
     "",
     "Try these:",

@@ -98,6 +98,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseWhatsAppCanaryShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseWhatsAppSelfTestShortcut,
   mentionsFeatureQueueStatus,
@@ -457,6 +458,7 @@ export class Router {
       "",
       "Useful commands:",
       "- status",
+      "- canary test",
       "- local status",
       "- feature queue",
       "- what went wrong",
@@ -599,6 +601,24 @@ export class Router {
     ].join("\n");
   }
 
+  private formatWhatsAppCanaryReply(): string {
+    const now = this.deps.now();
+    const proof = `WA-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 12)}`;
+
+    return [
+      "Canary reply received.",
+      "",
+      `Proof: ${proof}`,
+      `Time: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+      "",
+      "This proves WhatsApp inbound, routing, and outbound reply reached this chat.",
+      "Message persistence was attempted, but this canary does not prove database storage.",
+      "It does not test Gmail, Drive, bank feeds, phone/SMS sending, or other provider setup.",
+      "",
+      "If this looked slow, duplicated, or wrong, send: what went wrong",
+    ].join("\n");
+  }
+
   private async formatWhatsAppIncidentSummaryReply(): Promise<string> {
     const now = this.deps.now();
     const [whatsappClient, whatsappSend, whatsappLoopGuard, recentJobs] = await Promise.all([
@@ -633,9 +653,9 @@ export class Router {
       : ["- No recent commands waiting on approval or clarification."];
 
     return [
-      "WhatsApp incident summary",
+      "WhatsApp incident check",
       "",
-      "Live health:",
+      "Current health:",
       ...healthLines,
       "",
       "Recent failed/retrying commands:",
@@ -644,7 +664,7 @@ export class Router {
       "Waiting on you:",
       ...blockedLines,
       "",
-      "Safe next step:",
+      "Best next step:",
       loopReason || sendError ? "Send: self test. If loop guard is still active, send: resume whatsapp." : "No active failure signal found. If a reply still feels wrong, send: bug: <what happened>.",
     ].join("\n");
   }
@@ -1399,6 +1419,14 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, incidentError);
         await this.sendPublicFailure("whatsapp incident summary", "Couldn't load the incident summary. I logged it; try again shortly.", incidentError);
       }
+      return;
+    }
+
+    const canary = parseWhatsAppCanaryShortcut(effectiveText);
+    if (canary) {
+      const reply = this.formatWhatsAppCanaryReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 
