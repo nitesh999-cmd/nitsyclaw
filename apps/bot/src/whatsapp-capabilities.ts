@@ -4,12 +4,17 @@ export const WHATSAPP_READY_CAPABILITIES = [
   "Summarise bills, selectable PDFs, notes, receipts, and documents.",
   "Log receipt photos, text expenses, and CSV expense import files.",
   "Prepare replies, call scripts, complaints, lists, packing plans, shopping lists, and decision notes.",
+  "Queue setup requests for Gmail, Drive, Photos, Spotify, bank feeds, birthdays, phone/SMS, and social video analysis.",
   "Show feature queue status and save new feature or bug requests.",
 ] as const;
 
 export const WHATSAPP_SETUP_CAPABILITIES = [
-  "Real email sending needs Gmail/Outlook account setup.",
-  "Drive, OneDrive, Google Photos, Spotify, phone/SMS, bank feeds, and Facebook birthdays need provider setup.",
+  "Gmail/Outlook: search and drafts can be queued; sending needs OAuth scopes and confirmation.",
+  "Drive/OneDrive and Google Photos: selected-file/media import needs account picker/OAuth setup.",
+  "Spotify: playlist actions need Spotify OAuth connected.",
+  "Phone/SMS: drafts work now; real sending/calling needs a compliant provider or phone companion app.",
+  "Bank feeds and Facebook birthdays: use safe CSV/manual imports first; live access is blocked until a compliant provider/source exists.",
+  "Social video analysis: public URLs/uploads can be queued; private platform access needs approved APIs.",
 ] as const;
 
 export const WHATSAPP_SAFETY_LIMITS = [
@@ -23,6 +28,8 @@ export const WHATSAPP_TRY_COMMANDS = [
   "local status",
   "feature queue",
   "build status",
+  "connect Google Photos",
+  "draft sms to John saying I am late",
   "bill summary: paste bill text",
   "check before send: paste message",
   "upload a CSV expense file",
@@ -43,7 +50,7 @@ function bulletList(items: readonly string[]): string[] {
 }
 
 export function formatReadyCapabilitiesOneLine(): string {
-  return "Voice notes, normal questions, reminders, memory/search, documents, receipts, CSV expense import, message checks, call scripts, lists, and local summaries.";
+  return "Voice notes, normal questions, reminders, memory/search, documents, receipts, CSV expense import, SMS drafts, queued setup requests, message checks, call scripts, lists, and local summaries.";
 }
 
 export function formatWhatsAppHelpReply(): string {

@@ -125,6 +125,8 @@ export function formatOfflineOperatorRunReport(): string {
     "3. pnpm test",
     "4. pnpm build",
     "5. Fix local-only WhatsApp/router/docs issues with tests, then commit.",
+    "6. Extend WhatsApp queued-integration routing for Gmail/Outlook, Drive/OneDrive, Google Photos, Spotify, phone/SMS, bank feeds, birthdays, and social videos.",
+    "7. Improve WhatsApp status/help wording so users know what is ready, draft-only, setup-needed, or blocked.",
     "",
     "Needs DATABASE_URL: reading, claiming, rejecting, or updating live queued feature rows.",
   ].join("\n");

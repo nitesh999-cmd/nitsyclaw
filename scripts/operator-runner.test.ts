@@ -37,6 +37,8 @@ describe("operator runner error safety", () => {
     expect(message).toContain("pnpm typecheck");
     expect(message).toContain("pnpm test");
     expect(message).toContain("pnpm build");
+    expect(message).toContain("WhatsApp queued-integration routing");
+    expect(message).toContain("Gmail/Outlook");
     expect(message).toContain("DATABASE_URL");
   });
 });

@@ -103,6 +103,35 @@ describe("personal command shortcuts", () => {
     expect(parseQueuedIntegrationShortcut("weather tomorrow")).toBeNull();
   });
 
+  it("covers real spoken queued-integration phrases", () => {
+    const examples: Array<[string, string]> = [
+      ["connect Gmail and Outlook for email", "queue_email_connection_request"],
+      ["can you read my mailbox", "queue_email_connection_request"],
+      ["set up email sending after approval", "queue_email_connection_request"],
+      ["browse my Google Drive files", "queue_storage_file_import_request"],
+      ["connect OneDrive documents", "queue_storage_file_import_request"],
+      ["import this Drive proposal", "queue_storage_file_import_request"],
+      ["search Google Photos for car photos", "queue_google_photos_import_request"],
+      ["add photo album search", "queue_google_photos_import_request"],
+      ["sync my Spotify music taste", "queue_spotify_music_request"],
+      ["create suggested playlist in Spotify", "queue_spotify_music_request"],
+      ["connect bank statements", "queue_bank_csv_import_request"],
+      ["set up bank feed transactions", "queue_bank_csv_import_request"],
+      ["import card feed expenses", "queue_bank_csv_import_request"],
+      ["add Facebook birthday messages", "queue_birthday_import_request"],
+      ["import birthdays from contacts", "queue_birthday_import_request"],
+      ["connect phone call logs", "queue_phone_call_request"],
+      ["access SMS logs", "queue_phone_call_request"],
+      ["set up phone/SMS", "queue_phone_call_request"],
+      ["analyse this YouTube short https://example.com/shorts/1", "queue_social_video_analysis_request"],
+      ["analyze TikTok video ideas", "queue_social_video_analysis_request"],
+    ];
+
+    for (const [text, toolName] of examples) {
+      expect(parseQueuedIntegrationShortcut(text), text).toMatchObject({ toolName });
+    }
+  });
+
   it("detects WhatsApp command contract requests", () => {
     expect(parseCommandContractShortcut("command contract")).toEqual({ kind: "command-contract" });
     expect(parseCommandContractShortcut("how do you handle commands?")).toEqual({ kind: "command-contract" });
