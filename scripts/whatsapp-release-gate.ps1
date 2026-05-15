@@ -36,5 +36,9 @@ Invoke-Step "Capability registry tests" {
         apps/bot/test/router.integration.test.ts
 }
 
+Invoke-Step "Reply shape gate" {
+    pnpm run whatsapp:reply-shape
+}
+
 Write-Host ""
 Write-Host "WhatsApp release gate passed."
