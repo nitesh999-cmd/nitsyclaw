@@ -61,7 +61,7 @@ export function formatWhatsAppHelpReply(): string {
 
 export function formatWhatsAppCapabilityMatrix(): string {
   return [
-    "NitsyClaw capability map",
+    "What I can do from WhatsApp",
     "",
     "Ready now:",
     ...bulletList(WHATSAPP_READY_CAPABILITIES),
@@ -69,7 +69,7 @@ export function formatWhatsAppCapabilityMatrix(): string {
     "Needs setup or approval:",
     ...bulletList(WHATSAPP_SETUP_CAPABILITIES),
     "",
-    "Rule: I should say ready, needs setup, needs approval, or failed with reason. No fake shipped claims.",
+    "Rule: if something is not ready, I should say that clearly and explain the next step.",
   ].join("\n");
 }
 

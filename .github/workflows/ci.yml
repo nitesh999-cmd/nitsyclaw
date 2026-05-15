@@ -19,9 +19,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
-      - name: Guard WhatsApp receipt wording
+      - name: WhatsApp release gate
         shell: pwsh
-        run: ./scripts/whatsapp-receipt-guard.ps1
+        run: ./scripts/whatsapp-release-gate.ps1
       - run: pnpm test:coverage
       - name: Upload coverage
         if: always()

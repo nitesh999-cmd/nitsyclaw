@@ -335,7 +335,7 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("NitsyClaw status");
     expect(wa.sent[0].body).toContain("Ready now");
-    expect(wa.sent[0].body).toContain("NitsyClaw capability map");
+    expect(wa.sent[0].body).toContain("What I can do from WhatsApp");
     expect(wa.sent[0].body).toContain("Pending: 2 item");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
     expect(wa.sent[0].body).toContain("Needs setup before real action");

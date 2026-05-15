@@ -39,6 +39,14 @@ describe("GitHub Actions CI workflow", () => {
     );
   });
 
+  it("runs the WhatsApp release gate in CI before coverage", () => {
+    expect(workflow).toContain("WhatsApp release gate");
+    expect(workflow).toContain("./scripts/whatsapp-release-gate.ps1");
+    expect(workflow.indexOf("./scripts/whatsapp-release-gate.ps1")).toBeLessThan(
+      workflow.indexOf("pnpm test:coverage"),
+    );
+  });
+
   it("has a Windows lane for PowerShell and package-script regressions", () => {
     expect(workflow).toContain("runs-on: windows-latest");
     expect(workflow).toContain("Parse tracked PowerShell scripts");
