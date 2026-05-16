@@ -96,33 +96,33 @@ export function summarizeFeatureQueueStatus(args: {
 
 export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusSummary): string {
   if (summary.pendingCount === 0) {
-    const shipped = summary.recentCompleted.slice(0, 3).map(formatCompactItem);
+    const shipped = summary.recentCompleted.slice(0, 2).map(formatCompactItem);
     return shipped.length
       ? `Feature queue is clear.\nRecently shipped:\n${shipped.join("\n")}`
       : "Feature queue is clear. No pending feature or bug items.";
   }
 
   const lines = [
-    `Feature queue: ${summary.pendingCount} pending.`,
+    `Feature queue: ${summary.pendingCount} pending`,
     summary.recentCompleted.length
-      ? `Recently shipped:\n${summary.recentCompleted.slice(0, 3).map(formatCompactItem).join("\n")}`
-      : "Recently shipped: none found in the latest completed rows.",
+      ? `Shipped: ${summary.recentCompleted.slice(0, 2).map(formatInlineItem).join(" | ")}`
+      : "Shipped: none found.",
     summary.recommendedNext
-      ? `Best next safe build:\n${formatCompactItem(summary.recommendedNext)}`
+      ? `Best next: ${formatInlineItem(summary.recommendedNext)}`
       : undefined,
     summary.quickWins.length
-      ? `Quick code-only wins:\n${summary.quickWins.slice(0, 3).map(formatCompactItem).join("\n")}`
+      ? `Quick wins: ${summary.quickWins.slice(0, 2).map(formatInlineItem).join(" | ")}`
       : undefined,
     summary.setupHeavy.length
-      ? `Setup-heavy items waiting on provider access/OAuth:\n${summary.setupHeavy.slice(0, 4).map(formatCompactItem).join("\n")}`
+      ? `Needs setup: ${summary.setupHeavy.slice(0, 3).map(formatInlineItem).join(" | ")}`
       : undefined,
     summary.batches.length
-      ? `Big batches:\n${summary.batches.slice(0, 5).map((batch) => `- ${batch.label}: ${batch.count}`).join("\n")}`
+      ? `Batches: ${summary.batches.slice(0, 5).map((batch) => `${batch.label} ${batch.count}`).join(" | ")}`
       : undefined,
-    `Top pending:\n${summary.topPending.slice(0, 5).map(formatCompactItem).join("\n")}`,
+    "More: status | local status | add feature: <idea>",
   ].filter((line): line is string => Boolean(line));
 
-  return lines.join("\n\n");
+  return lines.join("\n");
 }
 
 function toFeatureQueueItem(row: FeatureRow): FeatureQueueItem {
@@ -192,6 +192,11 @@ function getCategoryLabel(key: string): string {
 function formatCompactItem(item: FeatureQueueItem): string {
   const risk = item.type === "bug" ? `bug ${item.severity ?? "P2"}` : item.size;
   return `- ${item.shortId} ${risk}: ${truncate(item.description, 92)}`;
+}
+
+function formatInlineItem(item: FeatureQueueItem): string {
+  const risk = item.type === "bug" ? `bug ${item.severity ?? "P2"}` : item.size;
+  return `${item.shortId} ${risk}: ${truncate(item.description, 72)}`;
 }
 
 function truncate(text: string, max: number): string {

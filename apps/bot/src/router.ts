@@ -116,8 +116,7 @@ import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
-  formatWhatsAppProviderReadinessBlock,
-  formatWhatsAppSafetyLimitsBlock,
+  formatWhatsAppProviderSetupSnapshot,
 } from "./whatsapp-capabilities.js";
 import {
   type WhatsAppProviderReadiness,
@@ -255,38 +254,26 @@ export class Router {
       listRecentFeatureRequestsByStatus(this.deps.db, "done", limit),
     ]);
     const summary = summarizeFeatureQueueStatus({ pending: rows, completed, limit });
-    const localNext = summary.quickWins.length
-      ? summary.quickWins.slice(0, 3).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
-      : "- No small local queue item found. Use local status for commands that already work.";
-    const setupNext = summary.setupHeavy.length
-      ? summary.setupHeavy.slice(0, 3).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
-      : "- None found in the current pending queue.";
-    const shipped = summary.recentCompleted.length
-      ? summary.recentCompleted.slice(0, 2).map((item) => `- ${item.shortId}: ${item.description}`).join("\n")
-      : "- No recent completed rows found.";
+    const localNext = summary.quickWins[0] ?? summary.recommendedNext ?? summary.topPending[0];
+    const setupNext = summary.setupHeavy[0];
+    const shipped = summary.recentCompleted[0];
     const providerReadiness = await this.getProviderReadiness();
 
     await this.sendAndPersist([
       "NitsyClaw status",
+      `Ready: ${formatReadyCapabilitiesOneLine()}`,
       "",
-      "Ready now:",
-      `- ${formatReadyCapabilitiesOneLine()}`,
+      formatWhatsAppProviderSetupSnapshot(providerReadiness),
       "",
-      formatWhatsAppProviderReadinessBlock(providerReadiness),
+      "Queue:",
+      `- Pending: ${summary.pendingCount} item(s).`,
+      localNext ? `- Best local next: ${localNext.shortId}: ${clipForWhatsApp(localNext.description, 90)}` : "- Best local next: none found.",
+      setupNext ? `- Needs setup: ${setupNext.shortId}: ${clipForWhatsApp(setupNext.description, 90)}` : "- Needs setup: none found.",
+      shipped ? `- Shipped: ${shipped.shortId}: ${clipForWhatsApp(shipped.description, 80)}` : "- Shipped: none found.",
       "",
-      `Pending: ${summary.pendingCount} item(s).`,
-      "Best local/code-only next:",
-      localNext,
+      "Safety: drafts first. External sending, calling, deleting, booking, paying, or changing data needs confirmation.",
       "",
-      "Needs setup before real action:",
-      setupNext,
-      "",
-      "Recently shipped:",
-      shipped,
-      "",
-      formatWhatsAppSafetyLimitsBlock(),
-      "",
-      "Useful commands: self test, local status, files, reminders, expense summary, feature queue.",
+      "More: local status | feature queue | what went wrong | proof test",
     ].join("\n"));
   }
 
@@ -703,26 +690,25 @@ export class Router {
     ];
 
     const failureLines = failedJobs.length
-      ? failedJobs.map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 120)}${job.error ? ` (${clipForWhatsApp(job.error, 100)})` : ""}`)
+      ? failedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}${job.error ? ` (${clipForWhatsApp(job.error, 80)})` : ""}`)
       : ["- No recent failed/retrying WhatsApp command jobs found."];
     const blockedLines = blockedJobs.length
-      ? blockedJobs.map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 120)}`)
+      ? blockedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}`)
       : ["- No recent commands waiting on approval or clarification."];
 
     return [
       "WhatsApp incident check",
       "",
-      "Current health:",
+      "Health:",
       ...healthLines,
       "",
-      "Recent failed/retrying commands:",
+      "Recent failures:",
       ...failureLines,
       "",
       "Waiting on you:",
       ...blockedLines,
       "",
-      "Best next step:",
-      loopReason || sendError ? "Send: self test. If loop guard is still active, send: resume whatsapp." : "No active failure signal found. If a reply still feels wrong, send: bug: <what happened>.",
+      `Next: ${loopReason || sendError ? "Send self test. If loop guard is active, send resume whatsapp." : "No active failure signal found. If a reply feels wrong, send bug: <what happened>."}`,
     ].join("\n");
   }
 

@@ -209,10 +209,12 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("Feature queue: 2 pending");
-    expect(wa.sent[0].body).toContain("Recently shipped");
-    expect(wa.sent[0].body).toContain("Best next safe build");
+    expect(wa.sent[0].body).toContain("Shipped:");
+    expect(wa.sent[0].body).toContain("Best next:");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
-    expect(wa.sent[0].body).toContain("Setup-heavy items waiting on provider access/OAuth");
+    expect(wa.sent[0].body).toContain("Needs setup:");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(9);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("Claude Code");
     expect(wa.sent[0].body).not.toContain("*nwp");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
@@ -354,16 +356,17 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("NitsyClaw status");
-    expect(wa.sent[0].body).toContain("Ready now");
-    expect(wa.sent[0].body).toContain("Provider setup");
-    expect(wa.sent[0].body).toContain("Spotify: partly ready");
+    expect(wa.sent[0].body).toContain("Ready:");
+    expect(wa.sent[0].body).toContain("Setup snapshot");
+    expect(wa.sent[0].body).toContain("Ready/partly ready: Spotify");
     expect(wa.sent[0].body).toContain("Pending: 2 item");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
-    expect(wa.sent[0].body).toContain("Needs setup before real action");
+    expect(wa.sent[0].body).toContain("Needs setup:");
     expect(wa.sent[0].body).toContain("Read and send emails");
-    expect(wa.sent[0].body).toContain("Recently shipped");
+    expect(wa.sent[0].body).toContain("Shipped:");
     expect(wa.sent[0].body).not.toContain("Runtime:");
-    expect(wa.sent[0].body.length).toBeLessThan(4000);
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -390,9 +393,10 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("NitsyClaw status");
     expect(wa.sent[0].body).toContain("Pending: 1 item");
     expect(wa.sent[0].body).toContain("Read and send emails");
-    expect(wa.sent[0].body).toContain("Needs setup before real action");
-    expect(wa.sent[0].body).toContain("Safety limits");
-    expect(wa.sent[0].body).toContain("SMS drafts only");
+    expect(wa.sent[0].body).toContain("Needs setup:");
+    expect(wa.sent[0].body).toContain("Safety:");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -497,11 +501,13 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("WhatsApp incident check");
-    expect(wa.sent[0].body).toContain("Current health");
+    expect(wa.sent[0].body).toContain("Health");
     expect(wa.sent[0].body).toContain("WhatsApp send: fail");
     expect(wa.sent[0].body).toContain("Loop guard: cooldown");
     expect(wa.sent[0].body).toContain("send message to John");
     expect(wa.sent[0].body).toContain("resume whatsapp");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
     expect(wa.sent[0].body).not.toContain("must-not-leak");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
