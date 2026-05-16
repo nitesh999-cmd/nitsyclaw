@@ -31,7 +31,7 @@ Send these in WhatsApp self-chat:
 
 3. `what can you do`
    - Expected: `NitsyClaw WhatsApp menu`
-   - Expected sections: `Everyday help`, `Life admin`, `Operator checks`, `Needs setup first`
+   - Expected sections: `Best things to try`, `What works now`, `Setup snapshot`, `Useful checks`
 
 If any phone proof fails, capture the exact WhatsApp message, screenshot, and time, then run:
 

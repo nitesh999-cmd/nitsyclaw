@@ -25,6 +25,6 @@ Write-Host "   Expected: WhatsApp proof, current commit, DB marker passed, Loop 
 Write-Host "2. I spent `$6.50 at Chemist Warehouse for medicine"
 Write-Host "   Expected: expense logged in AUD, not USD."
 Write-Host "3. what can you do"
-Write-Host "   Expected: NitsyClaw WhatsApp menu with Everyday help, Life admin, Operator checks, Needs setup first."
+Write-Host "   Expected: NitsyClaw WhatsApp menu with Best things to try, What works now, Setup snapshot, and Useful checks."
 Write-Host ""
 Write-Host "Post-deploy proof passed for server-side gates. Phone proof still requires the three WhatsApp messages above."
