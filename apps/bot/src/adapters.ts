@@ -107,7 +107,7 @@ export function makeAnthropicImageAnalyzer(apiKey: string, model: string): Image
       const resp = await client.messages.create({
         model,
         max_tokens: 400,
-        system: 'Extract receipt fields. Return strict JSON: {"amount": number, "currency": "INR"|"USD", "merchant": string, "date": "YYYY-MM-DD", "rawText": string}. Use null for unknowns.',
+        system: 'Extract receipt fields. Return strict JSON: {"amount": number, "currency": "AUD"|"USD"|"INR"|"GBP"|"EUR", "merchant": string, "date": "YYYY-MM-DD", "rawText": string}. Treat plain "$" as AUD unless the receipt explicitly says USD or US$. Use null for unknowns.',
         messages: [
           {
             role: "user",

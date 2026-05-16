@@ -122,7 +122,7 @@ export function parseExpenseCsv(args: {
     }
 
     const amountCents = Math.round(amount.value * 100);
-    const currency = cell(row, currencyIndex) || args.defaultCurrency || "INR";
+    const currency = cell(row, currencyIndex) || args.defaultCurrency || "AUD";
     items.push({
       amountCents,
       currency: currency.toUpperCase(),
@@ -164,7 +164,7 @@ export async function importExpensesFromCsv(args: {
     ...parsed,
     importedCount: parsed.items.length,
     totalAmountCents: parsed.items.reduce((sum, item) => sum + item.amountCents, 0),
-    currency: parsed.items[0]?.currency ?? args.defaultCurrency ?? "INR",
+    currency: parsed.items[0]?.currency ?? args.defaultCurrency ?? "AUD",
   };
 }
 

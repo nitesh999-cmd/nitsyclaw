@@ -116,6 +116,22 @@ describe("CSV expense import", () => {
     ]));
   });
 
+  it("defaults CSV imports to AUD when the file has no currency column", () => {
+    const csv = [
+      "Date,Description,Debit",
+      "2026-05-01,Local cafe,6.50",
+    ].join("\n");
+
+    const result = parseExpenseCsv({ csv, now: new Date("2026-05-10T00:00:00Z") });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      amountCents: 650,
+      currency: "AUD",
+      merchant: "Local cafe",
+    });
+  });
+
   it("imports CSV expenses without needing a bank connection", async () => {
     const { db, state } = makeFakeDb();
     const csv = [
