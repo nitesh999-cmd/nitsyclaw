@@ -627,22 +627,49 @@ export class Router {
   private async formatWhatsAppCanaryReply(): Promise<string> {
     const now = this.deps.now();
     const proof = `WA-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 12)}`;
-    const persistence = await this.recordCanaryPersistence(proof);
+    const [persistence, botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard] = await Promise.all([
+      this.recordCanaryPersistence(proof),
+      getSystemHeartbeat(this.deps.db, "bot-runtime"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-client"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-send"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
+    ]);
+    const runtime = buildBotRuntimeMetadata(process.env, now);
+    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
+      ?? heartbeatMetadataText(botRuntime, "commit")
+      ?? runtime.commitShort;
+    const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
+    const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
+    const sendError = heartbeatMetadataText(whatsappSend, "error");
     const persistenceLine = persistence.ok
       ? `Database marker: passed (${persistence.id?.slice(0, 8) ?? "recorded"})`
       : `Database marker: failed (${clipForWhatsApp(persistence.error ?? "not found after write", 120)})`;
 
     return [
-      "Canary reply received.",
+      "WhatsApp proof",
       "",
       `Proof: ${proof}`,
       `Time: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-      persistenceLine,
+      `Version: commit ${deployedCommit}`,
       "",
-      "If you can read this, WhatsApp inbound, routing, and outbound reply reached this chat.",
+      "Checks:",
+      "- Inbound/routing: passed (this command reached the router)",
+      "- Outbound delivery: passed if you can read this reply",
+      `- ${persistenceLine}`,
+      `- ${heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000)}`,
+      `- ${heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000)}`,
+      `- ${heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined)}`,
+      `- ${heartbeatLine(
+        "Loop guard",
+        whatsappLoopGuard,
+        now,
+        10 * 60 * 1000,
+        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+      )}`,
+      "",
       persistence.ok
-        ? "The database write/read marker also passed."
-        : "The reply path worked, but database persistence needs investigation.",
+        ? "Database write/read marker passed."
+        : "Reply path worked, but database persistence needs investigation.",
       "It does not test Gmail, Drive, bank feeds, phone/SMS sending, or other provider setup.",
       "",
       "If this looked slow, duplicated, or wrong, send: what went wrong",

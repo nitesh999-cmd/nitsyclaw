@@ -101,7 +101,7 @@ export function formatWhatsAppHelpReply(
     "",
     "Good quick checks:",
     "- status: ready, pending, and setup-heavy features",
-    "- canary test: proves this chat can receive a fresh reply",
+    "- canary test: proves router, reply, database marker, version, and loop guard",
     "- self test: live WhatsApp health, deployed commit, and loop guard",
     "- local status: reminders, expenses, files, and summaries",
     "- feature queue: what is waiting to be built",

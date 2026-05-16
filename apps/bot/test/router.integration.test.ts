@@ -513,11 +513,14 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Canary reply received");
+    expect(wa.sent[0].body).toContain("WhatsApp proof");
     expect(wa.sent[0].body).toContain("Proof: WA-202604250800");
+    expect(wa.sent[0].body).toContain("Version: commit");
+    expect(wa.sent[0].body).toContain("Inbound/routing: passed");
+    expect(wa.sent[0].body).toContain("Outbound delivery: passed");
     expect(wa.sent[0].body).toContain("Database marker: passed");
-    expect(wa.sent[0].body).toContain("database write/read marker also passed");
-    expect(wa.sent[0].body).toContain("outbound reply reached this chat");
+    expect(wa.sent[0].body).toContain("Loop guard");
+    expect(wa.sent[0].body).toContain("Database write/read marker passed");
     expect(wa.sent[0].body).toContain("It does not test Gmail");
     expect(getFakeDbState(deps.db).messages.some((message) => message.metadata?.kind === "whatsapp-canary")).toBe(true);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);

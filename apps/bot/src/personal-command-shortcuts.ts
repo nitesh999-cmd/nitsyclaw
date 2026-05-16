@@ -318,6 +318,9 @@ export function parseWhatsAppCanaryShortcut(text: string): WhatsAppCanaryShortcu
     trimmed === "canary test" ||
     trimmed === "whatsapp canary" ||
     trimmed === "run canary" ||
+    trimmed === "proof test" ||
+    trimmed === "whatsapp proof" ||
+    trimmed === "live proof" ||
     trimmed === "delivery test" ||
     trimmed === "test delivery"
   ) {
