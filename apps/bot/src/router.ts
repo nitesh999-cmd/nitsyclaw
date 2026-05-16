@@ -281,11 +281,30 @@ export class Router {
     kind: NonNullable<ReturnType<typeof parseLocalStatusShortcut>>["kind"],
     userPhone: string,
   ): Promise<string> {
+    if (kind === "all") {
+      const [files, reminders, expenses] = await Promise.all([
+        this.formatFilesStatusLine(userPhone),
+        this.formatRemindersStatusLine(),
+        this.formatExpenseStatusLine(),
+      ]);
+      return formatWhatsAppReplyShape({
+        answer: "Local status: ready",
+        state: "State: checked local files, reminders, expenses, and summary tools. No external accounts used.",
+        details: [
+          files,
+          reminders,
+          expenses,
+          "Summaries: bill summary, tidy note, next steps, check before send.",
+        ],
+        next: "files | reminders | expense summary | bill summary: <text>",
+      });
+    }
+
     const sections: string[] = [];
-    if (kind === "all" || kind === "files") sections.push(await this.formatFilesStatus(userPhone));
-    if (kind === "all" || kind === "reminders") sections.push(await this.formatRemindersStatus());
-    if (kind === "all" || kind === "expenses") sections.push(await this.formatExpenseStatus());
-    if (kind === "all" || kind === "summaries") sections.push(this.formatSummaryStatus());
+    if (kind === "files") sections.push(await this.formatFilesStatus(userPhone));
+    if (kind === "reminders") sections.push(await this.formatRemindersStatus());
+    if (kind === "expenses") sections.push(await this.formatExpenseStatus());
+    if (kind === "summaries") sections.push(this.formatSummaryStatus());
     return sections.join("\n\n");
   }
 
@@ -337,6 +356,33 @@ export class Router {
       const filename = typeof metadata.filename === "string" ? metadata.filename : "document";
       return `- ${filename}`;
     }).join("\n");
+  }
+
+  private async formatFilesStatusLine(userPhone: string): Promise<string> {
+    const rows = await recentMessages(this.deps.db, hashPhone(userPhone), 80);
+    const documents = rows.filter((row) => row.mediaType === "document").slice(0, 2);
+    if (!documents.length) return "Files: no recent local document uploads.";
+    const names = documents.map((row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+      return typeof metadata.filename === "string" ? metadata.filename : "document";
+    });
+    return `Files: ${names.join(", ")}.`;
+  }
+
+  private async formatRemindersStatusLine(): Promise<string> {
+    const rows = await listPendingReminders(this.deps.db, this.deps.now(), 2);
+    if (!rows.length) return "Reminders: none pending.";
+    return `Reminders: ${rows.map((row) => row.text).join(", ")}.`;
+  }
+
+  private async formatExpenseStatusLine(): Promise<string> {
+    const now = this.deps.now();
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    if (!rows.length) return "Expenses: none logged this month.";
+    const currency = rows[0]?.currency ?? "AUD";
+    const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
+    return `Expenses: ${currency} ${(totalCents / 100).toFixed(2)} this month across ${rows.length} item(s).`;
   }
 
   private async getMonthlyExpenseSnapshot(): Promise<string> {

@@ -697,13 +697,18 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Files/documents");
+    expect(wa.sent[0].body).toContain("Local status: ready");
+    expect(wa.sent[0].body).toContain("State:");
+    expect(wa.sent[0].body).toContain("Files:");
     expect(wa.sent[0].body).toContain("agl-bill.txt");
-    expect(wa.sent[0].body).toContain("Reminders");
+    expect(wa.sent[0].body).toContain("Reminders:");
     expect(wa.sent[0].body).toContain("call dentist");
-    expect(wa.sent[0].body).toContain("Expenses");
+    expect(wa.sent[0].body).toContain("Expenses:");
     expect(wa.sent[0].body).toContain("AUD 18.75");
     expect(wa.sent[0].body).toContain("Summaries");
+    expect(wa.sent[0].body).toContain("Next:");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(10);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(800);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

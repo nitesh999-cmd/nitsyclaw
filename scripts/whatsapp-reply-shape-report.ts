@@ -1,5 +1,5 @@
 import { formatWhatsAppHelpReply } from "../apps/bot/src/whatsapp-capabilities.js";
-import { whatsappReplyMetrics } from "../apps/bot/src/whatsapp-reply-format.js";
+import { formatWhatsAppReplyShape, whatsappReplyMetrics } from "../apps/bot/src/whatsapp-reply-format.js";
 import {
   formatFeatureQueueStatusForWhatsApp,
   summarizeFeatureQueueStatus,
@@ -74,10 +74,70 @@ const replies: ReplyBudget[] = [
     maxChars: 950,
   },
   {
+    name: "local status",
+    reply: formatWhatsAppReplyShape({
+      answer: "Local status: ready",
+      state: "State: checked local files, reminders, expenses, and summary tools. No external accounts used.",
+      details: [
+        "Files: agl-bill.txt.",
+        "Reminders: call dentist.",
+        "Expenses: AUD 18.75 this month across 1 item(s).",
+        "Summaries: bill summary, tidy note, next steps, check before send.",
+      ],
+      next: "files | reminders | expense summary | bill summary: <text>",
+    }),
+    maxLines: 10,
+    maxChars: 800,
+  },
+  {
     name: "feature queue",
     reply: featureQueue,
     maxLines: 9,
     maxChars: 900,
+  },
+  {
+    name: "self test",
+    reply: [
+      "NitsyClaw self-test",
+      "",
+      "Router: ready at 2026-05-16 09:00",
+      "Runtime: railway, commit abc1234",
+      "Bot runtime: ok",
+      "WhatsApp client: ok",
+      "WhatsApp send: ok",
+      "Loop guard: ok",
+      "",
+      "If WhatsApp feels stuck, send: resume whatsapp",
+      "For features, send: status",
+    ].join("\n"),
+    maxLines: 14,
+    maxChars: 900,
+  },
+  {
+    name: "proof test",
+    reply: [
+      "WhatsApp proof",
+      "",
+      "Proof: WA-202605160900",
+      "Time: 2026-05-16 09:00",
+      "Version: commit abc1234",
+      "",
+      "Checks:",
+      "- Inbound/routing: passed (this command reached the router)",
+      "- Outbound delivery: passed if you can read this reply",
+      "- Database marker: passed (12345678)",
+      "- Bot runtime: ok",
+      "- WhatsApp client: ok",
+      "- WhatsApp send: ok",
+      "- Loop guard: ok",
+      "",
+      "Database write/read marker passed.",
+      "It does not test Gmail, Drive, bank feeds, phone/SMS sending, or other provider setup.",
+      "",
+      "If this looked slow, duplicated, or wrong, send: what went wrong",
+    ].join("\n"),
+    maxLines: 22,
+    maxChars: 1400,
   },
 ];
 
