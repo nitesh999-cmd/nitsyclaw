@@ -112,6 +112,7 @@ import {
 import { runDailyBuildAgent } from "./build-agent.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { logBotError } from "./safe-log.js";
+import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCommandContractReply,
@@ -259,22 +260,21 @@ export class Router {
     const shipped = summary.recentCompleted[0];
     const providerReadiness = await this.getProviderReadiness();
 
-    await this.sendAndPersist([
-      "NitsyClaw status",
-      `Ready: ${formatReadyCapabilitiesOneLine()}`,
-      "",
-      formatWhatsAppProviderSetupSnapshot(providerReadiness),
-      "",
-      "Queue:",
-      `- Pending: ${summary.pendingCount} item(s).`,
-      localNext ? `- Best local next: ${localNext.shortId}: ${clipForWhatsApp(localNext.description, 90)}` : "- Best local next: none found.",
-      setupNext ? `- Needs setup: ${setupNext.shortId}: ${clipForWhatsApp(setupNext.description, 90)}` : "- Needs setup: none found.",
-      shipped ? `- Shipped: ${shipped.shortId}: ${clipForWhatsApp(shipped.description, 80)}` : "- Shipped: none found.",
-      "",
-      "Safety: drafts first. External sending, calling, deleting, booking, paying, or changing data needs confirmation.",
-      "",
-      "More: local status | feature queue | what went wrong | proof test",
-    ].join("\n"));
+    await this.sendAndPersist(formatWhatsAppReplyShape({
+      answer: "Status: ready",
+      state: "State: WhatsApp and local tools are available; external providers still need setup.",
+      details: [
+        `Ready: ${formatReadyCapabilitiesOneLine()}`,
+        formatWhatsAppProviderSetupSnapshot(providerReadiness),
+        "Queue:",
+        `- Pending: ${summary.pendingCount} item(s).`,
+        localNext ? `- Best local next: ${localNext.shortId}: ${clipForWhatsApp(localNext.description, 90)}` : "- Best local next: none found.",
+        setupNext ? `- Needs setup: ${setupNext.shortId}: ${clipForWhatsApp(setupNext.description, 90)}` : "- Needs setup: none found.",
+        shipped ? `- Shipped: ${shipped.shortId}: ${clipForWhatsApp(shipped.description, 80)}` : "- Shipped: none found.",
+        "Safety: drafts first. External sending, calling, deleting, booking, paying, or changing data needs confirmation.",
+      ],
+      next: "local status | feature queue | what went wrong | proof test",
+    }));
   }
 
   private async formatLocalStatusReply(
@@ -696,20 +696,21 @@ export class Router {
       ? blockedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}`)
       : ["- No recent commands waiting on approval or clarification."];
 
-    return [
-      "WhatsApp incident check",
-      "",
-      "Health:",
-      ...healthLines,
-      "",
-      "Recent failures:",
-      ...failureLines,
-      "",
-      "Waiting on you:",
-      ...blockedLines,
-      "",
-      `Next: ${loopReason || sendError ? "Send self test. If loop guard is active, send resume whatsapp." : "No active failure signal found. If a reply feels wrong, send bug: <what happened>."}`,
-    ].join("\n");
+    return formatWhatsAppReplyShape({
+      answer: loopReason || sendError ? "Incident check: action may be needed" : "Incident check: no active failure signal",
+      state: "State: checked WhatsApp health, recent failures, and commands waiting on you.",
+      details: [
+        "Health:",
+        ...healthLines,
+        "Recent failures:",
+        ...failureLines,
+        "Waiting on you:",
+        ...blockedLines,
+      ],
+      next: loopReason || sendError
+        ? "self test; if loop guard is active, send resume whatsapp"
+        : "bug: <what happened>, if a reply still feels wrong",
+    });
   }
 
   private formatQueuedIntegrationReply(

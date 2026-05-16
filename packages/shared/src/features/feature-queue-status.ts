@@ -104,6 +104,7 @@ export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusS
 
   const lines = [
     `Feature queue: ${summary.pendingCount} pending`,
+    "State: queue checked; setup-heavy items are not live until provider access is connected.",
     summary.recentCompleted.length
       ? `Shipped: ${summary.recentCompleted.slice(0, 2).map(formatInlineItem).join(" | ")}`
       : "Shipped: none found.",
@@ -119,7 +120,7 @@ export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusS
     summary.batches.length
       ? `Batches: ${summary.batches.slice(0, 5).map((batch) => `${batch.label} ${batch.count}`).join(" | ")}`
       : undefined,
-    "More: status | local status | add feature: <idea>",
+    "Next: status | local status | add feature: <idea>",
   ].filter((line): line is string => Boolean(line));
 
   return lines.join("\n");

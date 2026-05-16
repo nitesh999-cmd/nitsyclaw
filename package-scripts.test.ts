@@ -235,6 +235,14 @@ describe("package scripts", () => {
   });
 
   test("WhatsApp release gate is local, deterministic, and non-mutating", () => {
+    expect(rootPackage.scripts?.["whatsapp:reply-shape-report"]).toBe(
+      "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts",
+    );
+
+    const shapeSource = readFileSync("scripts/whatsapp-reply-shape.ps1", "utf8");
+    expect(shapeSource).toContain("whatsapp:reply-shape-report");
+    expect(shapeSource).toContain("whatsapp-reply-format.test.ts");
+
     expect(rootPackage.scripts?.["whatsapp:release-gate"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
     );

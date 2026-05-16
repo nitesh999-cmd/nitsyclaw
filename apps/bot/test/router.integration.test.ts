@@ -355,7 +355,8 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw status");
+    expect(wa.sent[0].body).toContain("Status: ready");
+    expect(wa.sent[0].body).toContain("State:");
     expect(wa.sent[0].body).toContain("Ready:");
     expect(wa.sent[0].body).toContain("Setup snapshot");
     expect(wa.sent[0].body).toContain("Ready/partly ready: Spotify");
@@ -364,6 +365,7 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Needs setup:");
     expect(wa.sent[0].body).toContain("Read and send emails");
     expect(wa.sent[0].body).toContain("Shipped:");
+    expect(wa.sent[0].body).toContain("Next:");
     expect(wa.sent[0].body).not.toContain("Runtime:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
@@ -390,11 +392,13 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw status");
+    expect(wa.sent[0].body).toContain("Status: ready");
+    expect(wa.sent[0].body).toContain("State:");
     expect(wa.sent[0].body).toContain("Pending: 1 item");
     expect(wa.sent[0].body).toContain("Read and send emails");
     expect(wa.sent[0].body).toContain("Needs setup:");
     expect(wa.sent[0].body).toContain("Safety:");
+    expect(wa.sent[0].body).toContain("Next:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
@@ -500,12 +504,14 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("WhatsApp incident check");
+    expect(wa.sent[0].body).toContain("Incident check:");
+    expect(wa.sent[0].body).toContain("State:");
     expect(wa.sent[0].body).toContain("Health");
     expect(wa.sent[0].body).toContain("WhatsApp send: fail");
     expect(wa.sent[0].body).toContain("Loop guard: cooldown");
     expect(wa.sent[0].body).toContain("send message to John");
     expect(wa.sent[0].body).toContain("resume whatsapp");
+    expect(wa.sent[0].body).toContain("Next:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
     expect(wa.sent[0].body).not.toContain("must-not-leak");
@@ -854,7 +860,7 @@ describe("Router (integration)", () => {
       sourceExternalId: "x-replayed-status",
       status: "done",
     });
-    expect(wa.sent.filter((message) => message.body.includes("NitsyClaw status"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(1);
   });
 
   it("retries replayed WhatsApp status after a partial send failure", async () => {
@@ -884,7 +890,7 @@ describe("Router (integration)", () => {
       status: "done",
     });
     expect(wa.sent.some((message) => message.body.includes("Couldn't load the current status"))).toBe(true);
-    expect(wa.sent.filter((message) => message.body.includes("NitsyClaw status"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(1);
   });
 
   it("does not replay a resolved confirmation after router restart", async () => {
