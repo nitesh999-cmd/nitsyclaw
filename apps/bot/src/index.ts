@@ -130,6 +130,21 @@ async function main() {
     status: "ok",
     metadata: runtimeMetadata,
   });
+  const writeLoopGuardHeartbeat = () => {
+    const loopBreaker = whatsapp.status();
+    return upsertSystemHeartbeat(db, {
+      source: "whatsapp-loop-guard",
+      status: loopBreaker.paused ? "paused" : "ok",
+      metadata: loopBreaker.paused
+        ? { reason: loopBreaker.reason, resetAt: loopBreaker.resetAt }
+        : { recentSendCount: loopBreaker.recentSendCount, recentOutboundCount: loopBreaker.recentOutboundCount },
+    });
+  };
+  await writeLoopGuardHeartbeat().catch((e) => logBotError("[boot] loop guard startup heartbeat failed", e));
+  const loopGuardHeartbeatInterval = setInterval(() => {
+    writeLoopGuardHeartbeat().catch((e) => logBotError("[boot] loop guard periodic heartbeat failed", e));
+  }, 60_000);
+  loopGuardHeartbeatInterval.unref?.();
   console.log("[boot] WhatsApp ready");
   qrRecoveryServer?.setHealthProvider(() => {
     const loopBreaker = whatsapp.status();
@@ -161,6 +176,7 @@ async function main() {
     shuttingDown = true;
     console.log(`[boot] shutting down (${signal})`);
     try {
+      clearInterval(loopGuardHeartbeatInterval);
       await monitoredWhatsapp.destroy();
       qrRecoveryServer?.close();
       process.exit(0);
