@@ -65,6 +65,45 @@ export const WHATSAPP_PRACTICAL_EXAMPLES = [
   "what went wrong",
 ] as const;
 
+export const WHATSAPP_MENU_SECTIONS = [
+  {
+    title: "Everyday help",
+    items: [
+      "Ask normal questions and get a short answer",
+      "Voice notes: transcribe, understand, reply in English",
+      "Remember important notes and find recent chat history",
+      "Check a message before you send it",
+    ],
+  },
+  {
+    title: "Life admin",
+    items: [
+      "Reminders and daily status",
+      "Expenses from text, receipt photos, and CSV files",
+      "Bill summaries from pasted text or supported documents",
+      "Call scripts, complaint drafts, shopping lists, and decision notes",
+    ],
+  },
+  {
+    title: "Operator checks",
+    items: [
+      "status: ready, pending, and setup-heavy features",
+      "canary test: live WhatsApp proof",
+      "what went wrong: recent failures and loop guard state",
+      "feature queue: what is waiting to be built",
+    ],
+  },
+  {
+    title: "Needs setup first",
+    items: [
+      "Gmail/Outlook real mailbox actions",
+      "Drive/OneDrive and Google Photos browsing",
+      "Spotify account actions",
+      "Phone/SMS sending, calls, bank feeds, and Facebook birthdays",
+    ],
+  },
+] as const;
+
 export const WHATSAPP_COMMAND_OUTCOMES = [
   "answered: I understood and replied.",
   "saved: I stored the note, reminder, expense, file, or request.",
@@ -77,6 +116,17 @@ export const WHATSAPP_COMMAND_OUTCOMES = [
 
 function bulletList(items: readonly string[]): string[] {
   return items.map((item) => `- ${item}`);
+}
+
+function numberedList(items: readonly string[]): string[] {
+  return items.map((item, index) => `${index + 1}. ${item}`);
+}
+
+function formatMenuSection(section: (typeof WHATSAPP_MENU_SECTIONS)[number]): string[] {
+  return [
+    section.title,
+    ...bulletList(section.items),
+  ];
 }
 
 export function formatReadyCapabilitiesOneLine(): string {
@@ -97,20 +147,15 @@ export function formatWhatsAppHelpReply(
 ): string {
   const setupLines = getWhatsAppSetupCapabilities(providerReadiness).slice(0, 6);
   return [
-    "NitsyClaw can help with this",
+    "NitsyClaw WhatsApp menu",
+    "Plain words are enough. Say what you want done; I will answer, save it, ask a short question, or tell you what setup is missing.",
     "",
-    "Good quick checks:",
-    "- status: ready, pending, and setup-heavy features",
-    "- canary test: proves router, reply, database marker, version, and loop guard",
-    "- self test: live WhatsApp health, deployed commit, and loop guard",
-    "- local status: reminders, expenses, files, and summaries",
-    "- feature queue: what is waiting to be built",
+    ...WHATSAPP_MENU_SECTIONS.flatMap((section) => [...formatMenuSection(section), ""]),
+    "Try these now:",
+    ...numberedList(WHATSAPP_PRACTICAL_EXAMPLES.slice(0, 8)),
     "",
     "Ready to use now:",
     ...bulletList(WHATSAPP_READY_CAPABILITIES.slice(0, 8)),
-    "",
-    "Say this:",
-    ...bulletList(WHATSAPP_PRACTICAL_EXAMPLES),
     "",
     "Needs setup first:",
     ...bulletList(setupLines),

@@ -45,4 +45,6 @@ Run this after local verification and again after any deploy.
 - `pnpm run release:preflight` passed.
 - Rollback path is known before deploy.
 - After deploy, run live smoke tests.
+- After Railway/Vercel finish, run `pnpm run release:post-deploy-proof`.
+- Phone proof: send `proof test`, `I spent $6.50 at Chemist Warehouse for medicine`, and `what can you do`.
 - If live smoke fails, rollback first, investigate second.

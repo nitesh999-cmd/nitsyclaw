@@ -284,9 +284,11 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw can help with this");
+    expect(wa.sent[0].body).toContain("NitsyClaw WhatsApp menu");
+    expect(wa.sent[0].body).toContain("Plain words are enough");
+    expect(wa.sent[0].body).toContain("Everyday help");
     expect(wa.sent[0].body).toContain("Ready to use now");
-    expect(wa.sent[0].body).toContain("Say this");
+    expect(wa.sent[0].body).toContain("Try these now");
     expect(wa.sent[0].body).toContain("Remind me to call Mukesh tomorrow at 10 am");
     expect(wa.sent[0].body).toContain("draft sms to John saying I am running late");
     expect(wa.sent[0].body).toContain("CSV expense import");

@@ -218,6 +218,20 @@ describe("package scripts", () => {
     expect(source).not.toContain("railway:preflight");
   });
 
+  test("post-deploy proof combines Railway, public smoke, and phone prompts", () => {
+    expect(rootPackage.scripts?.["release:post-deploy-proof"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
+    );
+
+    const source = readFileSync("scripts/post-deploy-proof.ps1", "utf8");
+    expect(source).toContain("railway:whatsapp-ready");
+    expect(source).toContain("release:live-smoke");
+    expect(source).toContain("proof test");
+    expect(source).toContain("I spent `$6.50 at Chemist Warehouse for medicine");
+    expect(source).toContain("what can you do");
+    expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
+  });
+
   test("WhatsApp release gate is local, deterministic, and non-mutating", () => {
     expect(rootPackage.scripts?.["whatsapp:release-gate"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
