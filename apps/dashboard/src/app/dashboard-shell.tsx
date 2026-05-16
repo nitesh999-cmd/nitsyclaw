@@ -170,7 +170,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <main className="flex-1 p-4 pb-24 md:p-6 lg:pb-8 xl:p-8">{children}</main>
+      <main className="nc-main">{children}</main>
 
       <nav className="nc-mobile-nav">
         {mobileNavItems.map((item) => {

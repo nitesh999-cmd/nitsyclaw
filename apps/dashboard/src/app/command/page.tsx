@@ -125,7 +125,7 @@ export default async function CommandPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-7">
         {metric("Approvals", data?.pendingConfirmations ?? "-", "/confirmations")}
         {metric("Reminders", data?.pendingReminders ?? "-", "/reminders")}
         {metric("Queue", pendingQueue, "/queue?status=pending")}

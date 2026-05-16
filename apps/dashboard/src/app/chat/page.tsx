@@ -347,18 +347,18 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="nc-page flex h-[calc(100vh-3rem)] max-w-5xl flex-col">
-      <section className="nc-hero mb-4">
+    <div className="nc-page flex min-h-[calc(100svh-11rem)] max-w-5xl flex-col lg:h-[calc(100vh-3rem)]">
+      <section className="nc-hero mb-3 md:mb-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="nc-eyebrow">Home help</div>
-            <h2 className="mt-2 text-3xl font-semibold">Chat with NitsyClaw</h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">
+            <h2 className="mt-2 text-2xl font-semibold md:text-3xl">Chat with NitsyClaw</h2>
+            <p className="mt-2 hidden max-w-2xl text-sm text-slate-400 sm:block">
               Ask for help with messages, bills, calls, travel days, renewals, and the small things that pile up.
             </p>
           </div>
         {voices.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={toggleVoiceOut}
@@ -384,7 +384,7 @@ export default function ChatPage() {
               id="speech-language"
               value={speechLanguage}
               onChange={(e) => pickSpeechLanguage(e.target.value)}
-              className="nc-input min-h-9 w-40 px-2 py-1 text-xs"
+              className="nc-input min-h-9 w-full px-2 py-1 text-xs sm:w-40"
             >
               {SPEECH_LANGUAGES.map((language) => (
                 <option key={language.value} value={language.value}>
@@ -430,7 +430,7 @@ export default function ChatPage() {
         </div>
       ) : null}
 
-      <section aria-labelledby="quick-actions-title" className="mb-4">
+      <section aria-labelledby="quick-actions-title" className="mb-3 md:mb-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 id="quick-actions-title" className="text-sm font-semibold text-slate-200">
@@ -440,15 +440,15 @@ export default function ChatPage() {
               Tap one, add your details, then send.
             </p>
           </div>
-          <span className="nc-pill">10 home helpers</span>
+          <span className="nc-pill hidden sm:inline-flex">10 home helpers</span>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-5">
           {CHAT_QUICK_ACTIONS.map((action) => (
             <button
               key={action.id}
               type="button"
               onClick={() => setInput(action.prompt)}
-              className="rounded-xl border border-slate-700 bg-slate-800/60 p-3 text-left transition hover:border-[#d8b75d]/60 hover:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-[#d8b75d]/30"
+              className="min-w-[13rem] rounded-xl border border-slate-700 bg-slate-800/60 p-3 text-left transition hover:border-[#d8b75d]/60 hover:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-[#d8b75d]/30 sm:min-w-0"
             >
               <span className="block text-sm font-semibold text-slate-100">{action.label}</span>
               <span className="mt-1 block text-xs leading-5 text-slate-400">{action.helper}</span>
@@ -457,7 +457,7 @@ export default function ChatPage() {
         </div>
       </section>
 
-      <div className="mb-4 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-3 pr-2" data-testid="chat-messages">
+      <div className="mb-3 min-h-[13rem] flex-1 space-y-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-3 pr-2 md:mb-4" data-testid="chat-messages">
         {loadingHistory && (
           <p className="text-sm text-slate-500">Loading conversation history...</p>
         )}
@@ -510,7 +510,7 @@ export default function ChatPage() {
 
       <form
         onSubmit={(e) => { e.preventDefault(); send(); }}
-        className="flex gap-2 border-t border-slate-800 pt-4"
+        className="flex gap-2 border-t border-slate-800 pt-3 md:pt-4"
       >
         {voiceSupported && (
           <button

@@ -5,6 +5,50 @@ import { test, expect } from "@playwright/test";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
+async function visibleInteractiveCenterMismatches(page: import("@playwright/test").Page) {
+  return page.evaluate(() => {
+    function describe(el: Element) {
+      const rect = el.getBoundingClientRect();
+      return {
+        tag: el.tagName.toLowerCase(),
+        text: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+        href: el.getAttribute("href"),
+        type: el.getAttribute("type"),
+        rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
+      };
+    }
+
+    const mobileNavTop = document.querySelector(".nc-mobile-nav")?.getBoundingClientRect().top ?? innerHeight;
+
+    return Array.from(document.querySelectorAll("a,button,input,select,textarea"))
+      .filter((el) => !el.closest(".nc-mobile-nav"))
+      .map((el, index) => {
+        const rect = el.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const centerInViewport = x >= 0 && x <= innerWidth && y >= 0 && y <= Math.min(innerHeight, mobileNavTop);
+        const visible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.right > 0 &&
+          rect.left < innerWidth &&
+          rect.bottom > 0 &&
+          rect.top < innerHeight &&
+          centerInViewport;
+        const top = visible ? document.elementFromPoint(x, y) : null;
+        const interactiveTop = top ? top.closest("a,button,input,select,textarea") : null;
+        return {
+          index,
+          current: describe(el),
+          visible,
+          centerTop: interactiveTop ? describe(interactiveTop) : null,
+          selfAtCenter: interactiveTop === el,
+        };
+      })
+      .filter((item) => item.visible && !item.selfAtCenter);
+  });
+}
+
 test.describe("dashboard routes render", () => {
   test("Login page has polished owner-gated entry", async ({ page }) => {
     await page.goto("/login");
@@ -109,6 +153,19 @@ test.describe("dashboard routes render", () => {
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
+  });
+
+  test("mobile visible controls are not covered by the bottom navigation", async ({ context }) => {
+    test.setTimeout(60_000);
+
+    for (const route of ["/", "/chat"]) {
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      const mismatches = await visibleInteractiveCenterMismatches(page);
+      expect(mismatches, `${route} has covered or misaligned tap targets`).toEqual([]);
+      await page.close();
+    }
   });
 
   test("blocks cross-origin destructive API posts", async ({ request }) => {
