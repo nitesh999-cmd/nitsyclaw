@@ -26,17 +26,17 @@ describe("WhatsApp capability registry", () => {
 
     expect(formatReadyCapabilitiesOneLine()).toContain("SMS drafts");
     expect(help).toContain("NitsyClaw WhatsApp menu");
-    expect(help).toContain("Plain words are enough");
-    expect(help).toContain("Everyday help");
-    expect(help).toContain("Life admin");
-    expect(help).toContain("Operator checks");
-    expect(help).toContain("Try these now");
-    expect(help).toContain("Ready to use now");
+    expect(help).toContain("Say it normally");
+    expect(help).toContain("Best things to try");
+    expect(help).toContain("What works now");
+    expect(help).toContain("replies stay in English");
+    expect(help).toContain("Setup snapshot");
     expect(help).toContain("Remind me to call Mukesh tomorrow at 10 am");
     expect(help).toContain("Needs setup first");
-    expect(help).toContain("canary test");
-    expect(help).toContain("self test");
+    expect(help).toContain("For exact provider details, send: status");
+    expect(help).toContain("proof test");
     expect(help).toContain("local status");
+    expect(help).not.toContain("Runtime:");
     expect(matrix).toContain("What I can do from WhatsApp");
     expect(matrix).toContain("if something is not ready");
     expect(matrix).toContain("Gmail and Outlook");

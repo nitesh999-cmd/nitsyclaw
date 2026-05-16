@@ -285,18 +285,19 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("NitsyClaw WhatsApp menu");
-    expect(wa.sent[0].body).toContain("Plain words are enough");
-    expect(wa.sent[0].body).toContain("Everyday help");
-    expect(wa.sent[0].body).toContain("Ready to use now");
-    expect(wa.sent[0].body).toContain("Try these now");
+    expect(wa.sent[0].body).toContain("Say it normally");
+    expect(wa.sent[0].body).toContain("What works now");
+    expect(wa.sent[0].body).toContain("Best things to try");
     expect(wa.sent[0].body).toContain("Remind me to call Mukesh tomorrow at 10 am");
     expect(wa.sent[0].body).toContain("draft sms to John saying I am running late");
-    expect(wa.sent[0].body).toContain("CSV expense import");
+    expect(wa.sent[0].body).toContain("receipt photos, or CSV files");
     expect(wa.sent[0].body).toContain("Needs setup first");
-    expect(wa.sent[0].body).toContain("canary test");
-    expect(wa.sent[0].body).toContain("self test");
+    expect(wa.sent[0].body).toContain("Setup snapshot");
+    expect(wa.sent[0].body).toContain("For exact provider details, send: status");
+    expect(wa.sent[0].body).toContain("proof test");
     expect(wa.sent[0].body).toContain("Safety rules");
-    expect(wa.sent[0].body).toContain("SMS drafts only");
+    expect(wa.sent[0].body).toContain("I draft before risky actions");
+    expect(wa.sent[0].body).not.toContain("Runtime:");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

@@ -96,10 +96,8 @@ export const WHATSAPP_MENU_SECTIONS = [
   {
     title: "Needs setup first",
     items: [
-      "Gmail/Outlook real mailbox actions",
-      "Drive/OneDrive and Google Photos browsing",
-      "Spotify account actions",
-      "Phone/SMS sending, calls, bank feeds, and Facebook birthdays",
+      "Email, cloud files, photos, Spotify, bank feeds, calls, and real SMS need account/provider setup",
+      "Send status for the exact connected/missing list",
     ],
   },
 ] as const;
@@ -122,6 +120,13 @@ function numberedList(items: readonly string[]): string[] {
   return items.map((item, index) => `${index + 1}. ${item}`);
 }
 
+function compactList(items: readonly string[], limit = 5): string {
+  if (!items.length) return "none";
+  const visible = items.slice(0, limit).join(", ");
+  const remaining = items.length - limit;
+  return remaining > 0 ? `${visible}, +${remaining} more` : visible;
+}
+
 function formatMenuSection(section: (typeof WHATSAPP_MENU_SECTIONS)[number]): string[] {
   return [
     section.title,
@@ -142,29 +147,58 @@ export function formatWhatsAppProviderReadinessBlock(
   ].join("\n");
 }
 
+export function formatWhatsAppProviderSetupSnapshot(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
+  const items = PROVIDER_STATUS_ORDER.map((key) => providerReadiness[key]).filter(Boolean);
+  const usable = items
+    .filter((item) => item.status === "ready" || item.status === "partial")
+    .map((item) => item.label);
+  const needsSetup = items
+    .filter((item) => item.status === "needs_setup" || item.status === "needs_account" || item.status === "needs_adapter")
+    .map((item) => item.label);
+  const approvalOnly = items
+    .filter((item) => item.status === "approval_required")
+    .map((item) => item.label);
+
+  return [
+    "Setup snapshot:",
+    `- Ready/partly ready: ${compactList(usable)}`,
+    `- Needs setup/account/adapter: ${compactList(needsSetup)}`,
+    `- Draft/approval-only: ${compactList(approvalOnly)}`,
+    "- For exact provider details, send: status",
+  ].join("\n");
+}
+
 export function formatWhatsAppHelpReply(
   providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
 ): string {
-  const setupLines = getWhatsAppSetupCapabilities(providerReadiness).slice(0, 6);
   return [
     "NitsyClaw WhatsApp menu",
-    "Plain words are enough. Say what you want done; I will answer, save it, ask a short question, or tell you what setup is missing.",
+    "Say it normally. I will answer, save it, draft it, remind you, log it, or tell you what setup is missing.",
     "",
-    ...WHATSAPP_MENU_SECTIONS.flatMap((section) => [...formatMenuSection(section), ""]),
-    "Try these now:",
+    "Best things to try:",
     ...numberedList(WHATSAPP_PRACTICAL_EXAMPLES.slice(0, 8)),
     "",
-    "Ready to use now:",
-    ...bulletList(WHATSAPP_READY_CAPABILITIES.slice(0, 8)),
+    "What works now:",
+    "- Ask questions or send voice notes; replies stay in English.",
+    "- Save reminders, notes, and things to remember.",
+    "- Log expenses in AUD from text, receipt photos, or CSV files.",
+    "- Summarise pasted bills, text documents, and selectable PDFs.",
+    "- Draft SMS, replies, complaints, call scripts, lists, and plans.",
     "",
     "Needs setup first:",
-    ...bulletList(setupLines),
+    "- Real Gmail/Outlook, Drive/OneDrive, Google Photos, Spotify, bank feeds, calls, and SMS sending.",
+    "- I can queue these requests now, but I will not pretend they are connected.",
+    "",
+    formatWhatsAppProviderSetupSnapshot(providerReadiness),
     "",
     "Safety rules:",
-    ...bulletList(WHATSAPP_SAFETY_LIMITS),
+    "- I draft before risky actions.",
+    "- Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
     "",
-    "System checks:",
-    ...bulletList(WHATSAPP_TRY_COMMANDS),
+    "Useful checks:",
+    ...bulletList(["status", "proof test", "what went wrong", "feature queue", "local status"]),
   ].join("\n");
 }
 
