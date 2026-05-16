@@ -127,13 +127,6 @@ function compactList(items: readonly string[], limit = 5): string {
   return remaining > 0 ? `${visible}, +${remaining} more` : visible;
 }
 
-function formatMenuSection(section: (typeof WHATSAPP_MENU_SECTIONS)[number]): string[] {
-  return [
-    section.title,
-    ...bulletList(section.items),
-  ];
-}
-
 export function formatReadyCapabilitiesOneLine(): string {
   return "Voice notes, normal questions, reminders, memory and recent-chat search, documents, bills, expenses, SMS drafts, message checks, call scripts, lists, and feature queue status.";
 }
@@ -173,32 +166,26 @@ export function formatWhatsAppProviderSetupSnapshot(
 export function formatWhatsAppHelpReply(
   providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
 ): string {
+  const needsSetup = PROVIDER_STATUS_ORDER
+    .map((key) => providerReadiness[key])
+    .filter((item) => item.status === "needs_setup" || item.status === "needs_account" || item.status === "needs_adapter")
+    .map((item) => item.label);
+
   return [
-    "NitsyClaw WhatsApp menu",
-    "Say it normally. I will answer, save it, draft it, remind you, log it, or tell you what setup is missing.",
+    "NitsyClaw menu",
+    "Say it normally. I can answer, remind, remember, log expenses, summarise bills, and draft messages.",
     "",
-    "Best things to try:",
-    ...numberedList(WHATSAPP_PRACTICAL_EXAMPLES.slice(0, 8)),
+    "Try:",
+    ...numberedList(WHATSAPP_PRACTICAL_EXAMPLES.slice(0, 5)),
     "",
-    "What works now:",
-    "- Ask questions or send voice notes; replies stay in English.",
-    "- Save reminders, notes, and things to remember.",
-    "- Log expenses in AUD from text, receipt photos, or CSV files.",
-    "- Summarise pasted bills, text documents, and selectable PDFs.",
-    "- Draft SMS, replies, complaints, call scripts, lists, and plans.",
+    "Works now: questions/voice, reminders, memory, AUD expenses, bill/document summaries, SMS/reply/call-script drafts.",
     "",
-    "Needs setup first:",
-    "- Real Gmail/Outlook, Drive/OneDrive, Google Photos, Spotify, bank feeds, calls, and SMS sending.",
-    "- I can queue these requests now, but I will not pretend they are connected.",
+    `Needs setup: ${compactList(needsSetup, 6)}.`,
+    "I can queue setup requests, but I will not pretend they are connected.",
     "",
-    formatWhatsAppProviderSetupSnapshot(providerReadiness),
+    "Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
     "",
-    "Safety rules:",
-    "- I draft before risky actions.",
-    "- Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
-    "",
-    "Useful checks:",
-    ...bulletList(["status", "proof test", "what went wrong", "feature queue", "local status"]),
+    "More: status | proof test | what went wrong | feature queue | local status",
   ].join("\n");
 }
 

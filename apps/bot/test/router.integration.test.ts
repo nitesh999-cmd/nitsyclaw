@@ -284,20 +284,19 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw WhatsApp menu");
+    expect(wa.sent[0].body).toContain("NitsyClaw menu");
     expect(wa.sent[0].body).toContain("Say it normally");
-    expect(wa.sent[0].body).toContain("What works now");
-    expect(wa.sent[0].body).toContain("Best things to try");
+    expect(wa.sent[0].body).toContain("Works now:");
+    expect(wa.sent[0].body).toContain("Try:");
     expect(wa.sent[0].body).toContain("Remind me to call Mukesh tomorrow at 10 am");
-    expect(wa.sent[0].body).toContain("draft sms to John saying I am running late");
-    expect(wa.sent[0].body).toContain("receipt photos, or CSV files");
-    expect(wa.sent[0].body).toContain("Needs setup first");
-    expect(wa.sent[0].body).toContain("Setup snapshot");
-    expect(wa.sent[0].body).toContain("For exact provider details, send: status");
+    expect(wa.sent[0].body).toContain("Needs setup:");
+    expect(wa.sent[0].body).toContain("I can queue setup requests");
     expect(wa.sent[0].body).toContain("proof test");
-    expect(wa.sent[0].body).toContain("Safety rules");
-    expect(wa.sent[0].body).toContain("I draft before risky actions");
+    expect(wa.sent[0].body).toContain("Safety:");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(950);
     expect(wa.sent[0].body).not.toContain("Runtime:");
+    expect(wa.sent[0].body).not.toContain("Setup snapshot:");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
