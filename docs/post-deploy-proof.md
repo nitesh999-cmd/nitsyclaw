@@ -30,8 +30,8 @@ Send these in WhatsApp self-chat:
    - Expected: expense logged in `AUD`
 
 3. `what can you do`
-   - Expected: `NitsyClaw WhatsApp menu`
-   - Expected sections: `Best things to try`, `What works now`, `Setup snapshot`, `Useful checks`
+   - Expected: compact `NitsyClaw menu`
+   - Expected sections: `Try`, `Works now`, `Needs setup`, `Safety`, `More`
 
 If any phone proof fails, capture the exact WhatsApp message, screenshot, and time, then run:
 
