@@ -286,6 +286,9 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("NitsyClaw can help with this");
     expect(wa.sent[0].body).toContain("Ready to use now");
+    expect(wa.sent[0].body).toContain("Say this");
+    expect(wa.sent[0].body).toContain("Remind me to call Mukesh tomorrow at 10 am");
+    expect(wa.sent[0].body).toContain("draft sms to John saying I am running late");
     expect(wa.sent[0].body).toContain("CSV expense import");
     expect(wa.sent[0].body).toContain("Needs setup first");
     expect(wa.sent[0].body).toContain("canary test");
@@ -512,9 +515,11 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("Canary reply received");
     expect(wa.sent[0].body).toContain("Proof: WA-202604250800");
+    expect(wa.sent[0].body).toContain("Database marker: passed");
+    expect(wa.sent[0].body).toContain("database write/read marker also passed");
     expect(wa.sent[0].body).toContain("outbound reply reached this chat");
-    expect(wa.sent[0].body).toContain("does not prove database storage");
     expect(wa.sent[0].body).toContain("It does not test Gmail");
+    expect(getFakeDbState(deps.db).messages.some((message) => message.metadata?.kind === "whatsapp-canary")).toBe(true);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

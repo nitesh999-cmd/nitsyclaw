@@ -28,6 +28,8 @@ describe("WhatsApp capability registry", () => {
     expect(help).toContain("NitsyClaw can help with this");
     expect(help).toContain("Good quick checks");
     expect(help).toContain("Ready to use now");
+    expect(help).toContain("Say this");
+    expect(help).toContain("Remind me to call Mukesh tomorrow at 10 am");
     expect(help).toContain("Needs setup first");
     expect(help).toContain("canary test");
     expect(help).toContain("self test");

@@ -601,18 +601,48 @@ export class Router {
     ].join("\n");
   }
 
-  private formatWhatsAppCanaryReply(): string {
+  private async recordCanaryPersistence(proof: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+    try {
+      const row = await insertMessage(this.deps.db, {
+        direction: "out",
+        surface: "whatsapp",
+        fromNumber: hashPhone(this.ownerPhone),
+        body: encryptForStorage(`[canary:${proof}]`),
+        metadata: { kind: "whatsapp-canary", proof },
+      });
+      const recent = await recentMessages(this.deps.db, hashPhone(this.ownerPhone), 25);
+      return {
+        ok: recent.some((message) => message.id === row.id),
+        id: row.id,
+      };
+    } catch (error) {
+      logBotError("[router] canary persistence check failed", error);
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "unknown persistence error",
+      };
+    }
+  }
+
+  private async formatWhatsAppCanaryReply(): Promise<string> {
     const now = this.deps.now();
     const proof = `WA-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 12)}`;
+    const persistence = await this.recordCanaryPersistence(proof);
+    const persistenceLine = persistence.ok
+      ? `Database marker: passed (${persistence.id?.slice(0, 8) ?? "recorded"})`
+      : `Database marker: failed (${clipForWhatsApp(persistence.error ?? "not found after write", 120)})`;
 
     return [
       "Canary reply received.",
       "",
       `Proof: ${proof}`,
       `Time: ${now.toISOString().slice(0, 16).replace("T", " ")}`,
+      persistenceLine,
       "",
-      "This proves WhatsApp inbound, routing, and outbound reply reached this chat.",
-      "Message persistence was attempted, but this canary does not prove database storage.",
+      "If you can read this, WhatsApp inbound, routing, and outbound reply reached this chat.",
+      persistence.ok
+        ? "The database write/read marker also passed."
+        : "The reply path worked, but database persistence needs investigation.",
       "It does not test Gmail, Drive, bank feeds, phone/SMS sending, or other provider setup.",
       "",
       "If this looked slow, duplicated, or wrong, send: what went wrong",
@@ -1424,7 +1454,7 @@ export class Router {
 
     const canary = parseWhatsAppCanaryShortcut(effectiveText);
     if (canary) {
-      const reply = this.formatWhatsAppCanaryReply();
+      const reply = await this.formatWhatsAppCanaryReply();
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;

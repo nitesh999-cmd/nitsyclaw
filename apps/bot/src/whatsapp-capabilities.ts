@@ -52,6 +52,19 @@ export const WHATSAPP_TRY_COMMANDS = [
   ...formatCapabilityExamples(8),
 ] as const;
 
+export const WHATSAPP_PRACTICAL_EXAMPLES = [
+  "Remind me to call Mukesh tomorrow at 10 am",
+  "I spent $18.40 at Chemist Warehouse for medicine",
+  "expense summary",
+  "bill summary: AGL bill $240 due 18 May",
+  "check before send: I am angry about this bill",
+  "call script: energy retailer | ask for a better rate",
+  "draft sms to John saying I am running late",
+  "remember my passport is in the top drawer",
+  "read my last message",
+  "what went wrong",
+] as const;
+
 export const WHATSAPP_COMMAND_OUTCOMES = [
   "answered: I understood and replied.",
   "saved: I stored the note, reminder, expense, file, or request.",
@@ -96,13 +109,16 @@ export function formatWhatsAppHelpReply(
     "Ready to use now:",
     ...bulletList(WHATSAPP_READY_CAPABILITIES.slice(0, 8)),
     "",
+    "Say this:",
+    ...bulletList(WHATSAPP_PRACTICAL_EXAMPLES),
+    "",
     "Needs setup first:",
     ...bulletList(setupLines),
     "",
     "Safety rules:",
     ...bulletList(WHATSAPP_SAFETY_LIMITS),
     "",
-    "Try these:",
+    "System checks:",
     ...bulletList(WHATSAPP_TRY_COMMANDS),
   ].join("\n");
 }
