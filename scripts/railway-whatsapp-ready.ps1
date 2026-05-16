@@ -85,12 +85,24 @@ if ([string]$health.Content -ne "ok") {
 $logs = Invoke-CheckedCommand -Label "Railway deployment logs" -Command @(
     "pnpm", "dlx", "@railway/cli", "logs", $deploymentId,
     "--deployment",
-    "--lines", "180",
-    "--json",
+    "--lines", "500",
     "--project", $ProjectId,
     "--environment", $Environment,
     "--service", $Service
 )
+
+if ($logs -notmatch "\[boot\] NitsyClaw bot starting" -or $logs -notmatch "\[wwebjs\] client ready") {
+    $logsJson = Invoke-CheckedCommand -Label "Railway deployment JSON logs" -Command @(
+        "pnpm", "dlx", "@railway/cli", "logs", $deploymentId,
+        "--deployment",
+        "--lines", "500",
+        "--json",
+        "--project", $ProjectId,
+        "--environment", $Environment,
+        "--service", $Service
+    )
+    $logs = "$logs`n$logsJson"
+}
 
 if ($logs -notmatch "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($ExpectedCommit))") {
     throw "Railway logs for $deploymentId do not show the expected boot commit $ExpectedCommit."
