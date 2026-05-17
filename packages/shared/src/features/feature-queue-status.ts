@@ -105,20 +105,17 @@ export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusS
   const lines = [
     `Feature queue: ${summary.pendingCount} pending`,
     "State: queue checked; setup-heavy items are not live until provider access is connected.",
-    summary.recentCompleted.length
-      ? `Shipped: ${summary.recentCompleted.slice(0, 2).map(formatInlineItem).join(" | ")}`
-      : "Shipped: none found.",
     summary.recommendedNext
       ? `Best next: ${formatInlineItem(summary.recommendedNext)}`
       : undefined,
-    summary.quickWins.length
-      ? `Quick wins: ${summary.quickWins.slice(0, 2).map(formatInlineItem).join(" | ")}`
+    summary.quickWins.length > 1
+      ? `Other quick wins: ${summary.quickWins.slice(1, 3).map(formatInlineItem).join(" | ")}`
       : undefined,
     summary.setupHeavy.length
-      ? `Needs setup: ${summary.setupHeavy.slice(0, 3).map(formatInlineItem).join(" | ")}`
+      ? `Needs setup: ${summary.setupHeavy.length} item(s) across ${summarizeSetupCategories(summary.setupHeavy)}.`
       : undefined,
     summary.batches.length
-      ? `Batches: ${summary.batches.slice(0, 5).map((batch) => `${batch.label} ${batch.count}`).join(" | ")}`
+      ? `Batches: ${summary.batches.slice(0, 4).map((batch) => `${batch.label} ${batch.count}`).join(" | ")}`
       : undefined,
     "Next: status | local status | add feature: <idea>",
   ].filter((line): line is string => Boolean(line));
@@ -197,10 +194,18 @@ function formatCompactItem(item: FeatureQueueItem): string {
 
 function formatInlineItem(item: FeatureQueueItem): string {
   const risk = item.type === "bug" ? `bug ${item.severity ?? "P2"}` : item.size;
-  return `${item.shortId} ${risk}: ${truncate(item.description, 72)}`;
+  return `${item.shortId} ${risk}: ${truncate(item.description, 58)}`;
 }
 
 function truncate(text: string, max: number): string {
   const clean = text.replace(/\s+/g, " ").trim();
   return clean.length > max ? `${clean.slice(0, max - 3)}...` : clean;
+}
+
+function summarizeSetupCategories(items: FeatureQueueItem[]): string {
+  const categories = [...new Set(items.map((item) => item.category))]
+    .slice(0, 4)
+    .map(getCategoryLabel);
+  const extra = new Set(items.map((item) => item.category)).size - categories.length;
+  return extra > 0 ? `${categories.join(", ")}, +${extra} more` : categories.join(", ");
 }

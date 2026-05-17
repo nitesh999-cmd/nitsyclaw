@@ -67,12 +67,11 @@ describe("feature queue status summary", () => {
     const reply = formatFeatureQueueStatusForWhatsApp(summary);
     expect(reply).toContain("Feature queue: 3 pending");
     expect(reply).toContain("State:");
-    expect(reply).toContain("Shipped:");
     expect(reply).toContain("Best next:");
     expect(reply).toContain("Needs setup:");
     expect(reply).toContain("Next:");
-    expect(reply.split("\n").length).toBeLessThanOrEqual(9);
-    expect(reply.length).toBeLessThanOrEqual(900);
+    expect(reply.split("\n").length).toBeLessThanOrEqual(8);
+    expect(reply.length).toBeLessThanOrEqual(780);
     expect(reply).not.toContain("Claude Code");
     expect(reply).not.toContain("*nwp");
   });

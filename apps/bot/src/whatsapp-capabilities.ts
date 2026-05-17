@@ -173,10 +173,15 @@ export function formatWhatsAppHelpReply(
 
   return [
     "NitsyClaw menu",
-    "Say it normally. I can answer, remind, remember, log expenses, summarise bills, and draft messages.",
+    "Say what you need. I will answer, save, remind, log, summarise, or draft.",
     "",
-    "Try: remind me to call Mukesh tomorrow at 10 am | I spent $18.40 at Chemist Warehouse | bill summary: AGL bill $240 due 18 May",
-    "Works now: questions/voice, reminders, memory, AUD expenses, bills/docs, drafts, call scripts.",
+    "Try:",
+    "1. Remind me to call Mukesh tomorrow at 10 am",
+    "2. I spent $18.40 at Chemist Warehouse",
+    "3. Bill summary: AGL bill $240 due 18 May",
+    "4. Check before send: I am angry about this bill",
+    "5. Call script: ask my energy retailer for a better rate",
+    "Works now: voice, reminders, memory, AUD expenses, bill/doc summaries, drafts, call scripts.",
     `Needs setup: ${compactList(needsSetup, 5)}.`,
     "Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
     "More: status | proof test | what went wrong | feature queue | local status",

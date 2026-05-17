@@ -27,6 +27,7 @@
     "whatsapp:receipt-guard": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-receipt-guard.ps1",
     "whatsapp:reply-shape": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-shape.ps1",
     "whatsapp:reply-shape-report": "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts",
+    "whatsapp:reply-snapshots": "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts --write-snapshots",
     "whatsapp:release-gate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
     "whatsapp:prod-smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-production-smoke.ps1",
     "railway:whatsapp-ready": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1",
