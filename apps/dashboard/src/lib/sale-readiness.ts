@@ -1,3 +1,5 @@
+import { evaluateTenantBoundaries } from "@nitsyclaw/shared/tenancy";
+
 export interface SaleReadinessResult {
   ready: boolean;
   mode: "private-owner" | "public-sale";
@@ -7,6 +9,7 @@ export interface SaleReadinessResult {
   blockers: string[];
   verified: string[];
   nextActions: string[];
+  tenantBoundaryBlockers: string[];
 }
 
 interface SaleReadinessEnv {
@@ -27,6 +30,7 @@ export function evaluateSaleReadiness(
   env: SaleReadinessEnv = process.env as unknown as SaleReadinessEnv,
 ): SaleReadinessResult {
   const mode = env.NITSYCLAW_PUBLIC_SALE_MODE === "1" ? "public-sale" : "private-owner";
+  const tenantBoundaries = evaluateTenantBoundaries(env);
 
   const privateUseChecks = [
     {
@@ -88,29 +92,24 @@ export function evaluateSaleReadiness(
     },
   ];
 
-  const codeBlockers = [
-    "code-level tenant isolation is not implemented",
-    "session-bound user identity is not implemented",
-  ];
-
   const privateUseBlockers = privateUseChecks.filter((check) => !check.ok).map((check) => check.blocker);
   const blockers = [
     ...publicSaleChecks.filter((check) => !check.ok).map((check) => check.blocker),
-    ...codeBlockers,
+    ...tenantBoundaries.blockers.filter((blocker) => !publicSaleChecks.some((check) => check.blocker === blocker)),
   ];
   const verified = [
     ...privateUseChecks.filter((check) => check.ok).map((check) => check.label),
     ...publicSaleChecks.filter((check) => check.ok).map((check) => check.label),
+    ...tenantBoundaries.verified,
   ];
   const nextActions = [
     ...privateUseChecks.filter((check) => !check.ok).map((check) => check.action),
     ...publicSaleChecks.filter((check) => !check.ok).map((check) => check.action),
-    "Build code-level tenant isolation before enabling public sale mode.",
-    "Build session-bound user identity before onboarding paying customers.",
+    ...tenantBoundaries.nextActions,
   ];
 
   return {
-    ready: mode === "public-sale" && blockers.length === 0,
+    ready: mode === "public-sale" && blockers.length === 0 && tenantBoundaries.safeForPublicSale,
     mode,
     privateUseScore: score(privateUseChecks),
     publicSaleScore: Math.min(score(publicSaleChecks), 5),
@@ -118,6 +117,7 @@ export function evaluateSaleReadiness(
     blockers,
     verified,
     nextActions,
+    tenantBoundaryBlockers: tenantBoundaries.blockers,
   };
 }
 

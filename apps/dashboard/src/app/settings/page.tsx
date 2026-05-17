@@ -193,9 +193,13 @@ function plainReadinessItem(item: string): string {
     "tenant isolation is not verified": "Keep each customer's data separate",
     "provider-side delete/revoke is not verified": "Let customers disconnect and delete connected services",
     "legal/privacy copy is not verified": "Finish reviewed privacy, terms, and support pages",
-    "code-level tenant isolation is not implemented": "Enforce customer data separation in code",
-    "session-bound user identity is not implemented": "Tie every request to the logged-in customer",
   };
+  if (item.startsWith("tenant-scoped storage is missing")) {
+    return item.replace("tenant-scoped storage is missing for", "Add customer separation to");
+  }
+  if (item.startsWith("tenant review is still needed")) {
+    return item.replace("tenant review is still needed for", "Review customer separation for");
+  }
   return map[item] ?? item;
 }
 
