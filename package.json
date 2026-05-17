@@ -18,6 +18,7 @@
     "release:live-smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live-smoke.ps1",
     "release:post-deploy-proof": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
     "ci:whatsapp-replies": "pnpm run whatsapp:reply-shape",
+    "ci:whatsapp-snapshots": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-snapshots-check.ps1",
     "railway:login": "pnpm dlx @railway/cli login --browserless",
     "railway:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
     "railway:diagnose": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",

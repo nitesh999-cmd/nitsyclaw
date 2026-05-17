@@ -22,6 +22,9 @@ jobs:
       - name: WhatsApp reply shape budget
         shell: pwsh
         run: pnpm ci:whatsapp-replies
+      - name: WhatsApp reply snapshot drift
+        shell: pwsh
+        run: pnpm ci:whatsapp-snapshots
       - name: WhatsApp release gate
         shell: pwsh
         run: ./scripts/whatsapp-release-gate.ps1

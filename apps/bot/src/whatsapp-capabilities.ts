@@ -116,10 +116,6 @@ function bulletList(items: readonly string[]): string[] {
   return items.map((item) => `- ${item}`);
 }
 
-function numberedList(items: readonly string[]): string[] {
-  return items.map((item, index) => `${index + 1}. ${item}`);
-}
-
 function compactList(items: readonly string[], limit = 5): string {
   if (!items.length) return "none";
   const visible = items.slice(0, limit).join(", ");

@@ -20,13 +20,56 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 Write-Host "== Phone proof prompts =="
 Write-Host "Send these in WhatsApp self-chat:"
-Write-Host "1. proof test"
-Write-Host "   Expected: short WhatsApp proof with current commit, DB marker, send/client state, and Loop guard."
-Write-Host "2. proof details"
-Write-Host "   Expected: full diagnostic proof with inbound/routing, outbound delivery, DB marker, runtime, send, and loop guard lines."
-Write-Host "3. I spent `$6.50 at Chemist Warehouse for medicine"
-Write-Host "   Expected: expense logged in AUD, not USD."
-Write-Host "4. what can you do"
-Write-Host "   Expected: compact NitsyClaw menu with Try, Works now, Needs setup, Safety, and More."
+$phoneProofPrompts = @(
+    @{
+        Prompt = "proof test"
+        Expected = "Short WhatsApp proof with current commit, DB marker, send/client state, and Loop guard."
+    },
+    @{
+        Prompt = "proof details"
+        Expected = "Full diagnostic proof with inbound/routing, outbound delivery, DB marker, runtime, send, and loop guard lines."
+    },
+    @{
+        Prompt = "I spent `$6.50 at Chemist Warehouse for medicine"
+        Expected = "Expense logged in AUD, not USD."
+    },
+    @{
+        Prompt = "what can you do"
+        Expected = "Compact NitsyClaw menu with Try, Works now, Needs setup, Safety, and More."
+    }
+)
+
+for ($i = 0; $i -lt $phoneProofPrompts.Count; $i++) {
+    $number = $i + 1
+    Write-Host "$number. $($phoneProofPrompts[$i].Prompt)"
+    Write-Host "   Expected: $($phoneProofPrompts[$i].Expected)"
+}
+
+$phoneProofDir = ".nitsyclaw-local/phone-proof-checklists"
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$phoneProofPath = Join-Path $phoneProofDir "phone-proof-$timestamp.md"
+New-Item -ItemType Directory -Force -Path $phoneProofDir | Out-Null
+
+$phoneProofLines = @(
+    "# NitsyClaw Phone Proof Checklist",
+    "",
+    "Created: $(Get-Date -Format o)",
+    "",
+    "Server-side gates passed before this checklist was written.",
+    "",
+    "Send these in WhatsApp self-chat and record the result:",
+    ""
+)
+
+for ($i = 0; $i -lt $phoneProofPrompts.Count; $i++) {
+    $number = $i + 1
+    $phoneProofLines += "$number. [ ] `$($phoneProofPrompts[$i].Prompt)`"
+    $phoneProofLines += "   - Expected: $($phoneProofPrompts[$i].Expected)"
+    $phoneProofLines += "   - Actual:"
+    $phoneProofLines += ""
+}
+
+$phoneProofLines | Set-Content -Path $phoneProofPath -Encoding UTF8
 Write-Host ""
+Write-Host "Phone proof checklist written to $phoneProofPath"
 Write-Host "Post-deploy proof passed for server-side gates. Phone proof still requires the four WhatsApp messages above."
