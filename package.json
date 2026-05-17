@@ -17,6 +17,8 @@
     "release:vercel-build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
     "release:live-smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live-smoke.ps1",
     "release:post-deploy-proof": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
+    "release:wait-railway": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-wait-for-commit.ps1",
+    "ci:powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
     "ci:whatsapp-replies": "pnpm run whatsapp:reply-shape",
     "ci:whatsapp-snapshots": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-snapshots-check.ps1",
     "railway:login": "pnpm dlx @railway/cli login --browserless",
