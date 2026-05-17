@@ -59,6 +59,10 @@ export interface DailyStatusShortcut {
   kind: "daily-status";
 }
 
+export interface NightlyHealthShortcut {
+  kind: "nightly-health";
+}
+
 export type LocalStatusShortcutKind = "all" | "files" | "reminders" | "expenses" | "summaries";
 
 export interface LocalStatusShortcut {
@@ -475,6 +479,19 @@ export function parseDailyStatusShortcut(text: string): DailyStatusShortcut | nu
     trimmed === "what's my day"
   ) {
     return { kind: "daily-status" };
+  }
+  return null;
+}
+
+export function parseNightlyHealthShortcut(text: string): NightlyHealthShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "nightly health now" ||
+    trimmed === "whatsapp health now" ||
+    trimmed === "health report now" ||
+    trimmed === "send health report now"
+  ) {
+    return { kind: "nightly-health" };
   }
   return null;
 }

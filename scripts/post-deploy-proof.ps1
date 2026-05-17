@@ -75,3 +75,8 @@ $phoneProofLines | Set-Content -Path $phoneProofPath -Encoding UTF8
 Write-Host ""
 Write-Host "Phone proof checklist written to $phoneProofPath"
 Write-Host "Post-deploy proof passed for server-side gates. Phone proof still requires the four WhatsApp messages above."
+Write-Host ""
+Write-Host "Rollback note:"
+Write-Host "1. In Railway, open the last known good deployment and promote it again."
+Write-Host "2. Or revert this Git commit, sync main, then rerun release:whatsapp-full for the new commit."
+Write-Host "3. If WhatsApp is unhealthy, do not bounce the service blindly; check logs for the fatal line first."

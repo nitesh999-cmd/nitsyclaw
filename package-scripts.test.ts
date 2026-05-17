@@ -231,6 +231,11 @@ describe("package scripts", () => {
     expect(source).toContain("what can you do");
     expect(source).toContain("Compact NitsyClaw menu");
     expect(source).toContain("Works now");
+    expect(source).toContain("Rollback note");
+    expect(source).toContain("last known good deployment");
+    expect(source).toContain("promote it again");
+    expect(source).toContain("sync main");
+    expect(source).toContain("do not bounce the service blindly");
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 

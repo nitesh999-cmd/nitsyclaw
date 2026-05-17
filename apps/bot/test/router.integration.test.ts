@@ -805,6 +805,67 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("sends the manual nightly health report without the model loop", async () => {
+    const state = getFakeDbState(deps.db);
+    const now = deps.now();
+    state.system_heartbeats.push(
+      {
+        id: "hb-runtime",
+        source: "bot-runtime",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: { commitShort: "test123" },
+        updatedAt: now,
+      },
+      {
+        id: "hb-scheduler",
+        source: "bot-scheduler",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+      {
+        id: "hb-client",
+        source: "whatsapp-client",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+      {
+        id: "hb-send",
+        source: "whatsapp-send",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+      {
+        id: "hb-loop",
+        source: "whatsapp-loop-guard",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+    );
+
+    await router.handle({
+      id: "x-nightly-health-now",
+      from: OWNER,
+      body: "nightly health now",
+      timestamp: now,
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Nightly WhatsApp health");
+    expect(wa.sent[0].body).toContain("Status: ready");
+    expect(wa.sent[0].body).toContain("Version: commit test123");
+    expect(wa.sent[0].body).toContain("Provider setup is not tested here");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("explains expense status with AUD default and no bank-feed claim", async () => {
     const state = getFakeDbState(deps.db);
     state.expenses.push({

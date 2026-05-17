@@ -103,6 +103,7 @@ import {
   parseWhatsAppSelfTestShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
+  parseNightlyHealthShortcut,
   parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
@@ -111,6 +112,7 @@ import {
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
+import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
@@ -1606,6 +1608,19 @@ export class Router {
       } catch (dailyStatusError) {
         await this.failWhatsAppCommandJob(commandJob, dailyStatusError);
         await this.sendPublicFailure("daily status", "Couldn't load daily status. I logged it; try again shortly.", dailyStatusError);
+      }
+      return;
+    }
+
+    const nightlyHealth = parseNightlyHealthShortcut(effectiveText);
+    if (nightlyHealth) {
+      try {
+        const report = await buildNightlyWhatsAppHealthReport(this.deps);
+        await this.sendAndPersist(report.body);
+        await this.completeWhatsAppCommandJob(commandJob, report.body);
+      } catch (nightlyHealthError) {
+        await this.failWhatsAppCommandJob(commandJob, nightlyHealthError);
+        await this.sendPublicFailure("nightly health", "Couldn't build the WhatsApp health report. I logged it; try again shortly.", nightlyHealthError);
       }
       return;
     }
