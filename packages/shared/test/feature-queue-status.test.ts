@@ -67,8 +67,8 @@ describe("feature queue status summary", () => {
     const reply = formatFeatureQueueStatusForWhatsApp(summary);
     expect(reply).toContain("Feature queue: 3 pending");
     expect(reply).toContain("State:");
-    expect(reply).toContain("Best next:");
-    expect(reply).toContain("Needs setup:");
+    expect(reply).toContain("Best safe next:");
+    expect(reply).toContain("Needs setup before live action:");
     expect(reply).toContain("Next:");
     expect(reply.split("\n").length).toBeLessThanOrEqual(8);
     expect(reply.length).toBeLessThanOrEqual(780);

@@ -39,13 +39,13 @@ Next: files | reminders | expense summary | bill summary: <text>
 
 ## feature queue
 
-Budget: 6/8 lines, 365/780 chars.
+Budget: 6/8 lines, 372/780 chars.
 
 ```text
 Feature queue: 3 pending
-State: queue checked; setup-heavy items are not live until provider access is connected.
-Best next: 22222222 S: Improve dashboard mobile navigation labels
-Needs setup: 2 item(s) across Email and inbox, Spotify and music.
+State: checked live queue. Setup-heavy items are queued, not connected.
+Best safe next: 22222222 S: Improve dashboard mobile navigation labels
+Needs setup before live action: 2 item(s) across Email and inbox, Spotify and music.
 Batches: Dashboard and UI 1 | Email and inbox 1 | Spotify and music 1
 Next: status | local status | add feature: <idea>
 ```

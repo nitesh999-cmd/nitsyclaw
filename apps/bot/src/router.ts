@@ -372,7 +372,7 @@ export class Router {
   private async formatRemindersStatusLine(): Promise<string> {
     const rows = await listPendingReminders(this.deps.db, this.deps.now(), 2);
     if (!rows.length) return "Reminders: none pending.";
-    return `Reminders: ${rows.map((row) => row.text).join(", ")}.`;
+    return `Reminders: ${rows.map((row) => `${row.text} (${this.formatLocalDateTime(row.fireAt)})`).join(", ")}.`;
   }
 
   private async formatExpenseStatusLine(): Promise<string> {
@@ -424,10 +424,11 @@ export class Router {
   private async formatRemindersStatus(): Promise<string> {
     const rows = await listPendingReminders(this.deps.db, this.deps.now(), 5);
     const reminders = rows.length
-      ? rows.map((row, index) => `${index + 1}. ${row.text} - ${row.fireAt.toISOString().slice(0, 16).replace("T", " ")}`).join("\n")
+      ? rows.map((row, index) => `${index + 1}. ${row.text} - ${this.formatLocalDateTime(row.fireAt)}`).join("\n")
       : "No upcoming pending reminders found.";
     return [
       "Reminders",
+      `Storage: NitsyClaw reminders. Delivery: WhatsApp self-chat.`,
       `Next reminders:\n${reminders}`,
       "Try: remind me to call dentist tomorrow 9am",
     ].join("\n");
@@ -549,7 +550,9 @@ export class Router {
       `Expense logged: ${amount}`,
       `Category: ${expense.category}`,
       expense.merchant ? `Merchant: ${expense.merchant}` : undefined,
-      "Saved in NitsyClaw expenses. No bank connection was used.",
+      `Saved: NitsyClaw expenses at ${this.formatLocalDateTime(expense.occurredAt)}.`,
+      "Currency default is AUD unless you say USD, INR, or another supported currency.",
+      "No bank connection was used.",
     ].filter((line): line is string => Boolean(line));
     const reply = lines.join("\n");
     await this.sendAndPersist(reply);
@@ -582,15 +585,28 @@ export class Router {
       month: "short",
       hour: "numeric",
       minute: "2-digit",
+      timeZoneName: "short",
     }).format(reminder.fireAt);
     const reply = [
       `Reminder set: ${reminder.text}`,
       `When: ${when}`,
-      "Saved in NitsyClaw reminders. I will remind you on WhatsApp.",
+      "Saved: NitsyClaw reminders. Delivery: WhatsApp self-chat.",
     ].join("\n");
     await this.sendAndPersist(reply);
     await this.completeWhatsAppCommandJob(commandJob, reply);
     return true;
+  }
+
+  private formatLocalDateTime(date: Date): string {
+    return new Intl.DateTimeFormat("en-AU", {
+      timeZone: this.deps.timezone,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(date);
   }
 
   private formatHelpReply(): string {

@@ -209,9 +209,9 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("Feature queue: 2 pending");
-    expect(wa.sent[0].body).toContain("Best next:");
+    expect(wa.sent[0].body).toContain("Best safe next:");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
-    expect(wa.sent[0].body).toContain("Needs setup:");
+    expect(wa.sent[0].body).toContain("Needs setup before live action:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(9);
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("Claude Code");
@@ -638,6 +638,8 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Expense logged");
     expect(wa.sent[0].body).toContain("AUD 18.40");
     expect(wa.sent[0].body).toContain("health");
+    expect(wa.sent[0].body).toContain("Currency default is AUD");
+    expect(wa.sent[0].body).toContain("No bank connection was used");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -654,8 +656,8 @@ describe("Router (integration)", () => {
     expect(state.reminders).toHaveLength(1);
     expect(state.reminders[0]?.text).toContain("call Mukesh");
     expect(wa.sent[0].body).toContain("Reminder set");
-    expect(wa.sent[0].body).toContain("Saved in NitsyClaw reminders");
-    expect(wa.sent[0].body).toContain("WhatsApp");
+    expect(wa.sent[0].body).toContain("Saved: NitsyClaw reminders");
+    expect(wa.sent[0].body).toContain("Delivery: WhatsApp self-chat");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

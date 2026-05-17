@@ -104,15 +104,15 @@ export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusS
 
   const lines = [
     `Feature queue: ${summary.pendingCount} pending`,
-    "State: queue checked; setup-heavy items are not live until provider access is connected.",
+    "State: checked live queue. Setup-heavy items are queued, not connected.",
     summary.recommendedNext
-      ? `Best next: ${formatInlineItem(summary.recommendedNext)}`
+      ? `Best safe next: ${formatInlineItem(summary.recommendedNext)}`
       : undefined,
     summary.quickWins.length > 1
       ? `Other quick wins: ${summary.quickWins.slice(1, 3).map(formatInlineItem).join(" | ")}`
       : undefined,
     summary.setupHeavy.length
-      ? `Needs setup: ${summary.setupHeavy.length} item(s) across ${summarizeSetupCategories(summary.setupHeavy)}.`
+      ? `Needs setup before live action: ${summary.setupHeavy.length} item(s) across ${summarizeSetupCategories(summary.setupHeavy)}.`
       : undefined,
     summary.batches.length
       ? `Batches: ${summary.batches.slice(0, 4).map((batch) => `${batch.label} ${batch.count}`).join(" | ")}`

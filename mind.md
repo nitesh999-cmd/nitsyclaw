@@ -142,9 +142,9 @@ CCR network policy unchanged from 2026-05-16. TCP to Supabase (ports 5432/6543),
 
 Since feature_requests cannot be queried, this session used the available git/code access to implement the two fixes recommended by L38, plus fix a P0 security gap:
 
-**1. Fixed missing middleware.ts (P0 security — R41)**
+**1. Fixed missing dashboard request gate (P0 security — R41)**
 
-`apps/dashboard/src/proxy.ts` contained complete Next.js middleware logic but was never wired as actual middleware (Next.js requires the file to be named `middleware.ts` with a `middleware` export). The dashboard auth was NOT running in production. Fixed by creating `apps/dashboard/src/middleware.ts` that re-exports `proxy as middleware` and `config` from `proxy.ts`.
+`apps/dashboard/src/proxy.ts` contains the dashboard auth/security request gate. Next.js 16 requires `proxy.ts` only; having both `middleware.ts` and `proxy.ts` blocks production builds. The dashboard request gate now stays in `proxy.ts` only.
 
 **2. Implemented Option A from L38: build-agent API routes**
 
@@ -189,8 +189,7 @@ curl -X POST -H "Authorization: Bearer $NITSYCLAW_DASHBOARD_PASSWORD" \
 
 | File | Action |
 |---|---|
-| `apps/dashboard/src/middleware.ts` | CREATED — wires proxy.ts as Next.js middleware |
-| `apps/dashboard/src/proxy.ts` | MODIFIED — added isBuildAgentPath bypass |
+| `apps/dashboard/src/proxy.ts` | MODIFIED — request gate remains here; added isBuildAgentPath bypass |
 | `apps/dashboard/src/lib/build-agent-auth.ts` | CREATED — Bearer token auth helper |
 | `apps/dashboard/src/app/api/build-agent/pending/route.ts` | CREATED |
 | `apps/dashboard/src/app/api/build-agent/claim/route.ts` | CREATED |
