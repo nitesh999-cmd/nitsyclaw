@@ -8,6 +8,7 @@ import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCapabilityMatrix,
   formatWhatsAppHelpReply,
+  formatWhatsAppPendingFeatureDevelopmentPlan,
 } from "./whatsapp-capabilities.js";
 
 describe("WhatsApp capability registry", () => {
@@ -33,6 +34,7 @@ describe("WhatsApp capability registry", () => {
     expect(help).toContain("Check before send: I am angry about this bill");
     expect(help).toContain("Needs setup:");
     expect(help).toContain("proof test");
+    expect(help).toContain("pending build plan");
     expect(help).toContain("local status");
     expect(help).toContain("Safety:");
     expect(help.split("\n").length).toBeLessThanOrEqual(13);
@@ -47,6 +49,21 @@ describe("WhatsApp capability registry", () => {
     expect(matrix).toContain("Next:");
     expect(matrix).not.toContain("Gmail is connected");
     expect(matrix).not.toContain("Bank feeds: connected");
+  });
+
+  it("renders a truthful pending feature development plan", () => {
+    const plan = formatWhatsAppPendingFeatureDevelopmentPlan();
+
+    expect(plan).toContain("Pending build plan");
+    expect(plan).toContain("safe local rails");
+    expect(plan).toContain("Live external actions need account/provider setup");
+    expect(plan).toContain("Gmail");
+    expect(plan).toContain("Google Drive");
+    expect(plan).toContain("Spotify");
+    expect(plan).toContain("Phone/SMS");
+    expect(plan).toContain("Bank feeds");
+    expect(plan).not.toContain("Gmail is connected");
+    expect(plan).not.toContain("Bank feeds: connected");
   });
 
   it("offers practical WhatsApp examples from the registry", () => {

@@ -23,6 +23,10 @@ export interface CapabilityStatusShortcut {
   kind: "capability-status";
 }
 
+export interface PendingFeatureDevelopmentShortcut {
+  kind: "pending-feature-development";
+}
+
 export interface CommandContractShortcut {
   kind: "command-contract";
 }
@@ -262,6 +266,18 @@ export function parseCapabilityStatusShortcut(text: string): CapabilityStatusSho
     trimmed === "what works and what needs setup"
   ) {
     return { kind: "capability-status" };
+  }
+  return null;
+}
+
+export function parsePendingFeatureDevelopmentShortcut(text: string): PendingFeatureDevelopmentShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    /\b(?:build|develop|finish|ship|action|complete|do)\s+(?:all\s+)?(?:the\s+)?(?:pending|queued|remaining)\s+(?:features?|items?|queue)\b/.test(trimmed) ||
+    /\b(?:build|develop|finish|ship|action|complete|do)\s+(?:the\s+)?(?:feature\s+)?queue\b/.test(trimmed) ||
+    /\b(?:all\s+)?(?:pending|queued|remaining)\s+(?:features?|items?)\s+(?:now|today|tonight)\b/.test(trimmed)
+  ) {
+    return { kind: "pending-feature-development" };
   }
   return null;
 }

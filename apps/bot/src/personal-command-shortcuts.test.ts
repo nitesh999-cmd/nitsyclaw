@@ -8,6 +8,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
   parseWhatsAppSelfTestShortcut,
   parseWhatsAppIncidentSummaryShortcut,
@@ -85,6 +86,20 @@ describe("personal command shortcuts", () => {
     expect(parseCapabilityStatusShortcut("capability map")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("what works and what needs setup")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects requests to develop all pending features without treating status as execution", () => {
+    expect(parsePendingFeatureDevelopmentShortcut("build all pending features")).toEqual({
+      kind: "pending-feature-development",
+    });
+    expect(parsePendingFeatureDevelopmentShortcut("develop the queued items")).toEqual({
+      kind: "pending-feature-development",
+    });
+    expect(parsePendingFeatureDevelopmentShortcut("ship feature queue")).toEqual({
+      kind: "pending-feature-development",
+    });
+    expect(parsePendingFeatureDevelopmentShortcut("pending items")).toBeNull();
+    expect(parsePendingFeatureDevelopmentShortcut("what is pending")).toBeNull();
   });
 
   it("detects queued integration setup requests", () => {

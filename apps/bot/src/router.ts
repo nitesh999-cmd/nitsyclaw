@@ -98,6 +98,7 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseWhatsAppSelfTestShortcut,
@@ -119,6 +120,7 @@ import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
+  formatWhatsAppPendingFeatureDevelopmentPlan,
   formatWhatsAppProviderSetupSnapshot,
 } from "./whatsapp-capabilities.js";
 import {
@@ -1545,6 +1547,20 @@ export class Router {
       } catch (statusError) {
         await this.failWhatsAppCommandJob(commandJob, statusError);
         await this.sendPublicFailure("capability status", "Couldn't load the current status. I logged it; try again shortly.", statusError);
+      }
+      return;
+    }
+
+    const pendingFeatureDevelopment = parsePendingFeatureDevelopmentShortcut(effectiveText);
+    if (pendingFeatureDevelopment) {
+      try {
+        const providerReadiness = await this.getProviderReadiness();
+        const reply = formatWhatsAppPendingFeatureDevelopmentPlan(providerReadiness);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (planError) {
+        await this.failWhatsAppCommandJob(commandJob, planError);
+        await this.sendPublicFailure("pending feature plan", "Couldn't build the pending-feature plan. I logged it; try again shortly.", planError);
       }
       return;
     }

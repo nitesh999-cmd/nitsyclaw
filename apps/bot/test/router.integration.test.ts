@@ -301,6 +301,25 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers build-all-pending requests with a truthful setup-aware plan", async () => {
+    await router.handle({
+      id: "x-build-all-pending",
+      from: OWNER,
+      body: "build all pending features",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Pending build plan");
+    expect(wa.sent[0].body).toContain("safe local rails");
+    expect(wa.sent[0].body).toContain("Live external actions need account/provider setup");
+    expect(wa.sent[0].body).toContain("Gmail");
+    expect(wa.sent[0].body).toContain("Phone/SMS");
+    expect(wa.sent[0].body).not.toContain("Gmail is connected");
+    expect(wa.sent[0].body).not.toContain("Bank feeds: connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers ready pending setup status without the model loop", async () => {
     const state = getFakeDbState(deps.db);
     state.feature_requests.push(
