@@ -229,7 +229,7 @@ describe("package scripts", () => {
     expect(source).toContain("proof test");
     expect(source).toContain("I spent `$6.50 at Chemist Warehouse for medicine");
     expect(source).toContain("what can you do");
-    expect(source).toContain("compact NitsyClaw menu");
+    expect(source).toContain("Compact NitsyClaw menu");
     expect(source).toContain("Works now");
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });

@@ -57,7 +57,7 @@ $remoteHead = git rev-parse "@{u}"
 if ($head -ne $remoteHead) {
     Write-Host ""
     Write-Host "Local gates passed, but HEAD is not pushed to $upstream."
-    Write-Host "Run: git push origin main"
+    Write-Host "Push this branch with your normal Git command."
     Write-Host "Then run: pnpm run release:whatsapp-full -- -SkipLocalGates"
     exit 2
 }
