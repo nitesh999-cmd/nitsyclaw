@@ -63,8 +63,10 @@ $phoneProofLines = @(
 
 for ($i = 0; $i -lt $phoneProofPrompts.Count; $i++) {
     $number = $i + 1
-    $phoneProofLines += "$number. [ ] `$($phoneProofPrompts[$i].Prompt)`"
-    $phoneProofLines += "   - Expected: $($phoneProofPrompts[$i].Expected)"
+    $prompt = $phoneProofPrompts[$i].Prompt
+    $expected = $phoneProofPrompts[$i].Expected
+    $phoneProofLines += ("{0}. [ ] ``{1}``" -f $number, $prompt)
+    $phoneProofLines += ("   - Expected: {0}" -f $expected)
     $phoneProofLines += "   - Actual:"
     $phoneProofLines += ""
 }
