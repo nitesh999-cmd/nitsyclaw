@@ -371,18 +371,24 @@ export class Router {
 
   private async formatRemindersStatusLine(): Promise<string> {
     const rows = await listPendingReminders(this.deps.db, this.deps.now(), 2);
-    if (!rows.length) return "Reminders: none pending.";
-    return `Reminders: ${rows.map((row) => `${row.text} (${this.formatLocalDateTime(row.fireAt)})`).join(", ")}.`;
+    if (!rows.length) return "Reminders: clear. No pending WhatsApp reminders.";
+    const next = rows[0]!;
+    const more = rows.length > 1 ? ` +${rows.length - 1} more` : "";
+    return `Reminders: next is ${next.text} at ${this.formatLocalDateTime(next.fireAt)}${more}.`;
   }
 
   private async formatExpenseStatusLine(): Promise<string> {
     const now = this.deps.now();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
-    if (!rows.length) return "Expenses: none logged this month.";
+    if (!rows.length) return "Expenses: clear for this month. AUD is the default; no bank feed connected.";
     const currency = rows[0]?.currency ?? "AUD";
     const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
-    return `Expenses: ${currency} ${(totalCents / 100).toFixed(2)} this month across ${rows.length} item(s).`;
+    const latest = rows
+      .slice()
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0];
+    const latestLine = latest ? ` Latest: ${latest.merchant ?? latest.category} ${latest.currency} ${(latest.amount / 100).toFixed(2)}.` : "";
+    return `Expenses: ${currency} ${(totalCents / 100).toFixed(2)} this month across ${rows.length} item(s).${latestLine} No bank feed used.`;
   }
 
   private async getMonthlyExpenseSnapshot(): Promise<string> {
@@ -423,13 +429,22 @@ export class Router {
 
   private async formatRemindersStatus(): Promise<string> {
     const rows = await listPendingReminders(this.deps.db, this.deps.now(), 5);
-    const reminders = rows.length
-      ? rows.map((row, index) => `${index + 1}. ${row.text} - ${this.formatLocalDateTime(row.fireAt)}`).join("\n")
-      : "No upcoming pending reminders found.";
+    if (!rows.length) {
+      return [
+        "Reminders",
+        "Clear: no upcoming WhatsApp reminders.",
+        "Storage: NitsyClaw reminders. Delivery: WhatsApp self-chat.",
+        "Try: remind me to call dentist tomorrow 9am",
+      ].join("\n");
+    }
+    const reminders = rows
+      .map((row, index) => `${index + 1}. ${row.text} - ${this.formatLocalDateTime(row.fireAt)}`)
+      .join("\n");
     return [
       "Reminders",
+      `Next: ${rows[0]!.text} at ${this.formatLocalDateTime(rows[0]!.fireAt)}`,
       `Storage: NitsyClaw reminders. Delivery: WhatsApp self-chat.`,
-      `Next reminders:\n${reminders}`,
+      `Upcoming:\n${reminders}`,
       "Try: remind me to call dentist tomorrow 9am",
     ].join("\n");
   }
@@ -441,7 +456,9 @@ export class Router {
     if (rows.length === 0) {
       return [
         "Expenses",
-        "No expenses found for this month.",
+        "Clear: no expenses found for this month.",
+        "Currency: AUD by default unless you say USD, INR, or another supported currency.",
+        "Source: local NitsyClaw expense log only. No bank feed is connected.",
         "Try: upload a bank CSV, send a receipt photo, or say spent $18.75 on Uber.",
       ].join("\n");
     }
@@ -458,7 +475,8 @@ export class Router {
       "Expenses",
       `This month: ${currency} ${(totalCents / 100).toFixed(2)} across ${rows.length} expense(s).`,
       `Top categories:\n${categories}`,
-      "Safe mode: this uses local logged expenses only, not live bank feeds.",
+      "Currency: AUD by default unless you say otherwise.",
+      "Source: local NitsyClaw expense log only. No live bank feed is connected.",
     ].join("\n");
   }
 

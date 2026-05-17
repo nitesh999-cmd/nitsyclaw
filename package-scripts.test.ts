@@ -234,6 +234,26 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
+  test("WhatsApp full release proves the pushed commit without mutating git", () => {
+    expect(rootPackage.scripts?.["release:whatsapp-full"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
+    );
+
+    const source = readFileSync("scripts/whatsapp-full-release.ps1", "utf8");
+    expect(source).toContain("whatsapp:release-gate");
+    expect(source).toContain("release:wait-railway");
+    expect(source).toContain("release:post-deploy-proof");
+    expect(source).toContain("git diff --quiet");
+    expect(source).toContain("git rev-parse \"@{u}\"");
+    expect(source).toContain("HEAD is not pushed");
+    const executableGitMutationLines = source
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /^git\s+(?:push|commit|reset|checkout|stash)\b/i.test(line));
+    expect(executableGitMutationLines).toEqual([]);
+    expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
+  });
+
   test("WhatsApp release gate is local, deterministic, and non-mutating", () => {
     expect(rootPackage.scripts?.["whatsapp:reply-shape-report"]).toBe(
       "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts",
