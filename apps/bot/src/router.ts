@@ -100,6 +100,7 @@ import {
   parseHelpShortcut,
   parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
+  parseWhatsAppControlPlaneShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseWhatsAppSelfTestShortcut,
   mentionsFeatureQueueStatus,
@@ -829,6 +830,67 @@ export class Router {
       next: loopReason || sendError
         ? "self test | resume whatsapp | proof details"
         : "bug: <what happened>, if a reply still feels wrong",
+    });
+  }
+
+  private async formatWhatsAppControlPlaneReply(): Promise<string> {
+    const now = this.deps.now();
+    const [
+      botRuntime,
+      whatsappClient,
+      whatsappSend,
+      whatsappLoopGuard,
+      scheduler,
+      recentJobs,
+      pendingQueue,
+      waitingApproval,
+    ] = await Promise.all([
+      getSystemHeartbeat(this.deps.db, "bot-runtime"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-client"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-send"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
+      getSystemHeartbeat(this.deps.db, "bot-scheduler"),
+      listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 10 }),
+      listPendingFeatureRequests(this.deps.db),
+      getLatestPendingConfirmation(this.deps.db),
+    ]);
+
+    const runtime = buildBotRuntimeMetadata(process.env, now);
+    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
+      ?? heartbeatMetadataText(botRuntime, "commit")
+      ?? runtime.commitShort;
+    const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
+    const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
+    const sendError = heartbeatMetadataText(whatsappSend, "error");
+    const recentFailures = recentJobs.filter((job) => job.status === "failed" || job.status === "retrying");
+    const waitingJobs = recentJobs.filter((job) => job.status === "needs_approval" || job.status === "needs_clarification");
+    const queueSummary = summarizeFeatureQueueStatus({ pending: pendingQueue, limit: 3 });
+    const nextQueue = queueSummary.recommendedNext ?? queueSummary.quickWins[0] ?? queueSummary.topPending[0];
+    const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
+      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      Boolean(loopReason || sendError || recentFailures.length);
+
+    return formatWhatsAppReplyShape({
+      answer: needsAttention ? "Control plane: needs attention" : "Control plane: ready",
+      state: `State: commit ${deployedCommit}, ${runtime.platform}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
+      details: [
+        heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000),
+        heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
+        heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
+        heartbeatLine(
+          "Loop guard",
+          whatsappLoopGuard,
+          now,
+          10 * 60 * 1000,
+          loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+        ),
+        heartbeatLine("Scheduler", scheduler, now, 3 * 60 * 1000),
+        `Command jobs: ${recentFailures.length} recent failure(s), ${waitingJobs.length} waiting clarification/approval.`,
+        `Approvals: ${waitingApproval ? `waiting (${waitingApproval.action})` : "none waiting"}.`,
+        `Queue: ${queueSummary.pendingCount} pending; next ${nextQueue ? `${nextQueue.shortId} ${clipForWhatsApp(nextQueue.description, 72)}` : "none"}.`,
+        "Dashboard: /command for work queue, /whatsapp-recovery for recovery signals.",
+      ],
+      next: needsAttention ? "what went wrong | proof details | resume whatsapp" : "proof test | feature queue | local status",
     });
   }
 
@@ -1595,6 +1657,19 @@ export class Router {
       } catch (incidentError) {
         await this.failWhatsAppCommandJob(commandJob, incidentError);
         await this.sendPublicFailure("whatsapp incident summary", "Couldn't load the incident summary. I logged it; try again shortly.", incidentError);
+      }
+      return;
+    }
+
+    const controlPlane = parseWhatsAppControlPlaneShortcut(effectiveText);
+    if (controlPlane) {
+      try {
+        const reply = await this.formatWhatsAppControlPlaneReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (controlPlaneError) {
+        await this.failWhatsAppCommandJob(commandJob, controlPlaneError);
+        await this.sendPublicFailure("whatsapp control plane", "Couldn't load the WhatsApp control plane. I logged it; try again shortly.", controlPlaneError);
       }
       return;
     }

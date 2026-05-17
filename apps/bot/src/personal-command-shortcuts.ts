@@ -39,6 +39,10 @@ export interface WhatsAppIncidentSummaryShortcut {
   kind: "whatsapp-incident-summary";
 }
 
+export interface WhatsAppControlPlaneShortcut {
+  kind: "whatsapp-control-plane";
+}
+
 export interface WhatsAppCanaryShortcut {
   kind: "whatsapp-canary";
   detail: boolean;
@@ -329,6 +333,22 @@ export function parseWhatsAppIncidentSummaryShortcut(text: string): WhatsAppInci
     trimmed === "show incidents"
   ) {
     return { kind: "whatsapp-incident-summary" };
+  }
+  return null;
+}
+
+export function parseWhatsAppControlPlaneShortcut(text: string): WhatsAppControlPlaneShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "control plane" ||
+    trimmed === "whatsapp control plane" ||
+    trimmed === "whatsapp control" ||
+    trimmed === "bot control" ||
+    trimmed === "bot control plane" ||
+    trimmed === "operator control" ||
+    trimmed === "command control"
+  ) {
+    return { kind: "whatsapp-control-plane" };
   }
   return null;
 }

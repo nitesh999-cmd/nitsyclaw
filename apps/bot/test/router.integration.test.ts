@@ -538,6 +538,80 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers WhatsApp control plane with runtime queue and recovery state", async () => {
+    const state = getFakeDbState(deps.db);
+    state.system_heartbeats.push(
+      {
+        source: "bot-runtime",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:00Z"),
+        metadata: { platform: "railway", commitShort: "abc1234", secret: "must-not-leak" },
+      },
+      {
+        source: "whatsapp-client",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { state: "READY" },
+      },
+      {
+        source: "whatsapp-send",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { lastMessageId: "wamid.test" },
+      },
+      {
+        source: "whatsapp-loop-guard",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { recentSendCount: 2 },
+      },
+      {
+        source: "bot-scheduler",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: {},
+      },
+    );
+    state.feature_requests.push({
+      id: "ff70fa2b-7e25-4811-8272-a9cc716e4920",
+      description: "[WhatsApp] WhatsApp Control Plane: Build a WhatsApp-safe command control plane.",
+      type: "feature",
+      severity: "P0",
+      size: "L",
+      source: "dashboard",
+      requestedBy: "system",
+      status: "pending",
+      implementationNotes: null,
+      rejectionReason: null,
+      prUrl: null,
+      dedupeKey: "operator-mission:whatsapp-control-plane",
+      completedAt: null,
+      createdAt: new Date("2026-04-25T07:55:00Z"),
+      updatedAt: new Date("2026-04-25T07:55:00Z"),
+    });
+
+    await router.handle({
+      id: "x-control-plane",
+      from: OWNER,
+      body: "whatsapp control plane",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Control plane: ready");
+    expect(wa.sent[0].body).toContain("commit abc1234");
+    expect(wa.sent[0].body).toContain("WhatsApp client: ok");
+    expect(wa.sent[0].body).toContain("Loop guard: ok");
+    expect(wa.sent[0].body).toContain("Scheduler: ok");
+    expect(wa.sent[0].body).toContain("Command jobs:");
+    expect(wa.sent[0].body).toContain("Queue: 1 pending");
+    expect(wa.sent[0].body).toContain("/whatsapp-recovery");
+    expect(wa.sent[0].body).toContain("Next: proof test | feature queue | local status");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1200);
+    expect(wa.sent[0].body).not.toContain("must-not-leak");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers WhatsApp canary test without touching external providers", async () => {
     await router.handle({
       id: "x-canary-test",

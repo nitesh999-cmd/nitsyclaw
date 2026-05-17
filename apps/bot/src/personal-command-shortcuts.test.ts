@@ -10,6 +10,7 @@ import {
   parseHelpShortcut,
   parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
+  parseWhatsAppControlPlaneShortcut,
   parseWhatsAppSelfTestShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseHomeAssistantShortcut,
@@ -180,6 +181,13 @@ describe("personal command shortcuts", () => {
     expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary", detail: false });
     expect(parseWhatsAppCanaryShortcut("proof details")).toEqual({ kind: "whatsapp-canary", detail: true });
     expect(parseWhatsAppCanaryShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects WhatsApp control plane requests", () => {
+    expect(parseWhatsAppControlPlaneShortcut("control plane")).toEqual({ kind: "whatsapp-control-plane" });
+    expect(parseWhatsAppControlPlaneShortcut("whatsapp control plane")).toEqual({ kind: "whatsapp-control-plane" });
+    expect(parseWhatsAppControlPlaneShortcut("bot control")).toEqual({ kind: "whatsapp-control-plane" });
+    expect(parseWhatsAppControlPlaneShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects safe local status shortcuts", () => {

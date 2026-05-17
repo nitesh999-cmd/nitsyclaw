@@ -152,6 +152,19 @@ describe("package scripts", () => {
     expect(source).not.toContain("console.log(process.env");
   });
 
+  test("operator complete closes in-progress queue rows without printing secrets", () => {
+    expect(rootPackage.scripts?.["operator:complete"]).toBe(
+      "pnpm exec tsx scripts/operator-complete.ts",
+    );
+
+    const source = readFileSync("scripts/operator-complete.ts", "utf8");
+    expect(source).toContain("expectedStatus: \"in_progress\"");
+    expect(source).toContain("operator_runner.complete");
+    expect(source).toContain("formatOperatorCompleteError");
+    expect(source).toContain("[redacted:database-url]");
+    expect(source).not.toContain("console.log(process.env");
+  });
+
   test("Railway preflight checks bot worker access without mutating deployments", () => {
     expect(rootPackage.scripts?.["railway:login"]).toBe(
       "pnpm dlx @railway/cli login --browserless",

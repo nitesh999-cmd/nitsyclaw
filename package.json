@@ -44,6 +44,7 @@
     "operator:next": "pnpm exec tsx scripts/operator-runner.ts --dry-run",
     "operator:doctor": "pnpm exec tsx scripts/operator-queue-doctor.ts",
     "operator:claim": "pnpm exec tsx scripts/operator-runner.ts --claim",
+    "operator:complete": "pnpm exec tsx scripts/operator-complete.ts",
     "operator:reject-unsafe": "pnpm exec tsx scripts/operator-runner.ts --reject-unsafe",
     "watchdog:heartbeat": "pnpm exec tsx scripts/watchdog-heartbeat.ts",
     "db:generate": "pnpm --filter @nitsyclaw/shared db:generate",
