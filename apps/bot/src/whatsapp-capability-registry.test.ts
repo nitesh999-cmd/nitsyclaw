@@ -29,14 +29,13 @@ describe("WhatsApp capability registry", () => {
     expect(help).toContain("Say it normally");
     expect(help).toContain("Try:");
     expect(help).toContain("Works now:");
-    expect(help).toContain("Remind me to call Mukesh tomorrow at 10 am");
+    expect(help).toContain("remind me to call Mukesh tomorrow at 10 am");
     expect(help).toContain("Needs setup:");
-    expect(help).toContain("I can queue setup requests");
     expect(help).toContain("proof test");
     expect(help).toContain("local status");
     expect(help).toContain("Safety:");
-    expect(help.split("\n").length).toBeLessThanOrEqual(18);
-    expect(help.length).toBeLessThanOrEqual(950);
+    expect(help.split("\n").length).toBeLessThanOrEqual(8);
+    expect(help.length).toBeLessThanOrEqual(750);
     expect(help).not.toContain("Runtime:");
     expect(help).not.toContain("Setup snapshot:");
     expect(matrix).toContain("What I can do from WhatsApp");

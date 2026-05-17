@@ -761,38 +761,35 @@ export class Router {
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
 
-    const healthLines = [
-      heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
-      heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
-      heartbeatLine(
-        "Loop guard",
-        whatsappLoopGuard,
-        now,
-        10 * 60 * 1000,
-        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
-      ),
-    ];
+    const clientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const sendLine = heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined);
+    const loopLine = heartbeatLine(
+      "Loop guard",
+      whatsappLoopGuard,
+      now,
+      10 * 60 * 1000,
+      loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+    );
 
     const failureLines = failedJobs.length
-      ? failedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}${job.error ? ` (${clipForWhatsApp(job.error, 80)})` : ""}`)
-      : ["- No recent failed/retrying WhatsApp command jobs found."];
+      ? failedJobs.slice(0, 1).map((job) => `Recent failure: ${job.status} - ${clipForWhatsApp(job.command, 70)}${job.error ? ` (${clipForWhatsApp(job.error, 60)})` : ""}`)
+      : ["Recent failure: none found."];
     const blockedLines = blockedJobs.length
-      ? blockedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}`)
-      : ["- No recent commands waiting on approval or clarification."];
+      ? blockedJobs.slice(0, 1).map((job) => `Waiting on you: ${job.status} - ${clipForWhatsApp(job.command, 70)}`)
+      : ["Waiting on you: none found."];
 
     return formatWhatsAppReplyShape({
       answer: loopReason || sendError ? "Incident check: action may be needed" : "Incident check: no active failure signal",
       state: "State: checked WhatsApp health, recent failures, and commands waiting on you.",
       details: [
-        "Health:",
-        ...healthLines,
-        "Recent failures:",
+        clientLine,
+        sendLine,
+        loopLine,
         ...failureLines,
-        "Waiting on you:",
         ...blockedLines,
       ],
       next: loopReason || sendError
-        ? "self test; if loop guard is active, send resume whatsapp"
+        ? "self test | resume whatsapp | proof details"
         : "bug: <what happened>, if a reply still feels wrong",
     });
   }

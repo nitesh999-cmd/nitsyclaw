@@ -288,15 +288,14 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("NitsyClaw menu");
     expect(wa.sent[0].body).toContain("Say it normally");
-    expect(wa.sent[0].body).toContain("Works now:");
     expect(wa.sent[0].body).toContain("Try:");
-    expect(wa.sent[0].body).toContain("Remind me to call Mukesh tomorrow at 10 am");
+    expect(wa.sent[0].body).toContain("Works now:");
+    expect(wa.sent[0].body).toContain("remind me to call Mukesh tomorrow at 10 am");
     expect(wa.sent[0].body).toContain("Needs setup:");
-    expect(wa.sent[0].body).toContain("I can queue setup requests");
     expect(wa.sent[0].body).toContain("proof test");
     expect(wa.sent[0].body).toContain("Safety:");
-    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
-    expect(wa.sent[0].body.length).toBeLessThanOrEqual(950);
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(8);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(750);
     expect(wa.sent[0].body).not.toContain("Runtime:");
     expect(wa.sent[0].body).not.toContain("Setup snapshot:");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
@@ -509,14 +508,13 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("Incident check:");
     expect(wa.sent[0].body).toContain("State:");
-    expect(wa.sent[0].body).toContain("Health");
     expect(wa.sent[0].body).toContain("WhatsApp send: fail");
     expect(wa.sent[0].body).toContain("Loop guard: cooldown");
     expect(wa.sent[0].body).toContain("send message to John");
     expect(wa.sent[0].body).toContain("resume whatsapp");
     expect(wa.sent[0].body).toContain("Next:");
-    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
-    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(9);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("must-not-leak");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });

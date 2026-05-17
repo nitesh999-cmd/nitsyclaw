@@ -70,8 +70,8 @@ const replies: ReplyBudget[] = [
   {
     name: "what can you do",
     reply: formatWhatsAppHelpReply(),
-    maxLines: 18,
-    maxChars: 950,
+    maxLines: 8,
+    maxChars: 750,
   },
   {
     name: "local status",
@@ -92,6 +92,23 @@ const replies: ReplyBudget[] = [
   {
     name: "feature queue",
     reply: featureQueue,
+    maxLines: 9,
+    maxChars: 900,
+  },
+  {
+    name: "what went wrong",
+    reply: formatWhatsAppReplyShape({
+      answer: "Incident check: action may be needed",
+      state: "State: checked WhatsApp health, recent failures, and commands waiting on you.",
+      details: [
+        "WhatsApp client: ok",
+        "WhatsApp send: fail - last error: temporary WhatsApp send failure",
+        "Loop guard: cooldown - reason: send burst",
+        "Recent failure: failed - send message to John",
+        "Waiting on you: needs_approval - draft SMS to John",
+      ],
+      next: "self test | resume whatsapp | proof details",
+    }),
     maxLines: 9,
     maxChars: 900,
   },
