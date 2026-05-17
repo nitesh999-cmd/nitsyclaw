@@ -613,25 +613,31 @@ export class Router {
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
 
-    return [
-      "NitsyClaw self-test",
-      "",
-      `Router: ready at ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-      `Runtime: ${runtime.platform}, commit ${deployedCommit}`,
-      heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000),
-      heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
-      heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
-      heartbeatLine(
-        "Loop guard",
-        whatsappLoopGuard,
-        now,
-        10 * 60 * 1000,
-        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
-      ),
-      "",
-      "If WhatsApp feels stuck, send: resume whatsapp",
-      "For features, send: status",
-    ].join("\n");
+    const botRuntimeLine = heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000);
+    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const whatsappSendLine = heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined);
+    const loopGuardLine = heartbeatLine(
+      "Loop guard",
+      whatsappLoopGuard,
+      now,
+      10 * 60 * 1000,
+      loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+    );
+    const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
+      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      Boolean(sendError || loopReason);
+
+    return formatWhatsAppReplyShape({
+      answer: needsAttention ? "Self test: needs attention" : "Self test: ready",
+      state: `State: router ready, ${runtime.platform}, commit ${deployedCommit}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
+      details: [
+        botRuntimeLine,
+        whatsappClientLine,
+        whatsappSendLine,
+        loopGuardLine,
+      ],
+      next: needsAttention ? "what went wrong | resume whatsapp" : "status | proof test | proof details",
+    });
   }
 
   private async recordCanaryPersistence(proof: string): Promise<{ ok: boolean; id?: string; error?: string }> {

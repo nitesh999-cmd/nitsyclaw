@@ -441,14 +441,17 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw self-test");
-    expect(wa.sent[0].body).toContain("Router: ready");
-    expect(wa.sent[0].body).toContain("Runtime:");
+    expect(wa.sent[0].body).toContain("Self test: ready");
+    expect(wa.sent[0].body).toContain("State:");
+    expect(wa.sent[0].body).toContain("router ready");
+    expect(wa.sent[0].body).toContain("commit abc1234");
     expect(wa.sent[0].body).toContain("Bot runtime: ok");
     expect(wa.sent[0].body).toContain("WhatsApp client: ok");
     expect(wa.sent[0].body).toContain("WhatsApp send: ok");
     expect(wa.sent[0].body).toContain("Loop guard: ok");
-    expect(wa.sent[0].body).toContain("resume whatsapp");
+    expect(wa.sent[0].body).toContain("Next: status | proof test | proof details");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(9);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(700);
     expect(wa.sent[0].body).not.toContain("must-not-leak");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
