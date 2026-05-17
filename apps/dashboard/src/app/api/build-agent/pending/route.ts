@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listPendingFeatureRequests, getDb } from "@nitsyclaw/shared/db";
+import { buildFeatureQueueMirror } from "@nitsyclaw/shared/features";
 import { requireBuildAgentAuth } from "../../../../lib/build-agent-auth";
 import { logDashboardError, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
 
@@ -15,7 +16,7 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const rows = await listPendingFeatureRequests(getDb());
-    return NextResponse.json({ rows }, { headers: NO_STORE });
+    return NextResponse.json(buildFeatureQueueMirror({ pending: rows, limit: 50 }), { headers: NO_STORE });
   } catch (e) {
     const configError = publicConfigErrorOrNull(e);
     if (configError) {

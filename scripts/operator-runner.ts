@@ -132,6 +132,7 @@ export function formatOperatorQueueDoctorReport(env: EnvLike = process.env): str
     databaseReady
       ? "- I can read the live feature queue from this terminal."
       : "- I cannot read or claim live pending feature rows from this terminal yet.",
+    "- This report shows setup status without printing secrets.",
     "- I can still safely improve local WhatsApp routing, help/status wording, tests, setup pages, and release gates.",
     "",
     "Provider setup signals:",

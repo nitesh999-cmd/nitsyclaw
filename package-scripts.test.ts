@@ -139,6 +139,19 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bsend\s*\(/);
   });
 
+  test("operator doctor reports queue access without mutating data", () => {
+    expect(rootPackage.scripts?.["operator:doctor"]).toBe(
+      "pnpm exec tsx scripts/operator-queue-doctor.ts",
+    );
+
+    const source = readFileSync("scripts/operator-runner.ts", "utf8");
+    expect(source).toContain("formatOperatorQueueDoctorReport");
+    expect(source).toContain("live_queue_access=");
+    expect(source).toContain("DATABASE_URL");
+    expect(source).toContain("without printing secrets");
+    expect(source).not.toContain("console.log(process.env");
+  });
+
   test("Railway preflight checks bot worker access without mutating deployments", () => {
     expect(rootPackage.scripts?.["railway:login"]).toBe(
       "pnpm dlx @railway/cli login --browserless",

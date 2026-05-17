@@ -42,6 +42,27 @@ export interface FeatureQueueStatusSummary {
   batches: FeatureQueueBatch[];
 }
 
+export interface FeatureQueueMirrorItem {
+  id: string;
+  shortId: string;
+  type: FeatureRequest["type"];
+  severity: FeatureRequest["severity"];
+  size: FeatureRequest["size"];
+  source: FeatureRequest["source"];
+  category: string;
+  setupHeavy: boolean;
+  description: string;
+  createdAt: string;
+}
+
+export interface FeatureQueueMirror {
+  pendingCount: number;
+  recommendedNext: FeatureQueueMirrorItem | null;
+  batches: FeatureQueueBatch[];
+  rows: FeatureQueueMirrorItem[];
+  safety: string;
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   email: "Email and inbox",
   files: "Drive and files",
@@ -66,6 +87,9 @@ const SETUP_HEAVY_CATEGORIES = new Set([
   "birthdays",
   "social_video",
 ]);
+
+const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
 
 export function summarizeFeatureQueueStatus(args: {
   pending: FeatureRow[];
@@ -92,6 +116,31 @@ export function summarizeFeatureQueueStatus(args: {
     recommendedNext,
     batches: buildBatches(pending, limit),
   };
+}
+
+export function buildFeatureQueueMirror(args: { pending: FeatureRow[]; limit?: number }): FeatureQueueMirror {
+  const limit = args.limit ?? 50;
+  const summary = summarizeFeatureQueueStatus({ pending: args.pending, limit: Math.min(limit, 10) });
+  const items = args.pending.map(toFeatureQueueItem);
+  const mirrorItems = items.map((item) => toMirrorItem(item, args.pending));
+  const rows = mirrorItems.slice(0, limit);
+  const rowById = new Map(mirrorItems.map((row) => [row.id, row]));
+  return {
+    pendingCount: items.length,
+    recommendedNext: summary.recommendedNext ? (rowById.get(summary.recommendedNext.id) ?? null) : null,
+    batches: summary.batches.map((batch) => ({
+      ...batch,
+      examples: batch.examples
+        .map((item) => rowById.get(item.id))
+        .filter((item): item is FeatureQueueMirrorItem => Boolean(item)),
+    })),
+    rows,
+    safety: "Read-only queue mirror. It omits requester hashes, internal keys, raw notes, secrets, and provider tokens.",
+  };
+}
+
+function redactQueueDescription(text: string): string {
+  return truncate(text.replace(EMAIL_RE, "[email]").replace(PHONE_RE, "[phone]"), 240);
 }
 
 export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusSummary): string {
@@ -135,6 +184,22 @@ function toFeatureQueueItem(row: FeatureRow): FeatureQueueItem {
     source: row.source,
     category,
     setupHeavy: SETUP_HEAVY_CATEGORIES.has(category),
+  };
+}
+
+function toMirrorItem(item: FeatureQueueItem, rows: FeatureRow[]): FeatureQueueMirrorItem {
+  const original = rows.find((row) => row.id === item.id);
+  return {
+    id: item.id,
+    shortId: item.shortId,
+    type: item.type,
+    severity: item.severity,
+    size: item.size,
+    source: item.source,
+    category: item.category,
+    setupHeavy: item.setupHeavy,
+    description: redactQueueDescription(item.description),
+    createdAt: (original?.createdAt ?? new Date(0)).toISOString(),
   };
 }
 
