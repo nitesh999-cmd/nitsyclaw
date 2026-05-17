@@ -15,4 +15,13 @@ describe("tenant boundary scripts", () => {
     expect(source).not.toContain("DATABASE_URL");
     expect(source).not.toContain("process.env.");
   });
+
+  it("runs tenant boundary checks in CI before coverage", () => {
+    const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+    const tenantCheckIndex = workflow.indexOf("pnpm tenant:check");
+    const coverageIndex = workflow.indexOf("pnpm test:coverage");
+
+    expect(tenantCheckIndex).toBeGreaterThan(0);
+    expect(coverageIndex).toBeGreaterThan(tenantCheckIndex);
+  });
 });

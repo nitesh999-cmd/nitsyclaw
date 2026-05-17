@@ -12,6 +12,12 @@ export interface TenantTableBoundary {
   note: string;
 }
 
+export interface TenantContext {
+  tenantId: string;
+  ownerHash: string;
+  mode: "private-owner" | "customer";
+}
+
 export interface TenantBoundaryReadiness {
   mode: "private-owner" | "public-sale";
   codeReadyForPublicSale: boolean;
@@ -121,6 +127,33 @@ export const TENANT_TABLE_BOUNDARIES: TenantTableBoundary[] = [
     note: "Public sale needs account-aware lockout keys, not only client/network keys.",
   },
 ];
+
+export function privateOwnerTenant(ownerHash = "owner"): TenantContext {
+  return {
+    tenantId: ownerHash,
+    ownerHash,
+    mode: "private-owner",
+  };
+}
+
+export function requireTenantContext(context: TenantContext | null | undefined): TenantContext {
+  if (!context?.tenantId?.trim() || !context.ownerHash?.trim()) {
+    throw new Error("tenant context is required for customer data access");
+  }
+  return context;
+}
+
+export function tenantBoundaryFor(table: string): TenantTableBoundary | null {
+  return TENANT_TABLE_BOUNDARIES.find((boundary) => boundary.table === table) ?? null;
+}
+
+export function tableRequiresTenantMigration(table: string): boolean {
+  return tenantBoundaryFor(table)?.publicSaleRisk === "blocked";
+}
+
+export function tableIsTenantScoped(table: string): boolean {
+  return tenantBoundaryFor(table)?.kind === "tenant_scoped";
+}
 
 export function evaluateTenantBoundaries(
   env: TenantBoundaryEnv = process.env as TenantBoundaryEnv,

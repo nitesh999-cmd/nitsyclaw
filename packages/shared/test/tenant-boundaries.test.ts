@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   assertPublicSaleTenantBoundaries,
   evaluateTenantBoundaries,
+  privateOwnerTenant,
+  requireTenantContext,
+  tableIsTenantScoped,
+  tableRequiresTenantMigration,
   TENANT_TABLE_BOUNDARIES,
 } from "../src/tenancy.js";
 
@@ -46,5 +50,22 @@ describe("tenant boundary readiness", () => {
         expect.objectContaining({ table: "command_jobs", scopeColumn: "owner_hash", publicSaleRisk: "ok" }),
       ]),
     );
+  });
+
+  it("provides explicit tenant context primitives for future repo methods", () => {
+    expect(privateOwnerTenant("owner-hash")).toEqual({
+      tenantId: "owner-hash",
+      ownerHash: "owner-hash",
+      mode: "private-owner",
+    });
+    expect(requireTenantContext(privateOwnerTenant("owner-hash")).ownerHash).toBe("owner-hash");
+    expect(() => requireTenantContext(null)).toThrow(/tenant context is required/);
+  });
+
+  it("classifies tables for repo-level guardrails", () => {
+    expect(tableRequiresTenantMigration("expenses")).toBe(true);
+    expect(tableRequiresTenantMigration("reminders")).toBe(true);
+    expect(tableIsTenantScoped("connected_accounts")).toBe(true);
+    expect(tableIsTenantScoped("command_jobs")).toBe(true);
   });
 });

@@ -31,6 +31,7 @@ jobs:
       - name: WhatsApp release gate
         shell: pwsh
         run: ./scripts/whatsapp-release-gate.ps1
+      - run: pnpm tenant:check
       - run: pnpm test:coverage
       - name: Upload coverage
         if: always()
