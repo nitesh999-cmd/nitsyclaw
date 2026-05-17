@@ -9,10 +9,12 @@ import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } fr
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
+import { sendNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { formatSafeLogError, logBotError } from "./safe-log.js";
 
 const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
 const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
+const WHATSAPP_HEALTH_REPORT_CRON = process.env.WHATSAPP_HEALTH_REPORT_CRON ?? "0 21 * * *";
 const MEMORY_PRUNER_CRON = process.env.MEMORY_PRUNER_CRON ?? "0 3 * * *";
 const PRUNE_MESSAGES_DAYS = Number(process.env.PRUNE_MESSAGES_DAYS ?? 90);
 
@@ -109,6 +111,27 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
         logBotError("[cron:build] error", e);
       }
     }),
+  );
+
+  // 9pm daily - plain WhatsApp health report so failures are visible before the next day.
+  tasks.push(
+    cron.schedule(WHATSAPP_HEALTH_REPORT_CRON, async () => {
+      try {
+        const now = opts.deps.now();
+        if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+        await sendNightlyWhatsAppHealthReport(opts.deps, opts.ownerPhone);
+        await writeHeartbeat("whatsapp-nightly-health", { lastRun: now.toISOString() });
+      } catch (e) {
+        await writeHeartbeat(
+          "whatsapp-nightly-health",
+          { error: formatSafeLogError(e) },
+          "error",
+        ).catch((heartbeatError) => {
+          logBotError("[cron:heartbeat] nightly health error status failed", heartbeatError);
+        });
+        logBotError("[cron:nightly-health] error", e);
+      }
+    }, { timezone: opts.deps.timezone }),
   );
 
   // 3am daily - memory pruner: delete messages older than PRUNE_MESSAGES_DAYS (default 90).

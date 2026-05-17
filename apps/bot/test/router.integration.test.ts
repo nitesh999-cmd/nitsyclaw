@@ -729,8 +729,11 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("agl-bill.txt");
     expect(wa.sent[0].body).toContain("Reminders:");
     expect(wa.sent[0].body).toContain("call dentist");
+    expect(wa.sent[0].body).toContain("next is call dentist");
     expect(wa.sent[0].body).toContain("Expenses:");
     expect(wa.sent[0].body).toContain("AUD 18.75");
+    expect(wa.sent[0].body).toContain("Latest: Uber Trip AUD 18.75");
+    expect(wa.sent[0].body).toContain("No bank feed used");
     expect(wa.sent[0].body).toContain("Summaries");
     expect(wa.sent[0].body).toContain("Next:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(10);
@@ -799,6 +802,33 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("agl-bill.txt");
     expect(wa.sent[0].body).toContain("Queue");
     expect(wa.sent[0].body).toContain("No external accounts used");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("explains expense status with AUD default and no bank-feed claim", async () => {
+    const state = getFakeDbState(deps.db);
+    state.expenses.push({
+      id: "expense-status-1",
+      amount: 650,
+      currency: "AUD",
+      category: "health",
+      merchant: "Chemist Warehouse",
+      occurredAt: new Date("2026-04-25T07:50:00Z"),
+      createdAt: new Date("2026-04-25T07:51:00Z"),
+    });
+
+    await router.handle({
+      id: "x-expense-status",
+      from: OWNER,
+      body: "expenses",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Expenses");
+    expect(wa.sent[0].body).toContain("This month: AUD 6.50");
+    expect(wa.sent[0].body).toContain("Currency: AUD by default");
+    expect(wa.sent[0].body).toContain("No live bank feed is connected");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -1267,6 +1297,7 @@ describe("Router (integration)", () => {
       riskLevel: "safe",
     });
     expect(wa.sent.some((message) => message.body.includes("Transcribed"))).toBe(false);
+    expect(wa.sent.some((message) => message.body.includes("I will reply in English"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("Weather checked."))).toBe(true);
   });
 
