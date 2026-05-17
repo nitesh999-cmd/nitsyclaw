@@ -527,16 +527,39 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
+    expect(wa.sent[0].body).toContain("WhatsApp proof: needs attention");
+    expect(wa.sent[0].body).toContain("State:");
+    expect(wa.sent[0].body).toContain("WA-202604250800");
+    expect(wa.sent[0].body).toContain("commit");
+    expect(wa.sent[0].body).toContain("Routing: passed");
+    expect(wa.sent[0].body).toContain("Delivery: passed");
+    expect(wa.sent[0].body).toContain("Database marker: passed");
+    expect(wa.sent[0].body).toContain("Loop guard");
+    expect(wa.sent[0].body).toContain("Provider setup: not tested here");
+    expect(wa.sent[0].body).toContain("Next: what went wrong | proof details");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(12);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
+    expect(getFakeDbState(deps.db).messages.some((message) => message.metadata?.kind === "whatsapp-canary")).toBe(true);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("answers WhatsApp proof details with the full diagnostic view", async () => {
+    await router.handle({
+      id: "x-canary-details",
+      from: OWNER,
+      body: "proof details",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
     expect(wa.sent[0].body).toContain("WhatsApp proof");
     expect(wa.sent[0].body).toContain("Proof: WA-202604250800");
     expect(wa.sent[0].body).toContain("Version: commit");
     expect(wa.sent[0].body).toContain("Inbound/routing: passed");
     expect(wa.sent[0].body).toContain("Outbound delivery: passed");
-    expect(wa.sent[0].body).toContain("Database marker: passed");
-    expect(wa.sent[0].body).toContain("Loop guard");
     expect(wa.sent[0].body).toContain("Database write/read marker passed");
     expect(wa.sent[0].body).toContain("It does not test Gmail");
-    expect(getFakeDbState(deps.db).messages.some((message) => message.metadata?.kind === "whatsapp-canary")).toBe(true);
+    expect(wa.sent[0].body).toContain("what went wrong");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

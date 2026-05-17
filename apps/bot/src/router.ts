@@ -657,7 +657,7 @@ export class Router {
     }
   }
 
-  private async formatWhatsAppCanaryReply(): Promise<string> {
+  private async formatWhatsAppCanaryReply(detail = false): Promise<string> {
     const now = this.deps.now();
     const proof = `WA-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 12)}`;
     const [persistence, botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard] = await Promise.all([
@@ -678,6 +678,44 @@ export class Router {
       ? `Database marker: passed (${persistence.id?.slice(0, 8) ?? "recorded"})`
       : `Database marker: failed (${clipForWhatsApp(persistence.error ?? "not found after write", 120)})`;
 
+    const botRuntimeLine = heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000);
+    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const whatsappSendLine = heartbeatLine(
+      "WhatsApp send",
+      whatsappSend,
+      now,
+      10 * 60 * 1000,
+      sendError ? `last error: ${sendError}` : undefined,
+    );
+    const loopGuardLine = heartbeatLine(
+      "Loop guard",
+      whatsappLoopGuard,
+      now,
+      10 * 60 * 1000,
+      loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+    );
+    const needsAttention = !persistence.ok ||
+      classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
+      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      Boolean(sendError || loopReason);
+
+    if (!detail) {
+      return formatWhatsAppReplyShape({
+        answer: needsAttention ? "WhatsApp proof: needs attention" : "WhatsApp proof: passed",
+        state: `State: ${proof}, commit ${deployedCommit}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
+        details: [
+          "Routing: passed.",
+          "Delivery: passed if you can read this.",
+          persistenceLine,
+          whatsappClientLine,
+          whatsappSendLine,
+          loopGuardLine,
+          "Provider setup: not tested here.",
+        ],
+        next: needsAttention ? "what went wrong | proof details" : "proof details for full diagnostics",
+      });
+    }
+
     return [
       "WhatsApp proof",
       "",
@@ -689,16 +727,10 @@ export class Router {
       "- Inbound/routing: passed (this command reached the router)",
       "- Outbound delivery: passed if you can read this reply",
       `- ${persistenceLine}`,
-      `- ${heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000)}`,
-      `- ${heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000)}`,
-      `- ${heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined)}`,
-      `- ${heartbeatLine(
-        "Loop guard",
-        whatsappLoopGuard,
-        now,
-        10 * 60 * 1000,
-        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
-      )}`,
+      `- ${botRuntimeLine}`,
+      `- ${whatsappClientLine}`,
+      `- ${whatsappSendLine}`,
+      `- ${loopGuardLine}`,
       "",
       persistence.ok
         ? "Database write/read marker passed."
@@ -1514,7 +1546,7 @@ export class Router {
 
     const canary = parseWhatsAppCanaryShortcut(effectiveText);
     if (canary) {
-      const reply = await this.formatWhatsAppCanaryReply();
+      const reply = await this.formatWhatsAppCanaryReply(canary.detail);
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;

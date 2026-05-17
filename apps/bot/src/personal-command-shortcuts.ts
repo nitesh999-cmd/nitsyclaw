@@ -37,6 +37,7 @@ export interface WhatsAppIncidentSummaryShortcut {
 
 export interface WhatsAppCanaryShortcut {
   kind: "whatsapp-canary";
+  detail: boolean;
 }
 
 export interface QueuedIntegrationShortcut {
@@ -324,7 +325,15 @@ export function parseWhatsAppCanaryShortcut(text: string): WhatsAppCanaryShortcu
     trimmed === "delivery test" ||
     trimmed === "test delivery"
   ) {
-    return { kind: "whatsapp-canary" };
+    return { kind: "whatsapp-canary", detail: false };
+  }
+  if (
+    trimmed === "proof details" ||
+    trimmed === "whatsapp proof details" ||
+    trimmed === "canary details" ||
+    trimmed === "whatsapp canary details"
+  ) {
+    return { kind: "whatsapp-canary", detail: true };
   }
   return null;
 }

@@ -158,11 +158,12 @@ describe("personal command shortcuts", () => {
   });
 
   it("detects explicit WhatsApp canary requests", () => {
-    expect(parseWhatsAppCanaryShortcut("canary test")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("whatsapp canary")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("proof test")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("live proof")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary" });
+    expect(parseWhatsAppCanaryShortcut("canary test")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("whatsapp canary")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("proof test")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("live proof")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("proof details")).toEqual({ kind: "whatsapp-canary", detail: true });
     expect(parseWhatsAppCanaryShortcut("weather tomorrow")).toBeNull();
   });
 

@@ -115,6 +115,25 @@ const replies: ReplyBudget[] = [
   },
   {
     name: "proof test",
+    reply: formatWhatsAppReplyShape({
+      answer: "WhatsApp proof: passed",
+      state: "State: WA-202605160900, commit abc1234, 2026-05-16 09:00.",
+      details: [
+        "Routing: passed.",
+        "Delivery: passed if you can read this.",
+        "Database marker: passed (12345678)",
+        "WhatsApp client: ok",
+        "WhatsApp send: ok",
+        "Loop guard: ok",
+        "Provider setup: not tested here.",
+      ],
+      next: "proof details for full diagnostics",
+    }),
+    maxLines: 12,
+    maxChars: 900,
+  },
+  {
+    name: "proof details",
     reply: [
       "WhatsApp proof",
       "",
