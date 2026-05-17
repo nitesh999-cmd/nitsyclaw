@@ -112,6 +112,42 @@ const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
 const TOKEN_RE = /\b(?:(?:sk|pk)_(?:live|test)_[A-Za-z0-9._-]{8,}|(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,})\b/g;
 const POSTGRES_URL_RE = /\bpostgres(?:ql)?:\/\/\S+/gi;
 
+export function formatOperatorQueueDoctorReport(env: EnvLike = process.env): string {
+  const databaseReady = Boolean(env.DATABASE_URL?.trim());
+  const railwayReady = Boolean(env.RAILWAY_TOKEN?.trim());
+  const googleReady = Boolean(env.GOOGLE_CREDENTIALS_JSON?.trim() || env.GOOGLE_TOKEN_JSON?.trim());
+  const microsoftReady = Boolean(env.MS_CLIENT_ID?.trim() || env.MS_TOKEN_JSON?.trim());
+  const spotifyReady = Boolean(
+    env.SPOTIFY_CLIENT_ID?.trim() &&
+      env.SPOTIFY_CLIENT_SECRET?.trim() &&
+      env.SPOTIFY_REDIRECT_URI?.trim(),
+  );
+
+  return [
+    "operator-queue-doctor",
+    `live_queue_access=${databaseReady ? "ready" : "missing_DATABASE_URL"}`,
+    `railway_cli_token=${railwayReady ? "configured" : "not_configured"}`,
+    "",
+    "What this means:",
+    databaseReady
+      ? "- I can read the live feature queue from this terminal."
+      : "- I cannot read or claim live pending feature rows from this terminal yet.",
+    "- I can still safely improve local WhatsApp routing, help/status wording, tests, setup pages, and release gates.",
+    "",
+    "Provider setup signals:",
+    `- Google/Gmail/Drive/Photos: ${googleReady ? "some Google credential/token present" : "needs Google OAuth credentials/token"}`,
+    `- Microsoft/Outlook/OneDrive: ${microsoftReady ? "some Microsoft app/token present" : "needs Microsoft app/token"}`,
+    `- Spotify: ${spotifyReady ? "OAuth app configured; account connection may still be needed" : "needs Spotify OAuth env vars"}`,
+    "- Bank feeds: needs a compliant provider and consent flow.",
+    "- Phone/SMS: needs a compliant provider or phone companion plus confirmation gates.",
+    "",
+    "Unlock live queue work:",
+    "1. Add DATABASE_URL to .env.local or apps/dashboard/.env.local.",
+    "2. Run pnpm operator:next to preview the highest-priority row.",
+    "3. Run pnpm operator:claim only when the preview is safe.",
+  ].join("\n");
+}
+
 export function formatOfflineOperatorRunReport(): string {
   return [
     "operator-queue=unavailable",
@@ -129,6 +165,8 @@ export function formatOfflineOperatorRunReport(): string {
     "7. Improve WhatsApp status/help wording so users know what is ready, draft-only, setup-needed, or blocked.",
     "",
     "Needs DATABASE_URL: reading, claiming, rejecting, or updating live queued feature rows.",
+    "",
+    "Run pnpm operator:doctor for a setup-specific queue access report.",
   ].join("\n");
 }
 

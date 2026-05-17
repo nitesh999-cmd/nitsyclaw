@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOfflineOperatorRunReport, formatOperatorRunnerError } from "./operator-runner.js";
+import {
+  formatOfflineOperatorRunReport,
+  formatOperatorQueueDoctorReport,
+  formatOperatorRunnerError,
+} from "./operator-runner.js";
 
 describe("operator runner error safety", () => {
   it("keeps the safe DATABASE_URL guidance", () => {
@@ -40,5 +44,29 @@ describe("operator runner error safety", () => {
     expect(message).toContain("WhatsApp queued-integration routing");
     expect(message).toContain("Gmail/Outlook");
     expect(message).toContain("DATABASE_URL");
+    expect(message).toContain("pnpm operator:doctor");
+  });
+
+  it("reports queue access and provider setup signals without exposing secrets", () => {
+    const message = formatOperatorQueueDoctorReport({
+      DATABASE_URL: undefined,
+      RAILWAY_TOKEN: "railway-secret",
+      GOOGLE_CREDENTIALS_JSON: "google-secret",
+      MS_CLIENT_ID: undefined,
+      SPOTIFY_CLIENT_ID: "spotify-id",
+      SPOTIFY_CLIENT_SECRET: "spotify-secret",
+      SPOTIFY_REDIRECT_URI: "https://example.test/callback",
+    });
+
+    expect(message).toContain("operator-queue-doctor");
+    expect(message).toContain("live_queue_access=missing_DATABASE_URL");
+    expect(message).toContain("railway_cli_token=configured");
+    expect(message).toContain("some Google credential/token present");
+    expect(message).toContain("needs Microsoft app/token");
+    expect(message).toContain("OAuth app configured");
+    expect(message).toContain("pnpm operator:next");
+    expect(message).not.toContain("railway-secret");
+    expect(message).not.toContain("google-secret");
+    expect(message).not.toContain("spotify-secret");
   });
 });

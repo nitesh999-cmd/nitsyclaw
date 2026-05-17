@@ -36,6 +36,10 @@ $phoneProofPrompts = @(
     @{
         Prompt = "what can you do"
         Expected = "Compact NitsyClaw menu with Try, Works now, Needs setup, Safety, and More."
+    },
+    @{
+        Prompt = "build all pending features"
+        Expected = "Truthful Pending build plan. It must say local rails can be improved now and live external actions need account/provider setup."
     }
 )
 
@@ -74,7 +78,7 @@ for ($i = 0; $i -lt $phoneProofPrompts.Count; $i++) {
 $phoneProofLines | Set-Content -Path $phoneProofPath -Encoding UTF8
 Write-Host ""
 Write-Host "Phone proof checklist written to $phoneProofPath"
-Write-Host "Post-deploy proof passed for server-side gates. Phone proof still requires the four WhatsApp messages above."
+Write-Host "Post-deploy proof passed for server-side gates. Phone proof still requires the WhatsApp messages above."
 Write-Host ""
 Write-Host "Rollback note:"
 Write-Host "1. In Railway, open the last known good deployment and promote it again."

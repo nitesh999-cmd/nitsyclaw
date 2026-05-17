@@ -42,6 +42,7 @@
     "security:zap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zap-baseline.ps1",
     "security:deep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/security-deep.ps1",
     "operator:next": "pnpm exec tsx scripts/operator-runner.ts --dry-run",
+    "operator:doctor": "pnpm exec tsx scripts/operator-queue-doctor.ts",
     "operator:claim": "pnpm exec tsx scripts/operator-runner.ts --claim",
     "operator:reject-unsafe": "pnpm exec tsx scripts/operator-runner.ts --reject-unsafe",
     "watchdog:heartbeat": "pnpm exec tsx scripts/watchdog-heartbeat.ts",
