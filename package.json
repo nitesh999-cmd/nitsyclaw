@@ -47,6 +47,7 @@
     "operator:complete": "pnpm exec tsx scripts/operator-complete.ts",
     "operator:reject-unsafe": "pnpm exec tsx scripts/operator-runner.ts --reject-unsafe",
     "tenant:check": "pnpm exec tsx scripts/tenant-boundary-check.ts",
+    "tenant:migration-plan": "pnpm exec tsx scripts/tenant-migration-plan-check.ts",
     "watchdog:heartbeat": "pnpm exec tsx scripts/watchdog-heartbeat.ts",
     "db:generate": "pnpm --filter @nitsyclaw/shared db:generate",
     "db:migrate": "pnpm --filter @nitsyclaw/shared db:migrate",

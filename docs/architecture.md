@@ -43,3 +43,4 @@ NitsyClaw is a personal PA made of three main parts:
 - Local queue mutation needs `DATABASE_URL` in `.env.local` or `apps/dashboard/.env.local`.
 - Public multi-user launch still needs account separation, onboarding, billing, support, and legal/privacy controls.
 - Tenant boundary gate is now explicit: `pnpm tenant:check` lists which tables are tenant-scoped, review-needed, or single-owner only. Public sale remains blocked until customer data tables such as memories, reminders, expenses, briefs, and confirmations have tenant-scoped reads/writes.
+- Tenant migration planning is checked by `pnpm tenant:migration-plan`; the current plan is documentation-only and must not be treated as an applied production migration.

@@ -19,9 +19,11 @@ describe("tenant boundary scripts", () => {
   it("runs tenant boundary checks in CI before coverage", () => {
     const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
     const tenantCheckIndex = workflow.indexOf("pnpm tenant:check");
+    const tenantMigrationPlanIndex = workflow.indexOf("pnpm tenant:migration-plan");
     const coverageIndex = workflow.indexOf("pnpm test:coverage");
 
     expect(tenantCheckIndex).toBeGreaterThan(0);
-    expect(coverageIndex).toBeGreaterThan(tenantCheckIndex);
+    expect(tenantMigrationPlanIndex).toBeGreaterThan(tenantCheckIndex);
+    expect(coverageIndex).toBeGreaterThan(tenantMigrationPlanIndex);
   });
 });
