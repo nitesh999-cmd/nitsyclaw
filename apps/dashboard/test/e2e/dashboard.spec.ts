@@ -121,6 +121,15 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByTestId("settings-integrations")).toBeVisible();
   });
 
+  test("Privacy command center exposes safe data controls", async ({ page }) => {
+    await page.goto("/privacy-center");
+    await expect(page.getByRole("heading", { name: /Your data, controls, and trust checks/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Export my data" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Delete controls" })).toBeVisible();
+    await expect(page.getByText("Tokens are never shown")).toBeVisible();
+    await expect(page.getByText("Payloads redacted")).toBeVisible();
+  });
+
   test("Sidebar navigation", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();

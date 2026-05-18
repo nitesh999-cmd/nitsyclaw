@@ -96,7 +96,7 @@ export default async function SettingsPage({
         </div>
       </section>
 
-      <section className="nc-section" data-testid="settings-data-controls">
+      <section id="data-controls" className="nc-section" data-testid="settings-data-controls">
         <h3 className="nc-eyebrow mb-3">Data controls</h3>
         <div className="grid gap-3 md:grid-cols-2">
           {[

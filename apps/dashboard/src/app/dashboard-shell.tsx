@@ -11,6 +11,7 @@ const navGroups = [
       { href: "/chat", label: "Ask", mark: "Talk" },
       { href: "/confirmations", label: "Review", mark: "Yes" },
       { href: "/memory", label: "Remember", mark: "Keep" },
+      { href: "/privacy-center", label: "Privacy", mark: "Trust" },
       { href: "/settings", label: "Settings", mark: "Safe" },
     ],
   },
@@ -76,6 +77,16 @@ const mobileNavItems = [
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/privacy-center",
+    label: "Privacy",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M9 12l2 2 4-4" />
       </svg>
     ),
   },

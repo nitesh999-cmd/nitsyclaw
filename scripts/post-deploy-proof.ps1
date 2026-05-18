@@ -38,6 +38,22 @@ $phoneProofPrompts = @(
         Expected = "Compact NitsyClaw menu with Try, Works now, Needs setup, Safety, and More."
     },
     @{
+        Prompt = "I am in Sydney until tomorrow. What is the weather tomorrow?"
+        Expected = "Uses Sydney for this travelling request without changing the saved home location."
+    },
+    @{
+        Prompt = "My home location is Melbourne, Victoria, Australia"
+        Expected = "Confirms Melbourne is saved as the default home location."
+    },
+    @{
+        Prompt = "Use AUD as my default currency and always reply in English"
+        Expected = "Confirms AUD and English preferences are saved."
+    },
+    @{
+        Prompt = "what do you know about my location and preferences?"
+        Expected = "Shows only safe saved profile context, including home/current location, currency, timezone, and reply language where available."
+    },
+    @{
         Prompt = "build all pending features"
         Expected = "Truthful Pending build plan. It must say local rails can be improved now and live external actions need account/provider setup."
     }
