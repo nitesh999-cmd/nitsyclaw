@@ -42,9 +42,9 @@ describe("fireDueReminders", () => {
       { id: "2", text: "future", fireAt: new Date("2026-04-25T20:00:00Z"), status: "pending", rrule: null },
     );
     const count = await fireDueReminders(db, wa, "+91111", NOW);
-    expect(count).toBe(2); // fake-db where() is permissive — see notes below
-    // Real Drizzle path is exercised in integration test against pg-mem.
+    expect(count).toBe(1);
     expect(wa.sent.some((m) => m.body.includes("due"))).toBe(true);
+    expect(wa.sent.some((m) => m.body.includes("future"))).toBe(false);
   });
 
   it("delivers due reminders, marks them fired, and reschedules recurring reminders", async () => {

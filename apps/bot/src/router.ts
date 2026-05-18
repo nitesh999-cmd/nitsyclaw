@@ -55,6 +55,7 @@ import {
   trackWarranty,
   triageLifeAdminNote,
   formatFeatureQueueStatusForWhatsApp,
+  resolvePromptProfileFromContext,
   summarizeFeatureQueueStatus,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
@@ -1891,13 +1892,23 @@ export class Router {
 
     try {
       await markCommandJobWorking(this.deps.db, commandJob.id);
+      const promptProfile = await resolvePromptProfileFromContext(this.deps.db, {
+        userPhone: msg.from,
+        now: this.deps.now(),
+        fallback: this.deps.profile,
+      }).catch(() => this.deps.profile);
+      const agentDeps = {
+        ...this.deps,
+        profile: promptProfile,
+        timezone: promptProfile?.timezone ?? this.deps.timezone,
+      };
       const result = await runAgent({
         userPhone: msg.from,
         userMessage: effectiveText,
         history,
-        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: this.deps.profile }),
+        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }),
         registry: this.registry,
-        deps: this.deps,
+        deps: agentDeps,
       });
       // The agent should have already replied via reply_to_user; only echo if it didn't.
       const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);

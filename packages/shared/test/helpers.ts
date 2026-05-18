@@ -172,23 +172,62 @@ function makeQueryChain(rows: FakeDbRow[]): FakeQueryChain {
 }
 
 function filterRows(rows: FakeDbRow[], cond: unknown): FakeDbRow[] {
-  const equality = readDrizzleEquality(cond);
-  if (!equality) return rows;
+  const conditions = readDrizzleConditions(cond);
+  if (!conditions.length) return rows;
 
-  const camelKey = snakeToCamel(equality.columnName);
-  return rows.filter((row) => row[camelKey] === equality.value || row[equality.columnName] === equality.value);
+  return rows.filter((row) =>
+    conditions.every((condition) => {
+      const camelKey = snakeToCamel(condition.columnName);
+      const rowValue = row[camelKey] ?? row[condition.columnName];
+      return compareFakeDbValue(rowValue, condition.operator, condition.value);
+    }),
+  );
 }
 
-function readDrizzleEquality(cond: unknown): { columnName: string; value: unknown } | null {
-  if (typeof cond !== "object" || cond === null) return null;
+function readDrizzleConditions(cond: unknown): Array<{ columnName: string; operator: string; value: unknown }> {
+  if (typeof cond !== "object" || cond === null) return [];
   const chunks = (cond as { queryChunks?: unknown[] }).queryChunks;
-  if (!Array.isArray(chunks)) return null;
-  const column = chunks.find((chunk) => typeof (chunk as { name?: unknown }).name === "string") as
-    | { name: string }
-    | undefined;
-  const param = chunks.find((chunk) => chunk?.constructor?.name === "Param") as { value?: unknown } | undefined;
-  if (!column || !param) return null;
-  return { columnName: column.name, value: param.value };
+  if (!Array.isArray(chunks)) return [];
+  const columnIndex = chunks.findIndex((chunk) => typeof (chunk as { name?: unknown }).name === "string");
+  const paramIndex = chunks.findIndex((chunk) => chunk?.constructor?.name === "Param");
+  const column = columnIndex >= 0 ? chunks[columnIndex] as { name: string } : undefined;
+  const param = paramIndex >= 0 ? chunks[paramIndex] as { value?: unknown } : undefined;
+  const operator = columnIndex >= 0 && paramIndex > columnIndex
+    ? chunks.slice(columnIndex + 1, paramIndex).map(chunkText).join("").trim()
+    : "";
+  const direct = column && param && operator
+    ? [{ columnName: column.name, operator, value: param.value }]
+    : [];
+  return [
+    ...direct,
+    ...chunks.flatMap((chunk) => readDrizzleConditions(chunk)),
+  ];
+}
+
+function chunkText(chunk: unknown): string {
+  const value = (chunk as { value?: unknown }).value;
+  return Array.isArray(value) ? value.join("") : typeof value === "string" ? value : "";
+}
+
+function compareFakeDbValue(rowValue: unknown, operator: string, expected: unknown): boolean {
+  switch (operator) {
+    case "=":
+      return rowValue === expected;
+    case "<=":
+      return comparable(rowValue) <= comparable(expected);
+    case "<":
+      return comparable(rowValue) < comparable(expected);
+    case ">=":
+      return comparable(rowValue) >= comparable(expected);
+    case ">":
+      return comparable(rowValue) > comparable(expected);
+    default:
+      return true;
+  }
+}
+
+function comparable(value: unknown): number {
+  return value instanceof Date ? value.getTime() : typeof value === "number" ? value : Number(value);
 }
 
 function snakeToCamel(value: string): string {

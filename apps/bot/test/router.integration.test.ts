@@ -12,7 +12,7 @@ import {
   fakeTranscriber,
 } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
-import { generateKey } from "@nitsyclaw/shared/utils";
+import { generateKey, hashPhone } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
 
@@ -355,7 +355,7 @@ describe("Router (integration)", () => {
     state.connected_accounts.push({
       id: "spotify-account-1",
       provider: "spotify",
-      ownerHash: "owner-hash",
+      ownerHash: hashPhone(OWNER),
       accountLabel: "default",
       accessToken: "encrypted-token",
       scope: "playlist-read-private",

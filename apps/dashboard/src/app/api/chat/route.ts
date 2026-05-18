@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
-import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
 import {
   completeCommandJob,
   createCommandJob,
@@ -285,6 +285,16 @@ export async function POST(req: Request) {
     const history = await loadCrossSurfaceHistory(deps.db, ownerHash, 20).catch(
       () => [],
     );
+    const promptProfile = await resolvePromptProfileFromContext(deps.db, {
+      userPhone: ownerPhone,
+      now: deps.now(),
+      fallback: deps.profile,
+    }).catch(() => deps.profile);
+    const agentDeps = {
+      ...deps,
+      profile: promptProfile,
+      timezone: promptProfile?.timezone ?? deps.timezone,
+    };
 
     let result: Awaited<ReturnType<typeof runAgent>>;
     try {
@@ -293,9 +303,9 @@ export async function POST(req: Request) {
         userPhone: ownerPhone,
         userMessage: last.content,
         history,
-        systemPrompt: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
+        systemPrompt: buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
         registry,
-        deps,
+        deps: agentDeps,
         maxRounds: 6,
       });
       await completeCommandJob(deps.db, commandJob.id, result.finalText || "Done.");
