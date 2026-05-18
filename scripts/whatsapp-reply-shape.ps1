@@ -14,7 +14,7 @@ pnpm exec vitest run `
     apps/bot/src/whatsapp-provider-readiness.test.ts `
     apps/bot/src/whatsapp-capability-registry.test.ts `
     apps/bot/src/whatsapp-reply-format.test.ts `
-    --testNamePattern "Saved|working receipt|what can you do|ready pending setup status|pending items|provider readiness|capability|self-test|incident summary|canary|WhatsApp reply format"
+    --testNamePattern "Saved|working receipt|what can you do|ready pending setup status|pending items|local files|provider readiness|capability|self-test|incident summary|canary|WhatsApp reply format"
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

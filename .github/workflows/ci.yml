@@ -19,9 +19,20 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
+      - name: PowerShell syntax
+        shell: pwsh
+        run: pnpm ci:powershell
+      - name: WhatsApp reply shape budget
+        shell: pwsh
+        run: pnpm ci:whatsapp-replies
+      - name: WhatsApp reply snapshot drift
+        shell: pwsh
+        run: pnpm ci:whatsapp-snapshots
       - name: WhatsApp release gate
         shell: pwsh
         run: ./scripts/whatsapp-release-gate.ps1
+      - run: pnpm tenant:check
+      - run: pnpm tenant:migration-plan
       - run: pnpm test:coverage
       - name: Upload coverage
         if: always()

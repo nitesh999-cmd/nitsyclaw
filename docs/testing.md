@@ -47,11 +47,14 @@ pnpm test:e2e          # Playwright (auto-starts dashboard)
 pnpm test:e2e --ui     # Playwright UI mode
 pnpm release:live-smoke # smoke-test production after deploy
 pnpm run audit:doctor   # check local Docker, Vercel CLI, symlink, and live health blockers
+pnpm operator:doctor    # check whether this terminal can safely read the live feature queue
 ```
 
 `pnpm release:preflight` also blocks local secret drift before release. It fails if OAuth tokens, `.env.local`, SQLite/DB files, or WhatsApp session folders are left inside the repo instead of the external secret root.
 
 `pnpm run audit:doctor` is intentionally stricter about machine readiness. It fails if Docker is missing or Windows symlink privilege blocks local Vercel prebuilt packaging.
+
+`pnpm operator:doctor` is read-only. It reports whether `DATABASE_URL` is present for live queue reads and whether provider setup signals exist, without printing secrets.
 
 ## Production smoke
 

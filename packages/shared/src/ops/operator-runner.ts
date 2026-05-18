@@ -16,6 +16,10 @@ export interface OperatorQueueJob {
 export interface OperatorRunPlan {
   jobId: string;
   title: string;
+  summary: string;
+  type: OperatorJobType;
+  severity: OperatorJobSeverity;
+  size: OperatorJobSize;
   decision: "claim" | "reject";
   nextStatus: "in_progress" | "rejected";
   commands: string[];
@@ -59,11 +63,16 @@ export function selectNextOperatorJob(jobs: OperatorQueueJob[]): OperatorQueueJo
 
 export function buildOperatorRunPlan(job: OperatorQueueJob, now = new Date()): OperatorRunPlan {
   const title = compactTitle(job.description);
+  const summary = compactSummary(job.description);
   const unsafeReason = unsafeReasonFor(job.description);
   if (unsafeReason) {
     return {
       jobId: job.id,
       title,
+      summary,
+      type: job.type,
+      severity: job.severity,
+      size: job.size,
       decision: "reject",
       nextStatus: "rejected",
       commands: [],
@@ -83,6 +92,10 @@ export function buildOperatorRunPlan(job: OperatorQueueJob, now = new Date()): O
   return {
     jobId: job.id,
     title,
+    summary,
+    type: job.type,
+    severity: job.severity,
+    size: job.size,
     decision: "claim",
     nextStatus: "in_progress",
     commands,
@@ -97,7 +110,9 @@ export function formatOperatorRunReport(plan: OperatorRunPlan): string {
     `job=${plan.jobId}`,
     `decision=${plan.decision}`,
     `next=${plan.nextStatus}`,
+    `risk=${plan.type}/${plan.severity ?? "unranked"}/${plan.size}`,
     `title=${truncate(plan.title, 140)}`,
+    `summary=${truncate(plan.summary, 240)}`,
     `commands=${commandText}`,
     `note=${truncate(plan.note, 220)}`,
     reason.trim(),
@@ -127,7 +142,12 @@ function compactTitle(description: string): string {
   return truncate(title, 160);
 }
 
+function compactSummary(description: string): string {
+  const cleaned = description.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "No description provided.";
+  return cleaned.replace(/^(?:P[0-3]|bug|feature)\s*:\s*/i, "");
+}
+
 function truncate(value: string, max: number): string {
   return value.length <= max ? value : `${value.slice(0, max - 3)}...`;
 }
-

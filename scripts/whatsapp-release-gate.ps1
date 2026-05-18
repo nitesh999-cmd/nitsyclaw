@@ -20,6 +20,10 @@ function Invoke-Step {
     }
 }
 
+Invoke-Step "PowerShell syntax" {
+    pnpm run ci:powershell
+}
+
 Invoke-Step "Receipt wording guard" {
     pnpm run whatsapp:receipt-guard
 }

@@ -55,6 +55,7 @@ import {
   trackWarranty,
   triageLifeAdminNote,
   formatFeatureQueueStatusForWhatsApp,
+  resolvePromptProfileFromContext,
   summarizeFeatureQueueStatus,
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
@@ -98,11 +99,14 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
+  parseWhatsAppControlPlaneShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseWhatsAppSelfTestShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
+  parseNightlyHealthShortcut,
   parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
@@ -111,12 +115,14 @@ import {
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
+import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
+  formatWhatsAppPendingFeatureDevelopmentPlan,
   formatWhatsAppProviderSetupSnapshot,
 } from "./whatsapp-capabilities.js";
 import {
@@ -281,11 +287,30 @@ export class Router {
     kind: NonNullable<ReturnType<typeof parseLocalStatusShortcut>>["kind"],
     userPhone: string,
   ): Promise<string> {
+    if (kind === "all") {
+      const [files, reminders, expenses] = await Promise.all([
+        this.formatFilesStatusLine(userPhone),
+        this.formatRemindersStatusLine(),
+        this.formatExpenseStatusLine(),
+      ]);
+      return formatWhatsAppReplyShape({
+        answer: "Local status: ready",
+        state: "State: checked local files, reminders, expenses, and summary tools. No external accounts used.",
+        details: [
+          files,
+          reminders,
+          expenses,
+          "Summaries: bill summary, tidy note, next steps, check before send.",
+        ],
+        next: "files | reminders | expense summary | bill summary: <text>",
+      });
+    }
+
     const sections: string[] = [];
-    if (kind === "all" || kind === "files") sections.push(await this.formatFilesStatus(userPhone));
-    if (kind === "all" || kind === "reminders") sections.push(await this.formatRemindersStatus());
-    if (kind === "all" || kind === "expenses") sections.push(await this.formatExpenseStatus());
-    if (kind === "all" || kind === "summaries") sections.push(this.formatSummaryStatus());
+    if (kind === "files") sections.push(await this.formatFilesStatus(userPhone));
+    if (kind === "reminders") sections.push(await this.formatRemindersStatus());
+    if (kind === "expenses") sections.push(await this.formatExpenseStatus());
+    if (kind === "summaries") sections.push(this.formatSummaryStatus());
     return sections.join("\n\n");
   }
 
@@ -339,6 +364,39 @@ export class Router {
     }).join("\n");
   }
 
+  private async formatFilesStatusLine(userPhone: string): Promise<string> {
+    const rows = await recentMessages(this.deps.db, hashPhone(userPhone), 80);
+    const documents = rows.filter((row) => row.mediaType === "document").slice(0, 2);
+    if (!documents.length) return "Files: no recent local document uploads.";
+    const names = documents.map((row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+      return typeof metadata.filename === "string" ? metadata.filename : "document";
+    });
+    return `Files: ${names.join(", ")}.`;
+  }
+
+  private async formatRemindersStatusLine(): Promise<string> {
+    const rows = await listPendingReminders(this.deps.db, this.deps.now(), 2);
+    if (!rows.length) return "Reminders: clear. No pending WhatsApp reminders.";
+    const next = rows[0]!;
+    const more = rows.length > 1 ? ` +${rows.length - 1} more` : "";
+    return `Reminders: next is ${next.text} at ${this.formatLocalDateTime(next.fireAt)}${more}.`;
+  }
+
+  private async formatExpenseStatusLine(): Promise<string> {
+    const now = this.deps.now();
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    if (!rows.length) return "Expenses: clear for this month. AUD is the default; no bank feed connected.";
+    const currency = rows[0]?.currency ?? "AUD";
+    const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
+    const latest = rows
+      .slice()
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())[0];
+    const latestLine = latest ? ` Latest: ${latest.merchant ?? latest.category} ${latest.currency} ${(latest.amount / 100).toFixed(2)}.` : "";
+    return `Expenses: ${currency} ${(totalCents / 100).toFixed(2)} this month across ${rows.length} item(s).${latestLine} No bank feed used.`;
+  }
+
   private async getMonthlyExpenseSnapshot(): Promise<string> {
     const now = this.deps.now();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -377,12 +435,22 @@ export class Router {
 
   private async formatRemindersStatus(): Promise<string> {
     const rows = await listPendingReminders(this.deps.db, this.deps.now(), 5);
-    const reminders = rows.length
-      ? rows.map((row, index) => `${index + 1}. ${row.text} - ${row.fireAt.toISOString().slice(0, 16).replace("T", " ")}`).join("\n")
-      : "No upcoming pending reminders found.";
+    if (!rows.length) {
+      return [
+        "Reminders",
+        "Clear: no upcoming WhatsApp reminders.",
+        "Storage: NitsyClaw reminders. Delivery: WhatsApp self-chat.",
+        "Try: remind me to call dentist tomorrow 9am",
+      ].join("\n");
+    }
+    const reminders = rows
+      .map((row, index) => `${index + 1}. ${row.text} - ${this.formatLocalDateTime(row.fireAt)}`)
+      .join("\n");
     return [
       "Reminders",
-      `Next reminders:\n${reminders}`,
+      `Next: ${rows[0]!.text} at ${this.formatLocalDateTime(rows[0]!.fireAt)}`,
+      `Storage: NitsyClaw reminders. Delivery: WhatsApp self-chat.`,
+      `Upcoming:\n${reminders}`,
       "Try: remind me to call dentist tomorrow 9am",
     ].join("\n");
   }
@@ -394,7 +462,9 @@ export class Router {
     if (rows.length === 0) {
       return [
         "Expenses",
-        "No expenses found for this month.",
+        "Clear: no expenses found for this month.",
+        "Currency: AUD by default unless you say USD, INR, or another supported currency.",
+        "Source: local NitsyClaw expense log only. No bank feed is connected.",
         "Try: upload a bank CSV, send a receipt photo, or say spent $18.75 on Uber.",
       ].join("\n");
     }
@@ -411,7 +481,8 @@ export class Router {
       "Expenses",
       `This month: ${currency} ${(totalCents / 100).toFixed(2)} across ${rows.length} expense(s).`,
       `Top categories:\n${categories}`,
-      "Safe mode: this uses local logged expenses only, not live bank feeds.",
+      "Currency: AUD by default unless you say otherwise.",
+      "Source: local NitsyClaw expense log only. No live bank feed is connected.",
     ].join("\n");
   }
 
@@ -503,7 +574,9 @@ export class Router {
       `Expense logged: ${amount}`,
       `Category: ${expense.category}`,
       expense.merchant ? `Merchant: ${expense.merchant}` : undefined,
-      "Saved in NitsyClaw expenses. No bank connection was used.",
+      `Saved: NitsyClaw expenses at ${this.formatLocalDateTime(expense.occurredAt)}.`,
+      "Currency default is AUD unless you say USD, INR, or another supported currency.",
+      "No bank connection was used.",
     ].filter((line): line is string => Boolean(line));
     const reply = lines.join("\n");
     await this.sendAndPersist(reply);
@@ -536,15 +609,28 @@ export class Router {
       month: "short",
       hour: "numeric",
       minute: "2-digit",
+      timeZoneName: "short",
     }).format(reminder.fireAt);
     const reply = [
       `Reminder set: ${reminder.text}`,
       `When: ${when}`,
-      "Saved in NitsyClaw reminders. I will remind you on WhatsApp.",
+      "Saved: NitsyClaw reminders. Delivery: WhatsApp self-chat.",
     ].join("\n");
     await this.sendAndPersist(reply);
     await this.completeWhatsAppCommandJob(commandJob, reply);
     return true;
+  }
+
+  private formatLocalDateTime(date: Date): string {
+    return new Intl.DateTimeFormat("en-AU", {
+      timeZone: this.deps.timezone,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(date);
   }
 
   private formatHelpReply(): string {
@@ -567,25 +653,31 @@ export class Router {
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
 
-    return [
-      "NitsyClaw self-test",
-      "",
-      `Router: ready at ${now.toISOString().slice(0, 16).replace("T", " ")}`,
-      `Runtime: ${runtime.platform}, commit ${deployedCommit}`,
-      heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000),
-      heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
-      heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
-      heartbeatLine(
-        "Loop guard",
-        whatsappLoopGuard,
-        now,
-        10 * 60 * 1000,
-        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
-      ),
-      "",
-      "If WhatsApp feels stuck, send: resume whatsapp",
-      "For features, send: status",
-    ].join("\n");
+    const botRuntimeLine = heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000);
+    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const whatsappSendLine = heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined);
+    const loopGuardLine = heartbeatLine(
+      "Loop guard",
+      whatsappLoopGuard,
+      now,
+      10 * 60 * 1000,
+      loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+    );
+    const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
+      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      Boolean(sendError || loopReason);
+
+    return formatWhatsAppReplyShape({
+      answer: needsAttention ? "Self test: needs attention" : "Self test: ready",
+      state: `State: router ready, ${runtime.platform}, commit ${deployedCommit}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
+      details: [
+        botRuntimeLine,
+        whatsappClientLine,
+        whatsappSendLine,
+        loopGuardLine,
+      ],
+      next: needsAttention ? "what went wrong | resume whatsapp" : "status | proof test | proof details",
+    });
   }
 
   private async recordCanaryPersistence(proof: string): Promise<{ ok: boolean; id?: string; error?: string }> {
@@ -611,7 +703,7 @@ export class Router {
     }
   }
 
-  private async formatWhatsAppCanaryReply(): Promise<string> {
+  private async formatWhatsAppCanaryReply(detail = false): Promise<string> {
     const now = this.deps.now();
     const proof = `WA-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 12)}`;
     const [persistence, botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard] = await Promise.all([
@@ -632,6 +724,44 @@ export class Router {
       ? `Database marker: passed (${persistence.id?.slice(0, 8) ?? "recorded"})`
       : `Database marker: failed (${clipForWhatsApp(persistence.error ?? "not found after write", 120)})`;
 
+    const botRuntimeLine = heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000);
+    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const whatsappSendLine = heartbeatLine(
+      "WhatsApp send",
+      whatsappSend,
+      now,
+      10 * 60 * 1000,
+      sendError ? `last error: ${sendError}` : undefined,
+    );
+    const loopGuardLine = heartbeatLine(
+      "Loop guard",
+      whatsappLoopGuard,
+      now,
+      10 * 60 * 1000,
+      loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+    );
+    const needsAttention = !persistence.ok ||
+      classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
+      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      Boolean(sendError || loopReason);
+
+    if (!detail) {
+      return formatWhatsAppReplyShape({
+        answer: needsAttention ? "WhatsApp proof: needs attention" : "WhatsApp proof: passed",
+        state: `State: ${proof}, commit ${deployedCommit}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
+        details: [
+          "Routing: passed.",
+          "Delivery: passed if you can read this.",
+          persistenceLine,
+          whatsappClientLine,
+          whatsappSendLine,
+          loopGuardLine,
+          "Provider setup: not tested here.",
+        ],
+        next: needsAttention ? "what went wrong | proof details" : "proof details for full diagnostics",
+      });
+    }
+
     return [
       "WhatsApp proof",
       "",
@@ -643,16 +773,10 @@ export class Router {
       "- Inbound/routing: passed (this command reached the router)",
       "- Outbound delivery: passed if you can read this reply",
       `- ${persistenceLine}`,
-      `- ${heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000)}`,
-      `- ${heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000)}`,
-      `- ${heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined)}`,
-      `- ${heartbeatLine(
-        "Loop guard",
-        whatsappLoopGuard,
-        now,
-        10 * 60 * 1000,
-        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
-      )}`,
+      `- ${botRuntimeLine}`,
+      `- ${whatsappClientLine}`,
+      `- ${whatsappSendLine}`,
+      `- ${loopGuardLine}`,
       "",
       persistence.ok
         ? "Database write/read marker passed."
@@ -677,39 +801,97 @@ export class Router {
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
 
-    const healthLines = [
-      heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
-      heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
-      heartbeatLine(
-        "Loop guard",
-        whatsappLoopGuard,
-        now,
-        10 * 60 * 1000,
-        loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
-      ),
-    ];
+    const clientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const sendLine = heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined);
+    const loopLine = heartbeatLine(
+      "Loop guard",
+      whatsappLoopGuard,
+      now,
+      10 * 60 * 1000,
+      loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+    );
 
     const failureLines = failedJobs.length
-      ? failedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}${job.error ? ` (${clipForWhatsApp(job.error, 80)})` : ""}`)
-      : ["- No recent failed/retrying WhatsApp command jobs found."];
+      ? failedJobs.slice(0, 1).map((job) => `Recent failure: ${job.status} - ${clipForWhatsApp(job.command, 70)}${job.error ? ` (${clipForWhatsApp(job.error, 60)})` : ""}`)
+      : ["Recent failure: none found."];
     const blockedLines = blockedJobs.length
-      ? blockedJobs.slice(0, 2).map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 80)}`)
-      : ["- No recent commands waiting on approval or clarification."];
+      ? blockedJobs.slice(0, 1).map((job) => `Waiting on you: ${job.status} - ${clipForWhatsApp(job.command, 70)}`)
+      : ["Waiting on you: none found."];
 
     return formatWhatsAppReplyShape({
       answer: loopReason || sendError ? "Incident check: action may be needed" : "Incident check: no active failure signal",
       state: "State: checked WhatsApp health, recent failures, and commands waiting on you.",
       details: [
-        "Health:",
-        ...healthLines,
-        "Recent failures:",
+        clientLine,
+        sendLine,
+        loopLine,
         ...failureLines,
-        "Waiting on you:",
         ...blockedLines,
       ],
       next: loopReason || sendError
-        ? "self test; if loop guard is active, send resume whatsapp"
+        ? "self test | resume whatsapp | proof details"
         : "bug: <what happened>, if a reply still feels wrong",
+    });
+  }
+
+  private async formatWhatsAppControlPlaneReply(): Promise<string> {
+    const now = this.deps.now();
+    const [
+      botRuntime,
+      whatsappClient,
+      whatsappSend,
+      whatsappLoopGuard,
+      scheduler,
+      recentJobs,
+      pendingQueue,
+      waitingApproval,
+    ] = await Promise.all([
+      getSystemHeartbeat(this.deps.db, "bot-runtime"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-client"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-send"),
+      getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
+      getSystemHeartbeat(this.deps.db, "bot-scheduler"),
+      listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 10 }),
+      listPendingFeatureRequests(this.deps.db),
+      getLatestPendingConfirmation(this.deps.db),
+    ]);
+
+    const runtime = buildBotRuntimeMetadata(process.env, now);
+    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
+      ?? heartbeatMetadataText(botRuntime, "commit")
+      ?? runtime.commitShort;
+    const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
+    const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
+    const sendError = heartbeatMetadataText(whatsappSend, "error");
+    const recentFailures = recentJobs.filter((job) => job.status === "failed" || job.status === "retrying");
+    const waitingJobs = recentJobs.filter((job) => job.status === "needs_approval" || job.status === "needs_clarification");
+    const queueSummary = summarizeFeatureQueueStatus({ pending: pendingQueue, limit: 3 });
+    const nextQueue = queueSummary.recommendedNext ?? queueSummary.quickWins[0] ?? queueSummary.topPending[0];
+    const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
+      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      Boolean(loopReason || sendError || recentFailures.length);
+
+    return formatWhatsAppReplyShape({
+      answer: needsAttention ? "Control plane: needs attention" : "Control plane: ready",
+      state: `State: commit ${deployedCommit}, ${runtime.platform}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
+      details: [
+        heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000),
+        heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
+        heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
+        heartbeatLine(
+          "Loop guard",
+          whatsappLoopGuard,
+          now,
+          10 * 60 * 1000,
+          loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
+        ),
+        heartbeatLine("Scheduler", scheduler, now, 3 * 60 * 1000),
+        `Command jobs: ${recentFailures.length} recent failure(s), ${waitingJobs.length} waiting clarification/approval.`,
+        `Approvals: ${waitingApproval ? `waiting (${waitingApproval.action})` : "none waiting"}.`,
+        `Queue: ${queueSummary.pendingCount} pending; next ${nextQueue ? `${nextQueue.shortId} ${clipForWhatsApp(nextQueue.description, 72)}` : "none"}.`,
+        "Dashboard: /command for work queue, /whatsapp-recovery for recovery signals.",
+      ],
+      next: needsAttention ? "what went wrong | proof details | resume whatsapp" : "proof test | feature queue | local status",
     });
   }
 
@@ -1432,6 +1614,20 @@ export class Router {
       return;
     }
 
+    const pendingFeatureDevelopment = parsePendingFeatureDevelopmentShortcut(effectiveText);
+    if (pendingFeatureDevelopment) {
+      try {
+        const providerReadiness = await this.getProviderReadiness();
+        const reply = formatWhatsAppPendingFeatureDevelopmentPlan(providerReadiness);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (planError) {
+        await this.failWhatsAppCommandJob(commandJob, planError);
+        await this.sendPublicFailure("pending feature plan", "Couldn't build the pending-feature plan. I logged it; try again shortly.", planError);
+      }
+      return;
+    }
+
     const commandContract = parseCommandContractShortcut(effectiveText);
     if (commandContract) {
       const reply = formatWhatsAppCommandContractReply();
@@ -1466,9 +1662,22 @@ export class Router {
       return;
     }
 
+    const controlPlane = parseWhatsAppControlPlaneShortcut(effectiveText);
+    if (controlPlane) {
+      try {
+        const reply = await this.formatWhatsAppControlPlaneReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (controlPlaneError) {
+        await this.failWhatsAppCommandJob(commandJob, controlPlaneError);
+        await this.sendPublicFailure("whatsapp control plane", "Couldn't load the WhatsApp control plane. I logged it; try again shortly.", controlPlaneError);
+      }
+      return;
+    }
+
     const canary = parseWhatsAppCanaryShortcut(effectiveText);
     if (canary) {
-      const reply = await this.formatWhatsAppCanaryReply();
+      const reply = await this.formatWhatsAppCanaryReply(canary.detail);
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
@@ -1491,6 +1700,19 @@ export class Router {
       } catch (dailyStatusError) {
         await this.failWhatsAppCommandJob(commandJob, dailyStatusError);
         await this.sendPublicFailure("daily status", "Couldn't load daily status. I logged it; try again shortly.", dailyStatusError);
+      }
+      return;
+    }
+
+    const nightlyHealth = parseNightlyHealthShortcut(effectiveText);
+    if (nightlyHealth) {
+      try {
+        const report = await buildNightlyWhatsAppHealthReport(this.deps);
+        await this.sendAndPersist(report.body);
+        await this.completeWhatsAppCommandJob(commandJob, report.body);
+      } catch (nightlyHealthError) {
+        await this.failWhatsAppCommandJob(commandJob, nightlyHealthError);
+        await this.sendPublicFailure("nightly health", "Couldn't build the WhatsApp health report. I logged it; try again shortly.", nightlyHealthError);
       }
       return;
     }
@@ -1670,13 +1892,23 @@ export class Router {
 
     try {
       await markCommandJobWorking(this.deps.db, commandJob.id);
+      const promptProfile = await resolvePromptProfileFromContext(this.deps.db, {
+        userPhone: msg.from,
+        now: this.deps.now(),
+        fallback: this.deps.profile,
+      }).catch(() => this.deps.profile);
+      const agentDeps = {
+        ...this.deps,
+        profile: promptProfile,
+        timezone: promptProfile?.timezone ?? this.deps.timezone,
+      };
       const result = await runAgent({
         userPhone: msg.from,
         userMessage: effectiveText,
         history,
-        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: this.deps.profile }),
+        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }),
         registry: this.registry,
-        deps: this.deps,
+        deps: agentDeps,
       });
       // The agent should have already replied via reply_to_user; only echo if it didn't.
       const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);

@@ -53,6 +53,10 @@ function isAuthPath(pathname: string): boolean {
   return pathname === "/login" || pathname === "/api/auth/login" || pathname === "/api/auth/logout";
 }
 
+function isBuildAgentPath(pathname: string): boolean {
+  return pathname.startsWith("/api/build-agent/");
+}
+
 function isSaleReadinessPath(pathname: string): boolean {
   return pathname === "/api/sale-readiness";
 }
@@ -102,6 +106,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isAuthPath(request.nextUrl.pathname)) {
+    return withSecurityHeaders(NextResponse.next(), request);
+  }
+
+  if (isBuildAgentPath(request.nextUrl.pathname)) {
     return withSecurityHeaders(NextResponse.next(), request);
   }
 

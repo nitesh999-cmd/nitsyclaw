@@ -96,6 +96,25 @@ describe("WhatsAppLoopBreaker", () => {
     expect(inner.sent).toHaveLength(7);
   });
 
+  it("does not reopen the historical seven-send incident in the default window", async () => {
+    let now = Date.UTC(2026, 4, 12, 14, 13, 54);
+    const inner = new FakeWhatsApp();
+    const onTrip = vi.fn();
+    const breaker = new WhatsAppLoopBreaker(inner, { now: () => now, onTrip });
+
+    for (let index = 1; index <= 7; index += 1) {
+      await breaker.send({ to: "+61430008008", body: `proof flow message ${index}` });
+      now += 10_000;
+    }
+
+    expect(onTrip).not.toHaveBeenCalled();
+    expect(breaker.status()).toEqual({
+      paused: false,
+      recentSendCount: 7,
+      recentOutboundCount: 7,
+    });
+  });
+
   it("still pauses an abnormal default send burst", async () => {
     const inner = new FakeWhatsApp();
     const onTrip = vi.fn();

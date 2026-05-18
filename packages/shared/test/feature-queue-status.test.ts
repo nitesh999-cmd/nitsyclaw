@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFeatureQueueMirror,
   formatFeatureQueueStatusForWhatsApp,
   summarizeFeatureQueueStatus,
 } from "../src/features/feature-queue-status.js";
@@ -67,13 +68,48 @@ describe("feature queue status summary", () => {
     const reply = formatFeatureQueueStatusForWhatsApp(summary);
     expect(reply).toContain("Feature queue: 3 pending");
     expect(reply).toContain("State:");
-    expect(reply).toContain("Shipped:");
-    expect(reply).toContain("Best next:");
-    expect(reply).toContain("Needs setup:");
+    expect(reply).toContain("Best safe next:");
+    expect(reply).toContain("Needs setup before live action:");
     expect(reply).toContain("Next:");
-    expect(reply.split("\n").length).toBeLessThanOrEqual(9);
-    expect(reply.length).toBeLessThanOrEqual(900);
+    expect(reply.split("\n").length).toBeLessThanOrEqual(8);
+    expect(reply.length).toBeLessThanOrEqual(780);
     expect(reply).not.toContain("Claude Code");
     expect(reply).not.toContain("*nwp");
+  });
+
+  it("builds a redacted read-only operator queue mirror", () => {
+    const mirror = buildFeatureQueueMirror({
+      pending: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          description: "Read Gmail and Outlook for nitesh@example.com and +61430008008.",
+          type: "feature",
+          severity: "P1",
+          size: "M",
+          source: "whatsapp",
+          implementationNotes: "internal raw note should not be exposed",
+          createdAt: new Date("2026-05-08T10:00:00Z"),
+          completedAt: null,
+        },
+      ],
+    });
+
+    expect(mirror.pendingCount).toBe(1);
+    expect(mirror.recommendedNext?.shortId).toBe("11111111");
+    expect(mirror.rows[0]).toMatchObject({
+      id: "11111111-1111-4111-8111-111111111111",
+      shortId: "11111111",
+      category: "email",
+      setupHeavy: true,
+      createdAt: "2026-05-08T10:00:00.000Z",
+    });
+    expect(mirror.safety).toContain("Read-only queue mirror");
+    expect(JSON.stringify(mirror)).not.toContain("internal raw note");
+    expect(JSON.stringify(mirror)).not.toContain("nitesh@example.com");
+    expect(JSON.stringify(mirror)).not.toContain("+61430008008");
+    expect(JSON.stringify(mirror)).toContain("[email]");
+    expect(JSON.stringify(mirror)).toContain("[phone]");
+    expect(JSON.stringify(mirror)).not.toContain("dedupe");
+    expect(JSON.stringify(mirror)).not.toContain("requestedBy");
   });
 });

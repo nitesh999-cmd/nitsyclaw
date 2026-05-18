@@ -21,7 +21,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest, logAudit, redactAuditString } from "@nitsyclaw/shared/db";
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
-import { registerAllFeatures } from "@nitsyclaw/shared/features";
+import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import {
   completeCommandJob,
@@ -280,6 +280,16 @@ export async function POST(req: Request) {
     return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
   }
   const { deps, anthropic, model } = built;
+  const promptProfile = await resolvePromptProfileFromContext(deps.db, {
+    userPhone: ownerPhone,
+    now: deps.now(),
+    fallback: deps.profile,
+  }).catch(() => deps.profile);
+  const agentDeps = {
+    ...deps,
+    profile: promptProfile,
+    timezone: promptProfile?.timezone ?? deps.timezone,
+  };
   const registry = registerAllFeatures({ surface: "dashboard" });
   const commandJob = await createCommandJob(deps.db, {
     source: "dashboard",
@@ -329,7 +339,7 @@ export async function POST(req: Request) {
         for (let i = 0; i < MAX_TOOL_ROUNDS; i++) {
           rounds++;
           const resp = await deps.llm.toolStep({
-            system: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
+            system: buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
             messages,
             tools: registry.toAnthropicTools(),
           });
@@ -357,9 +367,9 @@ export async function POST(req: Request) {
               if (!parsed.success) throw new Error("Invalid tool input");
               const out = await tool.handler(parsed.data, {
                 userPhone: ownerPhone,
-                now: deps.now(),
-                timezone: deps.timezone,
-                deps,
+                now: agentDeps.now(),
+                timezone: agentDeps.timezone,
+                deps: agentDeps,
               });
               toolCalls.push({ name: call.name, input: call.input, output: out, success: true });
               toolResultParts.push(`[tool ${call.name}] ${JSON.stringify(out)}`);
@@ -408,7 +418,7 @@ export async function POST(req: Request) {
           const stream2 = anthropic.messages.stream({
             model,
             max_tokens: 1500,
-            system: buildSystemPrompt({ surface: "dashboard", profile: deps.profile }),
+            system: buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
             tools: registry.toAnthropicTools() as Anthropic.Tool[],
             messages: messages.map((m) => ({ role: m.role, content: m.content })),
           });

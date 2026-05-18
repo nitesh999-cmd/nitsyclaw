@@ -12,7 +12,7 @@ import {
   fakeTranscriber,
 } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
-import { generateKey } from "@nitsyclaw/shared/utils";
+import { generateKey, hashPhone } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
 
@@ -209,10 +209,9 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("Feature queue: 2 pending");
-    expect(wa.sent[0].body).toContain("Shipped:");
-    expect(wa.sent[0].body).toContain("Best next:");
+    expect(wa.sent[0].body).toContain("Best safe next:");
     expect(wa.sent[0].body).toContain("Improve dashboard mobile navigation labels");
-    expect(wa.sent[0].body).toContain("Needs setup:");
+    expect(wa.sent[0].body).toContain("Needs setup before live action:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(9);
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("Claude Code");
@@ -287,18 +286,37 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("NitsyClaw menu");
-    expect(wa.sent[0].body).toContain("Say it normally");
-    expect(wa.sent[0].body).toContain("Works now:");
+    expect(wa.sent[0].body).toContain("Say what you need");
     expect(wa.sent[0].body).toContain("Try:");
+    expect(wa.sent[0].body).toContain("Works now:");
     expect(wa.sent[0].body).toContain("Remind me to call Mukesh tomorrow at 10 am");
+    expect(wa.sent[0].body).toContain("Check before send: I am angry about this bill");
     expect(wa.sent[0].body).toContain("Needs setup:");
-    expect(wa.sent[0].body).toContain("I can queue setup requests");
     expect(wa.sent[0].body).toContain("proof test");
     expect(wa.sent[0].body).toContain("Safety:");
-    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
-    expect(wa.sent[0].body.length).toBeLessThanOrEqual(950);
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(13);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("Runtime:");
     expect(wa.sent[0].body).not.toContain("Setup snapshot:");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("answers build-all-pending requests with a truthful setup-aware plan", async () => {
+    await router.handle({
+      id: "x-build-all-pending",
+      from: OWNER,
+      body: "build all pending features",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Pending build plan");
+    expect(wa.sent[0].body).toContain("safe local rails");
+    expect(wa.sent[0].body).toContain("Live external actions need account/provider setup");
+    expect(wa.sent[0].body).toContain("Gmail");
+    expect(wa.sent[0].body).toContain("Phone/SMS");
+    expect(wa.sent[0].body).not.toContain("Gmail is connected");
+    expect(wa.sent[0].body).not.toContain("Bank feeds: connected");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -337,7 +355,7 @@ describe("Router (integration)", () => {
     state.connected_accounts.push({
       id: "spotify-account-1",
       provider: "spotify",
-      ownerHash: "owner-hash",
+      ownerHash: hashPhone(OWNER),
       accountLabel: "default",
       accessToken: "encrypted-token",
       scope: "playlist-read-private",
@@ -441,14 +459,17 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("NitsyClaw self-test");
-    expect(wa.sent[0].body).toContain("Router: ready");
-    expect(wa.sent[0].body).toContain("Runtime:");
+    expect(wa.sent[0].body).toContain("Self test: ready");
+    expect(wa.sent[0].body).toContain("State:");
+    expect(wa.sent[0].body).toContain("router ready");
+    expect(wa.sent[0].body).toContain("commit abc1234");
     expect(wa.sent[0].body).toContain("Bot runtime: ok");
     expect(wa.sent[0].body).toContain("WhatsApp client: ok");
     expect(wa.sent[0].body).toContain("WhatsApp send: ok");
     expect(wa.sent[0].body).toContain("Loop guard: ok");
-    expect(wa.sent[0].body).toContain("resume whatsapp");
+    expect(wa.sent[0].body).toContain("Next: status | proof test | proof details");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(9);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(700);
     expect(wa.sent[0].body).not.toContain("must-not-leak");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
@@ -506,14 +527,87 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("Incident check:");
     expect(wa.sent[0].body).toContain("State:");
-    expect(wa.sent[0].body).toContain("Health");
     expect(wa.sent[0].body).toContain("WhatsApp send: fail");
     expect(wa.sent[0].body).toContain("Loop guard: cooldown");
     expect(wa.sent[0].body).toContain("send message to John");
     expect(wa.sent[0].body).toContain("resume whatsapp");
     expect(wa.sent[0].body).toContain("Next:");
-    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
-    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(8);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(780);
+    expect(wa.sent[0].body).not.toContain("must-not-leak");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("answers WhatsApp control plane with runtime queue and recovery state", async () => {
+    const state = getFakeDbState(deps.db);
+    state.system_heartbeats.push(
+      {
+        source: "bot-runtime",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:00Z"),
+        metadata: { platform: "railway", commitShort: "abc1234", secret: "must-not-leak" },
+      },
+      {
+        source: "whatsapp-client",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { state: "READY" },
+      },
+      {
+        source: "whatsapp-send",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { lastMessageId: "wamid.test" },
+      },
+      {
+        source: "whatsapp-loop-guard",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { recentSendCount: 2 },
+      },
+      {
+        source: "bot-scheduler",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: {},
+      },
+    );
+    state.feature_requests.push({
+      id: "ff70fa2b-7e25-4811-8272-a9cc716e4920",
+      description: "[WhatsApp] WhatsApp Control Plane: Build a WhatsApp-safe command control plane.",
+      type: "feature",
+      severity: "P0",
+      size: "L",
+      source: "dashboard",
+      requestedBy: "system",
+      status: "pending",
+      implementationNotes: null,
+      rejectionReason: null,
+      prUrl: null,
+      dedupeKey: "operator-mission:whatsapp-control-plane",
+      completedAt: null,
+      createdAt: new Date("2026-04-25T07:55:00Z"),
+      updatedAt: new Date("2026-04-25T07:55:00Z"),
+    });
+
+    await router.handle({
+      id: "x-control-plane",
+      from: OWNER,
+      body: "whatsapp control plane",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Control plane: ready");
+    expect(wa.sent[0].body).toContain("commit abc1234");
+    expect(wa.sent[0].body).toContain("WhatsApp client: ok");
+    expect(wa.sent[0].body).toContain("Loop guard: ok");
+    expect(wa.sent[0].body).toContain("Scheduler: ok");
+    expect(wa.sent[0].body).toContain("Command jobs:");
+    expect(wa.sent[0].body).toContain("Queue: 1 pending");
+    expect(wa.sent[0].body).toContain("/whatsapp-recovery");
+    expect(wa.sent[0].body).toContain("Next: proof test | feature queue | local status");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1200);
     expect(wa.sent[0].body).not.toContain("must-not-leak");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
@@ -527,16 +621,39 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
+    expect(wa.sent[0].body).toContain("WhatsApp proof: needs attention");
+    expect(wa.sent[0].body).toContain("State:");
+    expect(wa.sent[0].body).toContain("WA-202604250800");
+    expect(wa.sent[0].body).toContain("commit");
+    expect(wa.sent[0].body).toContain("Routing: passed");
+    expect(wa.sent[0].body).toContain("Delivery: passed");
+    expect(wa.sent[0].body).toContain("Database marker: passed");
+    expect(wa.sent[0].body).toContain("Loop guard");
+    expect(wa.sent[0].body).toContain("Provider setup: not tested here");
+    expect(wa.sent[0].body).toContain("Next: what went wrong | proof details");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(12);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
+    expect(getFakeDbState(deps.db).messages.some((message) => message.metadata?.kind === "whatsapp-canary")).toBe(true);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("answers WhatsApp proof details with the full diagnostic view", async () => {
+    await router.handle({
+      id: "x-canary-details",
+      from: OWNER,
+      body: "proof details",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
     expect(wa.sent[0].body).toContain("WhatsApp proof");
     expect(wa.sent[0].body).toContain("Proof: WA-202604250800");
     expect(wa.sent[0].body).toContain("Version: commit");
     expect(wa.sent[0].body).toContain("Inbound/routing: passed");
     expect(wa.sent[0].body).toContain("Outbound delivery: passed");
-    expect(wa.sent[0].body).toContain("Database marker: passed");
-    expect(wa.sent[0].body).toContain("Loop guard");
     expect(wa.sent[0].body).toContain("Database write/read marker passed");
     expect(wa.sent[0].body).toContain("It does not test Gmail");
-    expect(getFakeDbState(deps.db).messages.some((message) => message.metadata?.kind === "whatsapp-canary")).toBe(true);
+    expect(wa.sent[0].body).toContain("what went wrong");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -614,6 +731,8 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Expense logged");
     expect(wa.sent[0].body).toContain("AUD 18.40");
     expect(wa.sent[0].body).toContain("health");
+    expect(wa.sent[0].body).toContain("Currency default is AUD");
+    expect(wa.sent[0].body).toContain("No bank connection was used");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -630,8 +749,8 @@ describe("Router (integration)", () => {
     expect(state.reminders).toHaveLength(1);
     expect(state.reminders[0]?.text).toContain("call Mukesh");
     expect(wa.sent[0].body).toContain("Reminder set");
-    expect(wa.sent[0].body).toContain("Saved in NitsyClaw reminders");
-    expect(wa.sent[0].body).toContain("WhatsApp");
+    expect(wa.sent[0].body).toContain("Saved: NitsyClaw reminders");
+    expect(wa.sent[0].body).toContain("Delivery: WhatsApp self-chat");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -697,13 +816,21 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Files/documents");
+    expect(wa.sent[0].body).toContain("Local status: ready");
+    expect(wa.sent[0].body).toContain("State:");
+    expect(wa.sent[0].body).toContain("Files:");
     expect(wa.sent[0].body).toContain("agl-bill.txt");
-    expect(wa.sent[0].body).toContain("Reminders");
+    expect(wa.sent[0].body).toContain("Reminders:");
     expect(wa.sent[0].body).toContain("call dentist");
-    expect(wa.sent[0].body).toContain("Expenses");
+    expect(wa.sent[0].body).toContain("next is call dentist");
+    expect(wa.sent[0].body).toContain("Expenses:");
     expect(wa.sent[0].body).toContain("AUD 18.75");
+    expect(wa.sent[0].body).toContain("Latest: Uber Trip AUD 18.75");
+    expect(wa.sent[0].body).toContain("No bank feed used");
     expect(wa.sent[0].body).toContain("Summaries");
+    expect(wa.sent[0].body).toContain("Next:");
+    expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(10);
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(800);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -768,6 +895,94 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("agl-bill.txt");
     expect(wa.sent[0].body).toContain("Queue");
     expect(wa.sent[0].body).toContain("No external accounts used");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("sends the manual nightly health report without the model loop", async () => {
+    const state = getFakeDbState(deps.db);
+    const now = deps.now();
+    state.system_heartbeats.push(
+      {
+        id: "hb-runtime",
+        source: "bot-runtime",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: { commitShort: "test123" },
+        updatedAt: now,
+      },
+      {
+        id: "hb-scheduler",
+        source: "bot-scheduler",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+      {
+        id: "hb-client",
+        source: "whatsapp-client",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+      {
+        id: "hb-send",
+        source: "whatsapp-send",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+      {
+        id: "hb-loop",
+        source: "whatsapp-loop-guard",
+        status: "ok",
+        lastSeenAt: now,
+        metadata: {},
+        updatedAt: now,
+      },
+    );
+
+    await router.handle({
+      id: "x-nightly-health-now",
+      from: OWNER,
+      body: "nightly health now",
+      timestamp: now,
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Nightly WhatsApp health");
+    expect(wa.sent[0].body).toContain("Status: ready");
+    expect(wa.sent[0].body).toContain("Version: commit test123");
+    expect(wa.sent[0].body).toContain("Provider setup is not tested here");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("explains expense status with AUD default and no bank-feed claim", async () => {
+    const state = getFakeDbState(deps.db);
+    state.expenses.push({
+      id: "expense-status-1",
+      amount: 650,
+      currency: "AUD",
+      category: "health",
+      merchant: "Chemist Warehouse",
+      occurredAt: new Date("2026-04-25T07:50:00Z"),
+      createdAt: new Date("2026-04-25T07:51:00Z"),
+    });
+
+    await router.handle({
+      id: "x-expense-status",
+      from: OWNER,
+      body: "expenses",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Expenses");
+    expect(wa.sent[0].body).toContain("This month: AUD 6.50");
+    expect(wa.sent[0].body).toContain("Currency: AUD by default");
+    expect(wa.sent[0].body).toContain("No live bank feed is connected");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
@@ -1236,6 +1451,7 @@ describe("Router (integration)", () => {
       riskLevel: "safe",
     });
     expect(wa.sent.some((message) => message.body.includes("Transcribed"))).toBe(false);
+    expect(wa.sent.some((message) => message.body.includes("I will reply in English"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("Weather checked."))).toBe(true);
   });
 

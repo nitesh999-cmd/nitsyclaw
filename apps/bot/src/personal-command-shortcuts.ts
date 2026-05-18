@@ -23,6 +23,10 @@ export interface CapabilityStatusShortcut {
   kind: "capability-status";
 }
 
+export interface PendingFeatureDevelopmentShortcut {
+  kind: "pending-feature-development";
+}
+
 export interface CommandContractShortcut {
   kind: "command-contract";
 }
@@ -35,8 +39,13 @@ export interface WhatsAppIncidentSummaryShortcut {
   kind: "whatsapp-incident-summary";
 }
 
+export interface WhatsAppControlPlaneShortcut {
+  kind: "whatsapp-control-plane";
+}
+
 export interface WhatsAppCanaryShortcut {
   kind: "whatsapp-canary";
+  detail: boolean;
 }
 
 export interface QueuedIntegrationShortcut {
@@ -56,6 +65,10 @@ export interface QueuedIntegrationShortcut {
 
 export interface DailyStatusShortcut {
   kind: "daily-status";
+}
+
+export interface NightlyHealthShortcut {
+  kind: "nightly-health";
 }
 
 export type LocalStatusShortcutKind = "all" | "files" | "reminders" | "expenses" | "summaries";
@@ -261,6 +274,18 @@ export function parseCapabilityStatusShortcut(text: string): CapabilityStatusSho
   return null;
 }
 
+export function parsePendingFeatureDevelopmentShortcut(text: string): PendingFeatureDevelopmentShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    /\b(?:build|develop|finish|ship|action|complete|do)\s+(?:all\s+)?(?:the\s+)?(?:pending|queued|remaining)\s+(?:features?|items?|queue)\b/.test(trimmed) ||
+    /\b(?:build|develop|finish|ship|action|complete|do)\s+(?:the\s+)?(?:feature\s+)?queue\b/.test(trimmed) ||
+    /\b(?:all\s+)?(?:pending|queued|remaining)\s+(?:features?|items?)\s+(?:now|today|tonight)\b/.test(trimmed)
+  ) {
+    return { kind: "pending-feature-development" };
+  }
+  return null;
+}
+
 export function parseCommandContractShortcut(text: string): CommandContractShortcut | null {
   const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
   if (
@@ -312,6 +337,22 @@ export function parseWhatsAppIncidentSummaryShortcut(text: string): WhatsAppInci
   return null;
 }
 
+export function parseWhatsAppControlPlaneShortcut(text: string): WhatsAppControlPlaneShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "control plane" ||
+    trimmed === "whatsapp control plane" ||
+    trimmed === "whatsapp control" ||
+    trimmed === "bot control" ||
+    trimmed === "bot control plane" ||
+    trimmed === "operator control" ||
+    trimmed === "command control"
+  ) {
+    return { kind: "whatsapp-control-plane" };
+  }
+  return null;
+}
+
 export function parseWhatsAppCanaryShortcut(text: string): WhatsAppCanaryShortcut | null {
   const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
   if (
@@ -324,7 +365,15 @@ export function parseWhatsAppCanaryShortcut(text: string): WhatsAppCanaryShortcu
     trimmed === "delivery test" ||
     trimmed === "test delivery"
   ) {
-    return { kind: "whatsapp-canary" };
+    return { kind: "whatsapp-canary", detail: false };
+  }
+  if (
+    trimmed === "proof details" ||
+    trimmed === "whatsapp proof details" ||
+    trimmed === "canary details" ||
+    trimmed === "whatsapp canary details"
+  ) {
+    return { kind: "whatsapp-canary", detail: true };
   }
   return null;
 }
@@ -466,6 +515,19 @@ export function parseDailyStatusShortcut(text: string): DailyStatusShortcut | nu
     trimmed === "what's my day"
   ) {
     return { kind: "daily-status" };
+  }
+  return null;
+}
+
+export function parseNightlyHealthShortcut(text: string): NightlyHealthShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "nightly health now" ||
+    trimmed === "whatsapp health now" ||
+    trimmed === "health report now" ||
+    trimmed === "send health report now"
+  ) {
+    return { kind: "nightly-health" };
   }
   return null;
 }

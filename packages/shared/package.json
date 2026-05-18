@@ -15,6 +15,7 @@
     "./ops/command-jobs": "./src/ops/command-jobs.ts",
     "./ops/personal-pa-intent": "./src/ops/personal-pa-intent.ts",
     "./ops/heartbeat": "./src/ops/heartbeat.ts",
+    "./tenancy": "./src/tenancy.ts",
     "./utils": "./src/utils/index.ts",
     "./notify": "./src/notify/index.ts",
     "./search": "./src/search/index.ts"

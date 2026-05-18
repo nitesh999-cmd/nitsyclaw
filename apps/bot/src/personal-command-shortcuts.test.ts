@@ -8,7 +8,9 @@ import {
   parseDailyStatusShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
+  parseWhatsAppControlPlaneShortcut,
   parseWhatsAppSelfTestShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseHomeAssistantShortcut,
@@ -87,6 +89,20 @@ describe("personal command shortcuts", () => {
     expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
   });
 
+  it("detects requests to develop all pending features without treating status as execution", () => {
+    expect(parsePendingFeatureDevelopmentShortcut("build all pending features")).toEqual({
+      kind: "pending-feature-development",
+    });
+    expect(parsePendingFeatureDevelopmentShortcut("develop the queued items")).toEqual({
+      kind: "pending-feature-development",
+    });
+    expect(parsePendingFeatureDevelopmentShortcut("ship feature queue")).toEqual({
+      kind: "pending-feature-development",
+    });
+    expect(parsePendingFeatureDevelopmentShortcut("pending items")).toBeNull();
+    expect(parsePendingFeatureDevelopmentShortcut("what is pending")).toBeNull();
+  });
+
   it("detects queued integration setup requests", () => {
     expect(parseQueuedIntegrationShortcut("connect Gmail so you can draft replies")).toMatchObject({
       toolName: "queue_email_connection_request",
@@ -158,12 +174,20 @@ describe("personal command shortcuts", () => {
   });
 
   it("detects explicit WhatsApp canary requests", () => {
-    expect(parseWhatsAppCanaryShortcut("canary test")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("whatsapp canary")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("proof test")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("live proof")).toEqual({ kind: "whatsapp-canary" });
-    expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary" });
+    expect(parseWhatsAppCanaryShortcut("canary test")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("whatsapp canary")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("proof test")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("live proof")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary", detail: false });
+    expect(parseWhatsAppCanaryShortcut("proof details")).toEqual({ kind: "whatsapp-canary", detail: true });
     expect(parseWhatsAppCanaryShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects WhatsApp control plane requests", () => {
+    expect(parseWhatsAppControlPlaneShortcut("control plane")).toEqual({ kind: "whatsapp-control-plane" });
+    expect(parseWhatsAppControlPlaneShortcut("whatsapp control plane")).toEqual({ kind: "whatsapp-control-plane" });
+    expect(parseWhatsAppControlPlaneShortcut("bot control")).toEqual({ kind: "whatsapp-control-plane" });
+    expect(parseWhatsAppControlPlaneShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects safe local status shortcuts", () => {

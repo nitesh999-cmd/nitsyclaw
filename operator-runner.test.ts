@@ -84,6 +84,10 @@ describe("operator runner", () => {
     const report = formatOperatorRunReport({
       jobId: "abc123",
       title: "[Automation] Operator Job Runner",
+      summary: "Build a safer operator queue preview with useful work details.",
+      type: "feature",
+      severity: "P1",
+      size: "M",
       decision: "claim",
       nextStatus: "in_progress",
       commands: ["pnpm lint", "pnpm build"],
@@ -92,8 +96,27 @@ describe("operator runner", () => {
 
     expect(report).toContain("job=abc123");
     expect(report).toContain("decision=claim");
+    expect(report).toContain("risk=feature/P1/M");
+    expect(report).toContain("summary=Build a safer operator queue preview");
     expect(report).toContain("pnpm lint");
     expect(report.length).toBeLessThan(600);
   });
-});
 
+  it("keeps the useful description when a queue row starts with a severity prefix", () => {
+    const plan = buildOperatorRunPlan({
+      id: "prefixed",
+      description: "P0: WhatsApp loop breaker opened. Inspect audit_log and harden regression tests.",
+      status: "pending",
+      type: "bug",
+      severity: "P0",
+      size: "S",
+      createdAt: now,
+    }, now);
+
+    const report = formatOperatorRunReport(plan);
+
+    expect(report).toContain("title=P0");
+    expect(report).toContain("risk=bug/P0/S");
+    expect(report).toContain("summary=WhatsApp loop breaker opened");
+  });
+});

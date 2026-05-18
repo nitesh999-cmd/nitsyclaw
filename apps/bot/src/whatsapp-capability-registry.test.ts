@@ -8,6 +8,7 @@ import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCapabilityMatrix,
   formatWhatsAppHelpReply,
+  formatWhatsAppPendingFeatureDevelopmentPlan,
 } from "./whatsapp-capabilities.js";
 
 describe("WhatsApp capability registry", () => {
@@ -26,17 +27,18 @@ describe("WhatsApp capability registry", () => {
 
     expect(formatReadyCapabilitiesOneLine()).toContain("SMS drafts");
     expect(help).toContain("NitsyClaw menu");
-    expect(help).toContain("Say it normally");
+    expect(help).toContain("Say what you need");
     expect(help).toContain("Try:");
     expect(help).toContain("Works now:");
     expect(help).toContain("Remind me to call Mukesh tomorrow at 10 am");
+    expect(help).toContain("Check before send: I am angry about this bill");
     expect(help).toContain("Needs setup:");
-    expect(help).toContain("I can queue setup requests");
     expect(help).toContain("proof test");
+    expect(help).toContain("pending build plan");
     expect(help).toContain("local status");
     expect(help).toContain("Safety:");
-    expect(help.split("\n").length).toBeLessThanOrEqual(18);
-    expect(help.length).toBeLessThanOrEqual(950);
+    expect(help.split("\n").length).toBeLessThanOrEqual(13);
+    expect(help.length).toBeLessThanOrEqual(900);
     expect(help).not.toContain("Runtime:");
     expect(help).not.toContain("Setup snapshot:");
     expect(matrix).toContain("What I can do from WhatsApp");
@@ -47,6 +49,21 @@ describe("WhatsApp capability registry", () => {
     expect(matrix).toContain("Next:");
     expect(matrix).not.toContain("Gmail is connected");
     expect(matrix).not.toContain("Bank feeds: connected");
+  });
+
+  it("renders a truthful pending feature development plan", () => {
+    const plan = formatWhatsAppPendingFeatureDevelopmentPlan();
+
+    expect(plan).toContain("Pending build plan");
+    expect(plan).toContain("safe local rails");
+    expect(plan).toContain("Live external actions need account/provider setup");
+    expect(plan).toContain("Gmail");
+    expect(plan).toContain("Google Drive");
+    expect(plan).toContain("Spotify");
+    expect(plan).toContain("Phone/SMS");
+    expect(plan).toContain("Bank feeds");
+    expect(plan).not.toContain("Gmail is connected");
+    expect(plan).not.toContain("Bank feeds: connected");
   });
 
   it("offers practical WhatsApp examples from the registry", () => {

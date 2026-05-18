@@ -116,10 +116,6 @@ function bulletList(items: readonly string[]): string[] {
   return items.map((item) => `- ${item}`);
 }
 
-function numberedList(items: readonly string[]): string[] {
-  return items.map((item, index) => `${index + 1}. ${item}`);
-}
-
 function compactList(items: readonly string[], limit = 5): string {
   if (!items.length) return "none";
   const visible = items.slice(0, limit).join(", ");
@@ -173,19 +169,43 @@ export function formatWhatsAppHelpReply(
 
   return [
     "NitsyClaw menu",
-    "Say it normally. I can answer, remind, remember, log expenses, summarise bills, and draft messages.",
+    "Say what you need. I will answer, save, remind, log, summarise, or draft.",
     "",
     "Try:",
-    ...numberedList(WHATSAPP_PRACTICAL_EXAMPLES.slice(0, 5)),
-    "",
-    "Works now: questions/voice, reminders, memory, AUD expenses, bill/document summaries, SMS/reply/call-script drafts.",
-    "",
-    `Needs setup: ${compactList(needsSetup, 6)}.`,
-    "I can queue setup requests, but I will not pretend they are connected.",
-    "",
+    "1. Remind me to call Mukesh tomorrow at 10 am",
+    "2. I spent $18.40 at Chemist Warehouse",
+    "3. Bill summary: AGL bill $240 due 18 May",
+    "4. Check before send: I am angry about this bill",
+    "5. Call script: ask my energy retailer for a better rate",
+    "Works now: voice, reminders, memory, AUD expenses, bill/doc summaries, drafts, call scripts.",
+    `Needs setup: ${compactList(needsSetup, 5)}.`,
     "Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
+    "More: status | proof test | pending build plan | what went wrong | feature queue | local status",
+  ].join("\n");
+}
+
+export function formatWhatsAppPendingFeatureDevelopmentPlan(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
+  const setupItems = PROVIDER_STATUS_ORDER.map((key) => providerReadiness[key]);
+  const readyOrPartial = setupItems
+    .filter((item) => item.status === "ready" || item.status === "partial")
+    .map((item) => item.label);
+
+  return [
+    "Pending build plan",
+    "Truth: I can build safe local rails now. Live external actions need account/provider setup before I can claim they work.",
     "",
-    "More: status | proof test | what went wrong | feature queue | local status",
+    "Can improve without you:",
+    "1. WhatsApp routing, help/status wording, queue capture, proof checks, reminders, expenses, bill/doc summaries, drafts, tests.",
+    "2. Provider setup screens/checklists that explain exactly what is missing.",
+    "3. Safety gates for send/call/delete/book/pay actions.",
+    "",
+    "Needs setup before live action:",
+    ...bulletList(setupItems.map((item) => `${item.label}: ${item.status.replace(/_/g, " ")} - ${item.nextStep}`)),
+    "",
+    `Already connected/partly ready: ${compactList(readyOrPartial)}.`,
+    "Next from WhatsApp: send feature queue for live queue rows, or status for provider details.",
   ].join("\n");
 }
 

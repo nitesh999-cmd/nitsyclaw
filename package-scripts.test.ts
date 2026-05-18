@@ -139,6 +139,32 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bsend\s*\(/);
   });
 
+  test("operator doctor reports queue access without mutating data", () => {
+    expect(rootPackage.scripts?.["operator:doctor"]).toBe(
+      "pnpm exec tsx scripts/operator-queue-doctor.ts",
+    );
+
+    const source = readFileSync("scripts/operator-runner.ts", "utf8");
+    expect(source).toContain("formatOperatorQueueDoctorReport");
+    expect(source).toContain("live_queue_access=");
+    expect(source).toContain("DATABASE_URL");
+    expect(source).toContain("without printing secrets");
+    expect(source).not.toContain("console.log(process.env");
+  });
+
+  test("operator complete closes in-progress queue rows without printing secrets", () => {
+    expect(rootPackage.scripts?.["operator:complete"]).toBe(
+      "pnpm exec tsx scripts/operator-complete.ts",
+    );
+
+    const source = readFileSync("scripts/operator-complete.ts", "utf8");
+    expect(source).toContain("expectedStatus: \"in_progress\"");
+    expect(source).toContain("operator_runner.complete");
+    expect(source).toContain("formatOperatorCompleteError");
+    expect(source).toContain("[redacted:database-url]");
+    expect(source).not.toContain("console.log(process.env");
+  });
+
   test("Railway preflight checks bot worker access without mutating deployments", () => {
     expect(rootPackage.scripts?.["railway:login"]).toBe(
       "pnpm dlx @railway/cli login --browserless",
@@ -229,8 +255,33 @@ describe("package scripts", () => {
     expect(source).toContain("proof test");
     expect(source).toContain("I spent `$6.50 at Chemist Warehouse for medicine");
     expect(source).toContain("what can you do");
-    expect(source).toContain("compact NitsyClaw menu");
+    expect(source).toContain("Compact NitsyClaw menu");
     expect(source).toContain("Works now");
+    expect(source).toContain("Rollback note");
+    expect(source).toContain("last known good deployment");
+    expect(source).toContain("promote it again");
+    expect(source).toContain("sync main");
+    expect(source).toContain("do not bounce the service blindly");
+    expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
+  });
+
+  test("WhatsApp full release proves the pushed commit without mutating git", () => {
+    expect(rootPackage.scripts?.["release:whatsapp-full"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
+    );
+
+    const source = readFileSync("scripts/whatsapp-full-release.ps1", "utf8");
+    expect(source).toContain("whatsapp:release-gate");
+    expect(source).toContain("release:wait-railway");
+    expect(source).toContain("release:post-deploy-proof");
+    expect(source).toContain("git diff --quiet");
+    expect(source).toContain("git rev-parse \"@{u}\"");
+    expect(source).toContain("HEAD is not pushed");
+    const executableGitMutationLines = source
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /^git\s+(?:push|commit|reset|checkout|stash)\b/i.test(line));
+    expect(executableGitMutationLines).toEqual([]);
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 

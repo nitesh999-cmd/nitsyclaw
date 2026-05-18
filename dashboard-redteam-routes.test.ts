@@ -14,7 +14,7 @@ function routeFiles(dir: string): string[] {
 }
 
 describe("dashboard red-team route policy", () => {
-  it("discovers every POST API route and requires same-origin protection", () => {
+  it("discovers every POST API route and requires same-origin or build-agent auth protection", () => {
     const postRoutes = routeFiles(API_ROOT).filter((path) =>
       readFileSync(path, "utf8").includes("export async function POST"),
     );
@@ -22,7 +22,9 @@ describe("dashboard red-team route policy", () => {
     expect(postRoutes.length).toBeGreaterThan(5);
     for (const route of postRoutes) {
       const source = readFileSync(route, "utf8");
-      expect(source, route).toContain("requireSameOrigin");
+      const hasSameOrigin = source.includes("requireSameOrigin");
+      const hasBuildAgentAuth = source.includes("requireBuildAgentAuth");
+      expect(hasSameOrigin || hasBuildAgentAuth, route).toBe(true);
     }
   });
 });

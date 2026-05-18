@@ -279,6 +279,19 @@ export async function getProfileContext(
   return row ?? null;
 }
 
+export async function listProfileContextForOwner(
+  db: DB,
+  ownerHash: string,
+  limit = 50,
+): Promise<ProfileContext[]> {
+  return db
+    .select()
+    .from(profileContext)
+    .where(eq(profileContext.ownerHash, ownerHash))
+    .orderBy(desc(profileContext.updatedAt))
+    .limit(limit);
+}
+
 export async function upsertConnectedAccount(
   db: DB,
   account: NewConnectedAccount,

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOfflineOperatorRunReport, formatOperatorRunnerError } from "./operator-runner.js";
+import {
+  formatOfflineOperatorRunReport,
+  formatOperatorVerificationSummary,
+  formatOperatorQueueDoctorReport,
+  formatOperatorRunnerError,
+  runVerificationCommands,
+} from "./operator-runner.js";
 
 describe("operator runner error safety", () => {
   it("keeps the safe DATABASE_URL guidance", () => {
@@ -40,5 +46,58 @@ describe("operator runner error safety", () => {
     expect(message).toContain("WhatsApp queued-integration routing");
     expect(message).toContain("Gmail/Outlook");
     expect(message).toContain("DATABASE_URL");
+    expect(message).toContain("pnpm operator:doctor");
+  });
+
+  it("reports queue access and provider setup signals without exposing secrets", () => {
+    const message = formatOperatorQueueDoctorReport({
+      DATABASE_URL: undefined,
+      RAILWAY_TOKEN: "railway-secret",
+      GOOGLE_CREDENTIALS_JSON: "google-secret",
+      MS_CLIENT_ID: undefined,
+      SPOTIFY_CLIENT_ID: "spotify-id",
+      SPOTIFY_CLIENT_SECRET: "spotify-secret",
+      SPOTIFY_REDIRECT_URI: "https://example.test/callback",
+    });
+
+    expect(message).toContain("operator-queue-doctor");
+    expect(message).toContain("live_queue_access=missing_DATABASE_URL");
+    expect(message).toContain("railway_cli_token=configured");
+    expect(message).toContain("some Google credential/token present");
+    expect(message).toContain("needs Microsoft app/token");
+    expect(message).toContain("OAuth app configured");
+    expect(message).toContain("pnpm operator:next");
+    expect(message).not.toContain("railway-secret");
+    expect(message).not.toContain("google-secret");
+    expect(message).not.toContain("spotify-secret");
+  });
+
+  it("runs verification commands and records a safe summary", async () => {
+    const run = await runVerificationCommands(["node -e \"console.log('operator ok')\""], {
+      cwd: process.cwd(),
+      timeoutMs: 10_000,
+    });
+
+    expect(run.success).toBe(true);
+    expect(run.commands).toHaveLength(1);
+    expect(run.commands[0]?.outputTail).toContain("operator ok");
+    expect(formatOperatorVerificationSummary(run, ".nitsyclaw-local/operator-runs/report.json")).toContain(
+      "Operator verification passed",
+    );
+  });
+
+  it("stops verification at the first failed command", async () => {
+    const run = await runVerificationCommands(
+      ["node -e \"process.exit(7)\"", "node -e \"console.log('should not run')\""],
+      {
+        cwd: process.cwd(),
+        timeoutMs: 10_000,
+      },
+    );
+
+    expect(run.success).toBe(false);
+    expect(run.commands).toHaveLength(1);
+    expect(run.failedCommand).toContain("process.exit");
+    expect(run.failureSummary).toContain("exited with 7");
   });
 });

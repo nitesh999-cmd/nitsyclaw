@@ -20,6 +20,12 @@ describe("prepareOutboundBodyForWhatsApp", () => {
       prepareOutboundBodyForWhatsApp("Saved. Working on it.\nHey Nitesh! What can I do for you today?"),
     ).toBe("Hey Nitesh! What can I do for you today?");
   });
+
+  it("removes noisy transcription notices but keeps the real answer", () => {
+    expect(
+      prepareOutboundBodyForWhatsApp("Transcribed. I will reply in English.\nThe weather tomorrow is mild."),
+    ).toBe("The weather tomorrow is mild.");
+  });
 });
 
 describe("non-self chat drop diagnostics", () => {

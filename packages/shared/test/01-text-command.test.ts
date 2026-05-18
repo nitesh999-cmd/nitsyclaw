@@ -80,6 +80,22 @@ describe("reply_to_user tool", () => {
     expect(wa.sent[0].body).toBe("Hey Nitesh! What can I do for you today?");
   });
 
+  it("removes noisy transcription notices but keeps the actual answer", async () => {
+    const r = new ToolRegistry();
+    registerTextCommand(r);
+    const wa = new MockWhatsAppClient();
+    const deps = makeAgentDeps({ whatsapp: wa });
+    const tool = r.get("reply_to_user")!;
+
+    await tool.handler(
+      { text: "📝 Transcribed. I will reply in English.\nThe weather tomorrow is mild and cloudy." },
+      { userPhone: "+9100", now: new Date(), timezone: "UTC", deps },
+    );
+
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0].body).toBe("The weather tomorrow is mild and cloudy.");
+  });
+
   it("repairs non-English script replies into English when the profile requires English", async () => {
     const r = new ToolRegistry();
     registerTextCommand(r);
