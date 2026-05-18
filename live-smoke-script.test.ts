@@ -21,6 +21,8 @@ describe("live smoke script", () => {
     expect(script).toContain("/login?next=%2Fhealth");
     expect(script).toContain("/whatsapp-recovery");
     expect(script).toContain("/login?next=%2Fwhatsapp-recovery");
+    expect(script).toContain("/privacy-center");
+    expect(script).toContain("/login?next=%2Fprivacy-center");
     expect(script).toContain("Personal life admin");
     expect(script).toContain("Personal AI control plane");
     expect(script).toContain("Cache-Control");

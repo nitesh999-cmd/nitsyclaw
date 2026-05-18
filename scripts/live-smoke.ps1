@@ -85,6 +85,10 @@ $whatsappRecoveryRedirect = Invoke-SmokeGet -Url "$root/whatsapp-recovery" -Expe
 if ($whatsappRecoveryRedirect -notmatch "(?im)^Location:\s*/login\?next=%2Fwhatsapp-recovery\s*$") {
     throw "/whatsapp-recovery did not redirect unauthenticated users to /login?next=%2Fwhatsapp-recovery."
 }
+$privacyCenterRedirect = Invoke-SmokeGet -Url "$root/privacy-center" -ExpectedStatus 307
+if ($privacyCenterRedirect -notmatch "(?im)^Location:\s*/login\?next=%2Fprivacy-center\s*$") {
+    throw "/privacy-center did not redirect unauthenticated users to /login?next=%2Fprivacy-center."
+}
 
 $login = Invoke-SmokeGet -Url "$root/login" -ExpectedStatus 200
 if ($login -notmatch [regex]::Escape($ExpectedLoginText)) {
