@@ -121,6 +121,14 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByTestId("settings-integrations")).toBeVisible();
   });
 
+  test("Onboarding page explains first steps in plain language", async ({ page }) => {
+    await page.goto("/onboarding");
+    await expect(page.getByRole("heading", { name: "Your personal PA, in plain words" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Try first task" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Start with one of these" })).toBeVisible();
+    await expect(page.getByText("No AI knowledge needed")).toBeVisible();
+  });
+
   test("Privacy command center exposes safe data controls", async ({ page }) => {
     await page.goto("/privacy-center");
     await expect(page.getByRole("heading", { name: /Your data, controls, and trust checks/ })).toBeVisible();

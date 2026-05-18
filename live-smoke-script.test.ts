@@ -23,6 +23,11 @@ describe("live smoke script", () => {
     expect(script).toContain("/login?next=%2Fwhatsapp-recovery");
     expect(script).toContain("/privacy-center");
     expect(script).toContain("/login?next=%2Fprivacy-center");
+    expect(script).toContain("Invoke-SmokeLogin");
+    expect(script).toContain("Invoke-AuthenticatedSmokeGet");
+    expect(script).toContain("NITSYCLAW_DASHBOARD_PASSWORD");
+    expect(script).toContain("Your data, controls, and trust checks");
+    expect(script).toContain("/confirmations");
     expect(script).toContain("Personal life admin");
     expect(script).toContain("Personal AI control plane");
     expect(script).toContain("Cache-Control");

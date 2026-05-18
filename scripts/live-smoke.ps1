@@ -1,7 +1,9 @@
 param(
     [string]$BaseUrl = "https://nitsyclaw.vercel.app",
     [string]$ExpectedLoginText = "Personal life admin",
-    [string]$ForbiddenLoginText = "Personal AI control plane"
+    [string]$ForbiddenLoginText = "Personal AI control plane",
+    [string]$DashboardUser = $env:NITSYCLAW_DASHBOARD_USER,
+    [string]$DashboardPassword = $env:NITSYCLAW_DASHBOARD_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
@@ -60,6 +62,55 @@ function Invoke-SmokeGet {
     return $text
 }
 
+function Invoke-SmokeLogin {
+    param([Parameter(Mandatory = $true)][string]$Root)
+
+    $cookieFile = [System.IO.Path]::GetTempFileName()
+    $user = if ($DashboardUser) { $DashboardUser } else { "nitesh" }
+    $response = & curl.exe -sS -i -c $cookieFile -H "Origin: $Root" --data-urlencode "user=$user" --data-urlencode "password=$DashboardPassword" --data-urlencode "next=/confirmations" "$Root/api/auth/login"
+    if ($LASTEXITCODE -ne 0) {
+        Remove-Item -LiteralPath $cookieFile -ErrorAction SilentlyContinue
+        throw "curl login failed for $Root/api/auth/login."
+    }
+    $statusLine = @($response | Where-Object { $_ -match '^HTTP/' } | Select-Object -Last 1)[0]
+    if ($statusLine -notmatch "HTTP/.* 303") {
+        Remove-Item -LiteralPath $cookieFile -ErrorAction SilentlyContinue
+        throw "/api/auth/login expected HTTP 303, got $statusLine."
+    }
+    $text = $response -join "`n"
+    if ($text -notmatch "(?im)^Set-Cookie:") {
+        Remove-Item -LiteralPath $cookieFile -ErrorAction SilentlyContinue
+        throw "/api/auth/login did not set a session cookie."
+    }
+    Write-Host "OK 303 POST $Root/api/auth/login"
+    return $cookieFile
+}
+
+function Invoke-AuthenticatedSmokeGet {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [Parameter(Mandatory = $true)][string]$CookieFile,
+        [Parameter(Mandatory = $true)][string]$ExpectedText
+    )
+
+    $response = & curl.exe -sS -i -b $CookieFile $Url
+    if ($LASTEXITCODE -ne 0) {
+        throw "curl authenticated GET failed for $Url."
+    }
+    $text = $response -join "`n"
+    $statusLine = @($response | Where-Object { $_ -match '^HTTP/' } | Select-Object -Last 1)[0]
+    if ($statusLine -notmatch "HTTP/.* 200") {
+        throw "$Url expected authenticated HTTP 200, got $statusLine."
+    }
+    if ($text -notmatch "(?im)^Cache-Control:.*no-store") {
+        throw "$Url missing Cache-Control: no-store."
+    }
+    if ($text -notmatch [regex]::Escape($ExpectedText)) {
+        throw "$Url missing expected authenticated content: $ExpectedText"
+    }
+    Write-Host "OK 200 AUTH GET $Url"
+}
+
 $root = Normalize-BaseUrl -Url $BaseUrl
 Write-Host "== NitsyClaw live smoke =="
 Write-Host "Target: $root"
@@ -96,6 +147,18 @@ if ($login -notmatch [regex]::Escape($ExpectedLoginText)) {
 }
 if ($login -match [regex]::Escape($ForbiddenLoginText)) {
     throw "/login still contains forbidden copy: $ForbiddenLoginText"
+}
+
+if ($DashboardPassword) {
+    $cookieFile = Invoke-SmokeLogin -Root $root
+    try {
+        Invoke-AuthenticatedSmokeGet -Url "$root/confirmations" -CookieFile $cookieFile -ExpectedText "Confirmations"
+        Invoke-AuthenticatedSmokeGet -Url "$root/privacy-center" -CookieFile $cookieFile -ExpectedText "Your data, controls, and trust checks"
+    } finally {
+        Remove-Item -LiteralPath $cookieFile -ErrorAction SilentlyContinue
+    }
+} else {
+    Write-Host "SKIP authenticated dashboard smoke: NITSYCLAW_DASHBOARD_PASSWORD is not available."
 }
 
 Write-Host "Live smoke passed."
