@@ -1,4 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import {
   getDb,
@@ -14,9 +16,11 @@ import {
 } from "../packages/shared/src/ops/operator-runner";
 
 const args = new Set(process.argv.slice(2));
-const shouldClaim = args.has("--claim");
+const shouldRun = args.has("--run");
+const shouldClaim = args.has("--claim") || shouldRun;
 const shouldRejectUnsafe = args.has("--reject-unsafe");
 const dryRun = args.has("--dry-run") || (!shouldClaim && !shouldRejectUnsafe);
+const commandTimeoutMs = Number(process.env.OPERATOR_COMMAND_TIMEOUT_MS ?? 10 * 60 * 1000);
 
 loadLocalEnv([".env.local", "apps/dashboard/.env.local", ".env"]);
 
@@ -93,6 +97,39 @@ async function main() {
     output: { decision: plan.decision, nextStatus: plan.nextStatus, commandCount: plan.commands.length },
     success: true,
   });
+
+  if (shouldRun) {
+    const run = await runVerificationCommands(plan.commands, {
+      cwd: process.cwd(),
+      timeoutMs: commandTimeoutMs,
+    });
+    const reportPath = await writeOperatorRunReport(plan.jobId, run);
+    const summary = formatOperatorVerificationSummary(run, reportPath);
+    await setFeatureRequestStatus(db, job.id, {
+      status: "in_progress",
+      expectedStatus: "in_progress",
+      implementationNotes: `${plan.note}\n${summary}`,
+    });
+    await logAudit(db, {
+      actor: "operator-runner",
+      tool: "operator_runner.verify",
+      input: { jobId: job.id, commandCount: plan.commands.length },
+      output: {
+        success: run.success,
+        failedCommand: run.failedCommand ?? null,
+        reportPath,
+        durationMs: run.durationMs,
+      },
+      success: run.success,
+      error: run.success ? undefined : run.failureSummary,
+      durationMs: run.durationMs,
+    });
+    console.log(`mode=mutated status=in_progress verification=${run.success ? "passed" : "failed"}`);
+    console.log(`report=${reportPath}`);
+    if (!run.success) process.exitCode = 1;
+    return;
+  }
+
   console.log("mode=mutated status=in_progress");
 }
 
@@ -180,12 +217,150 @@ export function formatOperatorRunnerError(error: unknown): string {
       "No queue state was changed.",
     ].join("\n");
   }
-  const redacted = message
+  const redacted = redact(message);
+  return `operator-runner failed: ${redacted.slice(0, 200)}`;
+}
+
+function redact(value: string): string {
+  return value
     .replace(POSTGRES_URL_RE, "[redacted:database-url]")
     .replace(EMAIL_RE, "[redacted:email]")
     .replace(TOKEN_RE, "[redacted:token]")
     .replace(PHONE_RE, "[redacted:phone]");
-  return `operator-runner failed: ${redacted.slice(0, 200)}`;
+}
+
+export interface VerificationCommandResult {
+  command: string;
+  exitCode: number | null;
+  timedOut: boolean;
+  durationMs: number;
+  outputTail: string;
+}
+
+export interface OperatorVerificationRun {
+  success: boolean;
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  commands: VerificationCommandResult[];
+  failedCommand?: string;
+  failureSummary?: string;
+}
+
+export async function runVerificationCommands(
+  commands: string[],
+  options: { cwd: string; timeoutMs: number },
+): Promise<OperatorVerificationRun> {
+  const startedAtDate = new Date();
+  const results: VerificationCommandResult[] = [];
+
+  for (const command of commands) {
+    const result = await runShellCommand(command, options);
+    results.push(result);
+    if (result.exitCode !== 0 || result.timedOut) {
+      const completedAtDate = new Date();
+      return {
+        success: false,
+        startedAt: startedAtDate.toISOString(),
+        completedAt: completedAtDate.toISOString(),
+        durationMs: completedAtDate.getTime() - startedAtDate.getTime(),
+        commands: results,
+        failedCommand: command,
+        failureSummary: result.timedOut
+          ? `${command} timed out after ${options.timeoutMs}ms`
+          : `${command} exited with ${result.exitCode}`,
+      };
+    }
+  }
+
+  const completedAtDate = new Date();
+  return {
+    success: true,
+    startedAt: startedAtDate.toISOString(),
+    completedAt: completedAtDate.toISOString(),
+    durationMs: completedAtDate.getTime() - startedAtDate.getTime(),
+    commands: results,
+  };
+}
+
+export function formatOperatorVerificationSummary(run: OperatorVerificationRun, reportPath: string): string {
+  const status = run.success ? "passed" : "failed";
+  const failed = run.failedCommand ? ` Failed command: ${run.failedCommand}.` : "";
+  return `Operator verification ${status}. Commands run: ${run.commands.length}.${failed} Report: ${reportPath}`;
+}
+
+async function writeOperatorRunReport(jobId: string, run: OperatorVerificationRun): Promise<string> {
+  const dir = ".nitsyclaw-local/operator-runs";
+  await mkdir(dir, { recursive: true });
+  const safeId = jobId.replace(/[^a-z0-9-]/gi, "").slice(0, 64) || "operator-job";
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const path = `${dir}/${stamp}-${safeId}.json`;
+  await writeFile(path, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+  return path;
+}
+
+function runShellCommand(
+  command: string,
+  options: { cwd: string; timeoutMs: number },
+): Promise<VerificationCommandResult> {
+  const startedAt = Date.now();
+  return new Promise((resolve) => {
+    let output = "";
+    let settled = false;
+    const child = spawn(command, {
+      cwd: options.cwd,
+      shell: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
+
+    const append = (chunk: Buffer) => {
+      output += redact(String(chunk));
+      if (output.length > 12_000) output = output.slice(-12_000);
+    };
+
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGTERM");
+      resolve({
+        command,
+        exitCode: null,
+        timedOut: true,
+        durationMs: Date.now() - startedAt,
+        outputTail: output,
+      });
+    }, options.timeoutMs);
+
+    child.on("close", (exitCode) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({
+        command,
+        exitCode,
+        timedOut: false,
+        durationMs: Date.now() - startedAt,
+        outputTail: output,
+      });
+    });
+
+    child.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({
+        command,
+        exitCode: 1,
+        timedOut: false,
+        durationMs: Date.now() - startedAt,
+        outputTail: redact(error.message),
+      });
+    });
+  });
 }
 
 function isDatabaseUrlError(error: unknown): boolean {

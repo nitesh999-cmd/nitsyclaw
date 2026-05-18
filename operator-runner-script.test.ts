@@ -8,8 +8,12 @@ describe("operator runner script", () => {
 
     expect(packageJson).toContain('"operator:next"');
     expect(packageJson).toContain("scripts/operator-runner.ts --dry-run");
+    expect(packageJson).toContain('"operator:run"');
+    expect(packageJson).toContain("scripts/operator-runner.ts --run");
     expect(script).toContain("listPendingFeatureRequests");
     expect(script).toContain("setFeatureRequestStatus");
+    expect(script).toContain("runVerificationCommands");
+    expect(script).toContain("Operator verification");
     expect(script).toContain("loadLocalEnv");
     expect(script).toContain("apps/dashboard/.env.local");
     expect(script).toContain("--claim");

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatOfflineOperatorRunReport,
+  formatOperatorVerificationSummary,
   formatOperatorQueueDoctorReport,
   formatOperatorRunnerError,
+  runVerificationCommands,
 } from "./operator-runner.js";
 
 describe("operator runner error safety", () => {
@@ -68,5 +70,34 @@ describe("operator runner error safety", () => {
     expect(message).not.toContain("railway-secret");
     expect(message).not.toContain("google-secret");
     expect(message).not.toContain("spotify-secret");
+  });
+
+  it("runs verification commands and records a safe summary", async () => {
+    const run = await runVerificationCommands(["node -e \"console.log('operator ok')\""], {
+      cwd: process.cwd(),
+      timeoutMs: 10_000,
+    });
+
+    expect(run.success).toBe(true);
+    expect(run.commands).toHaveLength(1);
+    expect(run.commands[0]?.outputTail).toContain("operator ok");
+    expect(formatOperatorVerificationSummary(run, ".nitsyclaw-local/operator-runs/report.json")).toContain(
+      "Operator verification passed",
+    );
+  });
+
+  it("stops verification at the first failed command", async () => {
+    const run = await runVerificationCommands(
+      ["node -e \"process.exit(7)\"", "node -e \"console.log('should not run')\""],
+      {
+        cwd: process.cwd(),
+        timeoutMs: 10_000,
+      },
+    );
+
+    expect(run.success).toBe(false);
+    expect(run.commands).toHaveLength(1);
+    expect(run.failedCommand).toContain("process.exit");
+    expect(run.failureSummary).toContain("exited with 7");
   });
 });

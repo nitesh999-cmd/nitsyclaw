@@ -44,6 +44,7 @@
     "operator:next": "pnpm exec tsx scripts/operator-runner.ts --dry-run",
     "operator:doctor": "pnpm exec tsx scripts/operator-queue-doctor.ts",
     "operator:claim": "pnpm exec tsx scripts/operator-runner.ts --claim",
+    "operator:run": "pnpm exec tsx scripts/operator-runner.ts --run",
     "operator:complete": "pnpm exec tsx scripts/operator-complete.ts",
     "operator:reject-unsafe": "pnpm exec tsx scripts/operator-runner.ts --reject-unsafe",
     "tenant:check": "pnpm exec tsx scripts/tenant-boundary-check.ts",
