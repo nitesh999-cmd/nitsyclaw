@@ -138,6 +138,14 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByText("Payloads redacted")).toBeVisible();
   });
 
+  test("Health page exposes admin observability", async ({ page }) => {
+    await page.goto("/health");
+    await expect(page.getByTestId("admin-observability")).toBeVisible();
+    await expect(page.getByText("Queue age")).toBeVisible();
+    await expect(page.getByText("Route failures")).toBeVisible();
+    await expect(page.getByText("Auth lockouts")).toBeVisible();
+  });
+
   test("Sidebar navigation", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();

@@ -1,5 +1,15 @@
 import type { ReactNode } from "react";
-import { getDb, messages, reminders, confirmations, featureRequests, auditLog, commandJobs, getSystemHeartbeat } from "@nitsyclaw/shared/db";
+import {
+  getDb,
+  messages,
+  reminders,
+  confirmations,
+  featureRequests,
+  auditLog,
+  commandJobs,
+  dashboardAuthAttempts,
+  getSystemHeartbeat,
+} from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
@@ -20,6 +30,8 @@ async function loadHealth() {
     queueRows,
     commandJobRows,
     latestAuditRows,
+    recentAuditRows,
+    authAttemptRows,
     botRuntimeHeartbeat,
     whatsappHeartbeat,
     whatsappSendHeartbeat,
@@ -35,6 +47,8 @@ async function loadHealth() {
     db.select().from(featureRequests).limit(200),
     db.select().from(commandJobs).orderBy(desc(commandJobs.createdAt)).limit(100),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),
+    db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(200),
+    db.select().from(dashboardAuthAttempts).limit(100),
     getSystemHeartbeat(db, "bot-runtime"),
     getSystemHeartbeat(db, "whatsapp-client"),
     getSystemHeartbeat(db, "whatsapp-send"),
@@ -52,6 +66,16 @@ async function loadHealth() {
     acc[row.status] = (acc[row.status] ?? 0) + 1;
     return acc;
   }, {});
+  const now = new Date();
+  const dayAgoMs = now.getTime() - 24 * 60 * 60 * 1000;
+  const pendingQueueRows = queueRows.filter((row) => row.status === "pending" || row.status === "in_progress");
+  const oldestQueueAgeHours = pendingQueueRows.length
+    ? Math.max(...pendingQueueRows.map((row) => (now.getTime() - new Date(row.createdAt).getTime()) / (60 * 60 * 1000)))
+    : 0;
+  const recentFailureRows = recentAuditRows.filter((row) => !row.success && new Date(row.createdAt).getTime() >= dayAgoMs);
+  const slowAuditRows = recentAuditRows.filter((row) => (row.durationMs ?? 0) >= 2_000 && new Date(row.createdAt).getTime() >= dayAgoMs);
+  const activeAuthLockouts = authAttemptRows.filter((row) => row.lockedUntil && new Date(row.lockedUntil).getTime() > now.getTime()).length;
+  const authFailureRows = authAttemptRows.filter((row) => row.failures > 0).length;
   return {
     database: true,
     dashboardRuntime: buildDashboardRuntimeMetadata(process.env),
@@ -59,6 +83,12 @@ async function loadHealth() {
     pendingReminders: pendingReminderRows.length,
     pendingConfirmations: pendingConfirmationRows.length,
     queueCounts,
+    oldestQueueAgeHours,
+    recentFailures24h: recentFailureRows.length,
+    slowCalls24h: slowAuditRows.length,
+    slowCallMaxMs: slowAuditRows.reduce((max, row) => Math.max(max, row.durationMs ?? 0), 0),
+    activeAuthLockouts,
+    authFailureRows,
     commandJobCounts,
     latestAudit: latestAuditRows[0] ?? null,
     botRuntimeHeartbeat,
@@ -82,6 +112,33 @@ async function loadHealth() {
 
 function status(ok: boolean) {
   return ok ? "text-emerald-300" : "text-red-300";
+}
+
+function operationsStatus(args: {
+  whatsappStale: boolean;
+  whatsappSendFailure: boolean;
+  whatsappLoopPaused: boolean;
+  botVersionMismatch: boolean;
+  commandJobTrouble: boolean;
+  oldestQueueAgeHours: number;
+  recentFailures24h: number;
+  slowCalls24h: number;
+  activeAuthLockouts: number;
+}) {
+  const failures = [
+    args.whatsappStale,
+    args.whatsappSendFailure,
+    args.whatsappLoopPaused,
+    args.botVersionMismatch,
+    args.commandJobTrouble,
+    args.oldestQueueAgeHours > 72,
+    args.recentFailures24h > 10,
+    args.slowCalls24h > 10,
+    args.activeAuthLockouts > 0,
+  ].filter(Boolean).length;
+  if (failures === 0) return { label: "Healthy", className: "text-emerald-300", detail: "No current production warning signals." };
+  if (failures <= 2) return { label: "Watch", className: "text-amber-300", detail: `${failures} signal(s) need attention.` };
+  return { label: "Action needed", className: "text-red-300", detail: `${failures} production signal(s) need attention now.` };
 }
 
 function heartbeatMetadataText(
@@ -185,6 +242,19 @@ export default async function HealthPage() {
     (data?.commandJobCounts.retrying ?? 0) > 0 ||
     (data?.commandJobCounts.working ?? 0) > 3,
   );
+  const opsStatus = data
+    ? operationsStatus({
+        whatsappStale,
+        whatsappSendFailure,
+        whatsappLoopPaused,
+        botVersionMismatch,
+        commandJobTrouble,
+        oldestQueueAgeHours: data.oldestQueueAgeHours,
+        recentFailures24h: data.recentFailures24h,
+        slowCalls24h: data.slowCalls24h,
+        activeAuthLockouts: data.activeAuthLockouts,
+      })
+    : null;
 
   return (
     <div className="nc-page">
@@ -285,6 +355,64 @@ export default async function HealthPage() {
           </div>
         </div>
       )}
+
+      {data && opsStatus ? (
+        <section className="nc-section" data-testid="admin-observability">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="nc-eyebrow">Admin observability</div>
+              <h3 className={`mt-2 text-2xl font-semibold ${opsStatus.className}`}>{opsStatus.label}</h3>
+              <p className="mt-1 text-sm text-slate-400">{opsStatus.detail}</p>
+            </div>
+            <a href="/api/healthz" className="nc-button">API health</a>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div className="nc-eyebrow">Queue age</div>
+              <div className={data.oldestQueueAgeHours > 72 ? "mt-2 text-red-300" : "mt-2 text-slate-100"}>
+                {Math.round(data.oldestQueueAgeHours)}h
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Oldest pending or in-progress request.</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div className="nc-eyebrow">Route failures</div>
+              <div className={data.recentFailures24h > 10 ? "mt-2 text-red-300" : "mt-2 text-slate-100"}>
+                {data.recentFailures24h}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Failed tool/API calls in the last 24h.</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div className="nc-eyebrow">Slow calls</div>
+              <div className={data.slowCalls24h > 10 ? "mt-2 text-red-300" : "mt-2 text-slate-100"}>
+                {data.slowCalls24h}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Calls over 2s. Max {data.slowCallMaxMs}ms.</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div className="nc-eyebrow">Auth lockouts</div>
+              <div className={data.activeAuthLockouts > 0 ? "mt-2 text-red-300" : "mt-2 text-slate-100"}>
+                {data.activeAuthLockouts}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">{data.authFailureRows} login failure row(s) tracked.</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div className="nc-eyebrow">Heartbeat</div>
+              <div className={whatsappStale ? "mt-2 text-red-300" : "mt-2 text-slate-100"}>
+                {whatsappStale ? "stale" : "ok"}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">WhatsApp client freshness.</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div className="nc-eyebrow">Deployment</div>
+              <div className={botVersionMismatch ? "mt-2 text-amber-300" : "mt-2 text-slate-100"}>
+                {botVersionMismatch ? "mismatch" : "aligned"}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Dashboard vs bot commit check.</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
         {rows.map(([label, ok, detail]) => (

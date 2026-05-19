@@ -61,6 +61,22 @@ describe("dashboard health page", () => {
     expect(source).toContain("pending items");
   });
 
+  test("surfaces production observability signals", () => {
+    const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
+
+    expect(source).toContain("dashboardAuthAttempts");
+    expect(source).toContain("Admin observability");
+    expect(source).toContain("Queue age");
+    expect(source).toContain("Route failures");
+    expect(source).toContain("Slow calls");
+    expect(source).toContain("Auth lockouts");
+    expect(source).toContain("oldestQueueAgeHours");
+    expect(source).toContain("recentFailures24h");
+    expect(source).toContain("slowCalls24h");
+    expect(source).toContain("activeAuthLockouts");
+    expect(source).toContain("operationsStatus");
+  });
+
   test("surfaces operator recovery commands for local and Railway checks", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 
