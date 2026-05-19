@@ -12,6 +12,11 @@ describe("dashboard integrations page", () => {
     expect(source).toContain("SMS copy and call-prep requests work now");
     expect(source).toContain("Use the WhatsApp phrase on each row to queue setup safely");
     expect(source).toContain("A queued request is not the same as a connected account");
+    expect(source).toContain("Best order: email PA first");
+    expect(source).toContain("setupChecklist");
+    expect(source).toContain("selected-file permissions first");
+    expect(source).toContain("Require exact contact confirmation before send/call");
+    expect(source).toContain("consent, retry, dedupe, and revoke flow");
     expect(source).toContain("WhatsApp:");
     expect(source).toContain("connect Gmail so you can draft replies");
     expect(source).toContain("browse my Google Drive files");

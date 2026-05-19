@@ -56,12 +56,17 @@ describe("WhatsApp capability registry", () => {
 
     expect(plan).toContain("Pending build plan");
     expect(plan).toContain("safe local rails");
-    expect(plan).toContain("Live external actions need account/provider setup");
+    expect(plan).toContain("Real external actions need account/provider setup");
+    expect(plan).toContain("Works now:");
+    expect(plan).toContain("Can build without you:");
+    expect(plan).toContain("Connected external accounts: none yet. Local tools are working.");
+    expect(plan).toContain("Best next setup:");
     expect(plan).toContain("Gmail");
     expect(plan).toContain("Google Drive");
     expect(plan).toContain("Spotify");
     expect(plan).toContain("Phone/SMS");
     expect(plan).toContain("Bank feeds");
+    expect(plan.length).toBeLessThanOrEqual(900);
     expect(plan).not.toContain("Gmail is connected");
     expect(plan).not.toContain("Bank feeds: connected");
   });

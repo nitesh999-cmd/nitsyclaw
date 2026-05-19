@@ -191,21 +191,25 @@ export function formatWhatsAppPendingFeatureDevelopmentPlan(
   const readyOrPartial = setupItems
     .filter((item) => item.status === "ready" || item.status === "partial")
     .map((item) => item.label);
+  const setupNames = setupItems
+    .filter((item) => item.status !== "ready" && item.status !== "partial")
+    .map((item) => item.label);
+  const connectedLine = readyOrPartial.length
+    ? `Connected/partly ready external accounts: ${compactList(readyOrPartial)}.`
+    : "Connected external accounts: none yet. Local tools are working.";
 
   return [
     "Pending build plan",
-    "Truth: I can build safe local rails now. Live external actions need account/provider setup before I can claim they work.",
+    "Truth: I can build safe local rails now. Real external actions need account/provider setup first.",
     "",
-    "Can improve without you:",
-    "1. WhatsApp routing, help/status wording, queue capture, proof checks, reminders, expenses, bill/doc summaries, drafts, tests.",
-    "2. Provider setup screens/checklists that explain exactly what is missing.",
-    "3. Safety gates for send/call/delete/book/pay actions.",
+    "Works now: WhatsApp routing, reminders, AUD expenses, bills/docs, drafts, proof checks, queue capture, tests.",
+    "Can build without you: clearer replies, setup checklists, safety gates, local tools, and tests.",
     "",
-    "Needs setup before live action:",
-    ...bulletList(setupItems.map((item) => `${item.label}: ${item.status.replace(/_/g, " ")} - ${item.nextStep}`)),
+    `Needs setup before live action: ${compactList(setupNames, 10)}.`,
+    connectedLine,
     "",
-    `Already connected/partly ready: ${compactList(readyOrPartial)}.`,
-    "Next from WhatsApp: send feature queue for live queue rows, or status for provider details.",
+    "Best next setup: Gmail/Outlook for email PA, Spotify for quickest demo, Phone/SMS only after wrong-recipient safeguards.",
+    "Next: send status for exact setup details, or feature queue for live rows.",
   ].join("\n");
 }
 

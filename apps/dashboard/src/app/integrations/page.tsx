@@ -8,6 +8,7 @@ interface IntegrationRow {
   name: string;
   status: "Connected" | "Needs setup" | "Blocked" | "Read-only" | "Local only" | "Partial";
   detail: string;
+  setupChecklist?: string[];
   whatsapp?: string;
   action?: { href: string; label: string };
   disconnectAction?: { action: string; label: string };
@@ -35,12 +36,22 @@ async function loadRows(): Promise<IntegrationRow[]> {
       name: "Gmail",
       status: "Partial",
       detail: "Unread/search and confirmation-gated draft requests are available; sending needs gmail.send re-auth.",
+      setupChecklist: [
+        "Create or confirm Google OAuth credentials.",
+        "Grant Gmail read/draft/send scopes only when you are ready.",
+        "Keep send actions behind confirmation.",
+      ],
       whatsapp: "connect Gmail so you can draft replies",
     },
     {
       name: "Outlook / M365",
       status: "Partial",
       detail: "Unread/calendar read available. Mail.Send is now wired — re-run device-code auth on the bot to grant the scope.",
+      setupChecklist: [
+        "Create or confirm the Azure app registration.",
+        "Run device-code auth for the bot account.",
+        "Verify Mail.Send and Calendar scopes before claiming live actions.",
+      ],
       whatsapp: "connect Outlook so you can search my mailbox",
       action: { href: "https://docs.microsoft.com/en-us/graph/auth-v2-user", label: "Re-auth guide →" },
     },
@@ -48,6 +59,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
       name: "Google / Outlook Calendar",
       status: "Partial",
       detail: "Calendar context and confirmed event creation are supported where tokens are healthy. Connection-health checks are queued next.",
+      setupChecklist: [
+        "Verify provider token health.",
+        "Keep event creation confirmation-gated.",
+        "Show calendar name before any external change.",
+      ],
       whatsapp: "remind me to call Mukesh tomorrow at 10 am",
     },
   ];
@@ -81,6 +97,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
       : spotifyConnected
         ? "Ready for top tracks, search, and confirmed private playlist creation."
         : "Server configured. Connect Spotify OAuth to activate tools.",
+    setupChecklist: spotifyConnected
+      ? ["Run a top-tracks proof.", "Keep playlist creation private and confirmation-gated."]
+      : ["Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI.", "Connect Spotify OAuth.", "Run a top-tracks proof before claiming live actions."],
     whatsapp: spotifyConnected ? "what are my top Spotify tracks?" : "create suggested playlist in Spotify",
     action: spotifyConfigured && !spotifyConnected
       ? { href: "/api/integrations/spotify/connect", label: "Connect Spotify" }
@@ -95,18 +114,33 @@ async function loadRows(): Promise<IntegrationRow[]> {
       name: "Google Drive",
       status: "Needs setup",
       detail: "Selected file/link requests can be queued now; OAuth file import is next.",
+      setupChecklist: [
+        "Connect Google OAuth.",
+        "Use selected-file permissions first.",
+        "Show filename/source before summarising private files.",
+      ],
       whatsapp: "browse my Google Drive files",
     },
     {
       name: "Google Photos",
       status: "Needs setup",
       detail: "Selected-media requests can be queued now; Picker import is next.",
+      setupChecklist: [
+        "Connect Google OAuth with Photos consent.",
+        "Prefer picker/selected-library access.",
+        "Avoid broad background photo scanning.",
+      ],
       whatsapp: "set up Google Photos search for family pictures",
     },
     {
       name: "Phone/SMS",
       status: "Needs setup",
       detail: "SMS copy and call-prep requests work now. Sending/calling needs Twilio or a phone companion.",
+      setupChecklist: [
+        "Choose provider or phone companion.",
+        "Require exact contact confirmation before send/call.",
+        "Keep drafts available even before provider setup.",
+      ],
       whatsapp: "draft sms to John saying I am running late",
     },
     {
@@ -119,6 +153,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
       name: "Bank feeds",
       status: "Blocked",
       detail: "Live feeds need a compliant provider and consent flow. CSV import requests can be queued now.",
+      setupChecklist: [
+        "Choose a compliant bank-data provider.",
+        "Build consent, retry, dedupe, and revoke flow.",
+        "Use CSV import until live consent is real.",
+      ],
       whatsapp: "connect bank feeds for expenses",
     },
     {
@@ -131,6 +170,11 @@ async function loadRows(): Promise<IntegrationRow[]> {
       name: "Social video analysis",
       status: "Partial",
       detail: "Public URL/upload analysis requests can be queued. Deeper comments/metadata need platform APIs.",
+      setupChecklist: [
+        "Start with public URL/upload analysis.",
+        "Do not scrape private accounts.",
+        "Add official API adapters only after approval.",
+      ],
       whatsapp: "analyse this Instagram reel https://example.com/reel/1",
     },
     {
@@ -179,6 +223,9 @@ export default async function IntegrationsPage({
         <p className="mt-2 text-sm text-slate-400">
           Use the WhatsApp phrase on each row to queue setup safely. A queued request is not the same as a connected account.
         </p>
+        <div className="mt-4 rounded-xl border border-stone-200 bg-[#fbf8f2] p-3 text-sm leading-6 text-stone-700">
+          Best order: email PA first for daily value, Spotify for a quick demo, Phone/SMS only after wrong-recipient safeguards.
+        </div>
       </section>
 
       {params?.spotify === "revoke-failed" ? (
@@ -194,10 +241,19 @@ export default async function IntegrationsPage({
       <section className="nc-section">
         <div className="divide-y divide-slate-800 border-y border-slate-800">
           {rows.map((row) => (
-            <div key={row.name} className="grid gap-3 py-4 md:grid-cols-[180px_120px_1fr_220px_auto] md:items-center">
+            <div key={row.name} className="grid gap-3 py-4 md:grid-cols-[180px_120px_1fr_220px_auto] md:items-start">
               <div className="font-medium text-slate-100">{row.name}</div>
               <div><span className={badge(row.status)}>{row.status}</span></div>
-              <div className="text-sm text-slate-400">{row.detail}</div>
+              <div className="text-sm text-slate-400">
+                <p>{row.detail}</p>
+                {row.setupChecklist?.length ? (
+                  <ul className="mt-2 space-y-1 text-xs leading-5 text-slate-500">
+                    {row.setupChecklist.map((item) => (
+                      <li key={item}>- {item}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <div className="text-xs text-slate-500">
                 {row.whatsapp ? (
                   <>

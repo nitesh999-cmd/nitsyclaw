@@ -55,7 +55,7 @@ $phoneProofPrompts = @(
     },
     @{
         Prompt = "build all pending features"
-        Expected = "Truthful Pending build plan. It must say local rails can be improved now and live external actions need account/provider setup."
+        Expected = "Truthful Pending build plan with Works now, Can build without you, Needs setup, and Best next setup."
     }
 )
 

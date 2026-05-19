@@ -312,9 +312,12 @@ describe("Router (integration)", () => {
 
     expect(wa.sent[0].body).toContain("Pending build plan");
     expect(wa.sent[0].body).toContain("safe local rails");
-    expect(wa.sent[0].body).toContain("Live external actions need account/provider setup");
+    expect(wa.sent[0].body).toContain("Real external actions need account/provider setup");
+    expect(wa.sent[0].body).toContain("Works now:");
+    expect(wa.sent[0].body).toContain("Best next setup:");
     expect(wa.sent[0].body).toContain("Gmail");
     expect(wa.sent[0].body).toContain("Phone/SMS");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("Gmail is connected");
     expect(wa.sent[0].body).not.toContain("Bank feeds: connected");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
