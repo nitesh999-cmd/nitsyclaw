@@ -16,6 +16,10 @@ describe("today dashboard performance guard", () => {
     expect(source).toContain("Private personal PA");
     expect(source).toContain("today-trust-strip");
     expect(source).toContain("today-quick-start");
+    expect(source).toContain("mobile-dashboard-actions");
+    expect(source).toContain("mobileActions");
+    expect(source).toContain('href: "/health"');
+    expect(source).toContain('href: "/whatsapp-recovery"');
     expect(source).toContain("Say what you need done.");
     expect(source).toContain("border-amber-900");
     expect(source).toContain("text-amber-200");

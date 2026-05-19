@@ -172,6 +172,7 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByRole("link", { name: "Review" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Remember" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Requests" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Privacy" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Settings" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Do" })).toHaveCount(0);
     await expect(page.getByRole("textbox")).toBeVisible();
@@ -191,6 +192,19 @@ test.describe("dashboard routes render", () => {
       expect(mismatches, `${route} has covered or misaligned tap targets`).toEqual([]);
       await page.close();
     }
+  });
+
+  test("mobile dashboard exposes daily operator actions", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    await expect(page.getByTestId("mobile-dashboard-actions")).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Ask/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Review/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Reminders/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Requests/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Health/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /WhatsApp/ })).toBeVisible();
   });
 
   test("blocks cross-origin destructive API posts", async ({ request }) => {

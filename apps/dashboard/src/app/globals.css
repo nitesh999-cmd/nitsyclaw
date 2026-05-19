@@ -146,6 +146,26 @@ textarea:focus-visible {
     @apply rounded-xl border border-dashed border-stone-300 bg-[#fbf8f2] p-4 text-sm leading-6 text-stone-600;
   }
 
+  .nc-mobile-action-grid {
+    @apply grid grid-cols-2 gap-2 rounded-2xl border border-stone-300 bg-[#fffdf8] p-2 shadow-[0_14px_38px_rgba(70,48,23,0.08)];
+  }
+
+  .nc-mobile-action {
+    @apply min-h-[4.25rem] rounded-xl border border-stone-200 bg-[#fbf8f2] px-3 py-3 text-left text-stone-800 shadow-sm transition-colors hover:border-[#a94d2e]/40 hover:bg-white;
+  }
+
+  .nc-mobile-action-primary {
+    @apply border-[#76321d] bg-[#a94d2e] text-white hover:bg-[#76321d];
+  }
+
+  .nc-mobile-action-warn {
+    @apply border-[#d6a34e] bg-[#fff7e7] text-[#704200];
+  }
+
+  .nc-mobile-action-danger {
+    @apply border-[#d86d5c] bg-[#fff2f0] text-[#9f2f22];
+  }
+
   .nc-mobile-nav {
     min-height: calc(4.25rem + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);

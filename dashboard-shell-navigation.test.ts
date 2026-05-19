@@ -15,6 +15,7 @@ describe("dashboard shell navigation", () => {
     expect(mobileSection).toContain('label: "Remember"');
     expect(mobileSection).toContain('label: "Requests"');
     expect(mobileSection).toContain('href: "/queue"');
+    expect(mobileSection).not.toContain('label: "Privacy"');
     expect(mobileSection).not.toContain('label: "Settings"');
     expect(mobileSection).not.toContain('label: "Do"');
     expect(mobileSection).not.toContain('label: "Command"');

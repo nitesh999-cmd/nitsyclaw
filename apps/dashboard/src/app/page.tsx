@@ -96,6 +96,14 @@ export default async function TodayPage() {
   const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length + pendingQueue;
   const todayTotal = data.recentExpenses.reduce((sum, e) => sum + e.amount, 0);
   const overdue = data.pendingReminders.filter((r) => r.fireAt < new Date());
+  const mobileActions = [
+    { href: "/chat", label: "Ask", detail: "Talk or type", tone: "primary" },
+    { href: "/confirmations", label: "Review", detail: `${data.pendingConfirmations.length} waiting`, tone: "warn" },
+    { href: "/reminders", label: "Reminders", detail: `${data.pendingReminders.length} saved`, tone: overdue.length > 0 ? "danger" : "normal" },
+    { href: "/queue", label: "Requests", detail: `${pendingQueue} pending`, tone: "normal" },
+    { href: "/health", label: "Health", detail: "System check", tone: "normal" },
+    { href: "/whatsapp-recovery", label: "WhatsApp", detail: "Recovery", tone: "normal" },
+  ];
 
   return (
     <div className="nc-page">
@@ -160,6 +168,19 @@ export default async function TodayPage() {
           Live dashboard data is taking too long to load. I am showing a safe temporary view instead of pretending the day is empty.
         </div>
       ) : null}
+
+      <section className="nc-mobile-action-grid lg:hidden" data-testid="mobile-dashboard-actions" aria-label="Mobile dashboard actions">
+        {mobileActions.map((action) => (
+          <a
+            key={action.href}
+            href={action.href}
+            className={`nc-mobile-action ${action.tone === "primary" ? "nc-mobile-action-primary" : ""} ${action.tone === "danger" ? "nc-mobile-action-danger" : ""} ${action.tone === "warn" ? "nc-mobile-action-warn" : ""}`}
+          >
+            <span className="text-sm font-semibold">{action.label}</span>
+            <span className="mt-0.5 block text-[11px] leading-4 opacity-80">{action.detail}</span>
+          </a>
+        ))}
+      </section>
 
       <section className="grid gap-3 md:grid-cols-4">
         <a href="/confirmations" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">

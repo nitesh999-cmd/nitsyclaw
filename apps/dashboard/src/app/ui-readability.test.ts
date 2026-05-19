@@ -8,6 +8,8 @@ describe("dashboard readability", () => {
     expect(css).toContain("Warm readability compatibility overrides");
     expect(css).toContain(".nc-glass-panel");
     expect(css).toContain(".nc-mobile-nav");
+    expect(css).toContain(".nc-mobile-action-grid");
+    expect(css).toContain(".nc-mobile-action-primary");
     expect(css).toContain("outline: 3px solid");
     expect(css).toContain(".text-slate-100");
     expect(css).toContain(".text-slate-400");
