@@ -5,7 +5,7 @@ These are representative deterministic replies used by the reply budget gate.
 
 ## what can you do
 
-Budget: 13/13 lines, 701/900 chars.
+Budget: 13/13 lines, 722/900 chars.
 
 ```text
 NitsyClaw menu
@@ -20,7 +20,7 @@ Try:
 Works now: voice, reminders, memory, AUD expenses, bill/doc summaries, drafts, call scripts.
 Needs setup: Gmail, Outlook, Google Drive, OneDrive, Google Photos, +4 more.
 Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.
-More: status | proof test | what went wrong | feature queue | local status
+More: status | proof test | pending build plan | what went wrong | feature queue | local status
 ```
 
 ## local status
@@ -120,5 +120,23 @@ Database write/read marker passed.
 It does not test Gmail, Drive, bank feeds, phone/SMS sending, or other provider setup.
 
 If this looked slow, duplicated, or wrong, send: what went wrong
+```
+
+## pending build plan
+
+Budget: 11/12 lines, 729/900 chars.
+
+```text
+Pending build plan
+Truth: I can build safe local rails now. Real external actions need account/provider setup first.
+
+Works now: WhatsApp routing, reminders, AUD expenses, bills/docs, drafts, proof checks, queue capture, tests.
+Can build without you: clearer replies, setup checklists, safety gates, local tools, and tests.
+
+Needs setup before live action: Gmail, Outlook, Google Drive, OneDrive, Google Photos, Spotify, Bank feeds, Phone/SMS, Birthdays, Social video.
+Connected external accounts: none yet. Local tools are working.
+
+Best next setup: Gmail/Outlook for email PA, Spotify for quickest demo, Phone/SMS only after wrong-recipient safeguards.
+Next: send status for exact setup details, or feature queue for live rows.
 ```
 

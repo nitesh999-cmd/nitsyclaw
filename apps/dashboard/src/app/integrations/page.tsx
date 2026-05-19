@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { getConnectedAccount, getDb } from "@nitsyclaw/shared/db";
 import { getOwnerIdentity } from "../../lib/dashboard-runtime";
+import {
+  dashboardStatus,
+  getProviderSetupReadiness,
+  type ProviderSetupReadiness,
+} from "../../lib/provider-setup-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +13,7 @@ interface IntegrationRow {
   name: string;
   status: "Connected" | "Needs setup" | "Blocked" | "Read-only" | "Local only" | "Partial";
   detail: string;
+  readiness?: ProviderSetupReadiness;
   setupChecklist?: string[];
   whatsapp?: string;
   action?: { href: string; label: string };
@@ -15,6 +21,40 @@ interface IntegrationRow {
 }
 
 async function loadRows(): Promise<IntegrationRow[]> {
+  let spotifyConnected = false;
+  try {
+    const spotifyConfigured = Boolean(
+      process.env.SPOTIFY_CLIENT_ID &&
+        process.env.SPOTIFY_CLIENT_SECRET &&
+        process.env.SPOTIFY_REDIRECT_URI,
+    );
+    if (spotifyConfigured) {
+      const db = getDb();
+      const { ownerHash } = getOwnerIdentity();
+      spotifyConnected = Boolean(
+        await getConnectedAccount(db, {
+          provider: "spotify",
+          ownerHash,
+        }),
+      );
+    }
+  } catch {
+    spotifyConnected = false;
+  }
+
+  const readiness = getProviderSetupReadiness(process.env, { spotifyConnected });
+  const byKey = new Map(readiness.map((item) => [item.key, item]));
+  const gmail = byKey.get("gmail");
+  const outlook = byKey.get("outlook");
+  const calendar = byKey.get("calendar");
+  const spotify = byKey.get("spotify");
+  const drive = byKey.get("drive");
+  const photos = byKey.get("photos");
+  const phoneSms = byKey.get("phone-sms");
+  const bankFeeds = byKey.get("bank-feeds");
+  const birthdays = byKey.get("birthdays");
+  const socialVideo = byKey.get("social-video");
+
   const rows: IntegrationRow[] = [
     {
       name: "WhatsApp",
@@ -34,8 +74,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Gmail",
-      status: "Partial",
-      detail: "Unread/search and confirmation-gated draft requests are available; sending needs gmail.send re-auth.",
+      status: gmail ? dashboardStatus(gmail.status) : "Needs setup",
+      detail: gmail?.summary ?? "Gmail setup status is unavailable.",
+      readiness: gmail,
       setupChecklist: [
         "Create or confirm Google OAuth credentials.",
         "Grant Gmail read/draft/send scopes only when you are ready.",
@@ -45,8 +86,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Outlook / M365",
-      status: "Partial",
-      detail: "Unread/calendar read available. Mail.Send is now wired — re-run device-code auth on the bot to grant the scope.",
+      status: outlook ? dashboardStatus(outlook.status) : "Needs setup",
+      detail: outlook?.summary ?? "Outlook setup status is unavailable.",
+      readiness: outlook,
       setupChecklist: [
         "Create or confirm the Azure app registration.",
         "Run device-code auth for the bot account.",
@@ -57,8 +99,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Google / Outlook Calendar",
-      status: "Partial",
-      detail: "Calendar context and confirmed event creation are supported where tokens are healthy. Connection-health checks are queued next.",
+      status: calendar ? dashboardStatus(calendar.status) : "Needs setup",
+      detail: calendar?.summary ?? "Calendar setup status is unavailable.",
+      readiness: calendar,
       setupChecklist: [
         "Verify provider token health.",
         "Keep event creation confirmation-gated.",
@@ -68,43 +111,19 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
   ];
 
-  const spotifyConfigured = Boolean(
-    process.env.SPOTIFY_CLIENT_ID &&
-      process.env.SPOTIFY_CLIENT_SECRET &&
-      process.env.SPOTIFY_REDIRECT_URI,
-  );
-  let spotifyConnected = false;
-  try {
-    if (spotifyConfigured) {
-      const db = getDb();
-      const { ownerHash } = getOwnerIdentity();
-      spotifyConnected = Boolean(
-        await getConnectedAccount(db, {
-          provider: "spotify",
-          ownerHash,
-        }),
-      );
-    }
-  } catch {
-    spotifyConnected = false;
-  }
-
   rows.push({
     name: "Spotify",
-    status: !spotifyConfigured ? "Needs setup" : spotifyConnected ? "Connected" : "Needs setup",
-    detail: !spotifyConfigured
-      ? "Add Spotify env vars, then connect the account."
-      : spotifyConnected
-        ? "Ready for top tracks, search, and confirmed private playlist creation."
-        : "Server configured. Connect Spotify OAuth to activate tools.",
+    status: spotify ? dashboardStatus(spotify.status) : "Needs setup",
+    detail: spotify?.summary ?? "Spotify setup status is unavailable.",
+    readiness: spotify,
     setupChecklist: spotifyConnected
       ? ["Run a top-tracks proof.", "Keep playlist creation private and confirmation-gated."]
       : ["Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI.", "Connect Spotify OAuth.", "Run a top-tracks proof before claiming live actions."],
     whatsapp: spotifyConnected ? "what are my top Spotify tracks?" : "create suggested playlist in Spotify",
-    action: spotifyConfigured && !spotifyConnected
+    action: spotify?.configured.includes("Spotify OAuth app") && !spotifyConnected
       ? { href: "/api/integrations/spotify/connect", label: "Connect Spotify" }
       : undefined,
-    disconnectAction: spotifyConfigured && spotifyConnected
+    disconnectAction: spotify?.configured.includes("Spotify OAuth app") && spotifyConnected
       ? { action: "/api/integrations/spotify/disconnect", label: "Disconnect Spotify" }
       : undefined,
   });
@@ -112,8 +131,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
   rows.push(
     {
       name: "Google Drive",
-      status: "Needs setup",
-      detail: "Selected file/link requests can be queued now; OAuth file import is next.",
+      status: drive ? dashboardStatus(drive.status) : "Needs setup",
+      detail: drive?.summary ?? "Google Drive setup status is unavailable.",
+      readiness: drive,
       setupChecklist: [
         "Connect Google OAuth.",
         "Use selected-file permissions first.",
@@ -123,8 +143,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Google Photos",
-      status: "Needs setup",
-      detail: "Selected-media requests can be queued now; Picker import is next.",
+      status: photos ? dashboardStatus(photos.status) : "Needs setup",
+      detail: photos?.summary ?? "Google Photos setup status is unavailable.",
+      readiness: photos,
       setupChecklist: [
         "Connect Google OAuth with Photos consent.",
         "Prefer picker/selected-library access.",
@@ -134,8 +155,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Phone/SMS",
-      status: "Needs setup",
-      detail: "SMS copy and call-prep requests work now. Sending/calling needs Twilio or a phone companion.",
+      status: phoneSms ? dashboardStatus(phoneSms.status) : "Needs setup",
+      detail: phoneSms?.summary ?? "Phone/SMS setup status is unavailable.",
+      readiness: phoneSms,
       setupChecklist: [
         "Choose provider or phone companion.",
         "Require exact contact confirmation before send/call.",
@@ -145,14 +167,16 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Contacts & birthdays",
-      status: "Needs setup",
-      detail: "Manual/CSV/calendar/contact import requests can be queued. Review/delete controls are needed before broad import.",
+      status: birthdays ? dashboardStatus(birthdays.status) : "Needs setup",
+      detail: birthdays?.summary ?? "Birthday setup status is unavailable.",
+      readiness: birthdays,
       whatsapp: "import birthdays from contacts",
     },
     {
       name: "Bank feeds",
-      status: "Blocked",
-      detail: "Live feeds need a compliant provider and consent flow. CSV import requests can be queued now.",
+      status: bankFeeds ? dashboardStatus(bankFeeds.status) : "Blocked",
+      detail: bankFeeds?.summary ?? "Bank feed setup status is unavailable.",
+      readiness: bankFeeds,
       setupChecklist: [
         "Choose a compliant bank-data provider.",
         "Build consent, retry, dedupe, and revoke flow.",
@@ -168,8 +192,9 @@ async function loadRows(): Promise<IntegrationRow[]> {
     },
     {
       name: "Social video analysis",
-      status: "Partial",
-      detail: "Public URL/upload analysis requests can be queued. Deeper comments/metadata need platform APIs.",
+      status: socialVideo ? dashboardStatus(socialVideo.status) : "Needs setup",
+      detail: socialVideo?.summary ?? "Social video setup status is unavailable.",
+      readiness: socialVideo,
       setupChecklist: [
         "Start with public URL/upload analysis.",
         "Do not scrape private accounts.",
@@ -246,6 +271,24 @@ export default async function IntegrationsPage({
               <div><span className={badge(row.status)}>{row.status}</span></div>
               <div className="text-sm text-slate-400">
                 <p>{row.detail}</p>
+                {row.readiness ? (
+                  <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-xs leading-5 text-slate-400">
+                    <div>
+                      <span className="text-slate-300">Configured:</span>{" "}
+                      {row.readiness.configured.length ? row.readiness.configured.join(", ") : "none detected"}
+                    </div>
+                    <div>
+                      <span className="text-slate-300">Missing:</span>{" "}
+                      {row.readiness.missing.length ? row.readiness.missing.join(", ") : "none"}
+                    </div>
+                    <div>
+                      <span className="text-slate-300">Next:</span> {row.readiness.nextStep}
+                    </div>
+                    <div>
+                      <span className="text-slate-300">Safety:</span> {row.readiness.safety}
+                    </div>
+                  </div>
+                ) : null}
                 {row.setupChecklist?.length ? (
                   <ul className="mt-2 space-y-1 text-xs leading-5 text-slate-500">
                     {row.setupChecklist.map((item) => (

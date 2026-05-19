@@ -1,4 +1,7 @@
-import { formatWhatsAppHelpReply } from "../apps/bot/src/whatsapp-capabilities.js";
+import {
+  formatWhatsAppHelpReply,
+  formatWhatsAppPendingFeatureDevelopmentPlan,
+} from "../apps/bot/src/whatsapp-capabilities.js";
 import { formatWhatsAppReplyShape, whatsappReplyMetrics } from "../apps/bot/src/whatsapp-reply-format.js";
 import {
   formatFeatureQueueStatusForWhatsApp,
@@ -174,6 +177,12 @@ const replies: ReplyBudget[] = [
     ].join("\n"),
     maxLines: 22,
     maxChars: 1400,
+  },
+  {
+    name: "pending build plan",
+    reply: formatWhatsAppPendingFeatureDevelopmentPlan(),
+    maxLines: 12,
+    maxChars: 900,
   },
 ];
 
