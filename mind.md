@@ -261,3 +261,45 @@ Until then, the daily build agent is a no-op in this environment.
 | Proactive code shipped | 0 (no P0 issues visible without DB state) |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 18. Session 2026-05-19 — Daily build agent run (BLOCKED day 4)
+
+**Date:** 2026-05-19
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented — blocked by network policy (fourth consecutive day)
+
+### What happened
+
+CCR network policy unchanged. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT |
+| ntfy.sh | 443 (HTTPS) | 403 host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 host_not_allowed |
+
+### Context
+
+Six commits were made to the repo on 2026-05-19 AEST by other Claude sessions (not the daily build agent): "Add human onboarding flow", "Add admin observability health signals", "Improve mobile dashboard actions", "Wait for WhatsApp readiness logs", "Fix WhatsApp readiness retry gate", "Add provider setup readiness checks". These sessions had DB/network access through a different path. The daily build agent continues to be blocked.
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes. Session 17 confirmed no further safe P0 work visible from repo alone. Session 18 confirms the same: no new P0 issues visible, and shipping P2/P3 features without knowing current DB queue state risks duplication.
+
+### L39 remains unresolved
+
+The CCR allowlist still does not include `nitsyclaw.vercel.app` or `ntfy.sh`. Until updated, the daily build agent cannot query feature_requests or send notifications. See session 17 entry for fix steps.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Query pending feature_requests | FAILED — all paths blocked (TCP, Vercel HTTPS, ntfy) |
+| ntfy start notification | FAILED — host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
