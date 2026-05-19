@@ -134,7 +134,7 @@ do {
         break
     }
 
-    $remaining = [Math.Ceiling]((New-TimeSpan -Start (Get-Date) -End $deadline).TotalSeconds)
+    $remaining = [Math]::Ceiling((New-TimeSpan -Start (Get-Date) -End $deadline).TotalSeconds)
     if ($remaining -gt 0) {
         Write-Host "WhatsApp ready logs not complete yet; retrying in ${ReadyPollSeconds}s (${remaining}s left)."
         Start-Sleep -Seconds ([Math]::Min($ReadyPollSeconds, $remaining))

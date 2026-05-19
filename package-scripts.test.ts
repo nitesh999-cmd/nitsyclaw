@@ -276,6 +276,7 @@ describe("package scripts", () => {
     expect(source).toContain("Start-Sleep");
     expect(source).toContain("WhatsApp ready logs not complete yet");
     expect(source).toContain("[boot] WhatsApp ready");
+    expect(source).not.toMatch(/\[Math\.[A-Za-z]+\]/);
   });
 
   test("WhatsApp full release proves the pushed commit without mutating git", () => {
