@@ -3,7 +3,9 @@ param(
     [string]$Environment = $(if ($env:RAILWAY_ENVIRONMENT) { $env:RAILWAY_ENVIRONMENT } else { "production" }),
     [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
     [string]$BaseUrl = $(if ($env:NITSYCLAW_RAILWAY_PUBLIC_URL) { $env:NITSYCLAW_RAILWAY_PUBLIC_URL } else { "https://web-production-c98e2.up.railway.app" }),
-    [string]$ExpectedCommit = $(git rev-parse --short HEAD)
+    [string]$ExpectedCommit = $(git rev-parse --short HEAD),
+    [int]$ReadyTimeoutSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS } else { 180 }),
+    [int]$ReadyPollSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS } else { 10 })
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,11 +40,53 @@ function Normalize-BaseUrl {
     return $trimmed
 }
 
+function Get-DeploymentLogs {
+    param([Parameter(Mandatory = $true)][string]$DeploymentId)
+
+    $logs = Invoke-CheckedCommand -Label "Railway deployment logs" -Command @(
+        "pnpm", "dlx", "@railway/cli", "logs", $DeploymentId,
+        "--deployment",
+        "--lines", "500",
+        "--project", $ProjectId,
+        "--environment", $Environment,
+        "--service", $Service
+    )
+
+    if ($logs -notmatch "\[boot\] NitsyClaw bot starting" -or $logs -notmatch "\[wwebjs\] client ready") {
+        $logsJson = Invoke-CheckedCommand -Label "Railway deployment JSON logs" -Command @(
+            "pnpm", "dlx", "@railway/cli", "logs", $DeploymentId,
+            "--deployment",
+            "--lines", "500",
+            "--json",
+            "--project", $ProjectId,
+            "--environment", $Environment,
+            "--service", $Service
+        )
+        $logs = "$logs`n$logsJson"
+    }
+
+    return $logs
+}
+
+function Test-ReadyLogs {
+    param(
+        [Parameter(Mandatory = $true)][string]$Logs,
+        [Parameter(Mandatory = $true)][string]$Commit
+    )
+
+    return (
+        $Logs -match "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($Commit))" -and
+        $Logs -match "\[wwebjs\] client ready" -and
+        $Logs -match "\[boot\] WhatsApp ready"
+    )
+}
+
 Write-Host "== NitsyClaw Railway WhatsApp ready gate =="
 Write-Host "Project: $ProjectId"
 Write-Host "Environment: $Environment"
 Write-Host "Service: $Service"
 Write-Host "Expected commit: $ExpectedCommit"
+Write-Host "Ready timeout: ${ReadyTimeoutSeconds}s"
 
 $statusJson = Invoke-CheckedCommand -Label "Railway status" -Command @(
     "pnpm", "dlx", "@railway/cli", "status", "--json"
@@ -82,26 +126,23 @@ if ([string]$health.Content -ne "ok") {
     throw "$root/healthz returned '$($health.Content)', expected 'ok'."
 }
 
-$logs = Invoke-CheckedCommand -Label "Railway deployment logs" -Command @(
-    "pnpm", "dlx", "@railway/cli", "logs", $deploymentId,
-    "--deployment",
-    "--lines", "500",
-    "--project", $ProjectId,
-    "--environment", $Environment,
-    "--service", $Service
-)
+$deadline = (Get-Date).AddSeconds([Math]::Max(15, $ReadyTimeoutSeconds))
+$logs = ""
+do {
+    $logs = Get-DeploymentLogs -DeploymentId $deploymentId
+    if (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit) {
+        break
+    }
 
-if ($logs -notmatch "\[boot\] NitsyClaw bot starting" -or $logs -notmatch "\[wwebjs\] client ready") {
-    $logsJson = Invoke-CheckedCommand -Label "Railway deployment JSON logs" -Command @(
-        "pnpm", "dlx", "@railway/cli", "logs", $deploymentId,
-        "--deployment",
-        "--lines", "500",
-        "--json",
-        "--project", $ProjectId,
-        "--environment", $Environment,
-        "--service", $Service
-    )
-    $logs = "$logs`n$logsJson"
+    $remaining = [Math.Ceiling]((New-TimeSpan -Start (Get-Date) -End $deadline).TotalSeconds)
+    if ($remaining -gt 0) {
+        Write-Host "WhatsApp ready logs not complete yet; retrying in ${ReadyPollSeconds}s (${remaining}s left)."
+        Start-Sleep -Seconds ([Math]::Min($ReadyPollSeconds, $remaining))
+    }
+} while ((Get-Date) -lt $deadline)
+
+if (-not (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit)) {
+    Write-Host "Last checked logs did not contain the complete ready sequence before timeout."
 }
 
 if ($logs -notmatch "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($ExpectedCommit))") {

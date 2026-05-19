@@ -265,6 +265,19 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
+  test("Railway WhatsApp ready gate waits for slow client readiness", () => {
+    const source = readFileSync("scripts/railway-whatsapp-ready.ps1", "utf8");
+
+    expect(source).toContain("ReadyTimeoutSeconds");
+    expect(source).toContain("ReadyPollSeconds");
+    expect(source).toContain("NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS");
+    expect(source).toContain("Get-DeploymentLogs");
+    expect(source).toContain("Test-ReadyLogs");
+    expect(source).toContain("Start-Sleep");
+    expect(source).toContain("WhatsApp ready logs not complete yet");
+    expect(source).toContain("[boot] WhatsApp ready");
+  });
+
   test("WhatsApp full release proves the pushed commit without mutating git", () => {
     expect(rootPackage.scripts?.["release:whatsapp-full"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
