@@ -129,6 +129,17 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByText("No AI knowledge needed")).toBeVisible();
   });
 
+  test("Setup page explains provider setup without fake live claims", async ({ page }) => {
+    await page.goto("/setup");
+    await expect(page.getByRole("heading", { name: "Connect one useful thing at a time." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Build trust before broad access" })).toBeVisible();
+    await expect(page.getByText("Works without more setup")).toBeVisible();
+    await expect(page.getByText("Do not fake these")).toBeVisible();
+    await expect(page.getByText("Real email sending")).toBeVisible();
+    await expect(page.getByText("Bank feeds and live account data")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Manage connections" })).toBeVisible();
+  });
+
   test("Privacy command center exposes safe data controls", async ({ page }) => {
     await page.goto("/privacy-center");
     await expect(page.getByRole("heading", { name: /Your data, controls, and trust checks/ })).toBeVisible();
@@ -150,6 +161,7 @@ test.describe("dashboard routes render", () => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "Home Today" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Start Setup" })).toBeVisible();
     await page.getByRole("link", { name: "Keep Remember" }).click();
     await expect(page).toHaveURL(/\/memory$/);
   });
