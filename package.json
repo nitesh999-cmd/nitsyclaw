@@ -22,6 +22,7 @@
     "ci:powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
     "ci:whatsapp-replies": "pnpm run whatsapp:reply-shape",
     "ci:whatsapp-snapshots": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-snapshots-check.ps1",
+    "ci:provider-readiness": "vitest run apps/dashboard/src/lib/provider-setup-readiness.test.ts health-page.test.ts integrations-page.test.ts setup-page.test.ts",
     "railway:login": "pnpm dlx @railway/cli login --browserless",
     "railway:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
     "railway:diagnose": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",

@@ -28,6 +28,8 @@ jobs:
       - name: WhatsApp reply snapshot drift
         shell: pwsh
         run: pnpm ci:whatsapp-snapshots
+      - name: Provider readiness gate
+        run: pnpm ci:provider-readiness
       - name: WhatsApp release gate
         shell: pwsh
         run: ./scripts/whatsapp-release-gate.ps1

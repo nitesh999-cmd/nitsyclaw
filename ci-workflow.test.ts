@@ -47,6 +47,19 @@ describe("GitHub Actions CI workflow", () => {
     );
   });
 
+  it("runs explicit WhatsApp snapshot and provider readiness gates before coverage", () => {
+    expect(workflow).toContain("WhatsApp reply snapshot drift");
+    expect(workflow).toContain("pnpm ci:whatsapp-snapshots");
+    expect(workflow).toContain("Provider readiness gate");
+    expect(workflow).toContain("pnpm ci:provider-readiness");
+    expect(workflow.indexOf("pnpm ci:whatsapp-snapshots")).toBeLessThan(
+      workflow.indexOf("pnpm test:coverage"),
+    );
+    expect(workflow.indexOf("pnpm ci:provider-readiness")).toBeLessThan(
+      workflow.indexOf("pnpm test:coverage"),
+    );
+  });
+
   it("has a Windows lane for PowerShell and package-script regressions", () => {
     expect(workflow).toContain("runs-on: windows-latest");
     expect(workflow).toContain("Parse tracked PowerShell scripts");
