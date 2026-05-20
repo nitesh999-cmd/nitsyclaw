@@ -3,7 +3,9 @@ param(
     [string]$Environment = $(if ($env:RAILWAY_ENVIRONMENT) { $env:RAILWAY_ENVIRONMENT } else { "production" }),
     [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
     [string]$PublicBaseUrl = $(if ($env:NITSYCLAW_RAILWAY_PUBLIC_URL) { $env:NITSYCLAW_RAILWAY_PUBLIC_URL } else { "https://web-production-c98e2.up.railway.app" }),
-    [int]$Minutes = 20
+    [int]$Minutes = 60,
+    [int]$TimeoutSeconds = 900,
+    [int]$PollSeconds = 15
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,6 +29,12 @@ function Invoke-RailwayCli {
 
 if ($Minutes -lt 1 -or $Minutes -gt 120) {
     throw "Minutes must be between 1 and 120."
+}
+if ($TimeoutSeconds -lt 60) {
+    throw "TimeoutSeconds must be at least 60."
+}
+if ($PollSeconds -lt 5) {
+    throw "PollSeconds must be at least 5."
 }
 
 $tokenBytes = [byte[]]::new(32)
@@ -65,6 +73,35 @@ function Remove-RailwayVariableIfPresent {
     if ($LASTEXITCODE -ne 0) { throw "Failed to remove Railway variable $Name." }
 }
 
+function Get-LatestDeployment {
+    $raw = Invoke-RailwayCli status --json
+    if ($LASTEXITCODE -ne 0) { throw "Failed to read Railway status." }
+    $status = ($raw -join "`n") | ConvertFrom-Json
+    $serviceNode = $status.environments.edges.node.serviceInstances.edges.node |
+        Where-Object { $_.serviceName -eq $Service } |
+        Select-Object -First 1
+    if (-not $serviceNode) {
+        throw "Railway service '$Service' was not found."
+    }
+    if (-not $serviceNode.latestDeployment) {
+        throw "Railway service '$Service' has no latest deployment."
+    }
+    return $serviceNode.latestDeployment
+}
+
+function Test-EndpointOk {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [hashtable]$Headers = @{}
+    )
+
+    try {
+        return Invoke-WebRequest -UseBasicParsing $Url -Headers $Headers -TimeoutSec 20
+    } catch {
+        return $null
+    }
+}
+
 Remove-RailwayVariableIfPresent -Name "NITSYCLAW_PRINT_QR_TO_LOGS"
 
 Invoke-RailwayCli variable set "NITSYCLAW_QR_RECOVERY_TOKEN=$token" --project $ProjectId --environment $Environment --service $Service --skip-deploys --json | Out-Null
@@ -81,16 +118,52 @@ if (Test-VariablePresent -RawJson $afterSetVariables -Name "NITSYCLAW_PRINT_QR_T
 
 $base = $PublicBaseUrl.TrimEnd("/")
 $url = "$base/recovery/whatsapp-qr"
+$svgUrl = "$url.svg"
+$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
 Write-Host ""
 Write-Host "Railway deployment was triggered so the running app receives the new token."
-Write-Host "Wait until Railway is healthy before loading the QR."
-Write-Host ""
-Write-Host "Open this URL on your PC:"
-Write-Host $url
-Write-Host ""
-Write-Host "Paste this recovery token into the page. It is not part of the URL:"
-Write-Host $token
-Write-Host ""
-Write-Host "Then scan it from WhatsApp > Linked devices."
-Write-Host ""
-Write-Host "After scan, run: pnpm run railway:qr-close"
+Write-Host "Waiting for Railway health and verified QR before printing operator instructions."
+
+do {
+    $latest = Get-LatestDeployment
+    $deploymentId = [string]$latest.id
+    $deploymentStatus = [string]$latest.status
+    Write-Host "$((Get-Date).ToString("HH:mm:ss")) $deploymentStatus $deploymentId"
+
+    if ($deploymentStatus -in @("CRASHED", "FAILED", "REMOVED")) {
+        throw "Railway deployment $deploymentId ended as $deploymentStatus."
+    }
+
+    if ($deploymentStatus -eq "SUCCESS") {
+        $health = Test-EndpointOk -Url "$base/healthz"
+        $qr = Test-EndpointOk -Url $svgUrl -Headers @{ "X-NitsyClaw-Recovery-Token" = $token }
+        if (
+            $health -and
+            [string]$health.Content -eq "ok" -and
+            $qr -and
+            [int]$qr.StatusCode -eq 200 -and
+            ([string]$qr.Content) -match "<svg"
+        ) {
+            Write-Host "Railway health verified: $base/healthz ok"
+            Write-Host "QR endpoint verified: $svgUrl returned SVG"
+            Write-Host ""
+            Write-Host "Open this URL on your PC:"
+            Write-Host $url
+            Write-Host ""
+            Write-Host "Paste this recovery token into the page. It is not part of the URL:"
+            Write-Host $token
+            Write-Host ""
+            Write-Host "Then scan it from WhatsApp > Linked devices."
+            Write-Host ""
+            Write-Host "After scan, run: pnpm run railway:qr-close"
+            exit 0
+        }
+
+        Write-Host "Railway is up, but QR is not verified yet; retrying."
+    }
+
+    Start-Sleep -Seconds $PollSeconds
+} while ((Get-Date) -lt $deadline)
+
+throw "Timed out before Railway served a verified WhatsApp QR."
