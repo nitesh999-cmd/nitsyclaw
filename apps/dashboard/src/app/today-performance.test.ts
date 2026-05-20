@@ -15,7 +15,14 @@ describe("today dashboard performance guard", () => {
     expect(source).toContain("instead of pretending the day is empty");
     expect(source).toContain("Private personal PA");
     expect(source).toContain("today-trust-strip");
+    expect(source).toContain("today-work-status");
     expect(source).toContain("today-quick-start");
+    expect(source).toContain("What works now");
+    expect(source).toContain("Needs setup");
+    expect(source).toContain("Best next action");
+    expect(source).toContain("Open setup guide");
+    expect(source).toContain("Do not fake these");
+    expect(source).toContain('href="/setup"');
     expect(source).toContain("mobile-dashboard-actions");
     expect(source).toContain("mobileActions");
     expect(source).toContain('href: "/health"');

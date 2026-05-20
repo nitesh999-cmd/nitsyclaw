@@ -96,6 +96,23 @@ export default async function TodayPage() {
   const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length + pendingQueue;
   const todayTotal = data.recentExpenses.reduce((sum, e) => sum + e.amount, 0);
   const overdue = data.pendingReminders.filter((r) => r.fireAt < new Date());
+  const bestNextAction = data.pendingConfirmations.length > 0
+    ? { href: "/confirmations", label: "Review waiting approvals", detail: "Something needs your decision before it can act." }
+    : overdue.length > 0
+      ? { href: "/reminders", label: "Clear overdue reminders", detail: "Handle the things that have slipped." }
+      : pendingQueue > 0
+        ? { href: "/queue", label: "Review pending requests", detail: "Pick what to build or ignore next." }
+        : { href: "/chat", label: "Ask for help", detail: "Start with one plain sentence or voice note." };
+  const nowWorks = [
+    "WhatsApp questions and voice notes",
+    "Reminders, memory, AUD expenses",
+    "Bill/doc summaries and safe drafts",
+  ];
+  const needsSetup = [
+    "Email, Drive, Photos, Spotify",
+    "Phone/SMS and bank feeds",
+    "Private provider actions",
+  ];
   const mobileActions = [
     { href: "/chat", label: "Ask", detail: "Talk or type", tone: "primary" },
     { href: "/confirmations", label: "Review", detail: `${data.pendingConfirmations.length} waiting`, tone: "warn" },
@@ -119,7 +136,7 @@ export default async function TodayPage() {
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row" data-testid="today-primary-actions">
               <a href="/chat" className="nc-button-primary">Ask for help</a>
-              <a href="/command" className="nc-button">Plan next action</a>
+              <a href={bestNextAction.href} className="nc-button">{bestNextAction.label}</a>
             </div>
             <div className="mt-5 grid gap-2 text-xs text-stone-600 sm:grid-cols-3" data-testid="today-trust-strip">
               <div className="rounded-xl border border-stone-200 bg-[#fbf8f2] px-3 py-2">
@@ -168,6 +185,45 @@ export default async function TodayPage() {
           Live dashboard data is taking too long to load. I am showing a safe temporary view instead of pretending the day is empty.
         </div>
       ) : null}
+
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr_1.1fr]" data-testid="today-work-status">
+        <div className="nc-section">
+          <div className="nc-eyebrow">What works now</div>
+          <h2 className="mt-2 text-xl font-semibold text-slate-100">Use these today</h2>
+          <div className="mt-4 grid gap-2 text-sm text-slate-300">
+            {nowWorks.map((item) => (
+              <div key={item} className="rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-3 py-2">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="nc-section">
+          <div className="nc-eyebrow">Needs setup</div>
+          <h2 className="mt-2 text-xl font-semibold text-slate-100">Do not fake these</h2>
+          <div className="mt-4 grid gap-2 text-sm text-slate-300">
+            {needsSetup.map((item) => (
+              <div key={item} className="rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2">
+                {item}
+              </div>
+            ))}
+          </div>
+          <a href="/setup" className="mt-4 inline-flex text-sm font-semibold text-[#d8b75d] hover:text-[#f1d58a]">
+            Open setup guide
+          </a>
+        </div>
+
+        <div className="nc-section">
+          <div className="nc-eyebrow">Best next action</div>
+          <h2 className="mt-2 text-xl font-semibold text-slate-100">{bestNextAction.label}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{bestNextAction.detail}</p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <a href={bestNextAction.href} className="nc-button-primary">Do this next</a>
+            <a href="/setup" className="nc-button">Connect more</a>
+          </div>
+        </div>
+      </section>
 
       <section className="nc-mobile-action-grid lg:hidden" data-testid="mobile-dashboard-actions" aria-label="Mobile dashboard actions">
         {mobileActions.map((action) => (
