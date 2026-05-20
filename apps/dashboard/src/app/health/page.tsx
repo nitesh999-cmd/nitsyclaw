@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   getDb,
+  getConnectedAccount,
   messages,
   reminders,
   confirmations,
@@ -13,7 +14,8 @@ import {
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
-import { logDashboardError } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
+import { getProviderSetupReadiness } from "../../lib/provider-setup-readiness";
 import {
   buildDashboardRuntimeMetadata,
   runtimeCommitMismatch,
@@ -58,6 +60,18 @@ async function loadHealth() {
     getSystemHeartbeat(db, "reminder-sweep"),
     getSystemHeartbeat(db, "memory-pruner"),
   ]);
+  let spotifyAccount: Awaited<ReturnType<typeof getConnectedAccount>> | null = null;
+  try {
+    const { ownerHash } = getOwnerIdentity();
+    spotifyAccount = await getConnectedAccount(db, { provider: "spotify", ownerHash });
+  } catch {
+    spotifyAccount = null;
+  }
+  const integrationReadiness = getProviderSetupReadiness(process.env, {
+    spotifyConnected: Boolean(spotifyAccount),
+    spotifyExpiresAt: spotifyAccount?.expiresAt ?? null,
+    spotifyHasRefreshToken: Boolean(spotifyAccount?.refreshToken),
+  });
   const queueCounts = queueRows.reduce<Record<string, number>>((acc, row) => {
     acc[row.status] = (acc[row.status] ?? 0) + 1;
     return acc;
@@ -91,6 +105,7 @@ async function loadHealth() {
     authFailureRows,
     commandJobCounts,
     latestAudit: latestAuditRows[0] ?? null,
+    integrationReadiness,
     botRuntimeHeartbeat,
     botRuntimeFreshness: classifyHeartbeat(botRuntimeHeartbeat, new Date(), 30 * 24 * 60 * 60 * 1000),
     whatsappHeartbeat,
@@ -423,6 +438,43 @@ export default async function HealthPage() {
           </div>
         ))}
       </div>
+
+      {data ? (
+        <section className="nc-section">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="nc-eyebrow">Integration health checks</div>
+              <h3 className="mt-2 text-xl font-semibold text-slate-100">Connected account readiness</h3>
+              <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                Shows configured pieces, missing pieces, token freshness, and safety limits without exposing secrets.
+              </p>
+            </div>
+            <a href="/integrations" className="nc-button">Manage integrations</a>
+          </div>
+          <div className="mt-5 divide-y divide-slate-800 border-y border-slate-800">
+            {data.integrationReadiness.map((item) => {
+              const ok = item.status === "ready" || item.status === "partial";
+              const blocked = item.status === "blocked" || item.status === "needs_account";
+              return (
+                <div key={item.key} className="grid gap-3 py-3 md:grid-cols-[170px_130px_1fr]">
+                  <div className="font-medium text-slate-100">{item.label}</div>
+                  <div className={ok ? "text-emerald-300" : blocked ? "text-amber-300" : "text-slate-400"}>
+                    {item.status.replace(/_/g, " ")}
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    <p>{item.summary}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Configured: {item.configured.length ? item.configured.join(", ") : "none detected"} | Missing: {item.missing.length ? item.missing.join(", ") : "none"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Next: {item.nextStep}</p>
+                    <p className="mt-1 text-xs text-slate-500">Safety: {item.safety}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="nc-section">
         <div className="flex flex-wrap items-start justify-between gap-4">

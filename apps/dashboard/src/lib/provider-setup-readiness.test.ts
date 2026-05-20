@@ -60,4 +60,23 @@ describe("dashboard provider setup readiness", () => {
     expect(phone?.status).toBe("approval_required");
     expect(phone?.safety).toContain("Wrong-recipient");
   });
+
+  it("flags expired Spotify tokens without a refresh token as needing account repair", () => {
+    const readiness = getProviderSetupReadiness({
+      SPOTIFY_CLIENT_ID: "spotify-id",
+      SPOTIFY_CLIENT_SECRET: "spotify-secret",
+      SPOTIFY_REDIRECT_URI: "https://example.test/callback",
+    }, {
+      spotifyConnected: true,
+      spotifyExpiresAt: new Date("2000-01-01T00:00:00Z"),
+      spotifyHasRefreshToken: false,
+    });
+
+    const spotify = readiness.find((item) => item.key === "spotify");
+
+    expect(spotify?.status).toBe("needs_account");
+    expect(spotify?.summary).toContain("expired");
+    expect(spotify?.missing).toContain("Fresh Spotify account token or refresh token");
+    expect(spotify?.nextStep).toContain("Reconnect Spotify");
+  });
 });

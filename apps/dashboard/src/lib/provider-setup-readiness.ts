@@ -20,6 +20,8 @@ export interface ProviderSetupReadiness {
 
 export interface ProviderSetupSignals {
   spotifyConnected?: boolean;
+  spotifyExpiresAt?: Date | string | null;
+  spotifyHasRefreshToken?: boolean;
 }
 
 type EnvLike = Record<string, string | undefined>;
@@ -38,6 +40,26 @@ function configuredIf(value: boolean, label: string): string[] {
 
 function readiness(input: ProviderSetupReadiness): ProviderSetupReadiness {
   return input;
+}
+
+function tokenFreshness(value: Date | string | null | undefined): "unknown" | "fresh" | "expires_soon" | "expired" {
+  if (!value) return "unknown";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  const ms = date.getTime() - Date.now();
+  if (ms <= 0) return "expired";
+  if (ms <= 24 * 60 * 60 * 1000) return "expires_soon";
+  return "fresh";
+}
+
+function formatTokenFreshness(value: Date | string | null | undefined): string {
+  const state = tokenFreshness(value);
+  if (state === "unknown") return "token expiry unknown";
+  const date = value instanceof Date ? value : new Date(value!);
+  const stamp = date.toISOString().slice(0, 16).replace("T", " ");
+  if (state === "expired") return `token expired at ${stamp} UTC`;
+  if (state === "expires_soon") return `token expires soon at ${stamp} UTC`;
+  return `token fresh until ${stamp} UTC`;
 }
 
 export function dashboardStatus(status: ProviderSetupStatus): "Connected" | "Needs setup" | "Blocked" | "Read-only" | "Local only" | "Partial" {
@@ -66,6 +88,8 @@ export function getProviderSetupReadiness(
   const microsoftToken = has(env, "MS_TOKEN_JSON");
   const spotifyApp = has(env, "SPOTIFY_CLIENT_ID") && has(env, "SPOTIFY_CLIENT_SECRET") && has(env, "SPOTIFY_REDIRECT_URI");
   const database = has(env, "DATABASE_URL") || has(env, "DATABASE_URL_DIRECT");
+  const spotifyFreshness = tokenFreshness(signals.spotifyExpiresAt);
+  const spotifyTokenProblem = Boolean(signals.spotifyConnected) && spotifyFreshness === "expired" && !signals.spotifyHasRefreshToken;
 
   return [
     readiness({
@@ -109,15 +133,21 @@ export function getProviderSetupReadiness(
     readiness({
       key: "spotify",
       label: "Spotify",
-      status: signals.spotifyConnected ? "partial" : spotifyApp ? "needs_account" : "needs_setup",
-      summary: signals.spotifyConnected
-        ? "Spotify account token is stored."
+      status: spotifyTokenProblem ? "needs_account" : signals.spotifyConnected ? "partial" : spotifyApp ? "needs_account" : "needs_setup",
+      summary: spotifyTokenProblem
+        ? `Spotify account token is expired and no refresh token is stored (${formatTokenFreshness(signals.spotifyExpiresAt)}).`
+        : signals.spotifyConnected
+        ? `Spotify account token is stored (${formatTokenFreshness(signals.spotifyExpiresAt)}).`
         : spotifyApp
           ? "Spotify OAuth app is configured. The account still needs connection."
           : "Spotify OAuth env vars are incomplete.",
       configured: [...configuredIf(spotifyApp, "Spotify OAuth app"), ...configuredIf(Boolean(signals.spotifyConnected), "Spotify account token")],
-      missing: signals.spotifyConnected ? [] : spotifyApp ? ["Spotify account token"] : ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI"],
-      nextStep: signals.spotifyConnected ? "Run a top-tracks proof." : "Connect Spotify OAuth.",
+      missing: spotifyTokenProblem
+        ? ["Fresh Spotify account token or refresh token"]
+        : signals.spotifyConnected
+          ? []
+          : spotifyApp ? ["Spotify account token"] : ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI"],
+      nextStep: spotifyTokenProblem ? "Reconnect Spotify OAuth." : signals.spotifyConnected ? "Run a top-tracks proof." : "Connect Spotify OAuth.",
       safety: "Playlist creation stays confirmation-gated.",
     }),
     readiness({

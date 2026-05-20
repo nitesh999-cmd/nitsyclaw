@@ -22,6 +22,8 @@ interface IntegrationRow {
 
 async function loadRows(): Promise<IntegrationRow[]> {
   let spotifyConnected = false;
+  let spotifyExpiresAt: Date | null = null;
+  let spotifyHasRefreshToken = false;
   try {
     const spotifyConfigured = Boolean(
       process.env.SPOTIFY_CLIENT_ID &&
@@ -31,18 +33,25 @@ async function loadRows(): Promise<IntegrationRow[]> {
     if (spotifyConfigured) {
       const db = getDb();
       const { ownerHash } = getOwnerIdentity();
-      spotifyConnected = Boolean(
-        await getConnectedAccount(db, {
+      const spotifyAccount = await getConnectedAccount(db, {
           provider: "spotify",
           ownerHash,
-        }),
-      );
+        });
+      spotifyConnected = Boolean(spotifyAccount);
+      spotifyExpiresAt = spotifyAccount?.expiresAt ?? null;
+      spotifyHasRefreshToken = Boolean(spotifyAccount?.refreshToken);
     }
   } catch {
     spotifyConnected = false;
+    spotifyExpiresAt = null;
+    spotifyHasRefreshToken = false;
   }
 
-  const readiness = getProviderSetupReadiness(process.env, { spotifyConnected });
+  const readiness = getProviderSetupReadiness(process.env, {
+    spotifyConnected,
+    spotifyExpiresAt,
+    spotifyHasRefreshToken,
+  });
   const byKey = new Map(readiness.map((item) => [item.key, item]));
   const gmail = byKey.get("gmail");
   const outlook = byKey.get("outlook");
