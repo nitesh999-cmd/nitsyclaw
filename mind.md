@@ -303,3 +303,53 @@ The CCR allowlist still does not include `nitsyclaw.vercel.app` or `ntfy.sh`. Un
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 19. Session 2026-05-20 — Daily build agent run (BLOCKED day 5)
+
+**Date:** 2026-05-20
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented — blocked by network policy (fifth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT |
+| ntfy.sh | 443 (HTTPS) | 403 host_not_allowed (x-deny-reason: host_not_allowed) |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 host_not_allowed (x-deny-reason: host_not_allowed) |
+
+### Context
+
+5 new commits were made to the repo between 2026-05-19 and 2026-05-20 by other Claude sessions: "Enforce provider readiness in CI", "Cover setup page in e2e", "Clarify dashboard home next actions", "Add provider setup guide", "Add integration health checks". These sessions had DB/network access through a different path. The daily build agent continues to be blocked.
+
+Git state note: CCR initialised HEAD in detached mode at `2cc96b2` (newest remote commit). Local `main` branch tracking ref was stale at `bd2cc6b`. Resolved by `git checkout main && git merge --ff-only origin/main`.
+
+### TypeScript health
+
+`npx tsc --noEmit -p apps/dashboard/tsconfig.json` — PASS (pre-existing baseUrl deprecation warning only, same as all prior sessions).
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-19 confirm no new P0/P1 issues. Adding P2/P3 features without knowing the DB queue state risks duplication with already-queued feature_requests.
+
+### L39 still unresolved
+
+For five consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests. Steps to fix are in session 17 entry (§16).
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: detached HEAD resolved | YES (fast-forwarded main to origin/main) |
+| TypeScript typecheck | PASS (pre-existing deprecation warning only) |
+| Query pending feature_requests | FAILED — all paths blocked (TCP, Vercel HTTPS, ntfy) |
+| ntfy start notification | FAILED — host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
