@@ -23,6 +23,13 @@ import {
 } from "@nitsyclaw/shared/ops/command-jobs";
 import { parseLimitedJsonBody, validateChatBody } from "../../../lib/chat-validation";
 import {
+  formatPrivateModeActionBlocked,
+  formatPrivateModeHelp,
+  isPrivateModeHelpRequest,
+  parsePrivateModeInput,
+  privateModeWouldPersist,
+} from "@nitsyclaw/shared/utils";
+import {
   encryptDashboardText,
   getOwnerIdentity,
   logDashboardError,
@@ -216,6 +223,40 @@ export async function POST(req: Request) {
     const deps = buildDashboardDeps();
     const registry = registerAllFeatures({ surface: "dashboard" });
     const { ownerPhone, ownerHash } = getOwnerIdentity();
+    const privateMode = parsePrivateModeInput(last.content, parsedBody.body.privateMode);
+    if (privateMode) {
+      if (isPrivateModeHelpRequest(privateMode.text)) {
+        return NextResponse.json({
+          reply: formatPrivateModeHelp(),
+          meta: { rounds: 0, tools: [], privateMode: true },
+        }, { headers: NO_STORE });
+      }
+      if (privateModeWouldPersist(privateMode.text)) {
+        return NextResponse.json({
+          reply: formatPrivateModeActionBlocked(),
+          meta: { rounds: 0, tools: [], privateMode: true },
+        }, { headers: NO_STORE });
+      }
+      const promptProfile = await resolvePromptProfileFromContext(deps.db, {
+        userPhone: ownerPhone,
+        now: deps.now(),
+        fallback: deps.profile,
+      }).catch(() => deps.profile);
+      const response = await deps.llm.complete({
+        system: [
+          buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
+          "Private mode is active for this single dashboard turn.",
+          "Do not use tools, do not save memory, do not persist chat history, and do not claim anything was saved.",
+          "Answer or draft only. If the user asks for any action that would save, send, delete, book, pay, call, or change outside data, say private mode cannot do that.",
+        ].join("\n\n"),
+        messages: [{ role: "user", content: privateMode.text }],
+        maxTokens: 700,
+      });
+      return NextResponse.json({
+        reply: response.text.trim() || "Private mode is on. I could not produce a useful reply.",
+        meta: { rounds: 0, tools: [], privateMode: true },
+      }, { headers: NO_STORE });
+    }
     const commandJob = await createCommandJob(deps.db, {
       source: "dashboard",
       ownerHash,

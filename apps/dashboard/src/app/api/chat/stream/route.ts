@@ -24,6 +24,13 @@ import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/ag
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import {
+  formatPrivateModeActionBlocked,
+  formatPrivateModeHelp,
+  isPrivateModeHelpRequest,
+  parsePrivateModeInput,
+  privateModeWouldPersist,
+} from "@nitsyclaw/shared/utils";
+import {
   completeCommandJob,
   createCommandJob,
   markCommandJobWorking,
@@ -220,6 +227,52 @@ export async function POST(req: Request) {
   } catch (e) {
     const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
+  }
+
+  const privateMode = parsePrivateModeInput(last.content, parsedBody.body.privateMode);
+  if (privateMode) {
+    if (isPrivateModeHelpRequest(privateMode.text)) {
+      return streamSingleEvent({
+        type: "done",
+        reply: formatPrivateModeHelp(),
+        meta: { rounds: 0, tools: [], privateMode: true },
+      });
+    }
+    if (privateModeWouldPersist(privateMode.text)) {
+      return streamSingleEvent({
+        type: "done",
+        reply: formatPrivateModeActionBlocked(),
+        meta: { rounds: 0, tools: [], privateMode: true },
+      });
+    }
+    try {
+      const { deps } = buildDashboardDeps();
+      const promptProfile = await resolvePromptProfileFromContext(deps.db, {
+        userPhone: ownerPhone,
+        now: deps.now(),
+        fallback: deps.profile,
+      }).catch(() => deps.profile);
+      const response = await deps.llm.complete({
+        system: [
+          buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
+          "Private mode is active for this single dashboard turn.",
+          "Do not use tools, do not save memory, do not persist chat history, and do not claim anything was saved.",
+          "Answer or draft only. If the user asks for any action that would save, send, delete, book, pay, call, or change outside data, say private mode cannot do that.",
+        ].join("\n\n"),
+        messages: [{ role: "user", content: privateMode.text }],
+        maxTokens: 700,
+      });
+      return streamSingleEvent({
+        type: "done",
+        reply: response.text.trim() || "Private mode is on. I could not produce a useful reply.",
+        meta: { rounds: 0, tools: [], privateMode: true },
+      });
+    } catch (e: unknown) {
+      logDashboardError("chat.stream.private", e);
+      const configError = publicConfigErrorOrNull(e);
+      if (configError) return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
+      return streamSingleEvent({ type: "error", message: publicServerError("I could not answer in private mode right now. Try again shortly.").reply });
+    }
   }
 
   // /addfeature shortcut — instant path, no streaming needed.

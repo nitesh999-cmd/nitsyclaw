@@ -87,7 +87,18 @@ import type { CommandJob } from "@nitsyclaw/shared/db";
 import type { SystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
-import { encryptForStorage, hashPhone, maskPhone, parseExpenseText, sanitizeUserFacingReply } from "@nitsyclaw/shared/utils";
+import {
+  encryptForStorage,
+  formatPrivateModeActionBlocked,
+  formatPrivateModeHelp,
+  hashPhone,
+  isPrivateModeHelpRequest,
+  maskPhone,
+  parseExpenseText,
+  parsePrivateModeInput,
+  privateModeWouldPersist,
+  sanitizeUserFacingReply,
+} from "@nitsyclaw/shared/utils";
 import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
@@ -183,6 +194,37 @@ export class Router {
       logBotError("[router] failed to persist outbound", e);
     }
     notifyAll(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
+  }
+
+  private async sendWithoutPersistence(body: string): Promise<void> {
+    body = sanitizeUserFacingReply(body);
+    if (!body) return;
+    await this.deps.whatsapp.send({ to: this.ownerPhone, body });
+  }
+
+  private async answerPrivateMode(text: string): Promise<string> {
+    if (isPrivateModeHelpRequest(text)) {
+      return formatPrivateModeHelp();
+    }
+    if (privateModeWouldPersist(text)) {
+      return formatPrivateModeActionBlocked();
+    }
+    const promptProfile = await resolvePromptProfileFromContext(this.deps.db, {
+      userPhone: this.ownerPhone,
+      now: this.deps.now(),
+      fallback: this.deps.profile,
+    }).catch(() => this.deps.profile);
+    const response = await this.deps.llm.complete({
+      system: [
+        buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }),
+        "Private mode is active for this single turn.",
+        "Do not use tools, do not save memory, do not ask to persist anything, and do not claim you saved anything.",
+        "Answer or draft only. If the user asks for any action that would save, send, delete, book, pay, call, or change outside data, say private mode cannot do that.",
+      ].join("\n\n"),
+      messages: [{ role: "user", content: text }],
+      maxTokens: 700,
+    });
+    return response.text.trim() || "Private mode is on. I could not produce a useful reply.";
   }
 
   private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
@@ -1305,6 +1347,24 @@ export class Router {
     }
     if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
     if (!this.rememberExternalMessageId(msg.id)) return;
+
+    const initialPrivateMode = parsePrivateModeInput(msg.body);
+    if (initialPrivateMode) {
+      let privateText = initialPrivateMode.text;
+      if (msg.mediaType === "voice" && msg.downloadMedia) {
+        try {
+          const media = await msg.downloadMedia();
+          privateText = await this.deps.transcriber.transcribe(media.data, media.mimetype);
+        } catch (error) {
+          await this.sendWithoutPersistence("Private mode is on, but I could not transcribe that voice note.");
+          logBotError("[router] private voice transcription failed", error);
+          return;
+        }
+      }
+      const reply = await this.answerPrivateMode(privateText);
+      await this.sendWithoutPersistence(reply);
+      return;
+    }
 
     // Load cross-surface history BEFORE persisting current turn so it isn't included.
     const history = await loadCrossSurfaceHistory(

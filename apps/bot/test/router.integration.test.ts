@@ -87,6 +87,38 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
   });
 
+  it("private mode answers without persisting messages or command jobs", async () => {
+    await router.handle({
+      id: "x-private",
+      from: OWNER,
+      body: "private: help me rewrite this calmly",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(wa.sent.at(-1)?.body).toBe("ok");
+    expect(state.messages).toHaveLength(0);
+    expect(state.command_jobs).toHaveLength(0);
+    expect(state.memories).toHaveLength(0);
+  });
+
+  it("private mode blocks actions that would need persistence", async () => {
+    await router.handle({
+      id: "x-private-reminder",
+      from: OWNER,
+      body: "private: remind me to call John tomorrow",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(wa.sent.at(-1)?.body).toContain("I can answer or draft");
+    expect(state.messages).toHaveLength(0);
+    expect(state.command_jobs).toHaveLength(0);
+    expect(state.reminders).toHaveLength(0);
+  });
+
   it.each(["thanks", "cheers", "got it", "cool", "perfect"])(
     "does not send a working receipt for casual acknowledgement '%s'",
     async (body) => {

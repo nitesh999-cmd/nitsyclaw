@@ -9,6 +9,7 @@ export interface ChatMessage {
 
 export interface ChatBody {
   history: ChatMessage[];
+  privateMode?: boolean;
 }
 
 export interface ChatValidationOk {
@@ -103,5 +104,6 @@ export function validateChatBody(raw: unknown): ChatValidationResult {
     return { ok: false, status: 400, reply: "Message cannot be empty" };
   }
 
-  return { ok: true, body: { history: messages }, last };
+  const privateMode = (raw as { privateMode?: unknown }).privateMode === true;
+  return { ok: true, body: { history: messages, privateMode }, last };
 }

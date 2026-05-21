@@ -33,6 +33,7 @@ export default function ChatPage() {
   const [selectedVoice, setSelectedVoice] = useState("");
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [speechLanguage, setSpeechLanguage] = useState("en-AU");
+  const [privateMode, setPrivateMode] = useState(false);
   const recognitionRef = useRef<unknown>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -262,7 +263,7 @@ export default function ChatPage() {
       const r = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: next }),
+        body: JSON.stringify({ history: next, privateMode }),
       });
       if (!r.ok) throw new Error("HTTP " + r.status);
       if (!r.body) throw new Error("No response body");
@@ -326,7 +327,7 @@ export default function ChatPage() {
           const fb = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ history: next }),
+            body: JSON.stringify({ history: next, privateMode }),
           });
           const data = (await fb.json()) as { reply?: string };
           const reply = data.reply ?? "(empty reply)";
@@ -379,6 +380,19 @@ export default function ChatPage() {
             >
               Voice
             </button>
+            <button
+              type="button"
+              onClick={() => setPrivateMode((value) => !value)}
+              aria-pressed={privateMode}
+              className={
+                "nc-button min-h-9 px-3 py-1.5 text-xs " +
+                (privateMode
+                  ? "border-amber-500/70 bg-amber-400 text-slate-950 hover:bg-amber-300"
+                  : "border-slate-700 bg-slate-900 text-slate-300")
+              }
+            >
+              {privateMode ? "Private on" : "Private"}
+            </button>
             <label className="sr-only" htmlFor="speech-language">Speech language</label>
             <select
               id="speech-language"
@@ -427,6 +441,11 @@ export default function ChatPage() {
       {voiceError ? (
         <div className="mb-3 border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
           {voiceError}
+        </div>
+      ) : null}
+      {privateMode ? (
+        <div className="mb-3 border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-100" role="status">
+          Private mode is on. This turn can answer or draft, but it will not save history, memories, reminders, expenses, or actions.
         </div>
       ) : null}
 
