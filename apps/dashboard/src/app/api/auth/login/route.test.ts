@@ -7,6 +7,28 @@ describe("dashboard login route", () => {
     vi.unstubAllEnvs();
   });
 
+  it("sends first-login success to PA setup when no explicit next path is supplied", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NITSYCLAW_DASHBOARD_PASSWORD", "secret");
+    vi.stubEnv("NITSYCLAW_DASHBOARD_USER", "nitesh");
+
+    const form = new FormData();
+    form.set("user", "nitesh");
+    form.set("password", "secret");
+
+    const response = await POST(new Request("https://nitsyclaw.vercel.app/api/auth/login", {
+      method: "POST",
+      headers: {
+        origin: "https://nitsyclaw.vercel.app",
+      },
+      body: form,
+    }));
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://nitsyclaw.vercel.app/onboarding");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("rejects malformed form bodies without exposing a 500", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NITSYCLAW_DASHBOARD_PASSWORD", "secret");

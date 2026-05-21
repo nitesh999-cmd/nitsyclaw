@@ -1,5 +1,7 @@
 import { LoginForm } from "./login-form";
 
+const DEFAULT_LOGIN_NEXT = "/onboarding";
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -66,6 +68,6 @@ export default async function LoginPage({
 }
 
 function sanitizeNext(value: string | undefined): string {
-  if (!value?.startsWith("/") || value.startsWith("//")) return "/";
+  if (!value?.startsWith("/") || value.startsWith("//")) return DEFAULT_LOGIN_NEXT;
   return value;
 }

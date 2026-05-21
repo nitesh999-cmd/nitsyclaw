@@ -1530,7 +1530,13 @@ export class Router {
       try {
         const out = tool
           ? ((await tool.handler(
-              { city: locationShortcut.city, expiresHint: locationShortcut.expiresHint },
+              {
+                city: locationShortcut.city,
+                region: locationShortcut.region,
+                country: locationShortcut.country,
+                timezone: locationShortcut.timezone,
+                expiresHint: locationShortcut.expiresHint,
+              },
               {
                 userPhone: msg.from,
                 now: this.deps.now(),
@@ -1539,16 +1545,22 @@ export class Router {
               },
             )) as { location?: string; expiresHint?: string })
           : null;
-        const reply = out?.expiresHint
-          ? `Location updated: ${out.location} until ${out.expiresHint}.`
-          : `Location updated: ${out?.location ?? locationShortcut.city}.`;
-        await this.sendAndPersist(reply);
-        await this.completeWhatsAppCommandJob(commandJob, reply);
+        if (locationShortcut.continueAfterSave) {
+          // Combined travel + weather requests should save context and still answer the actual question.
+          // Example: "I'm in Sydney until tomorrow. What's the weather tomorrow?"
+        } else {
+          const reply = out?.expiresHint
+            ? `Location updated: ${out.location} until ${out.expiresHint}.`
+            : `Location updated: ${out?.location ?? locationShortcut.city}.`;
+          await this.sendAndPersist(reply);
+          await this.completeWhatsAppCommandJob(commandJob, reply);
+          return;
+        }
       } catch (locationError) {
         await this.failWhatsAppCommandJob(commandJob, locationError);
         await this.sendPublicFailure("location save", "Couldn't save that location. I logged it; try again shortly.", locationError);
+        return;
       }
-      return;
     }
 
     const locationStatusShortcut = parseLocationStatusShortcut(effectiveText);
@@ -1569,14 +1581,16 @@ export class Router {
               expiresAt?: string;
               expiresHint?: string;
               source?: string;
-              staleLocationIgnored?: { location?: string; expiredAt?: string };
+              timezone?: string;
+              staleLocationIgnored?: { location?: string; expiredAt?: string; timezone?: string };
             })
           : null;
         const suffix = out?.expiresAt ? ` until ${out.expiresHint ?? out.expiresAt}` : "";
+        const timezone = out?.timezone ? `\nTravel timezone: ${out.timezone}.` : "";
         const stale = out?.staleLocationIgnored?.location
           ? `\nIgnored expired travel location: ${out.staleLocationIgnored.location}.`
           : "";
-        const reply = `Weather/default location: ${out?.location ?? "Melbourne, Victoria, Australia"}${suffix}.\nSource: ${out?.source ?? "profile_default"}.${stale}`;
+        const reply = `Weather/default location: ${out?.location ?? "Melbourne, Victoria, Australia"}${suffix}.\nSource: ${out?.source ?? "profile_default"}.${timezone}${stale}`;
         await this.sendAndPersist(reply);
         await this.completeWhatsAppCommandJob(commandJob, reply);
       } catch (locationStatusError) {

@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 const DEFAULT_AUTH_ATTEMPT_TIMEOUT_MS = 800;
+const DEFAULT_LOGIN_NEXT = "/onboarding";
 
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
@@ -36,7 +37,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const user = String(form.get("user") ?? "");
   const password = String(form.get("password") ?? "");
-  const next = sanitizeNext(String(form.get("next") ?? "/"));
+  const next = sanitizeNext(String(form.get("next") ?? DEFAULT_LOGIN_NEXT));
   const clientKey = `ip:${clientKeyFromRequest(request)}`;
   const accountKey = accountKeyFromUser(user, expectedUser);
   const loginKeys = [clientKey, accountKey];
@@ -111,7 +112,7 @@ function redirectToLogin(error: "invalid" | "locked", next: string, status: 303)
 }
 
 function sanitizeNext(value: string): string {
-  if (!value.startsWith("/") || value.startsWith("//")) return "/";
+  if (!value.startsWith("/") || value.startsWith("//")) return DEFAULT_LOGIN_NEXT;
   return value;
 }
 

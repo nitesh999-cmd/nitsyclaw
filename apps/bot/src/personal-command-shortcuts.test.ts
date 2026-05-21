@@ -22,13 +22,30 @@ import {
 
 describe("personal command shortcuts", () => {
   it("parses temporary travel/current-location messages", () => {
-    expect(parseLocationShortcut("I'm in Brisbane until Monday")).toEqual({
+    expect(parseLocationShortcut("I'm in Brisbane until Monday")).toMatchObject({
       city: "Brisbane",
+      region: "Queensland",
+      country: "Australia",
+      timezone: "Australia/Brisbane",
       expiresHint: "Monday",
     });
-    expect(parseLocationShortcut("use Sydney for weather this week")).toEqual({
+    expect(parseLocationShortcut("use Sydney for weather this week")).toMatchObject({
       city: "Sydney",
+      region: "New South Wales",
+      country: "Australia",
+      timezone: "Australia/Sydney",
       expiresHint: "this week",
+    });
+  });
+
+  it("parses combined travel and weather requests without swallowing the weather question", () => {
+    expect(parseLocationShortcut("I'm in Sydney until tomorrow. What's the weather tomorrow?")).toMatchObject({
+      city: "Sydney",
+      region: "New South Wales",
+      country: "Australia",
+      timezone: "Australia/Sydney",
+      expiresHint: "tomorrow",
+      continueAfterSave: true,
     });
   });
 
@@ -39,8 +56,11 @@ describe("personal command shortcuts", () => {
   });
 
   it("parses a return-home location command", () => {
-    expect(parseLocationShortcut("back in Melbourne now")).toEqual({
+    expect(parseLocationShortcut("back in Melbourne now")).toMatchObject({
       city: "Melbourne",
+      region: "Victoria",
+      country: "Australia",
+      timezone: "Australia/Melbourne",
       expiresHint: undefined,
     });
   });

@@ -1,6 +1,10 @@
 export interface LocationShortcut {
   city: string;
+  region?: string;
+  country?: string;
+  timezone?: string;
   expiresHint?: string;
+  continueAfterSave?: boolean;
 }
 
 export interface LocationStatusShortcut {
@@ -140,6 +144,23 @@ export interface HomeAssistantShortcut {
 const CITY_WORDS = "[A-Za-z][A-Za-z .'-]{1,60}";
 const NON_LOCATION_WORDS = new Set(["trouble", "pain", "meeting", "call", "debt", "work"]);
 const NON_LOCATION_PHRASES = /\b(with|client|customer|work|meeting|call|trouble|problem)\b/i;
+const WEATHER_WORDS = /\b(weather|forecast|rain|temperature|hot|cold|sunny|cloudy|wind|umbrella)\b/i;
+const KNOWN_CITY_CONTEXT: Record<string, { city: string; region?: string; country?: string; timezone?: string }> = {
+  melbourne: { city: "Melbourne", region: "Victoria", country: "Australia", timezone: "Australia/Melbourne" },
+  sydney: { city: "Sydney", region: "New South Wales", country: "Australia", timezone: "Australia/Sydney" },
+  brisbane: { city: "Brisbane", region: "Queensland", country: "Australia", timezone: "Australia/Brisbane" },
+  adelaide: { city: "Adelaide", region: "South Australia", country: "Australia", timezone: "Australia/Adelaide" },
+  perth: { city: "Perth", region: "Western Australia", country: "Australia", timezone: "Australia/Perth" },
+  auckland: { city: "Auckland", country: "New Zealand", timezone: "Pacific/Auckland" },
+  singapore: { city: "Singapore", country: "Singapore", timezone: "Asia/Singapore" },
+  london: { city: "London", country: "United Kingdom", timezone: "Europe/London" },
+  "new york": { city: "New York", region: "New York", country: "United States", timezone: "America/New_York" },
+  "los angeles": { city: "Los Angeles", region: "California", country: "United States", timezone: "America/Los_Angeles" },
+  tokyo: { city: "Tokyo", country: "Japan", timezone: "Asia/Tokyo" },
+  dubai: { city: "Dubai", country: "United Arab Emirates", timezone: "Asia/Dubai" },
+  delhi: { city: "Delhi", country: "India", timezone: "Asia/Kolkata" },
+  mumbai: { city: "Mumbai", region: "Maharashtra", country: "India", timezone: "Asia/Kolkata" },
+};
 
 function cleanCity(value: string): string | null {
   const city = value.replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "");
@@ -156,6 +177,9 @@ function cleanHint(value?: string): string | undefined {
 
 export function parseLocationShortcut(text: string): LocationShortcut | null {
   const trimmed = text.trim();
+  const combined = parseCombinedTravelLocation(trimmed);
+  if (combined) return combined;
+
   const imIn = new RegExp(`^(?:i['’]?m|i am)\\s+in\\s+(${CITY_WORDS}?)(?:\\s+(?:until|till)\\s+(.+))?$`, "i");
   const useForWeather = new RegExp(`^use\\s+(${CITY_WORDS}?)\\s+for\\s+weather(?:\\s+(.+))?$`, "i");
   const backHome = new RegExp(`^back\\s+in\\s+(${CITY_WORDS}?)(?:\\s+now)?$`, "i");
@@ -163,10 +187,56 @@ export function parseLocationShortcut(text: string): LocationShortcut | null {
   for (const pattern of [imIn, useForWeather, backHome]) {
     const match = trimmed.match(pattern);
     const city = cleanCity(match?.[1] ?? "");
-    if (city) return { city, expiresHint: cleanHint(match?.[2]) };
+    if (city) return withKnownCityContext(city, { expiresHint: cleanHint(match?.[2]) });
   }
 
   return null;
+}
+
+function parseCombinedTravelLocation(trimmed: string): LocationShortcut | null {
+  const prefixMatch = trimmed.match(/^(?:i['’]?m|i am)\s+in\s+(.+)$/i);
+  if (!prefixMatch) return null;
+
+  const remainder = prefixMatch[1] ?? "";
+  const separator = findTravelContinuationSeparator(remainder);
+  if (!separator) return null;
+
+  const before = remainder.slice(0, separator.index).trim();
+  const after = remainder.slice(separator.index + separator.length).trim();
+  if (!WEATHER_WORDS.test(after)) return null;
+
+  const untilMatch = before.match(/^(.+?)\s+(?:until|till)\s+(.+)$/i);
+  const city = cleanCity(untilMatch?.[1] ?? before);
+  if (!city) return null;
+
+  return withKnownCityContext(city, {
+    expiresHint: cleanHint(untilMatch?.[2]),
+    continueAfterSave: true,
+  });
+}
+
+function findTravelContinuationSeparator(value: string): { index: number; length: number } | null {
+  const punctuation = value.search(/[.!?]\s+/);
+  const and = value.toLowerCase().indexOf(" and ");
+  const candidates = [
+    punctuation >= 0 ? { index: punctuation, length: value.match(/[.!?]\s+/)?.[0]?.length ?? 1 } : null,
+    and >= 0 ? { index: and, length: 5 } : null,
+  ].filter((candidate): candidate is { index: number; length: number } => Boolean(candidate));
+  return candidates.sort((a, b) => a.index - b.index)[0] ?? null;
+}
+
+function withKnownCityContext(
+  city: string,
+  extra: Pick<LocationShortcut, "expiresHint" | "continueAfterSave">,
+): LocationShortcut {
+  const known = KNOWN_CITY_CONTEXT[city.toLowerCase()];
+  return {
+    city: known?.city ?? city,
+    region: known?.region,
+    country: known?.country,
+    timezone: known?.timezone,
+    ...extra,
+  };
 }
 
 export function parseLocationStatusShortcut(text: string): LocationStatusShortcut | null {

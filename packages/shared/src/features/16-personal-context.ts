@@ -62,6 +62,7 @@ async function setCurrentLocation(
     city: string;
     region?: string;
     country?: string;
+    timezone?: string;
     expiresHint?: string;
     expiresAt?: string;
   },
@@ -78,6 +79,7 @@ async function setCurrentLocation(
       city: input.city,
       region: input.region,
       country: input.country,
+      timezone: input.timezone,
       expiresHint,
       setAt: ctx.now.toISOString(),
     },
@@ -157,12 +159,13 @@ async function getCurrentLocation(_input: Record<string, never>, ctx: ToolContex
     key: CURRENT_LOCATION_KEY,
   });
   const value = saved?.value as
-    | { location?: string; expiresHint?: string; setAt?: string }
+    | { location?: string; expiresHint?: string; setAt?: string; timezone?: string }
     | undefined;
 
   if (saved && value?.location && (!saved.expiresAt || saved.expiresAt.getTime() > ctx.now.getTime())) {
     return {
       location: value.location,
+      timezone: value.timezone,
       expiresHint: value.expiresHint,
       expiresAt: saved.expiresAt?.toISOString(),
       setAt: value.setAt,
@@ -175,6 +178,7 @@ async function getCurrentLocation(_input: Record<string, never>, ctx: ToolContex
         location: value.location,
         expiredAt: saved.expiresAt.toISOString(),
         expiresHint: value.expiresHint,
+        timezone: value.timezone,
       }
     : undefined;
 
@@ -234,6 +238,7 @@ export function registerPersonalContext(registry: ToolRegistry): void {
       city: z.string().min(2),
       region: z.string().optional(),
       country: z.string().optional(),
+      timezone: z.string().optional().describe("IANA timezone for the current location if confidently known."),
       expiresHint: z
         .string()
         .optional()

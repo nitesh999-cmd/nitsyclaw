@@ -276,6 +276,28 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("saves travel context and still answers combined travel/weather requests", async () => {
+    await router.handle({
+      id: "x-travel-weather",
+      from: OWNER,
+      body: "I'm in Sydney until tomorrow. What's the weather tomorrow?",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    const locationRow = state.profile_context.find((row) => row.key === "current_location");
+    expect(locationRow?.value).toMatchObject({
+      city: "Sydney",
+      region: "New South Wales",
+      country: "Australia",
+      timezone: "Australia/Sydney",
+      expiresHint: "tomorrow",
+    });
+    expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
+    expect(wa.sent.some((m) => m.body.startsWith("Location updated:"))).toBe(false);
+  });
+
   it("answers what can you do with a deterministic working-feature list", async () => {
     await router.handle({
       id: "x-help-status",
