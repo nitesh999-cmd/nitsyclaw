@@ -1,6 +1,16 @@
 import Link from "next/link";
-import { getConnectedAccount, getDb, memories, reminders, confirmations } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity } from "../../lib/dashboard-runtime";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import {
+  getConnectedAccount,
+  getDb,
+  memories,
+  reminders,
+  confirmations,
+  listProfileContextForOwner,
+  upsertProfileContext,
+} from "@nitsyclaw/shared/db";
+import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +66,35 @@ const plainChoices = [
     href: "/confirmations",
   },
 ];
+
+const firstDayKeys = [
+  "home_location",
+  "current_location",
+  "timezone",
+  "default_currency",
+  "reply_language",
+  "daily_routine",
+  "important_people",
+  "preferred_channels",
+  "first_three_jobs",
+];
+
+type FirstDayProfile = {
+  homeLocation?: string;
+  currentLocation?: string;
+  timezone?: string;
+  defaultCurrency?: string;
+  replyLanguage?: string;
+  dailyRoutine?: string;
+  importantPeople?: string;
+  preferredChannels?: string;
+  firstThreeJobs?: string;
+};
+
+type OnboardingSearchParams = {
+  saved?: string;
+  error?: string;
+};
 
 async function loadChecklist(): Promise<ChecklistItem[]> {
   const checks = {
@@ -142,13 +181,134 @@ async function loadChecklist(): Promise<ChecklistItem[]> {
   ];
 }
 
+async function loadFirstDayProfile(): Promise<FirstDayProfile> {
+  try {
+    const owner = getOwnerIdentity();
+    const rows = await listProfileContextForOwner(getDb(), owner.ownerHash, 100);
+    const byKey = new Map(rows.filter((row) => firstDayKeys.includes(row.key)).map((row) => [row.key, row.value]));
+
+    return {
+      homeLocation: readProfileText(byKey.get("home_location"), "location"),
+      currentLocation: readProfileText(byKey.get("current_location"), "location"),
+      timezone: readProfileText(byKey.get("timezone"), "value"),
+      defaultCurrency: readProfileText(byKey.get("default_currency"), "value"),
+      replyLanguage: readProfileText(byKey.get("reply_language"), "value"),
+      dailyRoutine: readProfileText(byKey.get("daily_routine"), "value"),
+      importantPeople: readProfileText(byKey.get("important_people"), "value"),
+      preferredChannels: readProfileText(byKey.get("preferred_channels"), "value"),
+      firstThreeJobs: readProfileText(byKey.get("first_three_jobs"), "value"),
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function saveFirstDayWizard(formData: FormData) {
+  "use server";
+
+  let redirectTo = "/onboarding?saved=1";
+  try {
+    const owner = getOwnerIdentity();
+    const db = getDb();
+    const now = new Date().toISOString();
+    const homeLocation = cleanText(formData.get("homeLocation"), 120);
+    const currentLocation = cleanText(formData.get("currentLocation"), 120);
+    const timezone = cleanText(formData.get("timezone"), 80) || "Australia/Melbourne";
+    const defaultCurrency = cleanCurrency(formData.get("defaultCurrency"));
+    const replyLanguage = cleanText(formData.get("replyLanguage"), 40) || "English";
+    const dailyRoutine = cleanText(formData.get("dailyRoutine"), 600);
+    const importantPeople = cleanText(formData.get("importantPeople"), 600);
+    const preferredChannels = cleanText(formData.get("preferredChannels"), 300);
+    const firstThreeJobs = cleanText(formData.get("firstThreeJobs"), 700);
+
+    if (!homeLocation && !currentLocation && !dailyRoutine && !importantPeople && !firstThreeJobs) {
+      redirectTo = "/onboarding?error=empty";
+    } else {
+      const rows = [
+        homeLocation
+          ? {
+              key: "home_location",
+              value: { location: homeLocation, setAt: now },
+            }
+          : null,
+        currentLocation
+          ? {
+              key: "current_location",
+              value: { location: currentLocation, setAt: now },
+            }
+          : null,
+        {
+          key: "timezone",
+          value: { value: timezone, setAt: now },
+        },
+        {
+          key: "default_currency",
+          value: { value: defaultCurrency, setAt: now },
+        },
+        {
+          key: "reply_language",
+          value: { value: replyLanguage, setAt: now },
+        },
+        dailyRoutine
+          ? {
+              key: "daily_routine",
+              value: { value: dailyRoutine, setAt: now },
+            }
+          : null,
+        importantPeople
+          ? {
+              key: "important_people",
+              value: { value: importantPeople, setAt: now },
+            }
+          : null,
+        preferredChannels
+          ? {
+              key: "preferred_channels",
+              value: { value: preferredChannels, setAt: now },
+            }
+          : null,
+        firstThreeJobs
+          ? {
+              key: "first_three_jobs",
+              value: { value: firstThreeJobs, jobs: splitLines(firstThreeJobs), setAt: now },
+            }
+          : null,
+      ].filter(Boolean) as Array<{ key: string; value: Record<string, unknown> }>;
+
+      await Promise.all(
+        rows.map((row) =>
+          upsertProfileContext(db, {
+            ownerHash: owner.ownerHash,
+            key: row.key,
+            value: row.value,
+            source: "dashboard:first-day-wizard",
+            sensitivity: "personal",
+          }),
+        ),
+      );
+      revalidatePath("/onboarding");
+      revalidatePath("/profile");
+    }
+  } catch (error) {
+    logDashboardError("first-day-wizard", error);
+    redirectTo = "/onboarding?error=save-failed";
+  }
+
+  redirect(redirectTo);
+}
+
 function progressText(doneCount: number, total: number) {
   if (doneCount === total) return `All ${total} setup checks complete.`;
   return `${doneCount} of ${total} setup checks complete.`;
 }
 
-export default async function OnboardingPage() {
-  const checklist = await loadChecklist();
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<OnboardingSearchParams>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const [checklist, firstDayProfile] = await Promise.all([loadChecklist(), loadFirstDayProfile()]);
   const doneCount = checklist.filter((item) => item.done).length;
   const grouped = {
     ready: checklist.filter((item) => item.group === "ready"),
@@ -159,16 +319,147 @@ export default async function OnboardingPage() {
   return (
     <div className="nc-page">
       <section className="nc-hero">
-        <div className="nc-eyebrow">Start here</div>
-        <h2 className="mt-2 text-3xl font-semibold">Your personal PA, in plain words</h2>
+        <div className="nc-eyebrow">First-day setup</div>
+        <h2 className="mt-2 text-3xl font-semibold">Set up my PA</h2>
         <p className="mt-3 max-w-2xl text-sm text-slate-400">
-          NitsyClaw is for everyday life admin. Ask normally, send a voice note, save a reminder, log spending, or draft a message. If something could affect the outside world, it asks first.
+          Give NitsyClaw the few details a good personal assistant would ask on day one: where you are, how you like replies, who matters, and the first jobs you want handled.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/chat" className="nc-button-primary">Try first task</Link>
+          <a href="#first-day-wizard" className="nc-button-primary">Start first-day setup</a>
           <Link href="/confirmations" className="nc-button">Review approvals</Link>
           <Link href="/privacy-center" className="nc-button">Check privacy</Link>
         </div>
+      </section>
+
+      {params.saved ? (
+        <div className="rounded border border-emerald-700 bg-emerald-950/30 p-3 text-sm text-emerald-200" role="status">
+          First-day setup saved. NitsyClaw can now use these details for safer, more useful answers.
+        </div>
+      ) : null}
+
+      {params.error ? (
+        <div className="rounded border border-red-900 bg-red-950/30 p-3 text-sm text-red-200" role="alert">
+          {params.error === "empty"
+            ? "Add at least one useful detail before saving."
+            : "Could not save first-day setup. Check database and owner configuration, then try again."}
+        </div>
+      ) : null}
+
+      <section id="first-day-wizard" className="nc-section">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="nc-eyebrow">Personal PA profile</div>
+            <h3 className="mt-2 text-xl font-semibold text-slate-100">Answer once. Use everywhere.</h3>
+          </div>
+          <p className="max-w-xl text-sm text-slate-400">
+            This saves profile context only. It does not connect Gmail, SMS, bank feeds, photos, or any outside account.
+          </p>
+        </div>
+
+        <form action={saveFirstDayWizard} className="mt-5 grid gap-5">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Home base
+              <input
+                name="homeLocation"
+                className="nc-input"
+                placeholder="Melbourne, Victoria, Australia"
+                defaultValue={firstDayProfile.homeLocation ?? "Melbourne, Victoria, Australia"}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Current or travel location
+              <input
+                name="currentLocation"
+                className="nc-input"
+                placeholder="Leave blank if same as home"
+                defaultValue={firstDayProfile.currentLocation ?? ""}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Timezone
+              <input
+                name="timezone"
+                className="nc-input"
+                placeholder="Australia/Melbourne"
+                defaultValue={firstDayProfile.timezone ?? "Australia/Melbourne"}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Default currency
+              <input
+                name="defaultCurrency"
+                className="nc-input"
+                placeholder="AUD"
+                defaultValue={firstDayProfile.defaultCurrency ?? "AUD"}
+                maxLength={3}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Reply language
+              <input
+                name="replyLanguage"
+                className="nc-input"
+                placeholder="English"
+                defaultValue={firstDayProfile.replyLanguage ?? "English"}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Daily routine
+              <textarea
+                name="dailyRoutine"
+                className="nc-input min-h-28"
+                placeholder="Example: school run in the morning, work calls after 10 am, quiet after 8 pm"
+                defaultValue={firstDayProfile.dailyRoutine ?? ""}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Important people
+              <textarea
+                name="importantPeople"
+                className="nc-input min-h-28"
+                placeholder="Example: Mukesh is family, John is work, ask before messaging anyone"
+                defaultValue={firstDayProfile.importantPeople ?? ""}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              Preferred channels
+              <textarea
+                name="preferredChannels"
+                className="nc-input min-h-24"
+                placeholder="Example: WhatsApp for quick things, dashboard for review, drafts before SMS/email"
+                defaultValue={firstDayProfile.preferredChannels ?? ""}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-200">
+              First three jobs to automate
+              <textarea
+                name="firstThreeJobs"
+                className="nc-input min-h-24"
+                placeholder={"1. Remind me about calls\n2. Track expenses in AUD\n3. Summarise bills before due dates"}
+                defaultValue={firstDayProfile.firstThreeJobs ?? ""}
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-slate-800 pt-5 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-slate-500">
+              Risk rule: NitsyClaw can use this context for replies and drafts. Sending, calling, booking, deleting, or paying still needs confirmation.
+            </p>
+            <button className="nc-button-primary min-h-11 px-5" type="submit">
+              Save PA profile
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="grid gap-3 lg:grid-cols-3">
@@ -219,6 +510,31 @@ export default async function OnboardingPage() {
       </section>
     </div>
   );
+}
+
+function readProfileText(value: Record<string, unknown> | undefined, key: "location" | "value"): string | undefined {
+  const text = value?.[key];
+  return typeof text === "string" && text.trim() ? text.trim() : undefined;
+}
+
+function cleanText(value: FormDataEntryValue | null, maxLength: number): string {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function cleanCurrency(value: FormDataEntryValue | null): string {
+  const currency = cleanText(value, 3).toUpperCase() || "AUD";
+  return /^[A-Z]{3}$/.test(currency) ? currency : "AUD";
+}
+
+function splitLines(value: string): string[] {
+  return value
+    .split(/\d+\.|\n|;/)
+    .map((line) => line.replace(/^[-\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
 }
 
 function ChecklistGroup({ title, items }: { title: string; items: ChecklistItem[] }) {

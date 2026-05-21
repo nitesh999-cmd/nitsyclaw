@@ -123,8 +123,15 @@ test.describe("dashboard routes render", () => {
 
   test("Onboarding page explains first steps in plain language", async ({ page }) => {
     await page.goto("/onboarding");
-    await expect(page.getByRole("heading", { name: "Your personal PA, in plain words" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Try first task" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Set up my PA" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Start first-day setup" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Answer once. Use everywhere." })).toBeVisible();
+    await expect(page.getByLabel("Home base")).toHaveValue(/Melbourne/);
+    await expect(page.getByLabel("Default currency")).toHaveValue("AUD");
+    await expect(page.getByLabel("Reply language")).toHaveValue("English");
+    await expect(page.getByLabel("First three jobs to automate")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save PA profile" })).toBeVisible();
+    await expect(page.getByText("It does not connect Gmail, SMS, bank feeds, photos, or any outside account.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Start with one of these" })).toBeVisible();
     await expect(page.getByText("No AI knowledge needed")).toBeVisible();
   });
@@ -161,7 +168,7 @@ test.describe("dashboard routes render", () => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "Home Today" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("link", { name: "Start Setup" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Start PA setup" })).toBeVisible();
     await page.getByRole("link", { name: "Keep Remember" }).click();
     await expect(page).toHaveURL(/\/memory$/);
   });
