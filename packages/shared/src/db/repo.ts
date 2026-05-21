@@ -87,6 +87,20 @@ export async function searchMemoriesLexical(
     .limit(limit);
 }
 
+export async function updateMemory(
+  db: DB,
+  id: string,
+  patch: Partial<Pick<NewMemory, "kind" | "content" | "tags">>,
+): Promise<Memory | null> {
+  const [row] = await db.update(memories).set(patch).where(eq(memories.id, id)).returning();
+  return row ?? null;
+}
+
+export async function deleteMemory(db: DB, id: string): Promise<boolean> {
+  const rows = await db.delete(memories).where(eq(memories.id, id)).returning({ id: memories.id });
+  return rows.length > 0;
+}
+
 export async function insertReminder(db: DB, r: NewReminder) {
   const [row] = await db.insert(reminders).values(r).returning();
   return row!;

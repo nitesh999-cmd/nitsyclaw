@@ -68,6 +68,14 @@ $phoneProofPrompts = @(
     @{
         Prompt = "can't-do guard"
         Expected = "Shows what cannot be done live yet, what is blocked for safety, and what can be queued or drafted instead."
+    },
+    @{
+        Prompt = "private: help me rewrite this angry message calmly"
+        Expected = "Replies normally without saying it saved anything and without adding a new command job or memory."
+    },
+    @{
+        Prompt = "private: remind me to call John tomorrow"
+        Expected = "Blocks the action because private mode can answer or draft but cannot save reminders or take persistent actions."
     }
 )
 

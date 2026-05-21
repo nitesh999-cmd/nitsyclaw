@@ -7,6 +7,7 @@ const mutatingRoutes = [
   "apps/dashboard/src/app/api/chat/route.ts",
   "apps/dashboard/src/app/api/chat/stream/route.ts",
   "apps/dashboard/src/app/api/data/delete/route.ts",
+  "apps/dashboard/src/app/api/memory/review/route.ts",
   "apps/dashboard/src/app/api/operator/jobs/route.ts",
   "apps/dashboard/src/app/api/queue/update/route.ts",
   "apps/dashboard/src/app/api/whatsapp-recovery/log-action/route.ts",
