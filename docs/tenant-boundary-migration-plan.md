@@ -8,6 +8,24 @@ Status: planning only. Do not run a production schema migration from this docume
 
 Every customer-owned row must have a tenant boundary before public sale mode can be enabled.
 
+## First customer-instance model
+
+The first sellable model is now represented in code by `packages/shared/src/customer-instance.ts`.
+
+Current rule:
+
+- `private-owner` + `personal` is allowed for Nitesh's own use.
+- `customer` + `pilot` is allowed only as a supervised pilot while tenant storage is still incomplete.
+- `customer` + `public-sale` is blocked until tenant storage, multi-user auth, and public-sale readiness checks pass.
+
+Run:
+
+```powershell
+pnpm run customer:check
+```
+
+This prints whether the current runtime is personal-use only, pilot-ready with human setup, or publicly sellable. It does not print secrets and does not mutate the database.
+
 ## Current blocking tables
 
 | Table | Current issue | Planned boundary |
