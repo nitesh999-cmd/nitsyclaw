@@ -145,6 +145,7 @@ $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
 Write-Host ""
 Write-Host "Railway deployment was triggered so the running app receives the new token."
+Write-Host "Wait until Railway is healthy and verified before scanning."
 Write-Host "Waiting for Railway health and verified QR before printing operator instructions."
 
 do {

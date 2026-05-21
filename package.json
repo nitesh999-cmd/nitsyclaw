@@ -28,6 +28,7 @@
     "railway:diagnose": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",
     "railway:qr-open": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1",
     "railway:qr-close": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-close.ps1",
+    "railway:whatsapp-recover": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-recover.ps1",
     "railway:whatsapp-survival": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-survival-proof.ps1",
     "whatsapp:proof-local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
     "whatsapp:receipt-guard": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-receipt-guard.ps1",

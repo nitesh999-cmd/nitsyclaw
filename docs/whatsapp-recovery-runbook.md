@@ -36,6 +36,16 @@ Interpretation:
 
 Only do this if `/health` says WhatsApp is not ready.
 
+Preferred guided command:
+
+```powershell
+pnpm run railway:whatsapp-recover
+```
+
+This checks current health, opens QR recovery only if needed, waits for the phone scan, runs ready proof, then runs survival proof.
+
+Manual command:
+
 ```powershell
 pnpm run railway:qr-open -- -Minutes 60 -TimeoutSeconds 1200 -PollSeconds 20
 ```
@@ -136,4 +146,3 @@ Then send `proof test` or `hi` from the phone.
 | `/healthz` is `ok`, `/health` says `ready:false` | HTTP alive, WhatsApp not linked | QR recovery needed |
 | Railway CLI `Unauthorized` | Local Railway auth expired | Run `pnpm run railway:login` |
 | Deploy stuck in queued/building | Railway is still processing | Wait or inspect logs; do not stack deploys |
-
