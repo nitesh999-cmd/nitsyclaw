@@ -2,6 +2,8 @@
 
 Use this after pushing to `main` and waiting for Railway/Vercel to finish deploying.
 
+For WhatsApp QR recovery, stale QR, or Railway bot relink issues, use `docs/whatsapp-recovery-runbook.md`.
+
 ## Command
 
 ```powershell

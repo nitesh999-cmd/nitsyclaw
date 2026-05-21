@@ -43,8 +43,8 @@ Two surfaces, one DB. Constitution R14 forbids running the bot on Vercel.
    - `WHATSAPP_SESSION_DIR`
    - `OPENAI_API_KEY`
    - `ENCRYPTION_KEY` (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`)
-5. First boot/recovery: do **not** expose the WhatsApp QR in logs. Run `pnpm run railway:qr-open`, open the printed protected URL on your PC, paste the printed token into the page, and scan the QR with WhatsApp on your phone (Settings → Linked Devices → Link a Device). Then run `pnpm run railway:qr-close`.
-6. Logs should show `[boot] WhatsApp ready` — you're live.
+5. First boot/recovery: do **not** expose the WhatsApp QR in logs. Run `pnpm run railway:qr-open`, open the printed protected URL on your PC, paste the printed token into the page, and scan the QR with WhatsApp on your phone (Settings → Linked Devices → Link a Device). Do not close recovery until ready proof passes. See `docs/whatsapp-recovery-runbook.md`.
+6. Logs should show `[boot] WhatsApp ready`; then run `pnpm run railway:whatsapp-ready -- -ExpectedCommit <deployed-commit>` and `pnpm run railway:whatsapp-survival -- -ExpectedCommit <deployed-commit> -WaitSeconds 120`.
 
 If Railway emails "Deploy Crashed", run the read-only diagnostic helper before restarting:
 
