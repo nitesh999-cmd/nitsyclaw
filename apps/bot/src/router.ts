@@ -111,6 +111,7 @@ import {
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
+  parsePeopleMemoryShortcut,
   parseRepeatLastMessageShortcut,
 } from "./personal-command-shortcuts.js";
 import { runDailyBuildAgent } from "./build-agent.js";
@@ -1600,6 +1601,21 @@ export class Router {
       return;
     }
 
+    const peopleMemory = parsePeopleMemoryShortcut(effectiveText);
+    if (peopleMemory) {
+      try {
+        const reply = peopleMemory.kind === "list"
+          ? await this.formatPeopleMemoryListReply(msg.from)
+          : await this.savePeopleMemoryFromShortcut(peopleMemory.input!, msg.from);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (peopleMemoryError) {
+        await this.failWhatsAppCommandJob(commandJob, peopleMemoryError);
+        await this.sendPublicFailure("people memory", "Couldn't update people memory. I logged it; try again shortly.", peopleMemoryError);
+      }
+      return;
+    }
+
     const repeatLastMessage = parseRepeatLastMessageShortcut(effectiveText);
     if (repeatLastMessage) {
       const reply = this.formatRepeatLastMessageReply(history, repeatLastMessage, effectiveText);
@@ -1974,6 +1990,82 @@ export class Router {
       if (oldest) this.seenExternalMessageIds.delete(oldest);
     }
     return true;
+  }
+
+  private async savePeopleMemoryFromShortcut(
+    input: {
+      name: string;
+      relationship?: string;
+      birthday?: string;
+      preferredChannel?: string;
+      lastInteraction?: string;
+      followUp?: string;
+    },
+    userPhone: string,
+  ): Promise<string> {
+    const tool = this.registry.get("save_people_memory");
+    if (!tool) return "People memory is not available in this runtime.";
+    const out = await tool.handler(
+      { ...input, source: "whatsapp" },
+      {
+        userPhone,
+        now: this.deps.now(),
+        timezone: this.deps.timezone,
+        deps: this.deps,
+      },
+    ) as {
+      name?: string;
+      relationship?: string;
+      birthday?: string;
+      preferredChannel?: string;
+      lastInteraction?: string;
+      followUp?: string;
+    };
+    return [
+      `People memory saved: ${out.name ?? input.name}`,
+      out.relationship ? `Relationship: ${out.relationship}` : undefined,
+      out.birthday ? `Birthday: ${out.birthday}` : undefined,
+      `Channel: ${out.preferredChannel ?? "ask before contacting"}`,
+      out.lastInteraction ? `Last: ${out.lastInteraction}` : undefined,
+      out.followUp ? `Follow-up: ${out.followUp}` : "Follow-up: none",
+      "Safety: I will draft before contacting anyone.",
+    ].filter((line): line is string => Boolean(line)).join("\n");
+  }
+
+  private async formatPeopleMemoryListReply(userPhone: string): Promise<string> {
+    const tool = this.registry.get("list_people_memory");
+    if (!tool) return "People memory is not available in this runtime.";
+    const out = await tool.handler(
+      { limit: 8 },
+      {
+        userPhone,
+        now: this.deps.now(),
+        timezone: this.deps.timezone,
+        deps: this.deps,
+      },
+    ) as {
+      people?: Array<{
+        name?: string;
+        relationship?: string;
+        birthday?: string;
+        preferredChannel?: string;
+        followUp?: string;
+      }>;
+    };
+    const people = out.people ?? [];
+    if (people.length === 0) {
+      return "People memory is empty.\nTry: person: Maya | neighbour | birthday: 5 May | channel: WhatsApp | follow up: ask about school pickup";
+    }
+    const lines = people.map((person, index) => {
+      const details = [
+        person.relationship,
+        person.birthday ? `birthday ${person.birthday}` : undefined,
+        person.preferredChannel ? `channel ${person.preferredChannel}` : undefined,
+        person.followUp ? `follow up ${person.followUp}` : undefined,
+      ].filter(Boolean).join("; ");
+      return `${index + 1}. ${person.name ?? "Unknown"}${details ? `: ${details}` : ""}`;
+    });
+    return `People memory\n${lines.join("\n")}\nSafety: I will draft before contacting anyone.`;
   }
 
 }

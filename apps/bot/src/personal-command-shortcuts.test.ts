@@ -18,6 +18,7 @@ import {
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
   parseLocationShortcut,
+  parsePeopleMemoryShortcut,
 } from "./personal-command-shortcuts.js";
 
 describe("personal command shortcuts", () => {
@@ -74,6 +75,21 @@ describe("personal command shortcuts", () => {
     expect(parseLocationStatusShortcut("location status")).toEqual({ kind: "location-status" });
     expect(parseLocationStatusShortcut("where am I?")).toEqual({ kind: "location-status" });
     expect(parseLocationStatusShortcut("what location are you using")).toEqual({ kind: "location-status" });
+  });
+
+  it("parses structured people memory save and list commands", () => {
+    expect(parsePeopleMemoryShortcut("people memory")).toEqual({ kind: "list" });
+    expect(parsePeopleMemoryShortcut("person: Maya | neighbour | birthday: 5 May | channel: WhatsApp | last: school pickup | follow up: ask about Saturday")).toEqual({
+      kind: "save",
+      input: {
+        name: "Maya",
+        relationship: "neighbour",
+        birthday: "5 May",
+        preferredChannel: "WhatsApp",
+        lastInteraction: "school pickup",
+        followUp: "ask about Saturday",
+      },
+    });
   });
 
   it("parses feature queue/status commands", () => {

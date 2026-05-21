@@ -298,6 +298,34 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body.startsWith("Location updated:"))).toBe(false);
   });
 
+  it("saves and lists people memory without the model loop", async () => {
+    await router.handle({
+      id: "x-people-memory-save",
+      from: OWNER,
+      body: "person: Maya | neighbour | birthday: 5 May | channel: WhatsApp | last: school pickup | follow up: ask about Saturday",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("People memory saved: Maya");
+    expect(wa.sent[0].body).toContain("Safety: I will draft before contacting anyone.");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+
+    wa.sent.length = 0;
+    await router.handle({
+      id: "x-people-memory-list",
+      from: OWNER,
+      body: "people memory",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("People memory");
+    expect(wa.sent[0].body).toContain("Maya");
+    expect(wa.sent[0].body).toContain("birthday 5 May");
+    expect(wa.sent[0].body).toContain("follow up ask about Saturday");
+  });
+
   it("answers what can you do with a deterministic working-feature list", async () => {
     await router.handle({
       id: "x-help-status",

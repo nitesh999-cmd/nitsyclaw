@@ -20,6 +20,17 @@ type PreferenceOutput = {
   key?: string;
   value?: string;
 };
+type PeopleListOutput = {
+  count?: number;
+  people?: Array<{
+    name?: string;
+    relationship?: string;
+    birthday?: string;
+    preferredChannel?: string;
+    lastInteraction?: string;
+    followUp?: string;
+  }>;
+};
 
 describe("personal context tools", () => {
   it("saves and resolves a current travel location", async () => {
@@ -176,6 +187,37 @@ describe("personal context tools", () => {
     });
 
     expect(promptProfile.currentLocation).toBe("Melbourne, Victoria, Australia");
+  });
+
+  it("saves and lists structured people memory cards", async () => {
+    const deps = makeAgentDeps({ timezone: "Australia/Melbourne" });
+    const registry = new ToolRegistry();
+    registerPersonalContext(registry);
+    const ctx = { deps, userPhone: "+61430008008", now: deps.now(), timezone: deps.timezone };
+
+    await registry.get("save_people_memory")!.handler(
+      {
+        name: "Maya",
+        relationship: "neighbour",
+        birthday: "5 May",
+        preferredChannel: "WhatsApp",
+        lastInteraction: "school pickup chat",
+        followUp: "ask about Saturday pickup",
+      },
+      ctx,
+    );
+
+    const listed = await registry.get("list_people_memory")!.handler({ limit: 5 }, ctx) as PeopleListOutput;
+
+    expect(listed.count).toBe(1);
+    expect(listed.people?.[0]).toMatchObject({
+      name: "Maya",
+      relationship: "neighbour",
+      birthday: "5 May",
+      preferredChannel: "WhatsApp",
+      lastInteraction: "school pickup chat",
+      followUp: "ask about Saturday pickup",
+    });
   });
 
   it("queues explicit bug reports separately from feature requests", async () => {

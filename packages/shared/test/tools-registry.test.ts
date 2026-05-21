@@ -77,6 +77,8 @@ describe("registerAllFeatures", () => {
 
     expect(registry.get("set_current_location")).toBeTruthy();
     expect(registry.get("get_current_location")).toBeTruthy();
+    expect(registry.get("save_people_memory")).toBeTruthy();
+    expect(registry.get("list_people_memory")).toBeTruthy();
     expect(registry.get("report_product_bug")).toBeTruthy();
   });
 });

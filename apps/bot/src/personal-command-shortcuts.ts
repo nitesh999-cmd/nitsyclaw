@@ -11,6 +11,18 @@ export interface LocationStatusShortcut {
   kind: "location-status";
 }
 
+export interface PeopleMemoryShortcut {
+  kind: "save" | "list";
+  input?: {
+    name: string;
+    relationship?: string;
+    birthday?: string;
+    preferredChannel?: string;
+    lastInteraction?: string;
+    followUp?: string;
+  };
+}
+
 export interface FeatureQueueShortcut {
   limit: number;
 }
@@ -251,6 +263,62 @@ export function parseLocationStatusShortcut(text: string): LocationStatusShortcu
     return { kind: "location-status" };
   }
   return null;
+}
+
+export function parsePeopleMemoryShortcut(text: string): PeopleMemoryShortcut | null {
+  const trimmed = text.trim();
+  const normalized = trimmed.toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    normalized === "people memory" ||
+    normalized === "show people memory" ||
+    normalized === "important people" ||
+    normalized === "list people"
+  ) {
+    return { kind: "list" };
+  }
+
+  const personMatch = trimmed.match(/^(?:person|people memory)\s*:\s*(.+)$/i);
+  if (personMatch) {
+    const parts = personMatch[1]!.split("|").map((part) => part.trim()).filter(Boolean);
+    const [name = "", ...rest] = parts;
+    const input = parsePeopleMemoryParts(name, rest);
+    return input ? { kind: "save", input } : null;
+  }
+
+  const rememberMatch = trimmed.match(/^remember\s+([A-Z][A-Za-z .'-]{1,60})\s+is\s+(?:my\s+)?(.+)$/);
+  if (rememberMatch && /\b(person|friend|family|mum|mom|dad|brother|sister|client|customer|neighbour|neighbor|partner|wife|husband|cousin|uncle|aunt|colleague)\b/i.test(rememberMatch[2] ?? "")) {
+    return {
+      kind: "save",
+      input: {
+        name: cleanPeopleField(rememberMatch[1] ?? ""),
+        relationship: cleanPeopleField(rememberMatch[2] ?? ""),
+      },
+    };
+  }
+
+  return null;
+}
+
+function parsePeopleMemoryParts(name: string, parts: string[]): NonNullable<PeopleMemoryShortcut["input"]> | null {
+  const cleanedName = cleanPeopleField(name);
+  if (!cleanedName) return null;
+  const input: NonNullable<PeopleMemoryShortcut["input"]> = { name: cleanedName };
+  for (const part of parts) {
+    const cleaned = cleanPeopleField(part);
+    if (!cleaned) continue;
+    if (/^birthday\s*:/i.test(cleaned)) input.birthday = cleanPeopleField(cleaned.replace(/^birthday\s*:/i, ""));
+    else if (/^birthday\b/i.test(cleaned)) input.birthday = cleanPeopleField(cleaned.replace(/^birthday\b/i, ""));
+    else if (/^(channel|preferred channel|contact)\s*:/i.test(cleaned)) input.preferredChannel = cleanPeopleField(cleaned.replace(/^(channel|preferred channel|contact)\s*:/i, ""));
+    else if (/^(last|last interaction)\s*:/i.test(cleaned)) input.lastInteraction = cleanPeopleField(cleaned.replace(/^(last|last interaction)\s*:/i, ""));
+    else if (/^(follow up|follow-up|next)\s*:/i.test(cleaned)) input.followUp = cleanPeopleField(cleaned.replace(/^(follow up|follow-up|next)\s*:/i, ""));
+    else if (!input.relationship) input.relationship = cleaned;
+    else if (!input.followUp) input.followUp = cleaned;
+  }
+  return input;
+}
+
+function cleanPeopleField(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
 }
 
 export function parseFeatureQueueShortcut(text: string): FeatureQueueShortcut | null {

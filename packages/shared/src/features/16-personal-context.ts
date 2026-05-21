@@ -16,6 +16,7 @@ const HOME_LOCATION_KEY = "home_location";
 const TIMEZONE_KEY = "timezone";
 const DEFAULT_CURRENCY_KEY = "default_currency";
 const REPLY_LANGUAGE_KEY = "reply_language";
+const PEOPLE_MEMORY_PREFIX = "people_memory:";
 
 function cleanOneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
@@ -153,6 +154,72 @@ async function setProfilePreference(
   };
 }
 
+async function savePeopleMemory(
+  input: {
+    name: string;
+    relationship?: string;
+    birthday?: string;
+    preferredChannel?: string;
+    lastInteraction?: string;
+    followUp?: string;
+    source?: string;
+  },
+  ctx: ToolContext,
+) {
+  const name = cleanOneLine(input.name);
+  const key = `${PEOPLE_MEMORY_PREFIX}${slugForKey(name)}`;
+  const row = await upsertProfileContext(ctx.deps.db, {
+    ownerHash: hashPhone(ctx.userPhone),
+    key,
+    value: {
+      name,
+      relationship: input.relationship ? cleanOneLine(input.relationship) : undefined,
+      birthday: input.birthday ? cleanOneLine(input.birthday) : undefined,
+      preferredChannel: input.preferredChannel ? cleanOneLine(input.preferredChannel) : "ask before contacting",
+      lastInteraction: input.lastInteraction ? cleanOneLine(input.lastInteraction) : undefined,
+      followUp: input.followUp ? cleanOneLine(input.followUp) : undefined,
+      source: input.source ? cleanOneLine(input.source) : "whatsapp",
+      updatedAt: ctx.now.toISOString(),
+    },
+    source: "manual",
+    sensitivity: "personal",
+  });
+  return {
+    id: row.id,
+    key,
+    name,
+    relationship: input.relationship ? cleanOneLine(input.relationship) : undefined,
+    birthday: input.birthday ? cleanOneLine(input.birthday) : undefined,
+    preferredChannel: input.preferredChannel ? cleanOneLine(input.preferredChannel) : "ask before contacting",
+    lastInteraction: input.lastInteraction ? cleanOneLine(input.lastInteraction) : undefined,
+    followUp: input.followUp ? cleanOneLine(input.followUp) : undefined,
+    message: `Saved people memory for ${name}.`,
+  };
+}
+
+async function listPeopleMemory(input: { limit?: number } = {}, ctx: ToolContext) {
+  const limit = Number.isFinite(input.limit) ? Math.min(Math.max(Number(input.limit), 1), 20) : 10;
+  const rows = await listProfileContextForOwner(ctx.deps.db, hashPhone(ctx.userPhone), 200);
+  const people = rows
+    .filter((row) => row.key.startsWith(PEOPLE_MEMORY_PREFIX))
+    .slice(0, limit)
+    .map((row) => {
+      const value = row.value as Record<string, unknown>;
+      return {
+        id: row.id,
+        key: row.key,
+        name: readString(value.name) ?? row.key.replace(PEOPLE_MEMORY_PREFIX, ""),
+        relationship: readString(value.relationship),
+        birthday: readString(value.birthday),
+        preferredChannel: readString(value.preferredChannel),
+        lastInteraction: readString(value.lastInteraction),
+        followUp: readString(value.followUp),
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
+  return { people, count: people.length };
+}
+
 async function getCurrentLocation(_input: Record<string, never>, ctx: ToolContext) {
   const saved = await getProfileContext(ctx.deps.db, {
     ownerHash: hashPhone(ctx.userPhone),
@@ -272,6 +339,29 @@ export function registerPersonalContext(registry: ToolRegistry): void {
   });
 
   registry.register({
+    name: "save_people_memory",
+    description:
+      "Save structured memory about an important person, including relationship, birthday, preferred contact channel, last interaction, and follow-up notes. Use only for user-provided people context.",
+    inputSchema: z.object({
+      name: z.string().min(1),
+      relationship: z.string().optional(),
+      birthday: z.string().optional(),
+      preferredChannel: z.string().optional(),
+      lastInteraction: z.string().optional(),
+      followUp: z.string().optional(),
+      source: z.string().optional(),
+    }),
+    handler: savePeopleMemory,
+  });
+
+  registry.register({
+    name: "list_people_memory",
+    description: "List saved important people memory cards for review from WhatsApp or dashboard.",
+    inputSchema: z.object({ limit: z.number().optional() }),
+    handler: listPeopleMemory,
+  });
+
+  registry.register({
     name: "get_current_location",
     description:
       "Resolve the user's current/default location for weather or local context. Use before weather requests when the user did not name a city in the same message.",
@@ -306,6 +396,7 @@ export const personalContextInternals = {
   TIMEZONE_KEY,
   DEFAULT_CURRENCY_KEY,
   REPLY_LANGUAGE_KEY,
+  PEOPLE_MEMORY_PREFIX,
 };
 
 export async function resolvePromptProfileFromContext(
@@ -345,6 +436,18 @@ function readPreferenceRow(row: ProfileContext | undefined): string | undefined 
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const saved = (value as Record<string, unknown>).value;
   return typeof saved === "string" && saved.trim() ? cleanOneLine(saved).slice(0, 80) : undefined;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? cleanOneLine(value).slice(0, 160) : undefined;
+}
+
+function slugForKey(value: string): string {
+  return cleanOneLine(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "unknown";
 }
 
 function isFresh(row: ProfileContext | undefined, now: Date): boolean {
