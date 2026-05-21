@@ -26,7 +26,7 @@ Product rules:
 
 Final reports must include files changed, commands run, pass/fail results, unresolved risks, and whether deploy/push was intentionally skipped.
 
-After every completed work item, finish with:
-1. Revenue move - the next action most likely to help NitsyClaw get paid.
-2. Failure-prevention move - the next action most likely to stop the product breaking, disappointing users, or becoming unlaunchable.
+After every completed action item, finish with:
+1. Next best revenue move after the last action item - the next practical action most likely to help us get paid.
+2. Failure-prevention move - the next practical action most likely to stop the product breaking, disappointing users, or becoming unlaunchable.
 3. My recommendation - which one to do next and why.

@@ -33,3 +33,8 @@ Recommended gates:
 - Manual Lighthouse checks for UI/performance/SEO work, only after confirming Chrome/Lighthouse is stable on the current machine
 
 Final reports must include files changed, commands run, pass/fail results, unresolved risks, and whether deploy/push was intentionally skipped.
+
+After every completed action item, finish with:
+1. Next best revenue move after the last action item - the next practical action most likely to help us get paid.
+2. Failure-prevention move - the next practical action most likely to stop the product breaking, disappointing users, or becoming unlaunchable.
+3. My recommendation - which one to do next and why.
