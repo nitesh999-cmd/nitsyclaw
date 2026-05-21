@@ -1,7 +1,9 @@
 param(
     [string]$ProjectId = $(if ($env:RAILWAY_PROJECT_ID) { $env:RAILWAY_PROJECT_ID } else { "14a48d9f-310a-446f-9350-77a28ebdc239" }),
     [string]$Environment = $(if ($env:RAILWAY_ENVIRONMENT) { $env:RAILWAY_ENVIRONMENT } else { "production" }),
-    [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" })
+    [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
+    [string]$PublicBaseUrl = $(if ($env:NITSYCLAW_RAILWAY_PUBLIC_URL) { $env:NITSYCLAW_RAILWAY_PUBLIC_URL } else { "https://web-production-c98e2.up.railway.app" }),
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +26,27 @@ function Invoke-RailwayCli {
 }
 
 Write-Host "Closing WhatsApp QR recovery window."
+Write-Host "This removes Railway variables and can trigger a deployment."
+
+function Get-WhatsAppHealth {
+    param([Parameter(Mandatory = $true)][string]$BaseUrl)
+
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing "$BaseUrl/health" -TimeoutSec 20
+        return ([string]$response.Content | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
+$base = $PublicBaseUrl.TrimEnd("/")
+$health = Get-WhatsAppHealth -BaseUrl $base
+if (-not $Force) {
+    if (-not $health -or -not $health.whatsapp -or $health.whatsapp.ready -ne $true) {
+        throw "Refusing to close QR recovery because WhatsApp is not proven ready. Run railway:whatsapp-ready first, or rerun with -Force if you intentionally want to close it."
+    }
+    Write-Host "WhatsApp health verified ready before closing recovery."
+}
 
 function Get-RailwayVariablesJson {
     $raw = Invoke-RailwayCli variable list --project $ProjectId --environment $Environment --service $Service --json

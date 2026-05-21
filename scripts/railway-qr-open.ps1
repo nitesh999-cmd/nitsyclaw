@@ -37,6 +37,28 @@ if ($PollSeconds -lt 5) {
     throw "PollSeconds must be at least 5."
 }
 
+$base = $PublicBaseUrl.TrimEnd("/")
+$url = "$base/recovery/whatsapp-qr"
+$svgUrl = "$url.svg"
+
+function Get-WhatsAppHealth {
+    param([Parameter(Mandatory = $true)][string]$BaseUrl)
+
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing "$BaseUrl/health" -TimeoutSec 20
+        return ([string]$response.Content | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
+$currentHealth = Get-WhatsAppHealth -BaseUrl $base
+if ($currentHealth -and $currentHealth.whatsapp -and $currentHealth.whatsapp.ready -eq $true) {
+    Write-Host "WhatsApp is already ready on Railway. QR recovery is not needed."
+    Write-Host "Run: pnpm run railway:whatsapp-ready -- -ExpectedCommit $($currentHealth.runtime.commitShort)"
+    exit 0
+}
+
 $tokenBytes = [byte[]]::new(32)
 $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 try {
@@ -46,9 +68,12 @@ finally {
     $rng.Dispose()
 }
 $token = [Convert]::ToBase64String($tokenBytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
-$until = (Get-Date).ToUniversalTime().AddMinutes($Minutes).ToString("o")
+$untilDate = (Get-Date).ToUniversalTime().AddMinutes($Minutes)
+$until = $untilDate.ToString("o")
+$untilLocal = $untilDate.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz")
 
 Write-Host "Opening a short WhatsApp QR recovery window for $Minutes minute(s)."
+Write-Host "Recovery window expires at $untilLocal (local) / $until UTC."
 Write-Host "No QR payload will be written to Railway logs."
 
 function Get-RailwayVariablesJson {
@@ -116,9 +141,6 @@ if (Test-VariablePresent -RawJson $afterSetVariables -Name "NITSYCLAW_PRINT_QR_T
     throw "Unsafe legacy variable is still present: NITSYCLAW_PRINT_QR_TO_LOGS."
 }
 
-$base = $PublicBaseUrl.TrimEnd("/")
-$url = "$base/recovery/whatsapp-qr"
-$svgUrl = "$url.svg"
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
 Write-Host ""
@@ -156,7 +178,9 @@ do {
             Write-Host ""
             Write-Host "Then scan it from WhatsApp > Linked devices."
             Write-Host ""
-            Write-Host "After scan, run: pnpm run railway:qr-close"
+            Write-Host "After scan, do not close QR recovery manually."
+            Write-Host "First run: pnpm run railway:whatsapp-ready -- -ExpectedCommit <deployed-commit>"
+            Write-Host "Only close recovery after WhatsApp ready proof passes."
             exit 0
         }
 
