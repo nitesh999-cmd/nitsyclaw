@@ -56,6 +56,18 @@ $phoneProofPrompts = @(
     @{
         Prompt = "build all pending features"
         Expected = "Truthful Pending build plan with Works now, Can build without you, Needs setup, and Best next setup."
+    },
+    @{
+        Prompt = "person: Maya | neighbour | birthday: 5 May | channel: WhatsApp | last: school pickup | next: ask about Saturday"
+        Expected = "Saves Maya as people memory and says it will draft before contacting anyone."
+    },
+    @{
+        Prompt = "people memory"
+        Expected = "Lists saved people memory, including Maya, without contacting anyone."
+    },
+    @{
+        Prompt = "can't-do guard"
+        Expected = "Shows what cannot be done live yet, what is blocked for safety, and what can be queued or drafted instead."
     }
 )
 

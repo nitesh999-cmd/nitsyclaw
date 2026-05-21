@@ -112,6 +112,27 @@ export const WHATSAPP_COMMAND_OUTCOMES = [
   "failed with reason: I hit an error and tell you the safest next step.",
 ] as const;
 
+const WHATSAPP_CANT_DO_LIVE_YET = [
+  "Read or send real Gmail/Outlook mail until OAuth is connected.",
+  "Browse Drive, OneDrive, Google Photos, Spotify, bank feeds, or private social accounts until provider setup is complete.",
+  "Make real calls or send real SMS until a phone/SMS provider is connected and approved.",
+  "Scrape private Facebook birthdays or private social data without a lawful source and consent.",
+] as const;
+
+const WHATSAPP_BLOCKED_ACTIONS = [
+  "Sending, calling, deleting, booking, paying, or changing external data without confirmation.",
+  "Contacting a person when the recipient or message is unclear.",
+  "Claiming an integration is connected unless runtime setup and proof checks confirm it.",
+  "Returning private secrets, tokens, broad logs, or sensitive account data into WhatsApp.",
+] as const;
+
+const WHATSAPP_SAFE_FALLBACK_ACTIONS = [
+  "Draft messages, emails, complaints, call scripts, and replies.",
+  "Save reminders, notes, People Memory, preferences, expenses, and bill summaries.",
+  "Queue setup requests and show exactly what account/provider access is missing.",
+  "Run proof/status checks and explain failures in plain English.",
+] as const;
+
 function bulletList(items: readonly string[]): string[] {
   return items.map((item) => `- ${item}`);
 }
@@ -180,7 +201,7 @@ export function formatWhatsAppHelpReply(
     "Works now: voice, reminders, memory, AUD expenses, bill/doc summaries, drafts, call scripts.",
     `Needs setup: ${compactList(needsSetup, 5)}.`,
     "Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
-    "More: status | proof test | pending build plan | what went wrong | feature queue | local status",
+    "More: status | proof test | can't-do guard | pending build plan | what went wrong | feature queue | local status",
   ].join("\n");
 }
 
@@ -231,6 +252,31 @@ export function formatWhatsAppCapabilityMatrix(
 
 export function formatWhatsAppSafetyLimitsBlock(): string {
   return ["Safety limits:", ...bulletList(WHATSAPP_SAFETY_LIMITS)].join("\n");
+}
+
+export function formatWhatsAppCantDoGuard(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
+  const setupNames = PROVIDER_STATUS_ORDER
+    .map((key) => providerReadiness[key])
+    .filter((item) => item.status !== "ready" && item.status !== "partial")
+    .map((item) => item.label);
+
+  return [
+    "Can't-do guard",
+    "Truth: if I cannot safely act, I should say so and offer the safest fallback.",
+    "",
+    "Cannot do live yet:",
+    ...bulletList(WHATSAPP_CANT_DO_LIVE_YET),
+    "",
+    `Needs setup first: ${compactList(setupNames, 10)}.`,
+    "",
+    "Blocked for safety:",
+    ...bulletList(WHATSAPP_BLOCKED_ACTIONS),
+    "",
+    "Can queue or draft instead:",
+    ...bulletList(WHATSAPP_SAFE_FALLBACK_ACTIONS),
+  ].join("\n");
 }
 
 export function formatWhatsAppCommandContractReply(): string {

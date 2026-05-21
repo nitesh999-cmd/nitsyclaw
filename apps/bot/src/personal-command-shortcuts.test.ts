@@ -3,6 +3,7 @@ import {
   parseBuildAgentShortcut,
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
+  parseCantDoGuardShortcut,
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
@@ -200,6 +201,13 @@ describe("personal command shortcuts", () => {
     expect(parseCommandContractShortcut("how do you handle commands?")).toEqual({ kind: "command-contract" });
     expect(parseCommandContractShortcut("what happens when a command fails")).toEqual({ kind: "command-contract" });
     expect(parseCommandContractShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects can't-do guard and safety boundary requests", () => {
+    expect(parseCantDoGuardShortcut("can't-do guard")).toEqual({ kind: "cant-do-guard" });
+    expect(parseCantDoGuardShortcut("what can't you do?")).toEqual({ kind: "cant-do-guard" });
+    expect(parseCantDoGuardShortcut("safety limits")).toEqual({ kind: "cant-do-guard" });
+    expect(parseCantDoGuardShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects WhatsApp self-test requests", () => {

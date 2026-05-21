@@ -47,6 +47,10 @@ export interface CommandContractShortcut {
   kind: "command-contract";
 }
 
+export interface CantDoGuardShortcut {
+  kind: "cant-do-guard";
+}
+
 export interface WhatsAppSelfTestShortcut {
   kind: "whatsapp-self-test";
 }
@@ -435,6 +439,27 @@ export function parseCommandContractShortcut(text: string): CommandContractShort
     trimmed === "explain command outcomes"
   ) {
     return { kind: "command-contract" };
+  }
+  return null;
+}
+
+export function parseCantDoGuardShortcut(text: string): CantDoGuardShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "can't-do guard" ||
+    trimmed === "cant-do guard" ||
+    trimmed === "cant do guard" ||
+    trimmed === "what can you not do" ||
+    trimmed === "what can't you do" ||
+    trimmed === "what cant you do" ||
+    trimmed === "what is blocked" ||
+    trimmed === "what is unsafe" ||
+    trimmed === "safety limits" ||
+    trimmed === "limits" ||
+    trimmed === "capability boundaries" ||
+    trimmed === "show boundaries"
+  ) {
+    return { kind: "cant-do-guard" };
   }
   return null;
 }

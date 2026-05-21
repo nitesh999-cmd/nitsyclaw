@@ -373,6 +373,29 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers can't-do guard requests without the model loop", async () => {
+    await router.handle({
+      id: "x-cant-do-guard",
+      from: OWNER,
+      body: "what can't you do?",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Can't-do guard");
+    expect(wa.sent[0].body).toContain("Cannot do live yet:");
+    expect(wa.sent[0].body).toContain("Needs setup first:");
+    expect(wa.sent[0].body).toContain("Blocked for safety:");
+    expect(wa.sent[0].body).toContain("Can queue or draft instead:");
+    expect(wa.sent[0].body).toContain("Gmail/Outlook");
+    expect(wa.sent[0].body).toContain("real calls");
+    expect(wa.sent[0].body).toContain("without confirmation");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1400);
+    expect(wa.sent[0].body).not.toContain("Gmail is connected");
+    expect(wa.sent[0].body).not.toContain("Bank feeds: connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers ready pending setup status without the model loop", async () => {
     const state = getFakeDbState(deps.db);
     state.feature_requests.push(

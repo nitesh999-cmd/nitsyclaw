@@ -94,6 +94,7 @@ import {
   parseBuildAgentShortcut,
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
+  parseCantDoGuardShortcut,
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
@@ -121,6 +122,7 @@ import { logBotError } from "./safe-log.js";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
   formatReadyCapabilitiesOneLine,
+  formatWhatsAppCantDoGuard,
   formatWhatsAppCommandContractReply,
   formatWhatsAppHelpReply,
   formatWhatsAppPendingFeatureDevelopmentPlan,
@@ -1663,6 +1665,20 @@ export class Router {
       const reply = formatWhatsAppCommandContractReply();
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const cantDoGuard = parseCantDoGuardShortcut(effectiveText);
+    if (cantDoGuard) {
+      try {
+        const providerReadiness = await this.getProviderReadiness();
+        const reply = formatWhatsAppCantDoGuard(providerReadiness);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (guardError) {
+        await this.failWhatsAppCommandJob(commandJob, guardError);
+        await this.sendPublicFailure("can't-do guard", "Couldn't load the safety boundaries. I logged it; try again shortly.", guardError);
+      }
       return;
     }
 

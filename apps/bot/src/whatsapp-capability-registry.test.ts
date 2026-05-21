@@ -6,6 +6,7 @@ import {
 } from "./whatsapp-capability-registry.js";
 import {
   formatReadyCapabilitiesOneLine,
+  formatWhatsAppCantDoGuard,
   formatWhatsAppCapabilityMatrix,
   formatWhatsAppHelpReply,
   formatWhatsAppPendingFeatureDevelopmentPlan,
@@ -69,6 +70,23 @@ describe("WhatsApp capability registry", () => {
     expect(plan.length).toBeLessThanOrEqual(900);
     expect(plan).not.toContain("Gmail is connected");
     expect(plan).not.toContain("Bank feeds: connected");
+  });
+
+  it("renders a clear can't-do guard without pretending integrations are connected", () => {
+    const guard = formatWhatsAppCantDoGuard();
+
+    expect(guard).toContain("Can't-do guard");
+    expect(guard).toContain("Cannot do live yet:");
+    expect(guard).toContain("Needs setup first:");
+    expect(guard).toContain("Blocked for safety:");
+    expect(guard).toContain("Can queue or draft instead:");
+    expect(guard).toContain("Gmail/Outlook");
+    expect(guard).toContain("real calls");
+    expect(guard).toContain("without confirmation");
+    expect(guard).toContain("People Memory");
+    expect(guard.length).toBeLessThanOrEqual(1400);
+    expect(guard).not.toContain("Gmail is connected");
+    expect(guard).not.toContain("Bank feeds: connected");
   });
 
   it("offers practical WhatsApp examples from the registry", () => {
