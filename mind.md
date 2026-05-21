@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-18 (daily build agent run — network blocked day 3; no proactive code shipped)
+> Updated: 2026-05-21 (daily build agent run — network blocked day 6)
 
 ---
 
@@ -353,3 +353,54 @@ For five consecutive days the CCR network allowlist has not been updated. Until 
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 20. Session 2026-05-21 — Daily build agent run (BLOCKED day 6)
+
+**Date:** 2026-05-21
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented — blocked by network policy (sixth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | FAILED (exit 1) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+### Context
+
+Git state: container started with HEAD detached at `496f135`. Stale tracking refs showed origin/main at `bd2cc6b`. After `git checkout main && git merge --ff-only origin/main`, local main appeared stale. The true origin/main at `496f135` (including sessions 15-19 + all other code from prior sessions) was only revealed after an explicit `git fetch origin main`. All prior session commits are confirmed on origin.
+
+### Lesson L40 — Always git fetch before reading origin tracking refs
+
+CCR containers start with cached remote-tracking refs. `git merge --ff-only origin/main` uses the cached ref, which may be stale. Before doing any work, always run:
+```bash
+git fetch origin main && git merge --ff-only origin/main
+```
+This ensures the local branch matches actual origin state before committing or pushing.
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes. Sessions 18-20 confirm no new P0/P1 issues visible without DB state. Adding P2/P3 features without knowing current DB queue state risks duplication.
+
+### L39 still unresolved
+
+For six consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests. Fix steps are in session 17 entry (§16).
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: detached HEAD + stale tracking ref resolved (L40) | YES |
+| Query pending feature_requests | FAILED — all paths blocked (TCP, Vercel HTTPS, ntfy) |
+| ntfy start notification | FAILED — host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES (from named main branch after fresh fetch) |
