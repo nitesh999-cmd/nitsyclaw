@@ -1,6 +1,7 @@
 import type { DB } from "../db/client.js";
 import { insertMemory, searchMemoriesLexical } from "../db/repo.js";
 import type { Embedder } from "./deps.js";
+import { mergeMemoryQualityTags } from "./memory-quality.js";
 
 /**
  * Pin: store an explicit "remember this" memory.
@@ -13,7 +14,7 @@ export async function pinMemory(
   return insertMemory(db, {
     kind: "pin",
     content: args.content,
-    tags: args.tags ?? [],
+    tags: mergeMemoryQualityTags(args.content, args.tags ?? []),
     embedding,
     sourceMessageId: args.sourceMessageId,
   });

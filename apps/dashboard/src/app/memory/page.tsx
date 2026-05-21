@@ -1,4 +1,5 @@
 import { getDb, memories } from "@nitsyclaw/shared/db";
+import { assessMemoryQuality, formatMemoryQualityLabel } from "@nitsyclaw/shared/agent";
 import { desc, sql } from "drizzle-orm";
 import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query.js";
@@ -93,6 +94,18 @@ export default async function MemoryPage({
               <div className="text-sm text-slate-100 whitespace-pre-wrap">
                 {r.content && r.content.trim().length > 0 ? r.content : <span className="text-slate-500 italic">(empty)</span>}
               </div>
+              {r.content ? (
+                <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-xs leading-5 text-slate-400">
+                  <div>
+                    <span className="font-semibold text-slate-200">Quality:</span>{" "}
+                    {formatMemoryQualityLabel(r.content, r.tags)}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-200">Review:</span>{" "}
+                    {assessMemoryQuality(r.content, r.tags).reasons.join(" ")}
+                  </div>
+                </div>
+              ) : null}
               {r.tags && r.tags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {r.tags.map((t) => (
