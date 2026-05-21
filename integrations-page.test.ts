@@ -6,10 +6,11 @@ describe("dashboard integrations page", () => {
     const source = readFileSync("apps/dashboard/src/app/integrations/page.tsx", "utf8");
 
     expect(source).toContain('name: "Gmail"');
-    expect(source).toContain("getProviderSetupReadiness");
+    expect(source).toContain("loadDashboardProviderHealth");
     expect(source).toContain("dashboardStatus");
     expect(source).toContain("Configured:");
     expect(source).toContain("Missing:");
+    expect(source).toContain("Health:");
     expect(source).toContain("Safety:");
     expect(source).toContain("Use the WhatsApp phrase on each row to queue setup safely");
     expect(source).toContain("A queued request is not the same as a connected account");

@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { getConnectedAccount, getDb } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity } from "../../lib/dashboard-runtime";
 import {
   dashboardStatus,
-  getProviderSetupReadiness,
   type ProviderSetupReadiness,
 } from "../../lib/provider-setup-readiness";
+import { loadDashboardProviderHealth } from "../../lib/provider-health";
 
 export const dynamic = "force-dynamic";
 
@@ -21,37 +19,8 @@ interface IntegrationRow {
 }
 
 async function loadRows(): Promise<IntegrationRow[]> {
-  let spotifyConnected = false;
-  let spotifyExpiresAt: Date | null = null;
-  let spotifyHasRefreshToken = false;
-  try {
-    const spotifyConfigured = Boolean(
-      process.env.SPOTIFY_CLIENT_ID &&
-        process.env.SPOTIFY_CLIENT_SECRET &&
-        process.env.SPOTIFY_REDIRECT_URI,
-    );
-    if (spotifyConfigured) {
-      const db = getDb();
-      const { ownerHash } = getOwnerIdentity();
-      const spotifyAccount = await getConnectedAccount(db, {
-          provider: "spotify",
-          ownerHash,
-        });
-      spotifyConnected = Boolean(spotifyAccount);
-      spotifyExpiresAt = spotifyAccount?.expiresAt ?? null;
-      spotifyHasRefreshToken = Boolean(spotifyAccount?.refreshToken);
-    }
-  } catch {
-    spotifyConnected = false;
-    spotifyExpiresAt = null;
-    spotifyHasRefreshToken = false;
-  }
-
-  const readiness = getProviderSetupReadiness(process.env, {
-    spotifyConnected,
-    spotifyExpiresAt,
-    spotifyHasRefreshToken,
-  });
+  const providerHealth = await loadDashboardProviderHealth();
+  const readiness = providerHealth.readiness;
   const byKey = new Map(readiness.map((item) => [item.key, item]));
   const gmail = byKey.get("gmail");
   const outlook = byKey.get("outlook");
@@ -63,6 +32,7 @@ async function loadRows(): Promise<IntegrationRow[]> {
   const bankFeeds = byKey.get("bank-feeds");
   const birthdays = byKey.get("birthdays");
   const socialVideo = byKey.get("social-video");
+  const spotifyConnected = Boolean(spotify?.configured.includes("Spotify account token"));
 
   const rows: IntegrationRow[] = [
     {
@@ -295,6 +265,10 @@ export default async function IntegrationsPage({
                     </div>
                     <div>
                       <span className="text-slate-300">Safety:</span> {row.readiness.safety}
+                    </div>
+                    <div>
+                      <span className="text-slate-300">Health:</span>{" "}
+                      {row.readiness.healthChecks.map((check) => `${check.name} ${check.status}`).join(", ")}
                     </div>
                   </div>
                 ) : null}

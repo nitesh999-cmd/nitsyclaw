@@ -152,6 +152,17 @@ describe("package scripts", () => {
     expect(source).not.toContain("console.log(process.env");
   });
 
+  test("provider health script reports integration readiness without printing secrets", () => {
+    expect(rootPackage.scripts?.["provider:health"]).toBe(
+      "pnpm exec tsx scripts/provider-health.ts",
+    );
+
+    const source = readFileSync("scripts/provider-health.ts", "utf8");
+    expect(source).toContain("formatProviderHealthReport");
+    expect(source).toContain("getProviderSetupReadiness");
+    expect(source).not.toContain("console.log(process.env");
+  });
+
   test("operator complete closes in-progress queue rows without printing secrets", () => {
     expect(rootPackage.scripts?.["operator:complete"]).toBe(
       "pnpm exec tsx scripts/operator-complete.ts",

@@ -6,13 +6,14 @@ describe("dashboard setup page", () => {
     const source = readFileSync("apps/dashboard/src/app/setup/page.tsx", "utf8");
 
     expect(source).toContain("Connect one useful thing at a time");
-    expect(source).toContain("getProviderSetupReadiness");
+    expect(source).toContain("loadDashboardProviderHealth");
     expect(source).toContain("Best order");
     expect(source).toContain("Works without more setup");
     expect(source).toContain("Do not fake these");
     expect(source).toContain("Real email sending");
     expect(source).toContain("Bank feeds and live account data");
     expect(source).toContain("Test:");
+    expect(source).toContain("Health:");
     expect(source).not.toContain("TODO");
     expect(source).not.toContain("placeholder");
   });

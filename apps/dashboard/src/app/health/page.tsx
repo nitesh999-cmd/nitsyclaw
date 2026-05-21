@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   getDb,
-  getConnectedAccount,
   messages,
   reminders,
   confirmations,
@@ -14,8 +13,8 @@ import {
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
-import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
-import { getProviderSetupReadiness } from "../../lib/provider-setup-readiness";
+import { logDashboardError } from "../../lib/dashboard-runtime";
+import { loadDashboardProviderHealth } from "../../lib/provider-health";
 import {
   buildDashboardRuntimeMetadata,
   runtimeCommitMismatch,
@@ -60,18 +59,8 @@ async function loadHealth() {
     getSystemHeartbeat(db, "reminder-sweep"),
     getSystemHeartbeat(db, "memory-pruner"),
   ]);
-  let spotifyAccount: Awaited<ReturnType<typeof getConnectedAccount>> | null = null;
-  try {
-    const { ownerHash } = getOwnerIdentity();
-    spotifyAccount = await getConnectedAccount(db, { provider: "spotify", ownerHash });
-  } catch {
-    spotifyAccount = null;
-  }
-  const integrationReadiness = getProviderSetupReadiness(process.env, {
-    spotifyConnected: Boolean(spotifyAccount),
-    spotifyExpiresAt: spotifyAccount?.expiresAt ?? null,
-    spotifyHasRefreshToken: Boolean(spotifyAccount?.refreshToken),
-  });
+  const providerHealth = await loadDashboardProviderHealth();
+  const integrationReadiness = providerHealth.readiness;
   const queueCounts = queueRows.reduce<Record<string, number>>((acc, row) => {
     acc[row.status] = (acc[row.status] ?? 0) + 1;
     return acc;
@@ -465,6 +454,9 @@ export default async function HealthPage() {
                     <p>{item.summary}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Configured: {item.configured.length ? item.configured.join(", ") : "none detected"} | Missing: {item.missing.length ? item.missing.join(", ") : "none"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Health: {item.healthChecks.map((check) => `${check.name} ${check.status}`).join(", ")}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">Next: {item.nextStep}</p>
                     <p className="mt-1 text-xs text-slate-500">Safety: {item.safety}</p>

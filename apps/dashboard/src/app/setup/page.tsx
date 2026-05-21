@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { getConnectedAccount, getDb } from "@nitsyclaw/shared/db";
-import { getOwnerIdentity } from "../../lib/dashboard-runtime";
 import {
   dashboardStatus,
-  getProviderSetupReadiness,
   type ProviderSetupReadiness,
 } from "../../lib/provider-setup-readiness";
+import { loadDashboardProviderHealth } from "../../lib/provider-health";
 
 export const dynamic = "force-dynamic";
 
@@ -46,28 +44,8 @@ const WHAT_TO_TEST: Record<string, string> = {
 };
 
 async function loadSetupReadiness(): Promise<ProviderSetupReadiness[]> {
-  let spotifyConnected = false;
-  let spotifyExpiresAt: Date | null = null;
-  let spotifyHasRefreshToken = false;
-
-  try {
-    const db = getDb();
-    const { ownerHash } = getOwnerIdentity();
-    const spotify = await getConnectedAccount(db, { provider: "spotify", ownerHash });
-    spotifyConnected = Boolean(spotify);
-    spotifyExpiresAt = spotify?.expiresAt ?? null;
-    spotifyHasRefreshToken = Boolean(spotify?.refreshToken);
-  } catch {
-    spotifyConnected = false;
-    spotifyExpiresAt = null;
-    spotifyHasRefreshToken = false;
-  }
-
-  const readiness = getProviderSetupReadiness(process.env, {
-    spotifyConnected,
-    spotifyExpiresAt,
-    spotifyHasRefreshToken,
-  });
+  const providerHealth = await loadDashboardProviderHealth();
+  const readiness = providerHealth.readiness;
   const byKey = new Map(readiness.map((item) => [item.key, item]));
   return SETUP_ORDER.map((key) => byKey.get(key)).filter((item): item is ProviderSetupReadiness => Boolean(item));
 }
@@ -159,6 +137,10 @@ export default async function SetupPage() {
                 <div><span className="font-semibold text-slate-200">Next:</span> {item.nextStep}</div>
                 <div className="mt-2"><span className="font-semibold text-slate-200">Test:</span> {WHAT_TO_TEST[item.key]}</div>
                 <div className="mt-2"><span className="font-semibold text-slate-200">Safety:</span> {item.safety}</div>
+                <div className="mt-2">
+                  <span className="font-semibold text-slate-200">Health:</span>{" "}
+                  {item.healthChecks.map((check) => `${check.name} ${check.status}`).join(", ")}
+                </div>
               </div>
             </div>
           ))}

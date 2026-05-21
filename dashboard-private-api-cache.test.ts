@@ -5,6 +5,7 @@ const privateGetRoutes = [
   "apps/dashboard/src/app/api/chat/history/route.ts",
   "apps/dashboard/src/app/api/data/export/route.ts",
   "apps/dashboard/src/app/api/expenses/export/route.ts",
+  "apps/dashboard/src/app/api/integrations/health/route.ts",
   "apps/dashboard/src/app/api/integrations/spotify/connect/route.ts",
   "apps/dashboard/src/app/api/integrations/spotify/callback/route.ts",
   "apps/dashboard/src/app/api/integrations/spotify/status/route.ts",

@@ -10,7 +10,7 @@ describe("WhatsApp provider readiness", () => {
 
     expect(readiness.gmail.status).toBe("needs_setup");
     expect(readiness.outlook.status).toBe("needs_setup");
-    expect(readiness["bank-feeds"].status).toBe("needs_setup");
+    expect(readiness["bank-feeds"].status).toBe("blocked");
     expect(formatProviderReadinessLine(readiness.gmail)).toContain("No Google OAuth credentials");
     expect(formatProviderReadinessLine(readiness.gmail)).not.toContain("connected");
   });
@@ -37,17 +37,26 @@ describe("WhatsApp provider readiness", () => {
     expect(readiness.gmail.status).toBe("partial");
     expect(readiness.outlook.status).toBe("partial");
     expect(formatProviderReadinessLine(readiness.gmail)).toContain("confirmation-gated");
-    expect(formatProviderReadinessLine(readiness.outlook)).toContain("confirmation-gated");
+    expect(formatProviderReadinessLine(readiness.outlook)).toContain("without confirmation");
   });
 
   it("uses runtime signals for stored Spotify account state without claiming auto-send", () => {
     const readiness = getWhatsAppProviderReadiness({}, {
       spotifyConnected: true,
-      spotifyExpiresAt: new Date("2026-05-16T10:00:00Z"),
+      spotifyExpiresAt: new Date("2026-06-16T10:00:00Z"),
     });
 
     expect(readiness.spotify.status).toBe("partial");
     expect(formatProviderReadinessLine(readiness.spotify)).toContain("Spotify account token is stored");
-    expect(formatProviderReadinessLine(readiness.spotify)).toContain("playlist creation still needs confirmation");
+    expect(formatProviderReadinessLine(readiness.spotify)).toContain("Playlist creation stays confirmation-gated");
+  });
+
+  it("keeps OneDrive honest as a selected-file adapter, not broad cloud access", () => {
+    const readiness = getWhatsAppProviderReadiness({
+      MS_TOKEN_JSON: "{}",
+    });
+
+    expect(readiness.onedrive.status).toBe("needs_adapter");
+    expect(formatProviderReadinessLine(readiness.onedrive)).toContain("selected-file adapter");
   });
 });

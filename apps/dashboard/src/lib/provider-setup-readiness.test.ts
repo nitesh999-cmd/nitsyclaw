@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { dashboardStatus, getProviderSetupReadiness } from "./provider-setup-readiness";
+import {
+  dashboardStatus,
+  formatProviderHealthReport,
+  getProviderSetupReadiness,
+  summarizeProviderSetupReadiness,
+} from "./provider-setup-readiness";
 
 describe("dashboard provider setup readiness", () => {
   it("reports missing setup without exposing secret values or claiming live access", () => {
@@ -13,6 +18,7 @@ describe("dashboard provider setup readiness", () => {
     expect(gmail?.configured).toEqual([]);
     expect(bankFeeds?.status).toBe("blocked");
     expect(bankFeeds?.missing).toContain("Compliant bank-data provider");
+    expect(bankFeeds?.healthChecks.some((check) => check.name === "Consent gate" && check.status === "fail")).toBe(true);
     expect(dashboardStatus("blocked")).toBe("Blocked");
   });
 
@@ -78,5 +84,23 @@ describe("dashboard provider setup readiness", () => {
     expect(spotify?.summary).toContain("expired");
     expect(spotify?.missing).toContain("Fresh Spotify account token or refresh token");
     expect(spotify?.nextStep).toContain("Reconnect Spotify");
+  });
+
+  it("summarises provider health for dashboard/API surfaces", () => {
+    const readiness = getProviderSetupReadiness({
+      GOOGLE_TOKEN_JSON_PERSONAL: "secret-json",
+      DATABASE_URL: "postgres://example.invalid/redacted",
+    });
+    const summary = summarizeProviderSetupReadiness(readiness);
+    const report = formatProviderHealthReport(readiness);
+
+    expect(summary.total).toBe(readiness.length);
+    expect(summary.readyOrPartial).toBeGreaterThan(0);
+    expect(summary.blockedLabels).toContain("Bank feeds");
+    expect(summary.launchBlockers.some((item) => item.includes("Google Drive"))).toBe(true);
+    expect(report).toContain("Provider health");
+    expect(report).toContain("Ready/partly ready:");
+    expect(report).toContain("Bank feeds: blocked");
+    expect(report).not.toContain("postgres://");
   });
 });

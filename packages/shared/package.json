@@ -12,6 +12,7 @@
     "./whatsapp": "./src/whatsapp/index.ts",
     "./features": "./src/features/index.ts",
     "./integrations/spotify": "./src/integrations/spotify.ts",
+    "./integrations/provider-readiness": "./src/integrations/provider-readiness.ts",
     "./ops/command-jobs": "./src/ops/command-jobs.ts",
     "./ops/personal-pa-intent": "./src/ops/personal-pa-intent.ts",
     "./ops/heartbeat": "./src/ops/heartbeat.ts",
