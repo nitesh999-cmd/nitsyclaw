@@ -14,6 +14,9 @@ describe("dashboard setup page", () => {
     expect(source).toContain("Bank feeds and live account data");
     expect(source).toContain("Test:");
     expect(source).toContain("Health:");
+    expect(source).toContain("labelActionRisk");
+    expect(source).toContain("Risk:");
+    expect(source).toContain("Risk rule:");
     expect(source).not.toContain("TODO");
     expect(source).not.toContain("placeholder");
   });

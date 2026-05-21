@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { labelActionRisk } from "@nitsyclaw/shared/features";
 import {
   dashboardStatus,
   type ProviderSetupReadiness,
@@ -57,6 +58,25 @@ function statusClass(item: ProviderSetupReadiness): string {
   return "border-slate-700 text-slate-400";
 }
 
+function providerRisk(item: ProviderSetupReadiness) {
+  const readsPrivateData = ["gmail", "outlook", "drive", "photos", "bank-feeds", "birthdays"].includes(item.key);
+  const sendsExternally = ["gmail", "outlook", "phone-sms", "birthdays"].includes(item.key);
+  const moneyOrLegal = item.key === "bank-feeds";
+  return labelActionRisk({
+    action: `connect ${item.label}`,
+    touches: [item.label],
+    sendsExternally,
+    readsPrivateData,
+    moneyOrLegal,
+  });
+}
+
+function riskLabelClass(level: string): string {
+  if (level === "high") return "border-red-500/40 bg-red-950/20 text-red-200";
+  if (level === "medium") return "border-amber-500/40 bg-amber-950/20 text-amber-200";
+  return "border-emerald-500/40 bg-emerald-950/20 text-emerald-200";
+}
+
 export default async function SetupPage() {
   const readiness = await loadSetupReadiness();
   const readyCount = readiness.filter((item) => item.status === "ready" || item.status === "partial").length;
@@ -111,39 +131,46 @@ export default async function SetupPage() {
         </div>
 
         <div className="mt-5 divide-y divide-slate-800 border-y border-slate-800">
-          {readiness.map((item, index) => (
-            <div key={item.key} className="grid gap-4 py-5 lg:grid-cols-[48px_170px_120px_1fr_260px] lg:items-start">
-              <div className="text-sm font-semibold text-[#d8b75d]">{index + 1}</div>
-              <div>
-                <div className="font-semibold text-slate-100">{item.label}</div>
-                <div className="mt-1 text-xs text-slate-500">{dashboardStatus(item.status)}</div>
-              </div>
-              <div>
-                <span className={`rounded border px-2 py-1 text-xs ${statusClass(item)}`}>
-                  {item.status.replace(/_/g, " ")}
-                </span>
-              </div>
-              <div className="text-sm leading-6 text-slate-400">
-                <p>{item.summary}</p>
-                <p className="mt-2 text-xs text-slate-500">Why now: {WHY_THIS_ORDER[item.key]}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Configured: {item.configured.length ? item.configured.join(", ") : "none detected"}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Missing: {item.missing.length ? item.missing.join(", ") : "none"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-xs leading-5 text-slate-400">
-                <div><span className="font-semibold text-slate-200">Next:</span> {item.nextStep}</div>
-                <div className="mt-2"><span className="font-semibold text-slate-200">Test:</span> {WHAT_TO_TEST[item.key]}</div>
-                <div className="mt-2"><span className="font-semibold text-slate-200">Safety:</span> {item.safety}</div>
-                <div className="mt-2">
-                  <span className="font-semibold text-slate-200">Health:</span>{" "}
-                  {item.healthChecks.map((check) => `${check.name} ${check.status}`).join(", ")}
+          {readiness.map((item, index) => {
+            const risk = providerRisk(item);
+            return (
+              <div key={item.key} className="grid gap-4 py-5 lg:grid-cols-[48px_170px_120px_1fr_260px] lg:items-start">
+                <div className="text-sm font-semibold text-[#d8b75d]">{index + 1}</div>
+                <div>
+                  <div className="font-semibold text-slate-100">{item.label}</div>
+                  <div className="mt-1 text-xs text-slate-500">{dashboardStatus(item.status)}</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`rounded border px-2 py-1 text-xs ${statusClass(item)}`}>
+                    {item.status.replace(/_/g, " ")}
+                  </span>
+                  <span className={`rounded border px-2 py-1 text-xs ${riskLabelClass(risk.level)}`}>
+                    Risk: {risk.level}
+                  </span>
+                </div>
+                <div className="text-sm leading-6 text-slate-400">
+                  <p>{item.summary}</p>
+                  <p className="mt-2 text-xs text-slate-500">Why now: {WHY_THIS_ORDER[item.key]}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Configured: {item.configured.length ? item.configured.join(", ") : "none detected"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Missing: {item.missing.length ? item.missing.join(", ") : "none"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-xs leading-5 text-slate-400">
+                  <div><span className="font-semibold text-slate-200">Next:</span> {item.nextStep}</div>
+                  <div className="mt-2"><span className="font-semibold text-slate-200">Risk rule:</span> {risk.requiredConfirmation}</div>
+                  <div className="mt-2"><span className="font-semibold text-slate-200">Test:</span> {WHAT_TO_TEST[item.key]}</div>
+                  <div className="mt-2"><span className="font-semibold text-slate-200">Safety:</span> {item.safety}</div>
+                  <div className="mt-2">
+                    <span className="font-semibold text-slate-200">Health:</span>{" "}
+                    {item.healthChecks.map((check) => `${check.name} ${check.status}`).join(", ")}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

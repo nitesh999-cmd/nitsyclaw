@@ -1,5 +1,6 @@
 // Settings page — quiet hours, integrations, and owner data controls.
 
+import { labelActionRisk } from "@nitsyclaw/shared/features";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
 
 export default async function SettingsPage({
@@ -105,70 +106,87 @@ export default async function SettingsPage({
               title: "Delete memories",
               detail: "Removes saved memory notes. Conversation logs stay.",
               placeholder: "Type DELETE MEMORIES",
+              action: "delete saved memories",
             },
             {
               scope: "conversations",
               title: "Delete conversations",
               detail: "Removes message rows. Saved memories stay.",
               placeholder: "Type DELETE CONVERSATIONS",
+              action: "delete conversation history",
             },
             {
               scope: "everything",
               title: "Delete everything",
               detail: "Requires a fresh export snapshot and your dashboard password. Connected providers are disconnected first; if local deletion then fails, reconnect that provider after retrying cleanup.",
               placeholder: "Type DELETE EVERYTHING",
+              action: "delete all local data and disconnect providers",
             },
-          ].map(({ scope, title, detail, placeholder }) => (
-            <form key={scope} action="/api/data/delete" method="post" className="nc-tile">
-              <input type="hidden" name="scope" value={scope} />
-              <div className="font-medium text-slate-100">{title}</div>
-              <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
-              <label className="mt-3 block text-xs text-slate-500" htmlFor={`confirm-${scope}`}>
-                Confirmation phrase
-              </label>
-              <input
-                id={`confirm-${scope}`}
-                name="confirm"
-                placeholder={placeholder}
-                className="nc-input mt-1 w-full"
-              />
-              {scope === "everything" ? (
-                <>
-                  <label className="mt-3 block text-xs text-slate-500" htmlFor="exportSnapshotId">
-                    Export snapshot ID
-                  </label>
-                  <input
-                    id="exportSnapshotId"
-                    name="exportSnapshotId"
-                    placeholder="export_YYYYMMDDHHMMSS"
-                    className="nc-input mt-1 w-full"
-                  />
-                  <label className="mt-3 block text-xs text-slate-500" htmlFor="exportProof">
-                    Export proof
-                  </label>
-                  <textarea
-                    id="exportProof"
-                    name="exportProof"
-                    rows={3}
-                    className="nc-input mt-1 w-full"
-                  />
-                  <label className="mt-3 block text-xs text-slate-500" htmlFor="currentPassword">
-                    Current dashboard password
-                  </label>
-                  <input
-                    id="currentPassword"
-                    name="currentPassword"
-                    type="password"
-                    autoComplete="current-password"
-                    className="nc-input mt-1 w-full"
-                  />
-                </>
-              ) : null}
-              <button className="mt-3 inline-flex min-h-10 items-center border border-red-900 px-3 py-2 text-xs font-medium text-red-200 transition-colors hover:border-red-600 hover:bg-red-950/30">
-                Delete
-              </button>
-            </form>
-          ))}
+          ].map(({ scope, title, detail, placeholder, action }) => {
+            const risk = labelActionRisk({
+              action,
+              deletesData: true,
+              readsPrivateData: true,
+              touches: scope === "everything" ? ["providers", "messages", "memories", "expenses"] : [scope],
+            });
+            return (
+              <form key={scope} action="/api/data/delete" method="post" className="nc-tile">
+                <input type="hidden" name="scope" value={scope} />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-medium text-slate-100">{title}</div>
+                  <span className={riskLabelClass(risk.level)}>Risk: {risk.level}</span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
+                <p className="mt-2 text-xs leading-5 text-amber-300">
+                  Confirmation: {risk.requiredConfirmation}. Safe default: {risk.safeDefault}.
+                </p>
+                <label className="mt-3 block text-xs text-slate-500" htmlFor={`confirm-${scope}`}>
+                  Confirmation phrase
+                </label>
+                <input
+                  id={`confirm-${scope}`}
+                  name="confirm"
+                  placeholder={placeholder}
+                  className="nc-input mt-1 w-full"
+                />
+                {scope === "everything" ? (
+                  <>
+                    <label className="mt-3 block text-xs text-slate-500" htmlFor="exportSnapshotId">
+                      Export snapshot ID
+                    </label>
+                    <input
+                      id="exportSnapshotId"
+                      name="exportSnapshotId"
+                      placeholder="export_YYYYMMDDHHMMSS"
+                      className="nc-input mt-1 w-full"
+                    />
+                    <label className="mt-3 block text-xs text-slate-500" htmlFor="exportProof">
+                      Export proof
+                    </label>
+                    <textarea
+                      id="exportProof"
+                      name="exportProof"
+                      rows={3}
+                      className="nc-input mt-1 w-full"
+                    />
+                    <label className="mt-3 block text-xs text-slate-500" htmlFor="currentPassword">
+                      Current dashboard password
+                    </label>
+                    <input
+                      id="currentPassword"
+                      name="currentPassword"
+                      type="password"
+                      autoComplete="current-password"
+                      className="nc-input mt-1 w-full"
+                    />
+                  </>
+                ) : null}
+                <button className="mt-3 inline-flex min-h-10 items-center border border-red-900 px-3 py-2 text-xs font-medium text-red-200 transition-colors hover:border-red-600 hover:bg-red-950/30">
+                  Delete
+                </button>
+              </form>
+            );
+          })}
         </div>
       </section>
     </div>
@@ -201,6 +219,12 @@ function plainReadinessItem(item: string): string {
     return item.replace("tenant review is still needed for", "Review customer separation for");
   }
   return map[item] ?? item;
+}
+
+function riskLabelClass(level: string): string {
+  if (level === "high") return "rounded border border-red-500/40 bg-red-950/20 px-2 py-1 text-xs text-red-200";
+  if (level === "medium") return "rounded border border-amber-500/40 bg-amber-950/20 px-2 py-1 text-xs text-amber-200";
+  return "rounded border border-emerald-500/40 bg-emerald-950/20 px-2 py-1 text-xs text-emerald-200";
 }
 
 function ScoreTile({ label, score }: { label: string; score: number }) {

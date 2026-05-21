@@ -48,6 +48,10 @@ describe("data controls", () => {
     expect(settings).toContain("Current dashboard password");
     expect(settings).toContain("Connected providers are disconnected first");
     expect(settings).toContain("if local deletion then fails");
+    expect(settings).toContain("labelActionRisk");
+    expect(settings).toContain("Risk:");
+    expect(settings).toContain("Confirmation:");
+    expect(settings).toContain("Safe default:");
     expect(settings).toContain("/api/sale-readiness");
     expect(settings).toContain("Not ready to sell yet");
     expect(settings).toContain("Ready for customers");
