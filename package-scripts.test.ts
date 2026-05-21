@@ -334,7 +334,18 @@ describe("package scripts", () => {
     const source = readFileSync("scripts/whatsapp-release-gate.ps1", "utf8");
     expect(source).toContain("whatsapp:receipt-guard");
     expect(source).toContain("whatsapp:smoke");
+    expect(source).toContain("customer:check");
+    expect(source).toContain("tenant:check");
     expect(source).toContain("whatsapp-capability-registry.test.ts");
     expect(source).not.toMatch(/@railway|railway:|\bvercel\b|\bdeploy\b|\brestart\b|\bsend\s*\(/i);
+  });
+
+  test("post-deploy proof writes a release report and points to the war room", () => {
+    const source = readFileSync("scripts/post-deploy-proof.ps1", "utf8");
+
+    expect(source).toContain(".nitsyclaw-local/release-proof");
+    expect(source).toContain("latest-post-deploy-proof.json");
+    expect(source).toContain("Visible in app: /release");
+    expect(source).toContain("releaseWarRoom = \"/release\"");
   });
 });

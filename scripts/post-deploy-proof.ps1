@@ -66,9 +66,11 @@ for ($i = 0; $i -lt $phoneProofPrompts.Count; $i++) {
 }
 
 $phoneProofDir = ".nitsyclaw-local/phone-proof-checklists"
+$releaseProofDir = ".nitsyclaw-local/release-proof"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $phoneProofPath = Join-Path $phoneProofDir "phone-proof-$timestamp.md"
 New-Item -ItemType Directory -Force -Path $phoneProofDir | Out-Null
+New-Item -ItemType Directory -Force -Path $releaseProofDir | Out-Null
 
 $phoneProofLines = @(
     "# NitsyClaw Phone Proof Checklist",
@@ -92,8 +94,26 @@ for ($i = 0; $i -lt $phoneProofPrompts.Count; $i++) {
 }
 
 $phoneProofLines | Set-Content -Path $phoneProofPath -Encoding UTF8
+$releaseProof = [ordered]@{
+    createdAt = (Get-Date -Format o)
+    commit = (git rev-parse --short HEAD)
+    railwayReady = $true
+    liveSmoke = $true
+    phoneProofRequired = $true
+    phoneProofChecklist = $phoneProofPath
+    releaseWarRoom = "/release"
+    rollbackNotes = @(
+        "In Railway, open the last known good deployment and promote it again.",
+        "Or revert this Git commit, sync main, then rerun release:whatsapp-full for the new commit.",
+        "If WhatsApp is unhealthy, do not bounce the service blindly; check logs for the fatal line first."
+    )
+}
+$releaseProofPath = Join-Path $releaseProofDir "latest-post-deploy-proof.json"
+$releaseProof | ConvertTo-Json -Depth 5 | Set-Content -Path $releaseProofPath -Encoding UTF8
 Write-Host ""
 Write-Host "Phone proof checklist written to $phoneProofPath"
+Write-Host "Release proof report written to $releaseProofPath"
+Write-Host "Visible in app: /release"
 Write-Host "Post-deploy proof passed for server-side gates. Phone proof still requires the WhatsApp messages above."
 Write-Host ""
 Write-Host "Rollback note:"

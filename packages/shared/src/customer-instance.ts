@@ -63,7 +63,7 @@ export function createCustomerInstance(input: CustomerInstanceInput = {}): Custo
 
 export function evaluateCustomerInstanceReadiness(
   input: CustomerInstanceInput = {},
-  env: Parameters<typeof evaluateTenantBoundaries>[0] = process.env,
+  env: Parameters<typeof evaluateTenantBoundaries>[0] = process.env as Parameters<typeof evaluateTenantBoundaries>[0],
 ): CustomerInstanceReadiness {
   const instance = createCustomerInstance(input);
   const tenantReadiness = evaluateTenantBoundaries(env);

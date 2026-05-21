@@ -44,5 +44,13 @@ Invoke-Step "Reply shape gate" {
     pnpm run whatsapp:reply-shape
 }
 
+Invoke-Step "Customer instance gate" {
+    pnpm run customer:check
+}
+
+Invoke-Step "Tenant boundary gate" {
+    pnpm run tenant:check
+}
+
 Write-Host ""
 Write-Host "WhatsApp release gate passed."
