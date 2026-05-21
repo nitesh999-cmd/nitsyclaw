@@ -11,6 +11,14 @@ describe("privacy command center", () => {
     expect(source).toContain("Promise.race");
     expect(source).toContain("Export my data");
     expect(source).toContain("Delete controls");
+    expect(source).toContain("createDataInventoryMap");
+    expect(source).toContain("Data inventory map");
+    expect(source).toContain("Source:");
+    expect(source).toContain("Retention:");
+    expect(source).toContain("Control:");
+    expect(source).toContain("Trust note:");
+    expect(source).toContain("Encrypted");
+    expect(source).toContain("Not encrypted");
     expect(source).toContain("Sensitive memory visibility");
     expect(source).toContain("Connected accounts");
     expect(source).toContain("Audit review");

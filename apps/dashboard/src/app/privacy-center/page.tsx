@@ -12,6 +12,7 @@ import {
   reminders,
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
+import { createDataInventoryMap } from "@nitsyclaw/shared/features";
 import { desc } from "drizzle-orm";
 import { count } from "drizzle-orm/sql";
 
@@ -56,6 +57,11 @@ interface PrivacyCenterData {
     createdAt: Date;
   }>;
 }
+
+type InventoryRow = ReturnType<typeof createDataInventoryMap>["dataTypes"][number] & {
+  count: number;
+  trustNote: string;
+};
 
 type PrivacyCenterState =
   | { data: PrivacyCenterData; unavailable: false }
@@ -218,15 +224,41 @@ export default async function PrivacyCenterPage() {
 
           <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="nc-section">
-              <div className="nc-eyebrow">Data inventory</div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <div className="nc-eyebrow">Data inventory map</div>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-100">What is stored and how you control it</h2>
+                </div>
+                <p className="max-w-md text-xs leading-5 text-slate-500">
+                  This map shows source, encryption status, retention, and export/delete controls without exposing private values.
+                </p>
+              </div>
+              <div className="mt-4 grid gap-3">
                 {inventoryRows(data.counts).map((row) => (
-                  <div key={row.name} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-semibold text-stone-950">{row.name}</div>
-                      <div className="text-sm font-semibold text-[#8e3f24]">{row.count}</div>
+                  <div key={row.name} className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-100">{row.name}</div>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">Source: {row.source}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <span className="nc-pill">{row.count} stored</span>
+                        <span className={row.encrypted ? "nc-pill border-emerald-500/40 text-emerald-300" : "nc-pill border-amber-500/40 text-amber-300"}>
+                          {row.encrypted ? "Encrypted" : "Not encrypted"}
+                        </span>
+                      </div>
                     </div>
-                    <p className="mt-2 text-xs leading-5 text-stone-600">{row.control}</p>
+                    <div className="mt-3 grid gap-2 text-xs leading-5 text-slate-400 md:grid-cols-3">
+                      <div>
+                        <span className="font-semibold text-slate-200">Retention:</span> {row.retention}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-200">Control:</span> {row.userControl}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-200">Trust note:</span> {row.trustNote}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -362,17 +394,29 @@ function TrustTile({ label, value, detail }: { label: string; value: number; det
   );
 }
 
-function inventoryRows(counts: PrivacyCenterData["counts"]) {
-  return [
-    { name: "Messages", count: counts.messages, control: "Export/delete conversations." },
-    { name: "Memories", count: counts.memories, control: "Review in Memory; delete from Settings." },
-    { name: "Reminders", count: counts.reminders, control: "Review in Reminders; export/delete with all data." },
-    { name: "Expenses", count: counts.expenses, control: "Export expenses CSV or full backup." },
-    { name: "Confirmations", count: counts.confirmations, control: "Approval queue for risky actions." },
-    { name: "Feature requests", count: counts.featureRequests, control: "Visible in Requests and operator queue." },
-    { name: "Profile context", count: counts.profileContext, control: "Shown by key only on this page." },
-    { name: "Audit log", count: counts.auditLog, control: "Redacted export and privacy-safe review." },
-  ];
+function inventoryRows(counts: PrivacyCenterData["counts"]): InventoryRow[] {
+  const countByName: Record<string, number> = {
+    Messages: counts.messages,
+    Memories: counts.memories + counts.profileContext,
+    Reminders: counts.reminders,
+    Expenses: counts.expenses,
+    "Audit log": counts.auditLog,
+    "Connected accounts": counts.connectedAccounts,
+  };
+  const trustNotes: Record<string, string> = {
+    Messages: "Conversation content is private data.",
+    Memories: "Profile context values are not shown on this page.",
+    Reminders: "Reminder text can contain personal plans.",
+    Expenses: "Expense rows may reveal health, family, or financial patterns.",
+    "Audit log": "Operational metadata only; raw payloads stay hidden.",
+    "Connected accounts": "Provider tokens are never displayed.",
+  };
+
+  return createDataInventoryMap().dataTypes.map((row) => ({
+    ...row,
+    count: countByName[row.name] ?? 0,
+    trustNote: trustNotes[row.name] ?? "Review before selling to customers.",
+  }));
 }
 
 function totalStoredRecords(counts: PrivacyCenterData["counts"]): number {
