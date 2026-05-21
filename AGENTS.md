@@ -25,3 +25,8 @@ Product rules:
 - Use plain human language: remember, remind, prepare, find, reply, private helper. Avoid user-facing AI jargon.
 
 Final reports must include files changed, commands run, pass/fail results, unresolved risks, and whether deploy/push was intentionally skipped.
+
+After every completed work item, finish with:
+1. Revenue move - the next action most likely to help NitsyClaw get paid.
+2. Failure-prevention move - the next action most likely to stop the product breaking, disappointing users, or becoming unlaunchable.
+3. My recommendation - which one to do next and why.
