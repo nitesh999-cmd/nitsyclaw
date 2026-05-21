@@ -310,6 +310,14 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
+  test("Railway deploy wait ignores harmless pnpm progress stderr", () => {
+    const source = readFileSync("scripts/railway-wait-for-commit.ps1", "utf8");
+
+    expect(source).toContain("$PSNativeCommandUseErrorActionPreference = $false");
+    expect(source).toContain("@railway/cli deployment list --json");
+    expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
+  });
+
   test("WhatsApp release gate is local, deterministic, and non-mutating", () => {
     expect(rootPackage.scripts?.["whatsapp:reply-shape-report"]).toBe(
       "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts",
