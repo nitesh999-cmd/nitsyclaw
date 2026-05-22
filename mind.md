@@ -404,3 +404,53 @@ For six consecutive days the CCR network allowlist has not been updated. Until `
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES (from named main branch after fresh fetch) |
+
+---
+
+## 21. Session 2026-05-22 — Daily build agent run (BLOCKED day 7)
+
+**Date:** 2026-05-22
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented — blocked by network policy (seventh consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT |
+| ntfy.sh | 443 (HTTPS) | 403 host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 host_not_allowed |
+
+### Context
+
+CCR container started with HEAD at `bd2cc6b` (stale). After `git fetch origin main && git merge --ff-only origin/main`, fast-forwarded 52 commits to `cc85bc3`. The new commits (from other Claude sessions with DB access) include: memory review inbox, private mode for sensitive turns, dashboard risk labels, data inventory map, WhatsApp can't-do guard, structured people memory, travel-aware PA flow, first-day PA wizard, release war room controls, customer instance readiness, memory quality controls, shared integration health checks, guided WhatsApp recovery command.
+
+### Verification
+
+- `npx tsc --noEmit -p apps/dashboard/tsconfig.json` — PASS (pre-existing baseUrl deprecation warning only)
+- `pnpm vitest run dashboard-redteam-routes.test.ts` — PASS (1/1) — all new POST routes have proper auth guards
+
+### No proactive code shipped
+
+52 new commits landed since session 20. No new P0/P1 issues found via tsc or red-team test. The L39 network allowlist issue remains unresolved; shipping P2/P3 features without knowing the current DB queue state risks duplication.
+
+### L39 still unresolved (day 7)
+
+For seven consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests. Fix steps: go to claude.ai/code/routines for this repo's environment settings, add `nitsyclaw.vercel.app` and `ntfy.sh` to the HTTPS allowlist.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 52 commits to cc85bc3 (L40) | YES |
+| TypeScript typecheck (dashboard) | PASS |
+| Red-team routes test | PASS (1/1) |
+| Query pending feature_requests | FAILED — all paths blocked (TCP, Vercel HTTPS, ntfy) |
+| ntfy start notification | FAILED — host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
