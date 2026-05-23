@@ -8,6 +8,13 @@ describe("tenant access inventory", () => {
     expect(pkg.scripts?.["tenant:access-inventory"]).toBe("pnpm exec tsx scripts/tenant-access-inventory.ts");
   });
 
+  it("runs from the WhatsApp release gate so local releases show the tenant worklist", () => {
+    const gate = readFileSync("scripts/whatsapp-release-gate.ps1", "utf8");
+
+    expect(gate).toContain('Invoke-Step "Tenant access inventory"');
+    expect(gate).toContain("pnpm run tenant:access-inventory");
+  });
+
   it("tracks customer-owned tables that block public sale", () => {
     const source = readFileSync("scripts/tenant-access-inventory.ts", "utf8");
 

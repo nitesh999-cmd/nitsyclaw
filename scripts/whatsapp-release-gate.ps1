@@ -52,5 +52,9 @@ Invoke-Step "Tenant boundary gate" {
     pnpm run tenant:check
 }
 
+Invoke-Step "Tenant access inventory" {
+    pnpm run tenant:access-inventory
+}
+
 Write-Host ""
 Write-Host "WhatsApp release gate passed."
