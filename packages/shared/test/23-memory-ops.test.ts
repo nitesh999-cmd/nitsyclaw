@@ -25,10 +25,59 @@ describe("memory and ops batch 2 tools", () => {
     });
 
     expect(result.review).toEqual(expect.arrayContaining([
-      expect.objectContaining({ recommendation: "confirm", reason: "time-sensitive wording" }),
-      expect.objectContaining({ recommendation: "expire" }),
-      expect.objectContaining({ recommendation: "keep" }),
+      expect.objectContaining({
+        category: "temporary_location",
+        recommendation: "confirm",
+        reason: "time-sensitive location or travel wording",
+      }),
+      expect.objectContaining({
+        category: "historical",
+        recommendation: "expire",
+        safeAutoExpire: true,
+      }),
+      expect.objectContaining({
+        category: "stable",
+        recommendation: "keep",
+      }),
     ]));
+    expect(result.summary).toEqual({ keep: 1, confirm: 1, expire: 1 });
+  });
+
+  it("flags completed tasks, old snapshots, stale preferences, and guesses with review prompts", () => {
+    const result = detectStaleMemory({
+      now: "2026-05-23",
+      facts: [
+        { fact: "Called Mukesh about the invoice", lastConfirmed: "2026-05-01", source: "whatsapp:msg_1" },
+        { fact: "As of 2025, electricity provider is AGL", lastConfirmed: "2025-02-01" },
+        { fact: "Default currency is AUD", lastConfirmed: "2025-01-01" },
+        { fact: "I think John prefers SMS", lastConfirmed: "2026-05-01" },
+      ],
+    });
+
+    expect(result.review).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        category: "completed_task",
+        recommendation: "expire",
+        safeAutoExpire: true,
+        userPrompt: expect.stringContaining("Should I expire this old memory?"),
+      }),
+      expect.objectContaining({
+        category: "old_snapshot",
+        recommendation: "confirm",
+        safeAutoExpire: false,
+      }),
+      expect.objectContaining({
+        category: "preference",
+        recommendation: "confirm",
+        reason: "preference 507 days old",
+      }),
+      expect.objectContaining({
+        category: "uncertain",
+        recommendation: "confirm",
+        confidence: "low",
+      }),
+    ]));
+    expect(result.summary).toEqual({ keep: 0, confirm: 3, expire: 1 });
   });
 
   it("creates source links for memories", () => {

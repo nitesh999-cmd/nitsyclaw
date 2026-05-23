@@ -12,6 +12,26 @@ export interface StaleMemoryInput {
   now?: string;
 }
 
+export type StaleMemoryCategory =
+  | "temporary_location"
+  | "completed_task"
+  | "old_snapshot"
+  | "preference"
+  | "uncertain"
+  | "historical"
+  | "stable";
+
+export interface StaleMemoryReviewItem {
+  fact: string;
+  reason: string;
+  recommendation: "confirm" | "expire" | "keep";
+  category: StaleMemoryCategory;
+  confidence: "high" | "medium" | "low";
+  ageDays?: number;
+  safeAutoExpire: boolean;
+  userPrompt: string;
+}
+
 export interface MemorySourceLinkInput {
   fact: string;
   sourceSurface?: "whatsapp" | "dashboard" | "import" | "manual";
@@ -74,24 +94,19 @@ export interface LiveSmokeSuiteInput {
 }
 
 export function detectStaleMemory(input: StaleMemoryInput): {
-  review: Array<{ fact: string; reason: string; recommendation: "confirm" | "expire" | "keep" }>;
+  review: StaleMemoryReviewItem[];
+  summary: { keep: number; confirm: number; expire: number };
 } {
-  const nowYear = yearFromDate(input.now) ?? new Date().getFullYear();
+  const now = parseDate(input.now) ?? new Date();
+  const nowYear = now.getFullYear();
+  const review = input.facts.map((item) => assessStaleMemoryFact(item, now, nowYear));
   return {
-    review: input.facts.map((item) => {
-      const fact = cleanText(item.fact);
-      const lastYear = yearFromDate(item.lastConfirmed);
-      if (/\b(current|now|today|travelling|temporary|this week)\b/i.test(fact)) {
-        return { fact, reason: "time-sensitive wording", recommendation: "confirm" };
-      }
-      if (/\b(old|previous|former|used to)\b/i.test(fact)) {
-        return { fact, reason: "historical wording", recommendation: "expire" };
-      }
-      if (lastYear && nowYear - lastYear >= 1) {
-        return { fact, reason: `last confirmed in ${lastYear}`, recommendation: "confirm" };
-      }
-      return { fact, reason: "stable enough", recommendation: "keep" };
-    }),
+    review,
+    summary: {
+      keep: review.filter((item) => item.recommendation === "keep").length,
+      confirm: review.filter((item) => item.recommendation === "confirm").length,
+      expire: review.filter((item) => item.recommendation === "expire").length,
+    },
   };
 }
 
@@ -424,6 +439,151 @@ function yearFromDate(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const match = value.match(/\b(20\d{2}|19\d{2})\b/);
   return match?.[1] ? Number(match[1]) : undefined;
+}
+
+function assessStaleMemoryFact(
+  item: StaleMemoryInput["facts"][number],
+  now: Date,
+  nowYear: number,
+): StaleMemoryReviewItem {
+  const fact = cleanText(item.fact);
+  const lastConfirmed = parseDate(item.lastConfirmed);
+  const lastYear = yearFromDate(item.lastConfirmed);
+  const ageDays = lastConfirmed ? Math.max(0, Math.floor((now.getTime() - lastConfirmed.getTime()) / 86_400_000)) : undefined;
+  const source = cleanText(item.source);
+  const ageReason = ageDays === undefined
+    ? undefined
+    : ageDays >= 365
+      ? `last confirmed ${ageDays} days ago`
+      : undefined;
+
+  if (/\b(old|previous|former|used to|no longer|not anymore)\b/i.test(fact)) {
+    return staleMemoryReview({
+      fact,
+      reason: "historical wording",
+      recommendation: "expire",
+      category: "historical",
+      confidence: "high",
+      ageDays,
+      safeAutoExpire: true,
+      source,
+    });
+  }
+
+  if (/\b(done|completed|finished|resolved|already paid|paid off|called|sent|booked|cancelled|canceled)\b/i.test(fact)) {
+    return staleMemoryReview({
+      fact,
+      reason: "completed task wording",
+      recommendation: "expire",
+      category: "completed_task",
+      confidence: "high",
+      ageDays,
+      safeAutoExpire: true,
+      source,
+    });
+  }
+
+  if (/\b(current location|current city|i am in|i'm in|travelling|traveling|visiting|temporary|until tomorrow|until next week|this week|today)\b/i.test(fact)) {
+    return staleMemoryReview({
+      fact,
+      reason: "time-sensitive location or travel wording",
+      recommendation: "confirm",
+      category: "temporary_location",
+      confidence: "high",
+      ageDays,
+      safeAutoExpire: Boolean(ageDays !== undefined && ageDays > 7),
+      source,
+    });
+  }
+
+  if (/\b(as of|at the moment|currently|right now|screenshot|snapshot|latest|today|yesterday|last week|last month)\b/i.test(fact)) {
+    return staleMemoryReview({
+      fact,
+      reason: ageReason ?? "snapshot wording",
+      recommendation: "confirm",
+      category: "old_snapshot",
+      confidence: ageDays !== undefined && ageDays >= 30 ? "high" : "medium",
+      ageDays,
+      safeAutoExpire: false,
+      source,
+    });
+  }
+
+  if (/\b(prefer|preference|default currency|currency|timezone|reply in|language|call me|use .+ by default)\b/i.test(fact)) {
+    const shouldConfirm = Boolean(ageDays !== undefined && ageDays >= 180);
+    return staleMemoryReview({
+      fact,
+      reason: shouldConfirm ? `preference ${ageDays} days old` : "stable preference",
+      recommendation: shouldConfirm ? "confirm" : "keep",
+      category: "preference",
+      confidence: shouldConfirm ? "medium" : "high",
+      ageDays,
+      safeAutoExpire: false,
+      source,
+    });
+  }
+
+  if (/\b(maybe|probably|i think|guess|not sure|could be|seems like|sounds like)\b/i.test(fact)) {
+    return staleMemoryReview({
+      fact,
+      reason: ageReason ?? "uncertain wording",
+      recommendation: "confirm",
+      category: "uncertain",
+      confidence: "low",
+      ageDays,
+      safeAutoExpire: false,
+      source,
+    });
+  }
+
+  if (lastYear && nowYear - lastYear >= 1) {
+    return staleMemoryReview({
+      fact,
+      reason: `last confirmed in ${lastYear}`,
+      recommendation: "confirm",
+      category: "stable",
+      confidence: "medium",
+      ageDays,
+      safeAutoExpire: false,
+      source,
+    });
+  }
+
+  return staleMemoryReview({
+    fact,
+    reason: "stable enough",
+    recommendation: "keep",
+    category: "stable",
+    confidence: "high",
+    ageDays,
+    safeAutoExpire: false,
+    source,
+  });
+}
+
+function staleMemoryReview(input: Omit<StaleMemoryReviewItem, "userPrompt"> & { source?: string }): StaleMemoryReviewItem {
+  const sourceSuffix = input.source ? ` Source: ${input.source}.` : "";
+  const userPrompt = input.recommendation === "keep"
+    ? `Keep: ${input.fact}`
+    : input.recommendation === "expire"
+      ? `Should I expire this old memory? "${input.fact}"${sourceSuffix}`
+      : `Is this still true? "${input.fact}"${sourceSuffix}`;
+  return {
+    fact: input.fact,
+    reason: input.reason,
+    recommendation: input.recommendation,
+    category: input.category,
+    confidence: input.confidence,
+    ageDays: input.ageDays,
+    safeAutoExpire: input.safeAutoExpire,
+    userPrompt,
+  };
+}
+
+function parseDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 function cleanList(values: string[] | undefined): string[] {
