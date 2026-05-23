@@ -47,6 +47,13 @@ describe("GitHub Actions CI workflow", () => {
     );
   });
 
+  it("prints the tenant access inventory in CI before coverage", () => {
+    expect(workflow).toContain("pnpm tenant:access-inventory");
+    expect(workflow.indexOf("pnpm tenant:access-inventory")).toBeLessThan(
+      workflow.indexOf("pnpm test:coverage"),
+    );
+  });
+
   it("runs explicit WhatsApp snapshot and provider readiness gates before coverage", () => {
     expect(workflow).toContain("WhatsApp reply snapshot drift");
     expect(workflow).toContain("pnpm ci:whatsapp-snapshots");

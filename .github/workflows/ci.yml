@@ -34,6 +34,7 @@ jobs:
         shell: pwsh
         run: ./scripts/whatsapp-release-gate.ps1
       - run: pnpm tenant:check
+      - run: pnpm tenant:access-inventory
       - run: pnpm tenant:migration-plan
       - run: pnpm test:coverage
       - name: Upload coverage
