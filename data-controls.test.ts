@@ -20,6 +20,30 @@ describe("data controls", () => {
     expect(source).toContain('response.headers.set("Cache-Control", "no-store")');
   });
 
+  test("export and delete fail closed inside the route when public sale is not ready", () => {
+    const guard = readFileSync("apps/dashboard/src/lib/public-sale-data-guard.ts", "utf8");
+    const exportRoute = readFileSync("apps/dashboard/src/app/api/data/export/route.ts", "utf8");
+    const deleteRoute = readFileSync("apps/dashboard/src/app/api/data/delete/route.ts", "utf8");
+    const expensesExportRoute = readFileSync("apps/dashboard/src/app/api/expenses/export/route.ts", "utf8");
+
+    expect(guard).toContain("evaluateSaleReadiness");
+    expect(guard).toContain('readiness.mode === "public-sale"');
+    expect(guard).toContain("!readiness.ready");
+    expect(guard).toContain("Customer data controls are blocked until customer data isolation is verified.");
+    expect(exportRoute).toContain("blockPublicSaleCustomerDataAccess");
+    expect(deleteRoute).toContain("blockPublicSaleCustomerDataAccess");
+    expect(expensesExportRoute).toContain("blockPublicSaleCustomerDataAccess");
+    expect(exportRoute.indexOf("blockPublicSaleCustomerDataAccess()")).toBeLessThan(
+      exportRoute.indexOf("const db = getDb()"),
+    );
+    expect(deleteRoute.indexOf("blockPublicSaleCustomerDataAccess()")).toBeLessThan(
+      deleteRoute.indexOf("req.formData()"),
+    );
+    expect(expensesExportRoute.indexOf("blockPublicSaleCustomerDataAccess()")).toBeLessThan(
+      expensesExportRoute.indexOf("const db = getDb()"),
+    );
+  });
+
   test("data control failure copy is user-safe", () => {
     const exportRoute = readFileSync("apps/dashboard/src/app/api/data/export/route.ts", "utf8");
     const deleteRoute = readFileSync("apps/dashboard/src/app/api/data/delete/route.ts", "utf8");

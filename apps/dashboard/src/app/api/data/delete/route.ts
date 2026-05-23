@@ -17,6 +17,7 @@ import {
 import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
 import { sessionTokenFromRequest, verifyExportProof } from "../../../../lib/data-export-proof";
 import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
+import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -41,6 +42,9 @@ function parseScope(value: FormDataEntryValue | null): DeleteScope | null {
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+
+  const saleModeBlock = blockPublicSaleCustomerDataAccess();
+  if (saleModeBlock) return saleModeBlock;
 
   let form: FormData;
   try {

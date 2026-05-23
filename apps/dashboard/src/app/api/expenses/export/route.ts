@@ -8,6 +8,7 @@ import {
   validateExpenseFilters,
 } from "../../../../lib/expense-utils.js";
 import { logDashboardError } from "../../../../lib/dashboard-runtime";
+import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -17,6 +18,9 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+
+  const saleModeBlock = blockPublicSaleCustomerDataAccess();
+  if (saleModeBlock) return saleModeBlock;
 
   const url = new URL(req.url);
   const filters = normalizeExpenseFilters({
