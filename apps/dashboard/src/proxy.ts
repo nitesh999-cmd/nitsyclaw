@@ -42,6 +42,7 @@ function publicSaleNotReady(request: NextRequest) {
 function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/api/healthz" ||
+    pathname === "/offer" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/manifest.json" ||
