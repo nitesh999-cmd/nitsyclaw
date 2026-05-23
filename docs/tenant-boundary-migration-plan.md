@@ -26,6 +26,14 @@ pnpm run customer:check
 
 This prints whether the current runtime is personal-use only, pilot-ready with human setup, or publicly sellable. It does not print secrets and does not mutate the database.
 
+Before changing tenant storage, run:
+
+```powershell
+pnpm run tenant:access-inventory
+```
+
+This prints the current unscoped customer-data access points for the blocking tables. Use that output as the worklist for replacing direct global reads/writes with tenant-scoped repository calls.
+
 ## Current blocking tables
 
 | Table | Current issue | Planned boundary |

@@ -14,6 +14,8 @@ describe("tenant migration plan", () => {
     for (const table of ["memories", "reminders", "expenses", "briefs", "confirmations"]) {
       expect(plan).toContain(`\`${table}\``);
     }
+    expect(plan).toContain("pnpm run tenant:access-inventory");
+    expect(plan).toContain("unscoped customer-data access points");
   });
 
   it("does not include destructive SQL instructions", () => {
