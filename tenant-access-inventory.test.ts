@@ -26,6 +26,7 @@ describe("tenant access inventory", () => {
     expect(source).toContain("priority=");
     expect(source).toContain("guarded=");
     expect(source).toContain("blockPublicSaleCustomerDataAccess");
+    expect(source).toContain("guardUnscopedCustomerDataAccess");
     expect(source).toContain("critical");
   });
 });

@@ -1,6 +1,7 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
 import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
+import { assertPublicSaleTenantBoundaries } from "../tenancy.js";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -30,6 +31,10 @@ import {
   type SystemHeartbeat,
   type CommandJob,
 } from "./schema.js";
+
+function guardUnscopedCustomerDataAccess() {
+  assertPublicSaleTenantBoundaries();
+}
 
 export async function insertMessage(db: DB, m: NewMessage) {
   const [row] = await db.insert(messages).values(m).returning();
@@ -64,6 +69,7 @@ export async function recentMessages(db: DB, fromNumber: string, limit = 50) {
 }
 
 export async function insertMemory(db: DB, m: NewMemory) {
+  guardUnscopedCustomerDataAccess();
   const [row] = await db.insert(memories).values(m).returning();
   return row!;
 }
@@ -78,6 +84,7 @@ export async function searchMemoriesLexical(
   query: string,
   limit = 10,
 ): Promise<Memory[]> {
+  guardUnscopedCustomerDataAccess();
   const q = `%${query.toLowerCase()}%`;
   return db
     .select()
@@ -92,21 +99,25 @@ export async function updateMemory(
   id: string,
   patch: Partial<Pick<NewMemory, "kind" | "content" | "tags">>,
 ): Promise<Memory | null> {
+  guardUnscopedCustomerDataAccess();
   const [row] = await db.update(memories).set(patch).where(eq(memories.id, id)).returning();
   return row ?? null;
 }
 
 export async function deleteMemory(db: DB, id: string): Promise<boolean> {
+  guardUnscopedCustomerDataAccess();
   const rows = await db.delete(memories).where(eq(memories.id, id)).returning({ id: memories.id });
   return rows.length > 0;
 }
 
 export async function insertReminder(db: DB, r: NewReminder) {
+  guardUnscopedCustomerDataAccess();
   const [row] = await db.insert(reminders).values(r).returning();
   return row!;
 }
 
 export async function dueReminders(db: DB, now: Date): Promise<Reminder[]> {
+  guardUnscopedCustomerDataAccess();
   return db
     .select()
     .from(reminders)
@@ -118,6 +129,7 @@ export async function listPendingReminders(
   now: Date,
   limit = 5,
 ): Promise<Reminder[]> {
+  guardUnscopedCustomerDataAccess();
   const rows = await db
     .select()
     .from(reminders)
@@ -132,15 +144,18 @@ export async function listPendingReminders(
 }
 
 export async function markReminderFired(db: DB, id: string) {
+  guardUnscopedCustomerDataAccess();
   await db.update(reminders).set({ status: "fired" }).where(eq(reminders.id, id));
 }
 
 export async function insertExpense(db: DB, e: NewExpense) {
+  guardUnscopedCustomerDataAccess();
   const [row] = await db.insert(expenses).values(e).returning();
   return row!;
 }
 
 export async function expensesBetween(db: DB, from: Date, to: Date) {
+  guardUnscopedCustomerDataAccess();
   return db
     .select()
     .from(expenses)
@@ -153,6 +168,7 @@ export async function recentExpensesBetween(
   to: Date,
   limit = 200,
 ) {
+  guardUnscopedCustomerDataAccess();
   const rows = await db
     .select()
     .from(expenses)
@@ -163,6 +179,7 @@ export async function recentExpensesBetween(
 }
 
 export async function upsertBrief(db: DB, forDate: string, body: string) {
+  guardUnscopedCustomerDataAccess();
   await db
     .insert(briefs)
     .values({ forDate, body })
@@ -175,6 +192,7 @@ export async function insertConfirmation(
   payload: Record<string, unknown>,
   expiresAt: Date,
 ) {
+  guardUnscopedCustomerDataAccess();
   const [row] = await db
     .insert(confirmations)
     .values({ action, payload, expiresAt })
@@ -187,14 +205,17 @@ export async function setConfirmationStatus(
   id: string,
   status: "approved" | "rejected" | "expired",
 ) {
+  guardUnscopedCustomerDataAccess();
   await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
 }
 
 export async function restorePendingConfirmation(db: DB, id: string) {
+  guardUnscopedCustomerDataAccess();
   await db.update(confirmations).set({ status: "pending" }).where(eq(confirmations.id, id));
 }
 
 export async function getLatestPendingConfirmation(db: DB): Promise<{ id: string; action: string } | null> {
+  guardUnscopedCustomerDataAccess();
   const [row] = await db
     .select()
     .from(confirmations)
@@ -383,6 +404,7 @@ export async function deleteConnectedAccount(
  * Returns count of rows updated.
  */
 export async function pruneExpiredConfirmations(db: DB, now: Date = new Date()): Promise<number> {
+  guardUnscopedCustomerDataAccess();
   const rows = await db
     .update(confirmations)
     .set({ status: "expired" })

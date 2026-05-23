@@ -65,7 +65,9 @@ function findUnscopedAccess(): Finding[] {
     const rootPath = join(ROOT, root);
     for (const file of listSourceFiles(rootPath)) {
       const source = readFileSync(file, "utf8");
-      const guarded = source.includes("blockPublicSaleCustomerDataAccess");
+      const guarded = source.includes("blockPublicSaleCustomerDataAccess")
+        || source.includes("guardUnscopedCustomerDataAccess")
+        || source.includes("assertPublicSaleTenantBoundaries");
       for (const table of CUSTOMER_TABLES) {
         for (const operation of OPERATIONS) {
           const count = countMatches(source, table, operation);
