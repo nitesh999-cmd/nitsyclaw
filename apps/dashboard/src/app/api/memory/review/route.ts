@@ -3,6 +3,7 @@ import { deleteMemory, getDb, memories, updateMemory } from "@nitsyclaw/shared/d
 import { mergeMemoryQualityTags } from "@nitsyclaw/shared/agent";
 import { eq } from "drizzle-orm";
 import { logDashboardError } from "../../../../lib/dashboard-runtime";
+import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
 export const runtime = "nodejs";
@@ -38,6 +39,9 @@ function reviewedTags(content: string, tags: string[], extra: string[]): string[
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+
+  const saleModeBlock = blockPublicSaleCustomerDataAccess();
+  if (saleModeBlock) return saleModeBlock;
 
   let form: FormData;
   try {

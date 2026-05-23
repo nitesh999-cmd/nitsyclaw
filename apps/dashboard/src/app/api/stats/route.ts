@@ -11,12 +11,16 @@ import {
   confirmations,
 } from "@nitsyclaw/shared/db";
 import { logDashboardError } from "../../../lib/dashboard-runtime";
+import { blockPublicSaleCustomerDataAccess } from "../../../lib/public-sale-data-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET(): Promise<Response> {
+  const saleModeBlock = blockPublicSaleCustomerDataAccess();
+  if (saleModeBlock) return saleModeBlock;
+
   try {
     const db = getDb();
 

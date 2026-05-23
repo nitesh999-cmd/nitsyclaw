@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { desc, sql } from "drizzle-orm";
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
 import { logDashboardError } from "../../../lib/dashboard-runtime";
+import { blockPublicSaleCustomerDataAccess } from "../../../lib/public-sale-data-guard";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../../lib/search-query";
 
 export const runtime = "nodejs";
@@ -27,6 +28,9 @@ export async function GET(req: Request): Promise<Response> {
       { status: 400, headers: NO_STORE },
     );
   }
+
+  const saleModeBlock = blockPublicSaleCustomerDataAccess();
+  if (saleModeBlock) return saleModeBlock;
 
   try {
     const q = likePatternForSearchTerm(term);
