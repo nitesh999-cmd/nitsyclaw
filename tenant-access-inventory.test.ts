@@ -24,6 +24,8 @@ describe("tenant access inventory", () => {
     expect(source).toContain("tenant_access_inventory=");
     expect(source).toContain("operation=");
     expect(source).toContain("priority=");
+    expect(source).toContain("guarded=");
+    expect(source).toContain("blockPublicSaleCustomerDataAccess");
     expect(source).toContain("critical");
   });
 });

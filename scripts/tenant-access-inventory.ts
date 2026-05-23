@@ -23,6 +23,7 @@ interface Finding {
   operation: Operation;
   count: number;
   priority: Priority;
+  guarded: boolean;
 }
 
 function shouldSkip(file: string): boolean {
@@ -64,6 +65,7 @@ function findUnscopedAccess(): Finding[] {
     const rootPath = join(ROOT, root);
     for (const file of listSourceFiles(rootPath)) {
       const source = readFileSync(file, "utf8");
+      const guarded = source.includes("blockPublicSaleCustomerDataAccess");
       for (const table of CUSTOMER_TABLES) {
         for (const operation of OPERATIONS) {
           const count = countMatches(source, table, operation);
@@ -74,6 +76,7 @@ function findUnscopedAccess(): Finding[] {
               operation,
               count,
               priority: priorityFor(relative(ROOT, file).replaceAll("\\", "/"), operation),
+              guarded,
             });
           }
         }
@@ -88,5 +91,5 @@ console.log(`tenant_access_inventory=${findings.length > 0 ? "findings" : "clear
 console.log(`findings=${findings.length}`);
 
 for (const finding of findings) {
-  console.log(`priority=${finding.priority} file=${finding.file} table=${finding.table} operation=${finding.operation} count=${finding.count}`);
+  console.log(`priority=${finding.priority} guarded=${finding.guarded ? "yes" : "no"} file=${finding.file} table=${finding.table} operation=${finding.operation} count=${finding.count}`);
 }
