@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WaitlistInterestForm } from "./waitlist-form";
 
 export const metadata: Metadata = {
   title: "Private WhatsApp PA For Life Admin",
@@ -64,7 +65,7 @@ export default function OfferPage() {
             setup before it touches anything important.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <a href="#offer" className="nc-button-primary">See the offer</a>
+            <a href="#waitlist" className="nc-button-primary">Request beta access</a>
             <a href="#proof" className="nc-button">How it stays safe</a>
           </div>
           <div className="mt-8 grid gap-3 text-sm sm:grid-cols-3">
@@ -133,7 +134,7 @@ export default function OfferPage() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 pb-12 pt-6 md:px-8">
+      <section id="waitlist" className="mx-auto grid w-full max-w-7xl gap-4 px-4 pb-12 pt-6 md:px-8 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-3xl border border-stone-300 bg-[#fffdf8] p-5 md:p-8">
           <div className="nc-eyebrow">Best next launch step</div>
           <h2 className="mt-2 text-3xl font-semibold">Run a 10-person beta before taking public money.</h2>
@@ -146,6 +147,7 @@ export default function OfferPage() {
             <a href="/terms" className="nc-button">Terms</a>
           </div>
         </div>
+        <WaitlistInterestForm />
       </section>
     </main>
   );
