@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-21 (daily build agent run — network blocked day 6)
+> Updated: 2026-05-23 (daily build agent run — network blocked day 8)
 
 ---
 
@@ -449,6 +449,63 @@ For seven consecutive days the CCR network allowlist has not been updated. Until
 | TypeScript typecheck (dashboard) | PASS |
 | Red-team routes test | PASS (1/1) |
 | Query pending feature_requests | FAILED — all paths blocked (TCP, Vercel HTTPS, ntfy) |
+| ntfy start notification | FAILED — host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
+
+---
+
+## 22. Session 2026-05-23 — Daily build agent run (BLOCKED day 8)
+
+**Date:** 2026-05-23
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented — blocked by network policy (eighth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | FAILED (exit 1) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+Note: The `WebFetch` harness tool reported a plain 403 (without the `x-deny-reason` header) for `nitsyclaw.vercel.app/api/build-agent/pending`. This is misleading — it goes through the Claude API proxy which sanitises headers. Direct `curl -sv` confirms `x-deny-reason: host_not_allowed` is still present. Do not use WebFetch to diagnose CCR network policy; use `curl -sv` instead.
+
+### Context
+
+Git state: container started at HEAD `25b2632` (current with origin/main after fast-forward). 10 new commits landed since session 21 by other Claude sessions with DB/network access: tenant access inventory, private beta interest form, beta follow-up tracker, waitlist email config docs, public sale mode fail-closed data controls, guarded tenant access findings.
+
+### Verification
+
+- `pnpm install --frozen-lockfile` — OK (node_modules not pre-installed in container)
+- `npx tsc --noEmit -p apps/dashboard/tsconfig.json` — PASS (pre-existing baseUrl deprecation warning only)
+- `pnpm test` — PASS (173 test files / 772 tests, all green)
+
+### Lesson L41 — WebFetch harness tool masks `x-deny-reason` header
+
+The Claude Code `WebFetch` harness tool routes requests through the Claude API proxy, which strips response headers including `x-deny-reason: host_not_allowed`. A blocked request appears as plain 403 instead of `403 + x-deny-reason`. Always use `curl -sv` inside the sandbox to confirm whether a 403 is a CCR network block or a legitimate application-level rejection.
+
+### L39 still unresolved (day 8)
+
+For eight consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests. Fix steps: go to claude.ai/code/routines for this repo's environment settings, add `nitsyclaw.vercel.app` and `ntfy.sh` to the HTTPS allowlist.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: already at origin/main (25b2632) | YES |
+| pnpm install | OK (node_modules were absent; installed cleanly) |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (173 files / 772 tests) | PASS — all green |
+| TCP 6543 to Supabase | FAILED — blocked |
+| ntfy.sh HTTPS | FAILED — x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED — x-deny-reason: host_not_allowed |
+| Query pending feature_requests | FAILED — all paths blocked |
 | ntfy start notification | FAILED — host not in allowlist |
 | Features implemented | 0 |
 | Proactive code shipped | 0 |
