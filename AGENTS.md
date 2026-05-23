@@ -23,6 +23,7 @@ Product rules:
 - Never claim setup-heavy integrations are shipped unless OAuth/provider setup, tests, and real behaviour prove it.
 - Risky actions stay approval-gated: messages, calls, emails, purchases, deletes, bookings, payments, external posts, deploys.
 - Use plain human language: remember, remind, prepare, find, reply, private helper. Avoid user-facing AI jargon.
+- For new product/service ideas, revenue offers, AppSumo-style packaging, pitch decks, or major market-positioning work, use `docs/product-studio-planning-standard.md` before coding.
 
 Final reports must include files changed, commands run, pass/fail results, unresolved risks, and whether deploy/push was intentionally skipped.
 

@@ -21,6 +21,7 @@ Execution rules:
 - Do not deploy, delete major systems, rewrite schemas, or add paid services without approval.
 - Do not claim integrations are live until OAuth/provider setup and real tests prove it.
 - Risky actions stay approval-gated.
+- For new product/service ideas, revenue offers, AppSumo-style packaging, pitch decks, or major market-positioning work, use `docs/product-studio-planning-standard.md` before coding.
 
 Recommended gates:
 - `pnpm lint`
