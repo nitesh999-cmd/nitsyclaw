@@ -15,12 +15,14 @@ const SKIP_PARTS = [
 
 type CustomerTable = (typeof CUSTOMER_TABLES)[number];
 type Operation = (typeof OPERATIONS)[number];
+type Priority = "critical" | "high" | "medium";
 
 interface Finding {
   file: string;
   table: CustomerTable;
   operation: Operation;
   count: number;
+  priority: Priority;
 }
 
 function shouldSkip(file: string): boolean {
@@ -48,6 +50,14 @@ function countMatches(source: string, table: CustomerTable, operation: Operation
   return source.match(pattern)?.length ?? 0;
 }
 
+function priorityFor(file: string, operation: Operation): Priority {
+  if (operation === "delete") return "critical";
+  if (file.includes("/api/data/") || file.includes("/api/expenses/export")) return "critical";
+  if (operation === "insert" || operation === "update") return "high";
+  if (file.includes("/api/")) return "high";
+  return "medium";
+}
+
 function findUnscopedAccess(): Finding[] {
   const findings: Finding[] = [];
   for (const root of SCAN_ROOTS) {
@@ -63,6 +73,7 @@ function findUnscopedAccess(): Finding[] {
               table,
               operation,
               count,
+              priority: priorityFor(relative(ROOT, file).replaceAll("\\", "/"), operation),
             });
           }
         }
@@ -77,5 +88,5 @@ console.log(`tenant_access_inventory=${findings.length > 0 ? "findings" : "clear
 console.log(`findings=${findings.length}`);
 
 for (const finding of findings) {
-  console.log(`file=${finding.file} table=${finding.table} operation=${finding.operation} count=${finding.count}`);
+  console.log(`priority=${finding.priority} file=${finding.file} table=${finding.table} operation=${finding.operation} count=${finding.count}`);
 }
