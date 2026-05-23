@@ -11,6 +11,10 @@ for (const table of readiness.tableBoundaries) {
   console.log(`${table.table}=${table.publicSaleRisk}:${table.scopeColumn ?? "unscoped"}`);
 }
 
+readiness.nextActions.forEach((action, index) => {
+  console.log(`next_action_${index + 1}=${action}`);
+});
+
 if (readiness.mode === "public-sale" && !readiness.safeForPublicSale) {
   process.exitCode = 1;
 }

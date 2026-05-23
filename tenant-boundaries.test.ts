@@ -12,6 +12,7 @@ describe("tenant boundary scripts", () => {
     const source = readFileSync("scripts/tenant-boundary-check.ts", "utf8");
 
     expect(source).toContain("evaluateTenantBoundaries");
+    expect(source).toContain("next_action_");
     expect(source).not.toContain("DATABASE_URL");
     expect(source).not.toContain("process.env.");
   });
