@@ -47,8 +47,9 @@ function listSourceFiles(dir: string): string[] {
 }
 
 function countMatches(source: string, table: CustomerTable, operation: Operation): number {
-  const pattern = new RegExp(`\\b${operation}\\s*\\(\\s*${table}\\s*\\)`, "g");
-  return source.match(pattern)?.length ?? 0;
+  const compactSource = source.replace(/\s+/g, "");
+  const needle = `${operation}(${table})`;
+  return compactSource.split(needle).length - 1;
 }
 
 function priorityFor(file: string, operation: Operation): Priority {

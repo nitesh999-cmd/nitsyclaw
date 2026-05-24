@@ -220,7 +220,7 @@ export default async function TodayPage() {
       <section className="nc-mobile-action-grid lg:hidden" data-testid="mobile-dashboard-actions" aria-label="Mobile dashboard actions">
         {mobileActions.map((action) => (
           <a
-            key={action.href}
+            key={`${action.href}-${action.label}`}
             href={action.href}
             className={`nc-mobile-action ${action.tone === "primary" ? "nc-mobile-action-primary" : ""} ${action.tone === "danger" ? "nc-mobile-action-danger" : ""} ${action.tone === "warn" ? "nc-mobile-action-warn" : ""}`}
           >

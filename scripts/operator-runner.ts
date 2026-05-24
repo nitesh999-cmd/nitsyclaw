@@ -22,6 +22,17 @@ const shouldRejectUnsafe = args.has("--reject-unsafe");
 const dryRun = args.has("--dry-run") || (!shouldClaim && !shouldRejectUnsafe);
 const commandTimeoutMs = Number(process.env.OPERATOR_COMMAND_TIMEOUT_MS ?? 10 * 60 * 1000);
 
+const ALLOWED_VERIFICATION_COMMANDS = new Set([
+  "pnpm lint",
+  "pnpm -r typecheck",
+  "pnpm typecheck",
+  "pnpm build",
+  "pnpm test",
+  "pnpm test:coverage",
+  "pnpm test:e2e",
+  "pnpm run whatsapp:release-gate",
+]);
+
 loadLocalEnv([".env.local", "apps/dashboard/.env.local", ".env"]);
 
 async function main() {
@@ -304,12 +315,24 @@ function runShellCommand(
   options: { cwd: string; timeoutMs: number },
 ): Promise<VerificationCommandResult> {
   const startedAt = Date.now();
+  const parsed = parseVerificationCommand(command);
+  if (!parsed) {
+    return Promise.resolve({
+      command,
+      exitCode: 1,
+      timedOut: false,
+      durationMs: Date.now() - startedAt,
+      outputTail: "Rejected unsafe or unsupported verification command.",
+    });
+  }
+
   return new Promise((resolve) => {
     let output = "";
     let settled = false;
-    const child = spawn(command, {
+    // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process -- verification commands are allowlisted above and run with shell:false.
+    const child = spawn(parsed.executable, parsed.args, {
       cwd: options.cwd,
-      shell: true,
+      shell: false,
       stdio: ["ignore", "pipe", "pipe"],
       env: process.env,
     });
@@ -361,6 +384,28 @@ function runShellCommand(
       });
     });
   });
+}
+
+function parseVerificationCommand(command: string): { executable: string; args: string[] } | null {
+  const trimmed = command.trim();
+  if (ALLOWED_VERIFICATION_COMMANDS.has(trimmed)) return splitCommand(trimmed);
+
+  if (process.env.NODE_ENV === "test" && /^node -e "[-A-Za-z0-9\s().;'_]+ "$/.test(`${trimmed} `)) {
+    return splitCommand(trimmed);
+  }
+  if (process.env.NODE_ENV === "test" && /^node -e "[-A-Za-z0-9\s().;'_]+"$/.test(trimmed)) {
+    return splitCommand(trimmed);
+  }
+
+  return null;
+}
+
+function splitCommand(command: string): { executable: string; args: string[] } | null {
+  const parts = command.match(/"[^"]*"|\S+/g)?.map((part) => part.replace(/^"|"$/g, "")) ?? [];
+  const rawExecutable = parts[0];
+  const executable = process.platform === "win32" && rawExecutable === "pnpm" ? "pnpm.cmd" : rawExecutable;
+  if (!executable) return null;
+  return { executable, args: parts.slice(1) };
 }
 
 function isDatabaseUrlError(error: unknown): boolean {

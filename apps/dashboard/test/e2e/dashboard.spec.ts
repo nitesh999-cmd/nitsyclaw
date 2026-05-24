@@ -123,7 +123,7 @@ test.describe("dashboard routes render", () => {
 
   test("Onboarding page explains first steps in plain language", async ({ page }) => {
     await page.goto("/onboarding");
-    await expect(page.getByRole("heading", { name: "Set up my PA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Set up the validation demo" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Start first-day setup" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Answer once. Use everywhere." })).toBeVisible();
     await expect(page.getByLabel("Home base")).toHaveValue(/Melbourne/);
@@ -131,7 +131,7 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByLabel("Reply language")).toHaveValue("English");
     await expect(page.getByLabel("First three jobs to automate")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save PA profile" })).toBeVisible();
-    await expect(page.getByText("It does not connect Gmail, SMS, bank feeds, photos, or any outside account.")).toBeVisible();
+    await expect(page.getByText(/It does not connect Gmail, Outlook, Calendar, Spotify, Drive, Photos, SMS, bank feeds/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Start with one of these" })).toBeVisible();
     await expect(page.getByText("No AI knowledge needed")).toBeVisible();
   });
@@ -168,8 +168,8 @@ test.describe("dashboard routes render", () => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: /Open Chat/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "Home Today" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("link", { name: "Start PA setup" })).toBeVisible();
-    await page.getByRole("link", { name: "Keep Remember" }).click();
+    await expect(page.getByRole("link", { name: "Start Demo setup" })).toBeVisible();
+    await page.getByRole("link", { name: "Keep Memory" }).click();
     await expect(page).toHaveURL(/\/memory$/);
   });
 
@@ -188,9 +188,11 @@ test.describe("dashboard routes render", () => {
 
     await expect(page.getByRole("link", { name: "Today" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ask" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Reminders" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Spending" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Review" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Remember" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Requests" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Remember" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Requests" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Privacy" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Settings" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Do" })).toHaveCount(0);
@@ -221,9 +223,9 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Ask/ })).toBeVisible();
     await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Review/ })).toBeVisible();
     await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Reminders/ })).toBeVisible();
-    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Requests/ })).toBeVisible();
-    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Health/ })).toBeVisible();
-    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /WhatsApp/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Spending/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Bills/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-dashboard-actions").getByRole("link", { name: /Privacy/ })).toBeVisible();
   });
 
   test("blocks cross-origin destructive API posts", async ({ request }) => {
