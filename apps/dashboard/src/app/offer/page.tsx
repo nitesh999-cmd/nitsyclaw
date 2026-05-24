@@ -2,18 +2,24 @@ import type { Metadata } from "next";
 import { WaitlistInterestForm } from "./waitlist-form";
 
 export const metadata: Metadata = {
-  title: "Private WhatsApp PA For Life Admin",
+  title: "Private WhatsApp PA For Bills, Receipts, and Reminders",
   description:
-    "NitsyClaw helps normal people handle reminders, expenses, bills, drafts, memory, and daily life admin from WhatsApp.",
+    "NitsyClaw helps normal people handle bills, receipts, expenses, and due-date reminders from WhatsApp.",
 };
 
 const worksNow = [
-  "Voice notes and normal questions",
-  "Reminders, important notes, and memory",
+  "Bill summaries from pasted text and supported documents",
+  "Due-date reminders for bills and calls",
   "AUD expense logging from text, receipts, and CSV",
-  "Bill and document summaries",
-  "SMS drafts, replies, complaints, and call scripts",
+  "Receipt notes and simple monthly spending views",
+  "Draft replies, complaints, and call scripts for bill problems",
   "Proof checks, status, and clear safety boundaries",
+];
+
+const supporting = [
+  "Voice notes and normal questions",
+  "Memory for recurring details",
+  "SMS drafts only, not real sending",
 ];
 
 const setupLater = [
@@ -58,11 +64,11 @@ export default function OfferPage() {
         <div className="max-w-3xl">
           <div className="nc-eyebrow">NitsyClaw for normal humans</div>
           <h1 className="mt-4 text-4xl font-semibold leading-tight md:text-6xl">
-            A private WhatsApp PA for the life admin that keeps piling up.
+            A private WhatsApp PA for bills, receipts, expenses, and due-date reminders.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-stone-700 md:text-lg">
-            Message once. NitsyClaw can remind, log, summarise, draft, remember, and show what still needs
-            setup before it touches anything important.
+            Message once. NitsyClaw can summarise a bill, log a receipt, set the reminder, draft the complaint,
+            and show what still needs setup before it touches anything important.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <a href="#waitlist" className="nc-button-primary">Request beta access</a>
@@ -92,8 +98,9 @@ export default function OfferPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 md:px-8 lg:grid-cols-2">
+      <section className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-8 md:px-8 lg:grid-cols-3">
         <Panel title="Works now" items={worksNow} />
+        <Panel title="Supporting features" items={supporting} />
         <Panel title="Needs setup before live action" items={setupLater} tone="warn" />
       </section>
 

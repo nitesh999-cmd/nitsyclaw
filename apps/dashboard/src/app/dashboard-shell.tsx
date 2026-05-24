@@ -5,42 +5,39 @@ import type { ReactNode } from "react";
 
 const navGroups = [
   {
-    label: "Use every day",
+    label: "Validation demo",
     items: [
       { href: "/", label: "Today", mark: "Home" },
       { href: "/chat", label: "Ask", mark: "Talk" },
+      { href: "/reminders", label: "Reminders", mark: "Due" },
+      { href: "/expenses", label: "Spending", mark: "AUD" },
       { href: "/confirmations", label: "Review", mark: "Yes" },
-      { href: "/memory", label: "Remember", mark: "Keep" },
-      { href: "/onboarding", label: "PA setup", mark: "Start" },
+      { href: "/onboarding", label: "Demo setup", mark: "Start" },
+    ],
+  },
+  {
+    label: "Supporting",
+    items: [
+      { href: "/memory", label: "Memory", mark: "Keep" },
       { href: "/privacy-center", label: "Privacy", mark: "Trust" },
       { href: "/settings", label: "Settings", mark: "Safe" },
     ],
   },
-  {
-    label: "Life admin",
-    items: [
-      { href: "/reminders", label: "Reminders", mark: "Soon" },
-      { href: "/expenses", label: "Spending", mark: "$" },
-      { href: "/conversations", label: "Messages", mark: "Log" },
-      { href: "/queue", label: "Requests", mark: "Next" },
-    ],
-  },
-  {
-    label: "Advanced",
-    items: [
-      { href: "/command", label: "Work desk", mark: "Admin" },
-      { href: "/release", label: "Release", mark: "Ship" },
-      { href: "/health", label: "Health", mark: "OK" },
-      { href: "/whatsapp-recovery", label: "WA recovery", mark: "WA" },
-      { href: "/activity", label: "Activity", mark: "Now" },
-      { href: "/search", label: "Search", mark: "Find" },
-      { href: "/stats", label: "Stats", mark: "Data" },
-      { href: "/profile", label: "Profile", mark: "Me" },
-      { href: "/integrations", label: "Connections", mark: "Link" },
-      { href: "/setup", label: "Setup", mark: "Start" },
-      { href: "/help", label: "Help", mark: "?" },
-    ],
-  },
+];
+
+const ownerToolItems = [
+  { href: "/queue", label: "Requests", mark: "Next" },
+  { href: "/command", label: "Work desk", mark: "Admin" },
+  { href: "/release", label: "Release", mark: "Ship" },
+  { href: "/health", label: "Health", mark: "OK" },
+  { href: "/whatsapp-recovery", label: "WhatsApp recovery", mark: "WA" },
+  { href: "/activity", label: "Activity", mark: "Now" },
+  { href: "/search", label: "Search", mark: "Find" },
+  { href: "/stats", label: "Stats", mark: "Data" },
+  { href: "/profile", label: "Profile", mark: "Me" },
+  { href: "/integrations", label: "Connections", mark: "Link" },
+  { href: "/setup", label: "Setup", mark: "Start" },
+  { href: "/help", label: "Help", mark: "?" },
 ];
 
 const mobileNavItems = [
@@ -64,35 +61,32 @@ const mobileNavItems = [
     ),
   },
   {
+    href: "/reminders",
+    label: "Reminders",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    ),
+  },
+  {
+    href: "/expenses",
+    label: "Spending",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+        <path d="M12 1v22" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    ),
+  },
+  {
     href: "/confirmations",
     label: "Review",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
         <path d="M9 11l3 3L22 4" />
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    href: "/memory",
-    label: "Remember",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/queue",
-    label: "Requests",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-        <path d="M8 6h13" />
-        <path d="M8 12h13" />
-        <path d="M8 18h13" />
-        <path d="M3 6h.01" />
-        <path d="M3 12h.01" />
-        <path d="M3 18h.01" />
       </svg>
     ),
   },
@@ -161,6 +155,31 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           ))}
+
+          <details className="rounded-xl border border-stone-200 bg-white/45 p-2">
+            <summary className="cursor-pointer list-none px-2 py-2 text-[11px] font-semibold uppercase tracking-normal text-stone-500">
+              Owner tools
+              <span className="mt-1 block normal-case text-stone-500">Not part of the customer demo.</span>
+            </summary>
+            <div className="mt-2 grid grid-cols-1 gap-1">
+              {ownerToolItems.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={
+                      "nc-nav-link " + (active ? "nc-nav-link-active" : "nc-nav-link-idle")
+                    }
+                  >
+                    <span className={active ? "w-10 text-[10px] font-semibold text-[#d8b75d]" : "w-10 text-[10px] font-semibold text-slate-500"}>{item.mark}</span>
+                    <span className="truncate">{item.label}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </details>
 
           <form action="/api/auth/logout" method="post" className="border-t border-slate-800 pt-4">
             <button className="text-left text-sm text-slate-400 transition-colors hover:text-slate-100" type="submit">

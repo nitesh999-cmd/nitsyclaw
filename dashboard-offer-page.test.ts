@@ -11,7 +11,9 @@ describe("public offer page", () => {
     expect(proxy).toContain('pathname === "/offer"');
     expect(shell).toContain('const isPublicMarketing = pathname === "/offer";');
 
-    expect(page).toContain("A private WhatsApp PA for the life admin that keeps piling up.");
+    expect(page).toContain("A private WhatsApp PA for bills, receipts, expenses, and due-date reminders.");
+    expect(page).toContain("Supporting features");
+    expect(page).toContain("Memory for recurring details");
     expect(page).toContain("No fake integrations");
     expect(page).toContain("Needs setup before live action");
     expect(page).toContain("Real Gmail and Outlook mailbox actions");

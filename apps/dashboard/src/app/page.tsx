@@ -1,6 +1,6 @@
 // Today view — calendar, top reminders, quick stats.
 import { getDb } from "@nitsyclaw/shared/db";
-import { reminders, expenses, briefs, confirmations, featureRequests, messages } from "@nitsyclaw/shared/db";
+import { reminders, expenses, briefs, confirmations, messages } from "@nitsyclaw/shared/db";
 import { eq, gte, desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -11,12 +11,11 @@ async function loadToday() {
   const db = getDb();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const [pendingReminders, recentExpenses, latestBrief, pendingConfirmations, queueRows, lastMessageRows] = await Promise.all([
+  const [pendingReminders, recentExpenses, latestBrief, pendingConfirmations, lastMessageRows] = await Promise.all([
     db.select().from(reminders).where(eq(reminders.status, "pending")).orderBy(reminders.fireAt).limit(10),
     db.select().from(expenses).where(gte(expenses.occurredAt, today)).orderBy(desc(expenses.occurredAt)).limit(10),
     db.select().from(briefs).orderBy(desc(briefs.createdAt)).limit(1),
     db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(10),
-    db.select().from(featureRequests).where(eq(featureRequests.status, "pending")).limit(50),
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
   ]);
   return {
@@ -24,7 +23,6 @@ async function loadToday() {
     recentExpenses,
     latestBrief: latestBrief[0] ?? null,
     pendingConfirmations,
-    queueRows,
     lastMessage: lastMessageRows[0] ?? null,
   };
 }
@@ -56,7 +54,6 @@ function emptyTodayData(): TodayData {
     recentExpenses: [],
     latestBrief: null,
     pendingConfirmations: [],
-    queueRows: [],
     lastMessage: null,
   };
 }
@@ -91,18 +88,17 @@ export default async function TodayPage() {
       </div>
     );
   }
-  const pendingQueue = data.queueRows.filter((row) => row.status === "pending").length;
   const topReminder = data.pendingReminders[0] ?? null;
-  const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length + pendingQueue;
+  const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length;
   const todayTotal = data.recentExpenses.reduce((sum, e) => sum + e.amount, 0);
   const overdue = data.pendingReminders.filter((r) => r.fireAt < new Date());
   const bestNextAction = data.pendingConfirmations.length > 0
     ? { href: "/confirmations", label: "Review waiting approvals", detail: "Something needs your decision before it can act." }
     : overdue.length > 0
       ? { href: "/reminders", label: "Clear overdue reminders", detail: "Handle the things that have slipped." }
-      : pendingQueue > 0
-        ? { href: "/queue", label: "Review pending requests", detail: "Pick what to build or ignore next." }
-        : { href: "/chat", label: "Ask for help", detail: "Start with one plain sentence or voice note." };
+      : data.recentExpenses.length === 0
+        ? { href: "/expenses", label: "Log first expense", detail: "Prove receipt and spending capture before adding more integrations." }
+        : { href: "/chat", label: "Summarise a bill", detail: "Paste a bill or receipt and turn the due date into a reminder." };
   const nowWorks = [
     "WhatsApp questions and voice notes",
     "Reminders, memory, AUD expenses",
@@ -117,9 +113,9 @@ export default async function TodayPage() {
     { href: "/chat", label: "Ask", detail: "Talk or type", tone: "primary" },
     { href: "/confirmations", label: "Review", detail: `${data.pendingConfirmations.length} waiting`, tone: "warn" },
     { href: "/reminders", label: "Reminders", detail: `${data.pendingReminders.length} saved`, tone: overdue.length > 0 ? "danger" : "normal" },
-    { href: "/queue", label: "Requests", detail: `${pendingQueue} pending`, tone: "normal" },
-    { href: "/health", label: "Health", detail: "System check", tone: "normal" },
-    { href: "/whatsapp-recovery", label: "WhatsApp", detail: "Recovery", tone: "normal" },
+    { href: "/expenses", label: "Spending", detail: `${data.recentExpenses.length} today`, tone: "normal" },
+    { href: "/chat", label: "Bills", detail: "Summarise due dates", tone: "normal" },
+    { href: "/privacy-center", label: "Privacy", detail: "What is safe", tone: "normal" },
   ];
 
   return (
@@ -171,10 +167,6 @@ export default async function TodayPage() {
                 <span>Reminders{overdue.length > 0 && <span className="ml-1 text-red-400">({overdue.length} overdue)</span>}</span>
                 <span className="font-semibold text-slate-100">{data.pendingReminders.length}</span>
               </div>
-              <div className="flex justify-between border-t border-slate-700/80 pt-2">
-                <span>Requests</span>
-                <span className="font-semibold text-slate-100">{pendingQueue}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -188,7 +180,7 @@ export default async function TodayPage() {
 
       <section className="grid gap-4 lg:grid-cols-[1fr_1fr_1.1fr]" data-testid="today-work-status">
         <div className="nc-section">
-          <div className="nc-eyebrow">What works now</div>
+          <div className="nc-eyebrow">Validation demo</div>
           <h2 className="mt-2 text-xl font-semibold text-slate-100">Use these today</h2>
           <div className="mt-4 grid gap-2 text-sm text-slate-300">
             {nowWorks.map((item) => (
@@ -200,7 +192,7 @@ export default async function TodayPage() {
         </div>
 
         <div className="nc-section">
-          <div className="nc-eyebrow">Needs setup</div>
+          <div className="nc-eyebrow">Not live in demo</div>
           <h2 className="mt-2 text-xl font-semibold text-slate-100">Do not fake these</h2>
           <div className="mt-4 grid gap-2 text-sm text-slate-300">
             {needsSetup.map((item) => (
@@ -209,8 +201,8 @@ export default async function TodayPage() {
               </div>
             ))}
           </div>
-          <a href="/setup" className="mt-4 inline-flex text-sm font-semibold text-[#d8b75d] hover:text-[#f1d58a]">
-            Open setup guide
+          <a href="/integrations" className="mt-4 inline-flex text-sm font-semibold text-[#d8b75d] hover:text-[#f1d58a]">
+            See connection status
           </a>
         </div>
 
@@ -220,7 +212,7 @@ export default async function TodayPage() {
           <p className="mt-2 text-sm leading-6 text-slate-400">{bestNextAction.detail}</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <a href={bestNextAction.href} className="nc-button-primary">Do this next</a>
-            <a href="/setup" className="nc-button">Connect more</a>
+            <a href="/privacy-center" className="nc-button">Check safety</a>
           </div>
         </div>
       </section>
@@ -251,10 +243,10 @@ export default async function TodayPage() {
             {overdue.length > 0 ? `${overdue.length} overdue` : "Coming up"}
           </div>
         </a>
-        <a href="/queue" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
-          <div className="nc-eyebrow">Requests</div>
-          <div className="mt-3 text-3xl font-semibold text-slate-100">{pendingQueue}</div>
-          <div className="mt-2 text-xs text-slate-500">Waiting to be built</div>
+        <a href="/chat" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
+          <div className="nc-eyebrow">Bills</div>
+          <div className="mt-3 text-xl font-semibold text-slate-100">Summarise</div>
+          <div className="mt-2 text-xs text-slate-500">Paste bill text or receipt details</div>
         </a>
         <a href="/expenses" className="nc-tile hover:border-[#d8b75d]/40 transition-colors">
           <div className="nc-eyebrow">Today&apos;s spend</div>
@@ -284,10 +276,10 @@ export default async function TodayPage() {
           <div className="nc-eyebrow">Try saying</div>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {[
-              "Remind me to call Mukesh tomorrow morning",
-              "Remember my passport is in the black folder",
-              "What needs my decision today?",
-              "Add a feature: read bills and suggest action",
+            "Bill summary: AGL bill $240 due 18 May",
+            "Remind me to pay that bill the day before it is due",
+            "I spent $18.40 at Chemist Warehouse for medicine",
+            "Check before send: I am unhappy about this bill",
             ].map((example) => (
               <div key={example} className="rounded-xl border border-stone-200 bg-[#fbf8f2] p-3 text-sm leading-6 text-stone-700">
                 {example}
@@ -327,7 +319,7 @@ export default async function TodayPage() {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <a href="/reminders" className="nc-button">Reminders</a>
-            <a href="/queue" className="nc-button">Queue</a>
+            <a href="/expenses" className="nc-button">Spending</a>
           </div>
         </div>
       </section>

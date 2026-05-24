@@ -38,6 +38,7 @@ describe("operator command page", () => {
     expect(client).not.toContain("Request failed with HTTP");
     expect(shell).toContain('href: "/command"');
     expect(shell).toContain('label: "Work desk"');
-    expect(shell).toContain('label: "Advanced"');
+    expect(shell).toContain("Owner tools");
+    expect(shell).toContain("Not part of the customer demo");
   });
 });

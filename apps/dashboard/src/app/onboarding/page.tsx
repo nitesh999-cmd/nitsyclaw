@@ -2,7 +2,6 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  getConnectedAccount,
   getDb,
   memories,
   reminders,
@@ -25,13 +24,13 @@ type ChecklistItem = {
 
 const firstTasks = [
   {
-    title: "Remember something important",
-    example: "remember my passport is in the black folder",
+    title: "Bill or receipt summary",
+    example: "bill summary: AGL bill $240 due 18 May",
     href: "/chat",
   },
   {
-    title: "Set a reminder",
-    example: "remind me to call Mukesh tomorrow at 10 am",
+    title: "Due-date reminder",
+    example: "remind me to pay the AGL bill on 17 May at 9 am",
     href: "/chat",
   },
   {
@@ -40,24 +39,24 @@ const firstTasks = [
     href: "/chat",
   },
   {
-    title: "Check a message",
-    example: "check before send: I am angry about this bill",
+    title: "Receipt from WhatsApp",
+    example: "I spent $18.40 at Chemist Warehouse for medicine",
     href: "/chat",
   },
 ];
 
 const plainChoices = [
   {
-    label: "Ask",
-    title: "Ask a normal question",
-    detail: "Use plain words or a voice note. Replies stay short and in English.",
+    label: "Bills",
+    title: "Understand bills and due dates",
+    detail: "Paste bill text or ask for a summary. Turn due dates into reminders.",
     href: "/chat",
   },
   {
-    label: "Remember",
-    title: "Save life details",
-    detail: "Store useful notes like locations, account reminders, and personal preferences.",
-    href: "/memory",
+    label: "Expenses",
+    title: "Log spending in AUD",
+    detail: "Capture receipts, merchant, category, date, and simple monthly totals.",
+    href: "/expenses",
   },
   {
     label: "Review",
@@ -102,7 +101,6 @@ async function loadChecklist(): Promise<ChecklistItem[]> {
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
     openai: Boolean(process.env.OPENAI_API_KEY),
     whatsappOwner: Boolean(process.env.WHATSAPP_OWNER_NUMBER),
-    spotify: false,
     firstMemory: false,
     firstReminder: false,
     pendingConfirmations: 0,
@@ -111,14 +109,11 @@ async function loadChecklist(): Promise<ChecklistItem[]> {
   try {
     const db = getDb();
     checks.database = true;
-    const owner = checks.whatsappOwner ? getOwnerIdentity() : null;
-    const [spotify, memoryRows, reminderRows, confirmationRows] = await Promise.all([
-      owner ? getConnectedAccount(db, { provider: "spotify", ownerHash: owner.ownerHash }).catch(() => null) : null,
+    const [memoryRows, reminderRows, confirmationRows] = await Promise.all([
       db.select().from(memories).limit(1),
       db.select().from(reminders).where(eq(reminders.status, "pending")).limit(1),
       db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(10),
     ]);
-    checks.spotify = Boolean(spotify);
     checks.firstMemory = memoryRows.length > 0;
     checks.firstReminder = reminderRows.length > 0;
     checks.pendingConfirmations = confirmationRows.length;
@@ -161,13 +156,6 @@ async function loadChecklist(): Promise<ChecklistItem[]> {
       detail: 'Try: "remember my passport is in the black folder".',
       href: "/chat",
       group: "ready",
-    },
-    {
-      label: "Music account connected",
-      done: checks.spotify,
-      detail: "Optional. Enables confirmed private playlists after Spotify setup.",
-      href: "/integrations",
-      group: "setup",
     },
     {
       label: "No action waiting for approval",
@@ -319,10 +307,10 @@ export default async function OnboardingPage({
   return (
     <div className="nc-page">
       <section className="nc-hero">
-        <div className="nc-eyebrow">First-day setup</div>
-        <h2 className="mt-2 text-3xl font-semibold">Set up my PA</h2>
+        <div className="nc-eyebrow">Controlled validation build</div>
+        <h2 className="mt-2 text-3xl font-semibold">Set up the validation demo</h2>
         <p className="mt-3 max-w-2xl text-sm text-slate-400">
-          Give NitsyClaw the few details a good personal assistant would ask on day one: where you are, how you like replies, who matters, and the first jobs you want handled.
+          Bills, receipts, expenses, and reminders first. Give NitsyClaw the few details a good personal assistant would ask on day one: where you are, how you like replies, and what due dates must not slip.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <a href="#first-day-wizard" className="nc-button-primary">Start first-day setup</a>
@@ -352,7 +340,7 @@ export default async function OnboardingPage({
             <h3 className="mt-2 text-xl font-semibold text-slate-100">Answer once. Use everywhere.</h3>
           </div>
           <p className="max-w-xl text-sm text-slate-400">
-            This saves profile context only. It does not connect Gmail, SMS, bank feeds, photos, or any outside account.
+            This saves profile context only. It does not connect Gmail, Outlook, Calendar, Spotify, Drive, Photos, SMS, bank feeds, birthdays, social video, or any outside account.
           </p>
         </div>
 
@@ -453,7 +441,7 @@ export default async function OnboardingPage({
 
           <div className="flex flex-col gap-3 border-t border-slate-800 pt-5 md:flex-row md:items-center md:justify-between">
             <p className="text-sm text-slate-500">
-              Risk rule: NitsyClaw can use this context for replies and drafts. Sending, calling, booking, deleting, or paying still needs confirmation.
+              Risk rule: NitsyClaw can use this context for bill summaries, expense logs, due-date reminders, replies, and drafts. Sending, calling, booking, deleting, or paying still needs confirmation.
             </p>
             <button className="nc-button-primary min-h-11 px-5" type="submit">
               Save PA profile
@@ -470,6 +458,15 @@ export default async function OnboardingPage({
             <p className="mt-2 text-sm text-slate-400">{choice.detail}</p>
           </Link>
         ))}
+      </section>
+
+      <section className="nc-section">
+        <div className="nc-eyebrow">Supporting features only</div>
+        <h3 className="mt-2 text-xl font-semibold text-slate-100">Drafts and memory are supporting features.</h3>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+          For this validation build, the product is not trying to be everything. Drafts help with bill complaints and hard messages.
+          Memory helps remember recurring details. The demo promise stays focused on bills, receipts, expenses, and reminders.
+        </p>
       </section>
 
       <section className="nc-section">
