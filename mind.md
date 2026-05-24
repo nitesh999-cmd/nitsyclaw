@@ -511,3 +511,64 @@ For eight consecutive days the CCR network allowlist has not been updated. Until
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 23. Session 2026-05-24 — Daily build agent run (BLOCKED day 9)
+
+**Date:** 2026-05-24
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented — blocked by network policy (ninth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | FAILED (timeout) |
+| ntfy.sh | 443 (HTTPS) | 403 Host not in allowlist |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 Host not in allowlist |
+
+### Context
+
+Git state: container started with HEAD detached at `25b2632` (stale). After `git fetch origin main && git checkout main && git merge --ff-only origin/main`, fast-forwarded 6 commits to `199966b`. New commits from other Claude sessions with DB/network access: tenant schema boundary plan, tenant isolation CI gate, require tenant context for customer repos, guard unscoped repo data access, draft tenant owner hash migration (docs only -- migration not yet applied).
+
+### Verification
+
+- `pnpm install --frozen-lockfile` -- OK
+- `npx tsc --noEmit -p apps/dashboard/tsconfig.json` -- PASS (pre-existing baseUrl deprecation warning only)
+- `pnpm test` -- PASS (175 test files / 777 tests, all green -- 5 more tests than session 22 due to new tenant guard + migration plan + owner hash migration draft tests)
+- `pnpm vitest run dashboard-redteam-routes.test.ts` -- PASS (1/1) -- all POST routes have proper auth guards
+- `pnpm vitest run repo-tenant-guard.test.ts` -- PASS (1/1) -- tenant isolation guard behaves correctly
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-22 confirmed no new P0/P1 issues. Session 23 confirms the same: no new P0/P1 issues visible from code. The tenant isolation work landed cleanly with no regressions.
+
+### L39 still unresolved (day 9)
+
+For nine consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add `nitsyclaw.vercel.app` and `ntfy.sh` to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim `feature_requests` rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 6 commits to 199966b (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (175 files / 777 tests) | PASS -- all green |
+| Red-team routes test | PASS (1/1) |
+| Tenant guard test | PASS (1/1) |
+| TCP 6543 to Supabase | FAILED -- blocked |
+| ntfy.sh HTTPS | FAILED -- 403 host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
