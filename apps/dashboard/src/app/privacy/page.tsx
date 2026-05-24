@@ -28,8 +28,9 @@ export default function PrivacyPage() {
       <section className="space-y-3 text-sm leading-6 text-slate-400">
         <h2 className="text-lg font-medium text-slate-100">Public sale status</h2>
         <p>
-          NitsyClaw is still private-owner software until multi-user auth, tenant isolation,
-          provider deletion, and legal/privacy copy are verified.
+          NitsyClaw is still private-owner validation software until multi-user auth, tenant isolation,
+          provider deletion, and legal/privacy copy are verified. The controlled demo is limited to
+          WhatsApp life admin: bills, receipts, expenses, reminders, drafts, and weekly summaries.
         </p>
       </section>
     </main>

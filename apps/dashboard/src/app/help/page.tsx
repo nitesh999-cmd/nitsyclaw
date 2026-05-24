@@ -1,5 +1,29 @@
 const groups = [
   {
+    title: "Weekly command centre",
+    examples: [
+      "weekly admin digest",
+      "what's coming up this week?",
+      "show my admin inbox",
+    ],
+  },
+  {
+    title: "Bills and receipts",
+    examples: [
+      "bill summary: AGL bill $240 due 18 May",
+      "Upload a receipt photo on WhatsApp",
+      "check before send: I am angry about this bill",
+    ],
+  },
+  {
+    title: "Expenses",
+    examples: [
+      "I spent $18.40 at Chemist Warehouse for medicine",
+      "expense summary",
+      "find expense chemist",
+    ],
+  },
+  {
     title: "Reminders",
     examples: [
       "Remind me to call Sam tomorrow at 9am",
@@ -8,98 +32,48 @@ const groups = [
     ],
   },
   {
-    title: "Memory",
+    title: "Memory and search",
     examples: [
       "Remember my passport is in the black folder",
-      "What did I save about Spotify?",
+      "Search my saved notes for passport",
       "List my can't-do items",
     ],
   },
   {
-    title: "Email",
+    title: "Drafting support",
     examples: [
-      "Search Gmail for Solar Harbour invoice",
-      "Draft an email to Alex about tomorrow's meeting",
-      "Show unread emails in the morning brief",
+      "draft sms to John saying I am running late",
+      "call script: energy retailer | ask for a better rate",
+      "complaint: AGL | bill looks wrong | explain and fix it",
     ],
   },
   {
-    title: "Files and photos",
+    title: "Not live yet",
     examples: [
-      "Use this Google Drive link in the next build",
-      "Queue these Google Photos for analysis",
-      "Import this OneDrive file when storage access is ready",
-    ],
-  },
-  {
-    title: "Calendar",
-    examples: [
-      "What's on my plate today?",
-      "Schedule a 30 minute call with Alex tomorrow afternoon",
-      "Send my morning brief now",
-    ],
-  },
-  {
-    title: "Expenses",
-    examples: [
-      "Log $18.50 coffee at Starbucks",
-      "What did I spend today?",
-      "Upload a receipt photo on WhatsApp",
-    ],
-  },
-  {
-    title: "Spotify",
-    examples: [
-      "What are my top Spotify tracks?",
-      "Search Spotify for Fred again",
-      "Make a private playlist from these tracks",
-    ],
-  },
-  {
-    title: "Build queue",
-    examples: [
-      "/addfeature add Google Drive search",
-      "Add a feature for birthday reminders",
-      "Show the feature queue",
-    ],
-  },
-  {
-    title: "Safe external actions",
-    examples: [
-      "Prepare an SMS draft for Sam",
-      "Queue a bank CSV import",
-      "Analyze this public Instagram reel link",
+      "Gmail, Outlook, Drive, Photos, Spotify, SMS sending, calls, and bank feeds need setup first.",
+      "NitsyClaw can draft or queue requests, but it will not pretend live account access exists.",
+      "Sending, calling, deleting, booking, paying, or changing outside data needs confirmation.",
     ],
   },
 ];
 
 const safety = [
   "NitsyClaw asks before sending, deleting, scheduling, or changing important things.",
-  "Dashboard chat can use tools, but some tools are WhatsApp/local-bot only.",
-  "Phone/SMS, bank feeds, Drive, Photos, and Facebook need real platform permissions before live account access can work.",
-  "For risky integrations, NitsyClaw queues selected-file/import/draft requests instead of pretending broad access exists.",
+  "The controlled demo is focused on WhatsApp bills, receipts, expenses, due-date reminders, and weekly admin digest.",
+  "Gmail, Outlook, Drive, Photos, Spotify, SMS sending, calls, bank feeds, birthdays, and social video are not live.",
+  "For risky integrations, NitsyClaw drafts or queues requests instead of pretending broad access exists.",
 ];
 
 const websiteMap = [
   {
     title: "Today",
     href: "/",
-    description: "Today is the daily home base: reminders, requests, approvals, spending, and what needs attention.",
+    description: "Today is the daily home base for reminders, approvals, spending, and what needs attention.",
   },
   {
     title: "Chat",
     href: "/chat",
     description: "Chat is where you ask NitsyClaw for help in normal language.",
-  },
-  {
-    title: "Command",
-    href: "/command",
-    description: "Command is the planning desk for operator missions, build requests, and quick admin commands.",
-  },
-  {
-    title: "Queue",
-    href: "/queue",
-    description: "Queue is the build/request backlog. It stores work; it does not auto-build or auto-deploy.",
   },
   {
     title: "Confirmations",
@@ -117,14 +91,9 @@ const websiteMap = [
     description: "Memory shows saved personal notes and facts NitsyClaw can reuse.",
   },
   {
-    title: "Health",
-    href: "/health",
-    description: "Health shows WhatsApp and system status so you can see what is working.",
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    description: "Settings holds privacy, export, and delete controls.",
+    title: "Privacy",
+    href: "/privacy-center",
+    description: "Privacy explains stored data, export/delete controls, and current safety limits.",
   },
 ];
 
@@ -133,16 +102,16 @@ export default function HelpPage() {
     <div className="nc-page">
       <section className="nc-hero">
         <div className="nc-eyebrow">Usage guide</div>
-        <h2 className="mt-2 text-3xl font-semibold">What Can I Ask?</h2>
+        <h2 className="mt-2 text-3xl font-semibold">WhatsApp life-admin commands</h2>
         <p className="mt-3 text-sm leading-6 text-slate-400">
-          Use normal language. These examples are rails, not commands you must memorize.
+          Use normal language. Start with bills, receipts, expenses, reminders, and the weekly admin digest.
         </p>
       </section>
 
       <section className="nc-section">
         <div className="nc-eyebrow">Website map</div>
         <div className="mt-2 text-sm leading-6 text-slate-400">
-          Start with Today for daily use, Chat for questions, Command for planning, and Queue for saved build requests.
+          Start with Today for daily use, Ask for questions, Reminders for due dates, and Spending for receipts.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {websiteMap.map((item) => (

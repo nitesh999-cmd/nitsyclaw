@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WaitlistInterestForm } from "./waitlist-form";
 
 export const metadata: Metadata = {
-  title: "Private WhatsApp PA For Bills, Receipts, and Reminders",
+  title: "WhatsApp Life-Admin Command Centre For Bills, Receipts, and Reminders",
   description:
     "NitsyClaw helps normal people handle bills, receipts, expenses, and due-date reminders from WhatsApp.",
 };

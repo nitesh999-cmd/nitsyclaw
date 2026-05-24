@@ -5,8 +5,9 @@ export default function TermsPage() {
       <section className="space-y-3 text-sm leading-6 text-slate-400">
         <h2 className="text-lg font-medium text-slate-100">Use</h2>
         <p>
-          NitsyClaw is a personal admin assistant for drafting, remembering, organizing, and
-          preparing everyday tasks. Important actions should stay approval-gated.
+          NitsyClaw is a WhatsApp-first life-admin assistant for bills, receipts, expenses,
+          reminders, drafting, remembering, organizing, and preparing everyday tasks. Important
+          actions should stay approval-gated.
         </p>
       </section>
       <section className="space-y-3 text-sm leading-6 text-slate-400">

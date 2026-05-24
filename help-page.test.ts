@@ -5,15 +5,19 @@ describe("dashboard help page", () => {
   test("shows safe integration examples instead of broad-access claims", () => {
     const source = readFileSync("apps/dashboard/src/app/help/page.tsx", "utf8");
 
-    expect(source).toContain("Draft an email to Alex");
-    expect(source).toContain("Files and photos");
-    expect(source).toContain("Prepare an SMS draft");
-    expect(source).toContain("Queue a bank CSV import");
-    expect(source).toContain("queues selected-file/import/draft requests");
+    expect(source).toContain("WhatsApp life-admin commands");
+    expect(source).toContain("weekly admin digest");
+    expect(source).toContain("bill summary: AGL bill $240 due 18 May");
+    expect(source).toContain("find expense chemist");
+    expect(source).toContain("Gmail, Outlook, Drive, Photos, Spotify, SMS sending, calls, and bank feeds need setup first.");
+    expect(source).toContain("drafts or queues requests");
     expect(source).toContain("Website map");
-    expect(source).toContain("Command is the planning desk");
-    expect(source).toContain("Queue is the build/request backlog");
-    expect(source).toContain("Health shows WhatsApp and system status");
+    expect(source).toContain("Start with Today for daily use");
+    expect(source).not.toContain("Command is the planning desk");
+    expect(source).not.toContain("Queue is the build/request backlog");
+    expect(source).not.toContain("Health shows WhatsApp and system status");
+    expect(source).not.toContain("Search Gmail");
+    expect(source).not.toContain("Search Spotify");
     expect(source).not.toContain("scan all my Drive");
   });
 });
