@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, insertExpense, expenses } from "@nitsyclaw/shared/db";
+import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { desc } from "drizzle-orm";
 import {
   type ExpenseSearchParams,
@@ -8,7 +9,7 @@ import {
   normalizeExpenseFilters,
   one,
 } from "../../lib/expense-utils.js";
-import { logDashboardLoadError } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,8 @@ async function addExpense(formData: FormData) {
   const amountCents = Math.round(amount * 100);
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > 2147483647) redirect("/expenses?error=invalid-amount");
 
-  await insertExpense(getDb(), {
+  const { ownerHash } = getOwnerIdentity();
+  await insertExpense(getDb(), privateOwnerTenant(ownerHash), {
     amount: amountCents,
     currency,
     category,

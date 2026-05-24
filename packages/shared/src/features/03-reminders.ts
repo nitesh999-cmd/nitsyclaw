@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { insertReminder, dueReminders, markReminderFired } from "../db/repo.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 import { parseRelativeTime } from "../utils/time.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { DB } from "../db/client.js";
@@ -64,14 +65,15 @@ export async function fireDueReminders(
   ownerPhone: string,
   now: Date,
 ): Promise<number> {
-  const due = await dueReminders(db, now);
+  const tenant = privateOwnerTenantForPhone(ownerPhone);
+  const due = await dueReminders(db, tenant, now);
   for (const r of due) {
     await whatsapp.send({ to: ownerPhone, body: `⏰ Reminder: ${r.text}` });
-    await markReminderFired(db, r.id);
+    await markReminderFired(db, tenant, r.id);
     // Recurring: schedule the next occurrence.
     if (r.rrule) {
       const next = new Date(r.fireAt.getTime() + 7 * 24 * 60 * 60 * 1000); // weekly
-      await insertReminder(db, { text: r.text, fireAt: next, rrule: r.rrule });
+      await insertReminder(db, tenant, { text: r.text, fireAt: next, rrule: r.rrule });
     }
   }
   return due.length;
@@ -89,7 +91,7 @@ export function registerReminders(registry: ToolRegistry): void {
     handler: async (input: { text: string; when: string }, ctx: ToolContext) => {
       const planned = planReminder({ text: input.when, now: ctx.now, timezone: ctx.timezone });
       if (!planned) throw new Error(`could not parse time: ${input.when}`);
-      const r = await insertReminder(ctx.deps.db, {
+      const r = await insertReminder(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), {
         text: input.text,
         fireAt: planned.fireAt,
         rrule: planned.rrule,

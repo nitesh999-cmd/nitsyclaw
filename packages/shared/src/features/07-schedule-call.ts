@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { addMinutes } from "../utils/time.js";
 import { insertConfirmation } from "../db/repo.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
 export function registerScheduleCall(registry: ToolRegistry): void {
@@ -47,6 +48,7 @@ export function registerScheduleCall(registry: ToolRegistry): void {
 
       const conf = await insertConfirmation(
         ctx.deps.db,
+        privateOwnerTenantForPhone(ctx.userPhone),
         "create_calendar_event",
         {
           title: input.title,

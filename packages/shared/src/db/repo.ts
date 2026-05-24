@@ -1,7 +1,11 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
 import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
-import { assertPublicSaleTenantBoundaries } from "../tenancy.js";
+import {
+  assertPublicSaleTenantBoundaries,
+  requireTenantContext,
+  type TenantContext,
+} from "../tenancy.js";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -32,7 +36,8 @@ import {
   type CommandJob,
 } from "./schema.js";
 
-function guardUnscopedCustomerDataAccess() {
+function guardUnscopedCustomerDataAccess(tenant: TenantContext) {
+  requireTenantContext(tenant);
   assertPublicSaleTenantBoundaries();
 }
 
@@ -68,8 +73,8 @@ export async function recentMessages(db: DB, fromNumber: string, limit = 50) {
     .limit(limit);
 }
 
-export async function insertMemory(db: DB, m: NewMemory) {
-  guardUnscopedCustomerDataAccess();
+export async function insertMemory(db: DB, tenant: TenantContext, m: NewMemory) {
+  guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db.insert(memories).values(m).returning();
   return row!;
 }
@@ -81,10 +86,11 @@ export async function insertMemory(db: DB, m: NewMemory) {
  */
 export async function searchMemoriesLexical(
   db: DB,
+  tenant: TenantContext,
   query: string,
   limit = 10,
 ): Promise<Memory[]> {
-  guardUnscopedCustomerDataAccess();
+  guardUnscopedCustomerDataAccess(tenant);
   const q = `%${query.toLowerCase()}%`;
   return db
     .select()
@@ -96,28 +102,29 @@ export async function searchMemoriesLexical(
 
 export async function updateMemory(
   db: DB,
+  tenant: TenantContext,
   id: string,
   patch: Partial<Pick<NewMemory, "kind" | "content" | "tags">>,
 ): Promise<Memory | null> {
-  guardUnscopedCustomerDataAccess();
+  guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db.update(memories).set(patch).where(eq(memories.id, id)).returning();
   return row ?? null;
 }
 
-export async function deleteMemory(db: DB, id: string): Promise<boolean> {
-  guardUnscopedCustomerDataAccess();
+export async function deleteMemory(db: DB, tenant: TenantContext, id: string): Promise<boolean> {
+  guardUnscopedCustomerDataAccess(tenant);
   const rows = await db.delete(memories).where(eq(memories.id, id)).returning({ id: memories.id });
   return rows.length > 0;
 }
 
-export async function insertReminder(db: DB, r: NewReminder) {
-  guardUnscopedCustomerDataAccess();
+export async function insertReminder(db: DB, tenant: TenantContext, r: NewReminder) {
+  guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db.insert(reminders).values(r).returning();
   return row!;
 }
 
-export async function dueReminders(db: DB, now: Date): Promise<Reminder[]> {
-  guardUnscopedCustomerDataAccess();
+export async function dueReminders(db: DB, tenant: TenantContext, now: Date): Promise<Reminder[]> {
+  guardUnscopedCustomerDataAccess(tenant);
   return db
     .select()
     .from(reminders)
@@ -126,10 +133,11 @@ export async function dueReminders(db: DB, now: Date): Promise<Reminder[]> {
 
 export async function listPendingReminders(
   db: DB,
+  tenant: TenantContext,
   now: Date,
   limit = 5,
 ): Promise<Reminder[]> {
-  guardUnscopedCustomerDataAccess();
+  guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .select()
     .from(reminders)
@@ -143,19 +151,19 @@ export async function listPendingReminders(
     .slice(0, limit);
 }
 
-export async function markReminderFired(db: DB, id: string) {
-  guardUnscopedCustomerDataAccess();
+export async function markReminderFired(db: DB, tenant: TenantContext, id: string) {
+  guardUnscopedCustomerDataAccess(tenant);
   await db.update(reminders).set({ status: "fired" }).where(eq(reminders.id, id));
 }
 
-export async function insertExpense(db: DB, e: NewExpense) {
-  guardUnscopedCustomerDataAccess();
+export async function insertExpense(db: DB, tenant: TenantContext, e: NewExpense) {
+  guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db.insert(expenses).values(e).returning();
   return row!;
 }
 
-export async function expensesBetween(db: DB, from: Date, to: Date) {
-  guardUnscopedCustomerDataAccess();
+export async function expensesBetween(db: DB, tenant: TenantContext, from: Date, to: Date) {
+  guardUnscopedCustomerDataAccess(tenant);
   return db
     .select()
     .from(expenses)
@@ -164,11 +172,12 @@ export async function expensesBetween(db: DB, from: Date, to: Date) {
 
 export async function recentExpensesBetween(
   db: DB,
+  tenant: TenantContext,
   from: Date,
   to: Date,
   limit = 200,
 ) {
-  guardUnscopedCustomerDataAccess();
+  guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .select()
     .from(expenses)
@@ -178,8 +187,8 @@ export async function recentExpensesBetween(
   return rows.filter((row) => row.occurredAt >= from && row.occurredAt <= to);
 }
 
-export async function upsertBrief(db: DB, forDate: string, body: string) {
-  guardUnscopedCustomerDataAccess();
+export async function upsertBrief(db: DB, tenant: TenantContext, forDate: string, body: string) {
+  guardUnscopedCustomerDataAccess(tenant);
   await db
     .insert(briefs)
     .values({ forDate, body })
@@ -188,11 +197,12 @@ export async function upsertBrief(db: DB, forDate: string, body: string) {
 
 export async function insertConfirmation(
   db: DB,
+  tenant: TenantContext,
   action: string,
   payload: Record<string, unknown>,
   expiresAt: Date,
 ) {
-  guardUnscopedCustomerDataAccess();
+  guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db
     .insert(confirmations)
     .values({ action, payload, expiresAt })
@@ -202,20 +212,21 @@ export async function insertConfirmation(
 
 export async function setConfirmationStatus(
   db: DB,
+  tenant: TenantContext,
   id: string,
   status: "approved" | "rejected" | "expired",
 ) {
-  guardUnscopedCustomerDataAccess();
+  guardUnscopedCustomerDataAccess(tenant);
   await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
 }
 
-export async function restorePendingConfirmation(db: DB, id: string) {
-  guardUnscopedCustomerDataAccess();
+export async function restorePendingConfirmation(db: DB, tenant: TenantContext, id: string) {
+  guardUnscopedCustomerDataAccess(tenant);
   await db.update(confirmations).set({ status: "pending" }).where(eq(confirmations.id, id));
 }
 
-export async function getLatestPendingConfirmation(db: DB): Promise<{ id: string; action: string } | null> {
-  guardUnscopedCustomerDataAccess();
+export async function getLatestPendingConfirmation(db: DB, tenant: TenantContext): Promise<{ id: string; action: string } | null> {
+  guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db
     .select()
     .from(confirmations)
@@ -403,8 +414,8 @@ export async function deleteConnectedAccount(
  * Mark all pending confirmations whose expiresAt is before `now` as expired.
  * Returns count of rows updated.
  */
-export async function pruneExpiredConfirmations(db: DB, now: Date = new Date()): Promise<number> {
-  guardUnscopedCustomerDataAccess();
+export async function pruneExpiredConfirmations(db: DB, tenant: TenantContext, now: Date = new Date()): Promise<number> {
+  guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .update(confirmations)
     .set({ status: "expired" })

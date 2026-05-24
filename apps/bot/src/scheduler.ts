@@ -7,6 +7,7 @@ import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
+import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { sendNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
@@ -142,7 +143,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
         const cutoff = new Date(now.getTime() - PRUNE_MESSAGES_DAYS * 24 * 60 * 60 * 1000);
         await pruneOldMessages(opts.deps.db, cutoff);
         console.log(`[cron:prune] pruned messages older than ${PRUNE_MESSAGES_DAYS} days (cutoff: ${cutoff.toISOString()})`);
-        const expired = await pruneExpiredConfirmations(opts.deps.db, now);
+        const expired = await pruneExpiredConfirmations(opts.deps.db, privateOwnerTenantForPhone(opts.ownerPhone), now);
         if (expired > 0) console.log(`[cron:prune] expired ${expired} confirmation(s)`);
         await writeHeartbeat("memory-pruner", { lastRun: now.toISOString() });
       } catch (e) {

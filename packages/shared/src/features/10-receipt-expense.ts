@@ -6,6 +6,7 @@ import { parseExpenseText } from "../utils/parse.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { ImageAnalyzer } from "../agent/deps.js";
 import type { DB } from "../db/client.js";
+import { privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
 
 type Category = "food" | "transport" | "groceries" | "shopping" | "bills" | "entertainment" | "health" | "other";
 
@@ -60,7 +61,7 @@ export async function processReceiptImage(args: {
   const fields = await args.analyzer.extractReceipt(args.image, args.mimetype);
   if (!fields.amount || fields.amount <= 0) throw new Error("could not extract amount from receipt");
   const category = categorizeExpense({ merchant: fields.merchant, rawText: fields.rawText });
-  const e = await insertExpense(args.db, {
+  const e = await insertExpense(args.db, privateOwnerTenant(), {
     amount: Math.round(fields.amount * 100),
     currency: fields.currency ?? "AUD",
     category,
@@ -149,7 +150,7 @@ export async function importExpensesFromCsv(args: {
     defaultCurrency: args.defaultCurrency,
   });
   for (const item of parsed.items) {
-    await insertExpense(args.db, {
+    await insertExpense(args.db, privateOwnerTenant(), {
       amount: item.amountCents,
       currency: item.currency,
       category: item.category,
@@ -180,7 +181,7 @@ export function registerReceiptExpense(registry: ToolRegistry): void {
       const parsed = parseExpenseText(input.text);
       if (!parsed) throw new Error("could not parse amount from text");
       const category = categorizeExpense({ merchant: parsed.merchant, rawText: input.text });
-      const e = await insertExpense(ctx.deps.db, {
+      const e = await insertExpense(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), {
         amount: parsed.amountCents,
         currency: parsed.currency,
         category: parsed.category ?? category,

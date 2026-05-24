@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { insertConfirmation } from "../db/repo.js";
 import { hashPhone } from "../utils/crypto.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
 const emailAddressSchema = z.string().email().max(254);
@@ -50,6 +51,7 @@ export async function queueEmailDraft(input: QueueEmailDraftInput, ctx: ToolCont
   const expiresAt = new Date(ctx.now.getTime() + 15 * 60 * 1000);
   const row = await insertConfirmation(
     ctx.deps.db,
+    privateOwnerTenantForPhone(ctx.userPhone),
     "email_create_draft",
     {
       provider: input.provider,

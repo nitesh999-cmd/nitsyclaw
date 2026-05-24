@@ -1,9 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, insertReminder, reminders } from "@nitsyclaw/shared/db";
+import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { parseRelativeTime } from "@nitsyclaw/shared/utils";
 import { desc, eq } from "drizzle-orm";
-import { logDashboardLoadError, publicConfigErrorOrNull } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardLoadError, publicConfigErrorOrNull } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,8 @@ async function createReminder(formData: FormData) {
     redirect("/reminders?error=invalid-date");
   }
 
-  await insertReminder(getDb(), {
+  const { ownerHash } = getOwnerIdentity();
+  await insertReminder(getDb(), privateOwnerTenant(ownerHash), {
     text,
     fireAt,
     rrule: null,

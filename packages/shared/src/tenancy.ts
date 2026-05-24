@@ -1,3 +1,5 @@
+import { hashPhone } from "./utils/crypto.js";
+
 export type TenantBoundaryKind =
   | "tenant_scoped"
   | "owner_scoped"
@@ -134,6 +136,10 @@ export function privateOwnerTenant(ownerHash = "owner"): TenantContext {
     ownerHash,
     mode: "private-owner",
   };
+}
+
+export function privateOwnerTenantForPhone(phone: string): TenantContext {
+  return privateOwnerTenant(hashPhone(phone));
 }
 
 export function requireTenantContext(context: TenantContext | null | undefined): TenantContext {

@@ -1,8 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { getDb, confirmations, restorePendingConfirmation, setConfirmationStatus } from "@nitsyclaw/shared/db";
 import { createPrivateSpotifyPlaylist } from "@nitsyclaw/shared/integrations/spotify";
+import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { desc, eq } from "drizzle-orm";
-import { logDashboardLoadError } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ async function rejectConfirmation(formData: FormData) {
   "use server";
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await setConfirmationStatus(getDb(), id, "rejected");
+  const { ownerHash } = getOwnerIdentity();
+  await setConfirmationStatus(getDb(), privateOwnerTenant(ownerHash), id, "rejected");
   revalidatePath("/confirmations");
   revalidatePath("/");
 }
@@ -31,10 +33,12 @@ async function approveSpotifyConfirmation(formData: FormData) {
   if (!id) return;
 
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
+  const tenant = privateOwnerTenant(ownerHash);
   const [row] = await db.select().from(confirmations).where(eq(confirmations.id, id)).limit(1);
   if (!row || row.status !== "pending") return;
   if (row.expiresAt < new Date()) {
-    await setConfirmationStatus(db, id, "expired");
+    await setConfirmationStatus(db, tenant, id, "expired");
     revalidatePath("/confirmations");
     revalidatePath("/");
     return;
@@ -47,7 +51,7 @@ async function approveSpotifyConfirmation(formData: FormData) {
     uris: string[];
     ownerHash?: string;
   };
-  await setConfirmationStatus(db, id, "approved");
+  await setConfirmationStatus(db, tenant, id, "approved");
   try {
     await createPrivateSpotifyPlaylist(db, payload.ownerHash ?? "", {
       name: payload.name,
@@ -55,7 +59,7 @@ async function approveSpotifyConfirmation(formData: FormData) {
       uris: payload.uris,
     });
   } catch (e) {
-    await restorePendingConfirmation(db, id);
+    await restorePendingConfirmation(db, tenant, id);
     throw e;
   }
   revalidatePath("/confirmations");

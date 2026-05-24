@@ -4,6 +4,7 @@
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
+import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
 import { detectIntent } from "@nitsyclaw/shared/utils";
 import {
   registerAllFeatures,
@@ -151,6 +152,10 @@ export class Router {
   private readonly seenExternalMessageOrder: string[] = [];
 
   constructor(private deps: AgentDeps, private ownerPhone: string) {}
+
+  private tenant() {
+    return privateOwnerTenantForPhone(this.ownerPhone);
+  }
 
   /** Identify a non-receipt image via the LLM. Short prompt, low max-tokens,
    *  one-line output. Returns "an image of X" style description. */
@@ -368,7 +373,7 @@ export class Router {
       month: "short",
     });
     const [reminders, documents, expenses, pendingQueue] = await Promise.all([
-      listPendingReminders(this.deps.db, now, 3),
+      listPendingReminders(this.deps.db, this.tenant(), now, 3),
       this.getRecentDocumentLines(userPhone, 3),
       this.getMonthlyExpenseSnapshot(),
       listPendingFeatureRequests(this.deps.db),
@@ -421,7 +426,7 @@ export class Router {
   }
 
   private async formatRemindersStatusLine(): Promise<string> {
-    const rows = await listPendingReminders(this.deps.db, this.deps.now(), 2);
+    const rows = await listPendingReminders(this.deps.db, this.tenant(), this.deps.now(), 2);
     if (!rows.length) return "Reminders: clear. No pending WhatsApp reminders.";
     const next = rows[0]!;
     const more = rows.length > 1 ? ` +${rows.length - 1} more` : "";
@@ -431,7 +436,7 @@ export class Router {
   private async formatExpenseStatusLine(): Promise<string> {
     const now = this.deps.now();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    const rows = await recentExpensesBetween(this.deps.db, this.tenant(), from, now, 200);
     if (!rows.length) return "Expenses: clear for this month. AUD is the default; no bank feed connected.";
     const currency = rows[0]?.currency ?? "AUD";
     const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
@@ -445,7 +450,7 @@ export class Router {
   private async getMonthlyExpenseSnapshot(): Promise<string> {
     const now = this.deps.now();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    const rows = await recentExpensesBetween(this.deps.db, this.tenant(), from, now, 200);
     if (!rows.length) return "- No expenses logged this month.";
     const totalCents = rows.reduce((sum, row) => sum + row.amount, 0);
     const currency = rows[0]?.currency ?? "AUD";
@@ -479,7 +484,7 @@ export class Router {
   }
 
   private async formatRemindersStatus(): Promise<string> {
-    const rows = await listPendingReminders(this.deps.db, this.deps.now(), 5);
+    const rows = await listPendingReminders(this.deps.db, this.tenant(), this.deps.now(), 5);
     if (!rows.length) {
       return [
         "Reminders",
@@ -503,7 +508,7 @@ export class Router {
   private async formatExpenseStatus(): Promise<string> {
     const now = this.deps.now();
     const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const rows = await recentExpensesBetween(this.deps.db, from, now, 200);
+    const rows = await recentExpensesBetween(this.deps.db, this.tenant(), from, now, 200);
     if (rows.length === 0) {
       return [
         "Expenses",
@@ -606,7 +611,7 @@ export class Router {
     }
 
     const category = parsed.category ?? categorizeExpense({ merchant: parsed.merchant, rawText: effectiveText });
-    const expense = await insertExpense(this.deps.db, {
+    const expense = await insertExpense(this.deps.db, this.tenant(), {
       amount: parsed.amountCents,
       currency: parsed.currency,
       category,
@@ -642,7 +647,7 @@ export class Router {
       return true;
     }
 
-    const reminder = await insertReminder(this.deps.db, {
+    const reminder = await insertReminder(this.deps.db, this.tenant(), {
       text: planned.text,
       fireAt: planned.fireAt,
       rrule: planned.rrule,
@@ -898,7 +903,7 @@ export class Router {
       getSystemHeartbeat(this.deps.db, "bot-scheduler"),
       listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 10 }),
       listPendingFeatureRequests(this.deps.db),
-      getLatestPendingConfirmation(this.deps.db),
+      getLatestPendingConfirmation(this.deps.db, this.tenant()),
     ]);
 
     const runtime = buildBotRuntimeMetadata(process.env, now);
@@ -1934,7 +1939,7 @@ export class Router {
         : "no";
       let canResolveConfirmation = true;
       if (!confirmationId) {
-        const latest = await getLatestPendingConfirmation(this.deps.db);
+        const latest = await getLatestPendingConfirmation(this.deps.db, this.tenant());
         if (!latest) {
           canResolveConfirmation = false;
         } else if (confirmationNeedsExplicitId(latest.action)) {
@@ -2248,3 +2253,4 @@ function clipForWhatsApp(value: string, max = 1200): string {
   const clean = value.trim();
   return clean.length > max ? `${clean.slice(0, max - 20).trim()}...` : clean;
 }
+

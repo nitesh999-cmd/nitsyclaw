@@ -25,6 +25,8 @@ describe("repo tenant guard", () => {
   const source = readFileSync("packages/shared/src/db/repo.ts", "utf8");
 
   it("uses the tenant readiness gate before unscoped customer-data table access", () => {
+    expect(source).toContain("type TenantContext");
+    expect(source).toContain("requireTenantContext");
     expect(source).toContain("assertPublicSaleTenantBoundaries");
     expect(source).toContain("guardUnscopedCustomerDataAccess");
 
@@ -34,7 +36,8 @@ describe("repo tenant guard", () => {
       const nextExport = source.indexOf("\nexport ", start + 1);
       const body = source.slice(start, nextExport === -1 ? undefined : nextExport);
 
-      expect(body, `${functionName} should guard before DB access`).toContain("guardUnscopedCustomerDataAccess();");
+      expect(body, `${functionName} should guard before DB access`).toContain("guardUnscopedCustomerDataAccess(tenant);");
+      expect(body, `${functionName} should require explicit tenant context`).toContain("tenant: TenantContext");
     }
   });
 });

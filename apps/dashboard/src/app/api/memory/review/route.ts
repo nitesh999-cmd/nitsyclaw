@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { deleteMemory, getDb, memories, updateMemory } from "@nitsyclaw/shared/db";
 import { mergeMemoryQualityTags } from "@nitsyclaw/shared/agent";
+import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { eq } from "drizzle-orm";
-import { logDashboardError } from "../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 
@@ -56,16 +57,17 @@ export async function POST(req: Request) {
 
   try {
     const db = getDb();
+    const tenant = privateOwnerTenant(getOwnerIdentity().ownerHash);
     const [current] = await db.select().from(memories).where(eq(memories.id, id)).limit(1);
     if (!current) return redirectToMemory(req, { reviewError: "missing" });
 
     if (action === "delete" || action === "expire") {
-      await deleteMemory(db, id);
+      await deleteMemory(db, tenant, id);
       return redirectToMemory(req, { reviewed: action });
     }
 
     if (action === "pin") {
-      await updateMemory(db, id, {
+      await updateMemory(db, tenant, id, {
         kind: "pin",
         tags: reviewedTags(current.content, current.tags, ["pinned"]),
       });
@@ -73,7 +75,7 @@ export async function POST(req: Request) {
     }
 
     if (action === "downgrade") {
-      await updateMemory(db, id, {
+      await updateMemory(db, tenant, id, {
         kind: "note",
         tags: reviewedTags(current.content, current.tags, ["downgraded"]),
       });
@@ -82,7 +84,7 @@ export async function POST(req: Request) {
 
     const content = cleanContent(form.get("content"));
     if (content.length < 1) return redirectToMemory(req, { reviewError: "empty" });
-    await updateMemory(db, id, {
+    await updateMemory(db, tenant, id, {
       content,
       tags: reviewedTags(content, current.tags, ["edited"]),
     });

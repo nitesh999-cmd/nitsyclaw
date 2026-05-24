@@ -11,6 +11,7 @@ import {
 import { formatBriefDate } from "../utils/time.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { AgentDeps } from "../agent/deps.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 
 export interface BriefSections {
   date: string;
@@ -135,7 +136,7 @@ export async function runMorningBrief(args: {
   inputs: BriefInputs;
 }): Promise<{ delivered: boolean }> {
   const brief = buildBrief({ now: args.now, timezone: args.deps.timezone, inputs: args.inputs });
-  await upsertBrief(args.deps.db, brief.date, brief.body);
+  await upsertBrief(args.deps.db, privateOwnerTenantForPhone(args.ownerPhone), brief.date, brief.body);
   await args.deps.whatsapp.send({ to: args.ownerPhone, body: brief.body });
   return { delivered: true };
 }
@@ -151,7 +152,7 @@ export function registerMorningBrief(registry: ToolRegistry): void {
       const [events, unreadEmails, reminders, queueItems, whatsappFollowUps, weather] = await Promise.all([
         ctx.deps.aggregator?.fetchAllEventsToday(ctx.timezone).catch(() => []) ?? [],
         ctx.deps.aggregator?.fetchAllUnreadEmails(3).catch(() => []) ?? [],
-        listPendingReminders(ctx.deps.db, ctx.now, 6).catch(() => []),
+        listPendingReminders(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), ctx.now, 6).catch(() => []),
         listPendingFeatureRequests(ctx.deps.db).then((rows) => rows.slice(0, 5)).catch(() => []),
         recentMessages(ctx.deps.db, ctx.userPhone, 10)
           .then((rows) =>

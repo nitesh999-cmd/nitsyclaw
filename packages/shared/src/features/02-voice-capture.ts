@@ -5,6 +5,7 @@ import { insertMemory, updateMessageTranscript } from "../db/repo.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { Transcriber } from "../agent/deps.js";
 import { encryptForStorage } from "../utils/crypto.js";
+import { privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
 
 export async function transcribeAndStore(args: {
   audio: Buffer;
@@ -19,7 +20,7 @@ export async function transcribeAndStore(args: {
   if (args.sourceMessageId) {
     await updateMessageTranscript(args.db, args.sourceMessageId, encryptForStorage(transcript));
   }
-  const mem = await insertMemory(args.db, {
+  const mem = await insertMemory(args.db, privateOwnerTenant(), {
     kind: "note",
     content: transcript,
     tags: ["voice"],
@@ -39,7 +40,7 @@ export function registerVoiceCapture(registry: ToolRegistry): void {
     }),
     handler: async (input: { transcript: string; tags?: string[] }, ctx: ToolContext) => {
       const { insertMemory } = await import("../db/repo.js");
-      const mem = await insertMemory(ctx.deps.db, {
+      const mem = await insertMemory(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), {
         kind: "note",
         content: input.transcript,
         tags: input.tags ?? ["voice"],

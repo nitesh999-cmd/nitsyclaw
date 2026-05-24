@@ -3,6 +3,7 @@
 import { z } from "zod";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import { insertMemory, searchMemoriesLexical } from "../db/repo.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 
 const CANT_DO_PREFIX = "CAN'T-DO:";
 const BIRTHDAY_TEMPLATE_PREFIX = "BIRTHDAY_TEMPLATE:";
@@ -30,7 +31,7 @@ async function addCantDoItem(
     input.exception ? `Exception: ${cleanOneLine(input.exception)}` : null,
   ].filter(Boolean);
   const severity = input.severity ?? "ask_first";
-  const row = await insertMemory(ctx.deps.db, {
+  const row = await insertMemory(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), {
     kind: "pin",
     content: parts.join(" | "),
     tags: ["cant-do", severity],
@@ -42,7 +43,7 @@ async function listCantDoItems(input: { query?: string; limit?: number }, ctx: T
   const q = input.query?.trim()
     ? `${CANT_DO_PREFIX} ${input.query.trim()}`
     : CANT_DO_PREFIX;
-  const rows = await searchMemoriesLexical(ctx.deps.db, q, input.limit ?? 10);
+  const rows = await searchMemoriesLexical(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), q, input.limit ?? 10);
   const items = rows
     .filter((row) => row.content.startsWith(CANT_DO_PREFIX))
     .map((row) => ({
@@ -63,7 +64,7 @@ async function addBirthdayTemplate(
   ctx: ToolContext,
 ) {
   const content = `${BIRTHDAY_TEMPLATE_PREFIX} ${cleanOneLine(input.name)} | Tone: ${input.tone} | Message: ${cleanOneLine(input.message)}`;
-  const row = await insertMemory(ctx.deps.db, {
+  const row = await insertMemory(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), {
     kind: "pin",
     content,
     tags: ["birthday-template", input.tone],
@@ -79,7 +80,7 @@ async function listBirthdayTemplates(input: { tone?: string; limit?: number }, c
   const q = input.tone?.trim()
     ? `${BIRTHDAY_TEMPLATE_PREFIX} ${input.tone.trim()}`
     : BIRTHDAY_TEMPLATE_PREFIX;
-  const rows = await searchMemoriesLexical(ctx.deps.db, q, input.limit ?? 10);
+  const rows = await searchMemoriesLexical(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), q, input.limit ?? 10);
   const items = rows
     .filter((row) => row.content.startsWith(BIRTHDAY_TEMPLATE_PREFIX))
     .map((row) => ({

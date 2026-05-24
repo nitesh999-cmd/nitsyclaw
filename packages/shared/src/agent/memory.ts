@@ -1,5 +1,6 @@
 import type { DB } from "../db/client.js";
 import { insertMemory, searchMemoriesLexical } from "../db/repo.js";
+import { privateOwnerTenant } from "../tenancy.js";
 import type { Embedder } from "./deps.js";
 import { mergeMemoryQualityTags } from "./memory-quality.js";
 
@@ -11,7 +12,7 @@ export async function pinMemory(
   args: { content: string; tags?: string[]; embedder?: Embedder; sourceMessageId?: string },
 ) {
   const embedding = args.embedder ? JSON.stringify(await args.embedder.embed(args.content)) : null;
-  return insertMemory(db, {
+  return insertMemory(db, privateOwnerTenant(), {
     kind: "pin",
     content: args.content,
     tags: mergeMemoryQualityTags(args.content, args.tags ?? []),
@@ -25,5 +26,5 @@ export async function pinMemory(
  * Returning structured candidates so the LLM can rerank.
  */
 export async function recallMemory(db: DB, query: string, limit = 5) {
-  return searchMemoriesLexical(db, query, limit);
+  return searchMemoriesLexical(db, privateOwnerTenant(), query, limit);
 }

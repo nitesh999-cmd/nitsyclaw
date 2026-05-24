@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { insertConfirmation } from "../db/repo.js";
 import { hashPhone } from "../utils/crypto.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import {
   getTopSpotifyTracks,
@@ -74,6 +75,7 @@ export function registerSpotify(registry: ToolRegistry): void {
       const expiresAt = new Date(ctx.now.getTime() + 15 * 60 * 1000);
       const row = await insertConfirmation(
         ctx.deps.db,
+        privateOwnerTenantForPhone(ctx.userPhone),
         "spotify_create_playlist",
         {
           name: input.name,

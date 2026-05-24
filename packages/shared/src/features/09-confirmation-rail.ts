@@ -8,6 +8,7 @@ import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { confirmations } from "../db/schema.js";
 import { restorePendingConfirmation, setConfirmationStatus } from "../db/repo.js";
+import { privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { DB } from "../db/client.js";
 import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
@@ -29,6 +30,7 @@ export async function resolveConfirmation(args: {
   reply: string;
   now: Date;
   confirmationId?: string;
+  userPhone?: string;
 }): Promise<{ id: string; action: string; decision: ConfirmationDecision; payload: Record<string, unknown> } | null> {
   const r = args.reply.trim().toLowerCase();
   const yes = /^(y|yes|approve|approved|confirm|confirmed|ok|okay)\b/.test(r);
@@ -56,7 +58,8 @@ export async function resolveConfirmation(args: {
   if (row.expiresAt < args.now) decision = "expired";
   else decision = yes ? "approved" : "rejected";
 
-  await setConfirmationStatus(args.db, row.id, decision);
+  const tenant = args.userPhone ? privateOwnerTenantForPhone(args.userPhone) : privateOwnerTenant();
+  await setConfirmationStatus(args.db, tenant, row.id, decision);
   return { id: row.id, action: row.action, decision, payload: row.payload as Record<string, unknown> };
 }
 
@@ -75,6 +78,7 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
         reply: input.reply,
         now: ctx.now,
         confirmationId: input.confirmationId,
+        userPhone: ctx.userPhone,
       });
       if (!out) return { resolved: false };
       // For approved create_calendar_event: actually create now.
@@ -158,7 +162,7 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
           replyToMessageId?: string;
         };
         if (!ctx.deps.emailDraft) {
-          await restorePendingConfirmation(ctx.deps.db, out.id);
+          await restorePendingConfirmation(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), out.id);
           return {
             resolved: true,
             decision: "pending_adapter",

@@ -7,6 +7,7 @@ import {
   saveSpotifyConnection,
 } from "../src/integrations/spotify.js";
 import { hashPhone } from "../src/utils/crypto.js";
+import { privateOwnerTenant } from "../src/tenancy.js";
 import { getFakeDbState, makeAgentDeps, makeFakeDb } from "./helpers.js";
 
 const key = Buffer.alloc(32, 9).toString("base64");
@@ -111,6 +112,7 @@ describe("spotify integration", () => {
     });
     await insertConfirmation(
       deps.db,
+      privateOwnerTenant(ownerHash),
       "spotify_create_playlist",
       { ownerHash, name: "Approved Mix", uris: ["spotify:track:1"] },
       new Date("2026-04-25T09:00:00Z"),

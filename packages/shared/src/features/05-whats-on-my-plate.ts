@@ -6,6 +6,7 @@ import { startOfDay, addDays } from "../utils/time.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { AgentDeps } from "../agent/deps.js";
 import { dueReminders } from "../db/repo.js";
+import { privateOwnerTenant } from "../tenancy.js";
 
 export interface PlateSummary {
   events: Array<{ title: string; start: Date; source?: string }>;
@@ -33,7 +34,7 @@ export async function summarizeToday(args: {
     }
   }
 
-  const reminders = (await dueReminders(args.deps.db, end)).map((r) => ({ text: r.text, fireAt: r.fireAt }));
+  const reminders = (await dueReminders(args.deps.db, privateOwnerTenant(), end)).map((r) => ({ text: r.text, fireAt: r.fireAt }));
 
   const lines: string[] = ["Today's plate:"];
   if (events.length) {
