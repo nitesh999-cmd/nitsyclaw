@@ -179,6 +179,24 @@ const replies: ReplyBudget[] = [
     maxChars: 1400,
   },
   {
+    name: "demo checklist",
+    reply: formatWhatsAppReplyShape({
+      answer: "Demo checklist: run these in WhatsApp.",
+      state: "Goal: prove the life-admin spine works before more feature build.",
+      details: [
+        "1. proof test",
+        "2. bill summary: AGL bill $240 due 18 May ref 12345",
+        "3. I spent $18.40 at Chemist Warehouse for medicine",
+        "4. Remind me to pay AGL on 17 May at 9 am",
+        "5. weekly admin digest",
+        "6. what went wrong",
+      ],
+      next: "If all pass, validate with a real bill/receipt. If one fails, send proof details.",
+    }),
+    maxLines: 12,
+    maxChars: 900,
+  },
+  {
     name: "pending build plan",
     reply: formatWhatsAppPendingFeatureDevelopmentPlan(),
     maxLines: 12,

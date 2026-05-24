@@ -765,6 +765,28 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers demo checklist requests with the controlled validation prompts", async () => {
+    await router.handle({
+      id: "x-demo-checklist",
+      from: OWNER,
+      body: "demo checklist",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Demo checklist");
+    expect(wa.sent[0].body).toContain("proof test");
+    expect(wa.sent[0].body).toContain("bill summary: AGL bill $240 due 18 May ref 12345");
+    expect(wa.sent[0].body).toContain("I spent $18.40 at Chemist Warehouse for medicine");
+    expect(wa.sent[0].body).toContain("Remind me to pay AGL on 17 May at 9 am");
+    expect(wa.sent[0].body).toContain("weekly admin digest");
+    expect(wa.sent[0].body).toContain("what went wrong");
+    expect(wa.sent[0].body).toContain("real bill/receipt");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("queues setup-heavy integration requests deterministically before the model loop", async () => {
     await router.handle({
       id: "x-connect-google-photos",

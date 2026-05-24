@@ -68,6 +68,10 @@ export interface WhatsAppCanaryShortcut {
   detail: boolean;
 }
 
+export interface DemoChecklistShortcut {
+  kind: "demo-checklist";
+}
+
 export interface QueuedIntegrationShortcut {
   toolName:
     | "queue_email_connection_request"
@@ -545,6 +549,21 @@ export function parseWhatsAppCanaryShortcut(text: string): WhatsAppCanaryShortcu
     trimmed === "whatsapp canary details"
   ) {
     return { kind: "whatsapp-canary", detail: true };
+  }
+  return null;
+}
+
+export function parseDemoChecklistShortcut(text: string): DemoChecklistShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "demo checklist" ||
+    trimmed === "run demo checklist" ||
+    trimmed === "validation checklist" ||
+    trimmed === "test checklist" ||
+    trimmed === "what should i test" ||
+    trimmed === "what should i try"
+  ) {
+    return { kind: "demo-checklist" };
   }
   return null;
 }

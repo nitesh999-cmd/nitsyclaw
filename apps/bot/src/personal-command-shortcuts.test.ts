@@ -7,6 +7,7 @@ import {
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
+  parseDemoChecklistShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parsePendingFeatureDevelopmentShortcut,
@@ -227,6 +228,13 @@ describe("personal command shortcuts", () => {
     expect(parseWhatsAppCanaryShortcut("test delivery")).toEqual({ kind: "whatsapp-canary", detail: false });
     expect(parseWhatsAppCanaryShortcut("proof details")).toEqual({ kind: "whatsapp-canary", detail: true });
     expect(parseWhatsAppCanaryShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects demo checklist requests", () => {
+    expect(parseDemoChecklistShortcut("demo checklist")).toEqual({ kind: "demo-checklist" });
+    expect(parseDemoChecklistShortcut("what should I test?")).toEqual({ kind: "demo-checklist" });
+    expect(parseDemoChecklistShortcut("run demo checklist")).toEqual({ kind: "demo-checklist" });
+    expect(parseDemoChecklistShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects WhatsApp control plane requests", () => {

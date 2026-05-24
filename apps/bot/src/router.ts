@@ -110,6 +110,7 @@ import {
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
+  parseDemoChecklistShortcut,
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
@@ -905,6 +906,22 @@ export class Router {
       "",
       "If this looked slow, duplicated, or wrong, send: what went wrong",
     ].join("\n");
+  }
+
+  private formatDemoChecklistReply(): string {
+    return formatWhatsAppReplyShape({
+      answer: "Demo checklist: run these in WhatsApp.",
+      state: "Goal: prove the life-admin spine works before more feature build.",
+      details: [
+        "1. proof test",
+        "2. bill summary: AGL bill $240 due 18 May ref 12345",
+        "3. I spent $18.40 at Chemist Warehouse for medicine",
+        "4. Remind me to pay AGL on 17 May at 9 am",
+        "5. weekly admin digest",
+        "6. what went wrong",
+      ],
+      next: "If all pass, validate with a real bill/receipt. If one fails, send proof details.",
+    });
   }
 
   private async formatWhatsAppIncidentSummaryReply(): Promise<string> {
@@ -1861,6 +1878,14 @@ export class Router {
     const canary = parseWhatsAppCanaryShortcut(effectiveText);
     if (canary) {
       const reply = await this.formatWhatsAppCanaryReply(canary.detail);
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const demoChecklist = parseDemoChecklistShortcut(effectiveText);
+    if (demoChecklist) {
+      const reply = this.formatDemoChecklistReply();
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
