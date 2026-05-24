@@ -4,6 +4,10 @@ This is the safe plan for moving NitsyClaw from private-owner storage toward a s
 
 Status: planning only. Do not run a production schema migration from this document.
 
+Execution-grade plan: `docs/superpowers/plans/2026-05-24-tenant-schema-boundary.md`.
+
+That plan is the next implementation checklist. It is still approval-gated: it defines what to build, but it does not grant permission to run a production schema migration.
+
 ## Goal
 
 Every customer-owned row must have a tenant boundary before public sale mode can be enabled.
@@ -63,6 +67,18 @@ This prints the current unscoped customer-data access points for the blocking ta
 6. Change `briefs` uniqueness from `for_date` to `(owner_hash, for_date)` after backfill.
 7. Add tenant-scoped export/delete tests.
 8. Only then allow `NITSYCLAW_TENANT_ISOLATION=verified`.
+
+## Approval gates before any live schema change
+
+Before running `pnpm run db:migrate` against Railway or any production database:
+
+1. Run `pnpm run tenant:migration-plan`.
+2. Run `pnpm run tenant:access-inventory`.
+3. Run `pnpm run whatsapp:smoke`.
+4. Run `pnpm lint`.
+5. Run `pnpm typecheck`.
+6. Take or confirm a fresh database backup.
+7. Get explicit approval for the exact migration file being applied.
 
 ## Rollback plan
 

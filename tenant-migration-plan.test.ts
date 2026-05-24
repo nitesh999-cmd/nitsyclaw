@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("tenant migration plan", () => {
@@ -16,6 +17,19 @@ describe("tenant migration plan", () => {
     }
     expect(plan).toContain("pnpm run tenant:access-inventory");
     expect(plan).toContain("unscoped customer-data access points");
+    expect(plan).toContain("docs/superpowers/plans/2026-05-24-tenant-schema-boundary.md");
+    expect(plan).toContain("fresh database backup");
+  });
+
+  it("has an execution-grade tenant schema plan", () => {
+    const path = "docs/superpowers/plans/2026-05-24-tenant-schema-boundary.md";
+    expect(existsSync(path)).toBe(true);
+
+    const plan = readFileSync(path, "utf8");
+    expect(plan).toContain("owner_hash text not null default 'owner'");
+    expect(plan).toContain("TenantContext");
+    expect(plan).toContain("Do not change production schema from this plan alone.");
+    expect(plan).toContain("pnpm run whatsapp:smoke");
   });
 
   it("does not include destructive SQL instructions", () => {
