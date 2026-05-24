@@ -30,6 +30,8 @@ jobs:
         run: pnpm ci:whatsapp-snapshots
       - name: Provider readiness gate
         run: pnpm ci:provider-readiness
+      - name: Tenant isolation gate
+        run: pnpm ci:tenant-isolation
       - name: WhatsApp release gate
         shell: pwsh
         run: ./scripts/whatsapp-release-gate.ps1
