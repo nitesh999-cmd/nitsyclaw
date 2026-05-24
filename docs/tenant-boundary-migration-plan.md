@@ -12,6 +12,10 @@ Reviewed migration draft: `docs/migration-drafts/0009_tenant_owner_hash.sql`.
 
 This draft is intentionally outside `packages/shared/drizzle/` so it cannot be applied by `pnpm run db:migrate` by accident.
 
+Controlled implementation branch: `tenant-owner-hash-controlled-migration`.
+
+That branch may contain the real Drizzle migration at `packages/shared/drizzle/0009_tenant_owner_hash.sql` and matching runtime schema columns. Do not merge/deploy/apply it until backup, approval, and release gates are complete.
+
 ## Goal
 
 Every customer-owned row must have a tenant boundary before public sale mode can be enabled.
@@ -88,6 +92,7 @@ Current draft to review before approval:
 
 ```powershell
 pnpm exec vitest run tenant-owner-hash-migration-draft.test.ts
+pnpm exec vitest run tenant-owner-hash-controlled-migration.test.ts
 ```
 
 ## Rollback plan
