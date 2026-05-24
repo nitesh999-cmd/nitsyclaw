@@ -12,6 +12,7 @@ const navGroups = [
       { href: "/reminders", label: "Reminders", mark: "Due" },
       { href: "/expenses", label: "Spending", mark: "AUD" },
       { href: "/confirmations", label: "Review", mark: "Yes" },
+      { href: "/demo", label: "Demo checklist", mark: "Test" },
       { href: "/onboarding", label: "Demo setup", mark: "Start" },
     ],
   },

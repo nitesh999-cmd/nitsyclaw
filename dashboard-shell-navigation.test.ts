@@ -24,6 +24,8 @@ describe("dashboard shell navigation", () => {
     expect(mobileSection).not.toContain('label: "Queue"');
     expect(source).toContain("nc-mobile-nav");
     expect(source).not.toContain('label: "Advanced"');
+    expect(source).toContain('href: "/demo"');
+    expect(source).toContain('label: "Demo checklist"');
     expect(source).toContain("Owner tools");
     expect(source).toContain("Not part of the customer demo");
     expect(source).toContain('href: "/whatsapp-recovery"');
