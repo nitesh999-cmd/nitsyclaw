@@ -23,7 +23,7 @@
     "ci:whatsapp-replies": "pnpm run whatsapp:reply-shape",
     "ci:whatsapp-snapshots": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-snapshots-check.ps1",
     "ci:provider-readiness": "vitest run apps/dashboard/src/lib/provider-setup-readiness.test.ts apps/bot/src/whatsapp-provider-readiness.test.ts health-page.test.ts integrations-page.test.ts integrations-health-route.test.ts setup-page.test.ts",
-    "ci:tenant-isolation": "vitest run packages/shared/test/tenant-boundaries.test.ts packages/shared/src/customer-instance.test.ts packages/shared/src/db/repo-tenant-guard.test.ts dashboard-customer-data-routes.test.ts tenant-migration-plan.test.ts tenant-access-inventory.test.ts",
+    "ci:tenant-isolation": "vitest run packages/shared/test/tenant-boundaries.test.ts packages/shared/src/customer-instance.test.ts packages/shared/src/db/repo-tenant-guard.test.ts dashboard-customer-data-routes.test.ts tenant-migration-plan.test.ts tenant-access-inventory.test.ts tenant-owner-hash-migration-draft.test.ts",
     "provider:health": "pnpm exec tsx scripts/provider-health.ts",
     "railway:login": "pnpm dlx @railway/cli login --browserless",
     "railway:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",

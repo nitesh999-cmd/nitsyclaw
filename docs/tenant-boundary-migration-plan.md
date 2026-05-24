@@ -8,6 +8,10 @@ Execution-grade plan: `docs/superpowers/plans/2026-05-24-tenant-schema-boundary.
 
 That plan is the next implementation checklist. It is still approval-gated: it defines what to build, but it does not grant permission to run a production schema migration.
 
+Reviewed migration draft: `docs/migration-drafts/0009_tenant_owner_hash.sql`.
+
+This draft is intentionally outside `packages/shared/drizzle/` so it cannot be applied by `pnpm run db:migrate` by accident.
+
 ## Goal
 
 Every customer-owned row must have a tenant boundary before public sale mode can be enabled.
@@ -79,6 +83,12 @@ Before running `pnpm run db:migrate` against Railway or any production database:
 5. Run `pnpm typecheck`.
 6. Take or confirm a fresh database backup.
 7. Get explicit approval for the exact migration file being applied.
+
+Current draft to review before approval:
+
+```powershell
+pnpm exec vitest run tenant-owner-hash-migration-draft.test.ts
+```
 
 ## Rollback plan
 
