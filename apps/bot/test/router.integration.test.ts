@@ -1006,6 +1006,101 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers weekly admin digest from local reminders expenses and command jobs", async () => {
+    const state = getFakeDbState(deps.db);
+    state.reminders.push(
+      {
+        id: "reminder-this-week",
+        text: "pay AGL bill",
+        fireAt: new Date("2026-04-28T09:00:00Z"),
+        rrule: null,
+        status: "pending",
+        createdAt: new Date("2026-04-25T08:00:00Z"),
+      },
+      {
+        id: "reminder-later",
+        text: "renew insurance",
+        fireAt: new Date("2026-05-20T09:00:00Z"),
+        rrule: null,
+        status: "pending",
+        createdAt: new Date("2026-04-25T08:00:00Z"),
+      },
+    );
+    state.expenses.push({
+      id: "expense-chemist",
+      amount: 650,
+      currency: "AUD",
+      category: "health",
+      merchant: "Chemist Warehouse",
+      occurredAt: new Date("2026-04-24T07:00:00Z"),
+      createdAt: new Date("2026-04-24T08:00:00Z"),
+    });
+    state.command_jobs.push({
+      id: "job-1",
+      source: "whatsapp",
+      ownerHash: "owner",
+      command: "draft complaint about bill",
+      status: "needs_approval",
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+      updatedAt: new Date("2026-04-25T08:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-weekly-admin",
+      from: OWNER,
+      body: "what's coming up this week?",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Weekly admin digest");
+    expect(wa.sent[0].body).toContain("pay AGL bill");
+    expect(wa.sent[0].body).toContain("This month: AUD 6.50");
+    expect(wa.sent[0].body).toContain("Admin inbox");
+    expect(wa.sent[0].body).toContain("draft complaint about bill");
+    expect(wa.sent[0].body).toContain("No external accounts used");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("searches local receipts and expenses from WhatsApp", async () => {
+    const state = getFakeDbState(deps.db);
+    state.expenses.push(
+      {
+        id: "expense-chemist",
+        amount: 650,
+        currency: "AUD",
+        category: "health",
+        merchant: "Chemist Warehouse",
+        occurredAt: new Date("2026-04-24T07:00:00Z"),
+        createdAt: new Date("2026-04-24T08:00:00Z"),
+      },
+      {
+        id: "expense-uber",
+        amount: 1875,
+        currency: "AUD",
+        category: "transport",
+        merchant: "Uber Trip",
+        occurredAt: new Date("2026-04-23T07:00:00Z"),
+        createdAt: new Date("2026-04-23T08:00:00Z"),
+      },
+    );
+
+    await router.handle({
+      id: "x-expense-search",
+      from: OWNER,
+      body: "find expense chemist",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Expense search");
+    expect(wa.sent[0].body).toContain("Chemist Warehouse");
+    expect(wa.sent[0].body).toContain("AUD 6.50");
+    expect(wa.sent[0].body).not.toContain("Uber Trip");
+    expect(wa.sent[0].body).toContain("No bank feed used");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("sends the manual nightly health report without the model loop", async () => {
     const state = getFakeDbState(deps.db);
     const now = deps.now();
@@ -2234,14 +2329,17 @@ describe("Router (integration)", () => {
     await router.handle({
       id: "x",
       from: OWNER,
-      body: "bill summary: AGL electricity bill $240.50 due 18 May 2026",
+      body: "bill summary: AGL electricity bill $240.50 due 18 May 2026. Ref 123456789",
       timestamp: new Date(),
       hasMedia: false,
     });
 
     expect(wa.sent[0].body).toContain("Bill summary");
+    expect(wa.sent[0].body).toContain("Provider: AGL electricity bill");
     expect(wa.sent[0].body).toContain("$240.50");
     expect(wa.sent[0].body).toContain("2026-05-18");
+    expect(wa.sent[0].body).toContain("Reference: 123456789");
+    expect(wa.sent[0].body).toContain("Suggested reminder: remind me to pay AGL electricity bill on 2026-05-17");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

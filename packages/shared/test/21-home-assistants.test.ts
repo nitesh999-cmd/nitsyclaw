@@ -171,12 +171,14 @@ describe("home assistant tools", () => {
 
   it("extracts bill summary with amount, due date, and safe action", () => {
     const result = extractBillSummary({
-      text: "AGL electricity bill $240.50 due 18 May 2026. Pay by BPAY.",
+      text: "AGL electricity bill $240.50 due 18 May 2026. Pay by BPAY. Reference 123456789.",
     });
 
     expect(result.provider).toBe("AGL electricity bill");
     expect(result.amount).toBe("$240.50");
     expect(result.dueDate).toBe("2026-05-18");
+    expect(result.reference).toBe("123456789");
+    expect(result.suggestedReminder).toContain("2026-05-17");
     expect(result.nextAction).toMatch(/review/i);
   });
 

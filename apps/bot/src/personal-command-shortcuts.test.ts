@@ -20,6 +20,8 @@ import {
   parseLocationStatusShortcut,
   parseLocationShortcut,
   parsePeopleMemoryShortcut,
+  parseExpenseSearchShortcut,
+  parseWeeklyAdminDigestShortcut,
 } from "./personal-command-shortcuts.js";
 
 describe("personal command shortcuts", () => {
@@ -248,6 +250,20 @@ describe("personal command shortcuts", () => {
     expect(parseDailyStatusShortcut("today summary")).toEqual({ kind: "daily-status" });
     expect(parseDailyStatusShortcut("morning brief")).toEqual({ kind: "daily-status" });
     expect(parseDailyStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects weekly admin digest and coming-week shortcuts", () => {
+    expect(parseWeeklyAdminDigestShortcut("weekly admin digest")).toEqual({ kind: "weekly-admin-digest" });
+    expect(parseWeeklyAdminDigestShortcut("what's coming up this week?")).toEqual({ kind: "weekly-admin-digest" });
+    expect(parseWeeklyAdminDigestShortcut("show my admin inbox")).toEqual({ kind: "weekly-admin-digest" });
+    expect(parseWeeklyAdminDigestShortcut("weather this week")).toBeNull();
+  });
+
+  it("detects expense and receipt search shortcuts", () => {
+    expect(parseExpenseSearchShortcut("find expense chemist")).toEqual({ query: "chemist" });
+    expect(parseExpenseSearchShortcut("search receipts uber")).toEqual({ query: "uber" });
+    expect(parseExpenseSearchShortcut("receipt search AGL")).toEqual({ query: "AGL" });
+    expect(parseExpenseSearchShortcut("expense summary")).toBeNull();
   });
 
   it("detects autonomous safe-work questions", () => {

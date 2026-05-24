@@ -123,7 +123,7 @@ export default async function TodayPage() {
       <section className="nc-hero overflow-hidden">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
           <div>
-            <div className="nc-eyebrow">Private personal PA</div>
+            <div className="nc-eyebrow">WhatsApp life-admin command centre</div>
             <h1 className="mt-2 max-w-3xl text-3xl font-semibold leading-tight md:text-5xl">
               {greeting}. Life admin, sorted.
             </h1>

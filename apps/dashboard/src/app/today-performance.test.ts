@@ -13,7 +13,7 @@ describe("today dashboard performance guard", () => {
     expect(source).toContain("emptyTodayData");
     expect(source).toContain("dataUnavailable");
     expect(source).toContain("instead of pretending the day is empty");
-    expect(source).toContain("Private personal PA");
+    expect(source).toContain("WhatsApp life-admin command centre");
     expect(source).toContain("today-trust-strip");
     expect(source).toContain("today-work-status");
     expect(source).toContain("today-quick-start");

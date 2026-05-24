@@ -64,7 +64,7 @@ export default function OfferPage() {
         <div className="max-w-3xl">
           <div className="nc-eyebrow">NitsyClaw for normal humans</div>
           <h1 className="mt-4 text-4xl font-semibold leading-tight md:text-6xl">
-            A private WhatsApp PA for bills, receipts, expenses, and due-date reminders.
+            A WhatsApp life-admin command centre for bills, receipts, expenses, and due-date reminders.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-stone-700 md:text-lg">
             Message once. NitsyClaw can summarise a bill, log a receipt, set the reminder, draft the complaint,

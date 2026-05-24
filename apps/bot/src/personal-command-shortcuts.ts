@@ -87,6 +87,14 @@ export interface DailyStatusShortcut {
   kind: "daily-status";
 }
 
+export interface WeeklyAdminDigestShortcut {
+  kind: "weekly-admin-digest";
+}
+
+export interface ExpenseSearchShortcut {
+  query: string;
+}
+
 export interface NightlyHealthShortcut {
   kind: "nightly-health";
 }
@@ -680,6 +688,35 @@ export function parseDailyStatusShortcut(text: string): DailyStatusShortcut | nu
     return { kind: "daily-status" };
   }
   return null;
+}
+
+export function parseWeeklyAdminDigestShortcut(text: string): WeeklyAdminDigestShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (/\b(weather|forecast|rain|temperature)\b/.test(trimmed)) return null;
+  if (
+    trimmed === "weekly admin digest" ||
+    trimmed === "weekly digest" ||
+    trimmed === "admin digest" ||
+    trimmed === "admin inbox" ||
+    trimmed === "show my admin inbox" ||
+    trimmed === "what is coming up this week" ||
+    trimmed === "what's coming up this week" ||
+    trimmed === "coming up this week" ||
+    trimmed === "this week"
+  ) {
+    return { kind: "weekly-admin-digest" };
+  }
+  return null;
+}
+
+export function parseExpenseSearchShortcut(text: string): ExpenseSearchShortcut | null {
+  const raw = text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/g, "");
+  const match = raw.match(/^(?:find|search|show)\s+(?:my\s+)?(?:expense|expenses|receipt|receipts)\s+(.+)$/i) ??
+    raw.match(/^(?:expense|receipt)\s+search\s+(.+)$/i);
+  const query = match?.[1]?.trim();
+  if (!query || query.length < 2) return null;
+  if (/^(summary|status|total|totals|this month)$/i.test(query)) return null;
+  return { query: query.slice(0, 80) };
 }
 
 export function parseNightlyHealthShortcut(text: string): NightlyHealthShortcut | null {

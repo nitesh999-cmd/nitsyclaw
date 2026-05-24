@@ -110,6 +110,7 @@ import {
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
+  parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parsePendingFeatureDevelopmentShortcut,
@@ -117,6 +118,7 @@ import {
   parseWhatsAppControlPlaneShortcut,
   parseWhatsAppIncidentSummaryShortcut,
   parseWhatsAppSelfTestShortcut,
+  parseWeeklyAdminDigestShortcut,
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
   parseNightlyHealthShortcut,
@@ -400,6 +402,74 @@ export class Router {
       nextQueue ? `- Best local next: ${nextQueue.shortId}: ${nextQueue.description}` : "- No pending queue rows found.",
       "",
       "No external accounts used. This is from local NitsyClaw history only.",
+    ].join("\n");
+  }
+
+  private async formatWeeklyAdminDigestReply(userPhone: string): Promise<string> {
+    const now = this.deps.now();
+    const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const [reminders, expenses, documents, commandJobs, latestConfirmation] = await Promise.all([
+      listPendingReminders(this.deps.db, this.tenant(), now, 20),
+      this.getMonthlyExpenseSnapshot(),
+      this.getRecentDocumentLines(userPhone, 3),
+      listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 8 }),
+      getLatestPendingConfirmation(this.deps.db, this.tenant()).catch(() => null),
+    ]);
+    const weekReminders = reminders.filter((row) => row.fireAt <= weekEnd).slice(0, 5);
+    const reminderLines = weekReminders.length
+      ? weekReminders.map((row) => `- ${row.text} (${this.formatLocalDateTime(row.fireAt)})`).join("\n")
+      : "- Nothing scheduled in the next 7 days.";
+    const openJobs = commandJobs
+      .filter((job) => job.status === "needs_approval" || job.status === "needs_clarification" || job.status === "working")
+      .slice(0, 4);
+    const inboxLines = [
+      latestConfirmation ? `- Approval waiting: ${latestConfirmation.action}` : undefined,
+      ...openJobs.map((job) => `- ${job.status}: ${clipForWhatsApp(job.command, 90)}`),
+    ].filter((line): line is string => Boolean(line));
+
+    return [
+      "Weekly admin digest",
+      "",
+      "Coming up this week",
+      reminderLines,
+      "",
+      "Spending",
+      expenses,
+      "",
+      "Recent bills/files",
+      documents,
+      "",
+      "Admin inbox",
+      inboxLines.length ? inboxLines.join("\n") : "- Nothing waiting for approval or follow-up.",
+      "",
+      "Try next: bill summary: <paste bill> | find expense <merchant> | remind me to pay <bill> tomorrow",
+      "No external accounts used. This is local NitsyClaw data only.",
+    ].join("\n");
+  }
+
+  private async formatExpenseSearchReply(query: string): Promise<string> {
+    const now = this.deps.now();
+    const from = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const normalized = query.toLowerCase();
+    const rows = (await recentExpensesBetween(this.deps.db, this.tenant(), from, now, 500))
+      .filter((row) => `${row.merchant ?? ""} ${row.category ?? ""}`.toLowerCase().includes(normalized))
+      .slice(0, 5);
+    if (!rows.length) {
+      return [
+        `Expense search: ${query}`,
+        "No matching local expenses found.",
+        "Try: expense summary, or search a merchant/category like Chemist, Uber, groceries.",
+        "No bank feed used.",
+      ].join("\n");
+    }
+    const lines = rows.map((row, index) => {
+      const merchant = row.merchant ?? row.category ?? "Expense";
+      return `${index + 1}. ${merchant} - ${row.currency} ${(row.amount / 100).toFixed(2)} (${this.formatLocalDateTime(row.occurredAt)})`;
+    });
+    return [
+      `Expense search: ${query}`,
+      ...lines,
+      "Source: local NitsyClaw expenses and receipts only. No bank feed used.",
     ].join("\n");
   }
 
@@ -1069,6 +1139,8 @@ export class Router {
           `Provider: ${result.provider}`,
           result.amount ? `Amount: ${result.amount}` : undefined,
           result.dueDate ? `Due: ${result.dueDate}` : undefined,
+          result.reference ? `Reference: ${result.reference}` : undefined,
+          result.suggestedReminder ? `Suggested reminder: ${result.suggestedReminder}` : undefined,
           `Next: ${result.nextAction}`,
         ].filter((line): line is string => Boolean(line)).join("\n");
       }
@@ -1815,6 +1887,19 @@ export class Router {
       return;
     }
 
+    const weeklyAdminDigest = parseWeeklyAdminDigestShortcut(effectiveText);
+    if (weeklyAdminDigest) {
+      try {
+        const reply = await this.formatWeeklyAdminDigestReply(msg.from);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (weeklyDigestError) {
+        await this.failWhatsAppCommandJob(commandJob, weeklyDigestError);
+        await this.sendPublicFailure("weekly admin digest", "Couldn't load weekly admin digest. I logged it; try again shortly.", weeklyDigestError);
+      }
+      return;
+    }
+
     const nightlyHealth = parseNightlyHealthShortcut(effectiveText);
     if (nightlyHealth) {
       try {
@@ -1837,6 +1922,19 @@ export class Router {
       } catch (localStatusError) {
         await this.failWhatsAppCommandJob(commandJob, localStatusError);
         await this.sendPublicFailure("local status", "Couldn't load local status. I logged it; try again shortly.", localStatusError);
+      }
+      return;
+    }
+
+    const expenseSearch = parseExpenseSearchShortcut(effectiveText);
+    if (expenseSearch) {
+      try {
+        const reply = await this.formatExpenseSearchReply(expenseSearch.query);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (expenseSearchError) {
+        await this.failWhatsAppCommandJob(commandJob, expenseSearchError);
+        await this.sendPublicFailure("expense search", "Couldn't search local expenses. I logged it; try again shortly.", expenseSearchError);
       }
       return;
     }

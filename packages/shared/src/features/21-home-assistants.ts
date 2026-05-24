@@ -543,20 +543,37 @@ export function extractBillSummary(input: ExtractBillSummaryInput): {
   provider: string;
   amount?: string;
   dueDate?: string;
+  reference?: string;
+  suggestedReminder?: string;
   nextAction: string;
 } {
   const text = cleanText(input.text);
   const amount = text.match(/(?:AUD\s*)?\$\s?\d+(?:\.\d{2})?/i)?.[0]?.replace(/\s+/g, "");
   const dueDate = parseDate(text);
+  const reference = extractBillReference(text);
   const providerSource = amount ? text.slice(0, text.indexOf(amount)).trim() : text.split(/\bdue\b/i)[0] ?? text;
   const provider = sentenceCase(providerSource.replace(/[.:,-]+$/, "") || "Bill");
   const due = dueDate ? ` before ${dueDate}` : "";
+  const suggestedReminder = dueDate ? `remind me to pay ${provider} on ${dateBeforeIso(dueDate)}` : undefined;
   return {
     provider,
     amount,
     dueDate,
+    reference,
+    suggestedReminder,
     nextAction: `Review the bill details${due}, then pay through the official provider app or saved payment method.`,
   };
+}
+
+function extractBillReference(text: string): string | undefined {
+  const match = text.match(/\b(?:bpay reference|bpay ref|account number|account no|reference|ref|account)\s*[:#]?\s*([A-Z0-9-]{4,24})\b/i);
+  return match?.[1]?.replace(/[.,;:]+$/g, "");
+}
+
+function dateBeforeIso(dateIso: string): string {
+  const date = new Date(`${dateIso}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 export function prepareReturnPlan(input: PrepareReturnPlanInput): {
