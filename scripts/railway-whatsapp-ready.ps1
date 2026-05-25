@@ -71,11 +71,17 @@ function Get-DeploymentLogs {
 function Test-ReadyLogs {
     param(
         [Parameter(Mandatory = $true)][string]$Logs,
-        [Parameter(Mandatory = $true)][string]$Commit
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [bool]$AllowUnknownCommit = $false
     )
 
+    $bootCommitMatches = $Logs -match "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($Commit))"
+    if (-not $bootCommitMatches -and $AllowUnknownCommit) {
+        $bootCommitMatches = $Logs -match "\[boot\] NitsyClaw bot starting.*commit=unknown"
+    }
+
     return (
-        $Logs -match "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($Commit))" -and
+        $bootCommitMatches -and
         $Logs -match "\[wwebjs\] client ready" -and
         $Logs -match "\[boot\] WhatsApp ready"
     )
@@ -108,6 +114,9 @@ if (-not $deployment) {
 $deploymentId = [string]$deployment.id
 $deploymentStatus = [string]$deployment.status
 $deploymentCommit = [string]$deployment.meta.commitHash
+$deploymentMessage = [string]$deployment.meta.cliMessage
+$metadataCommitMatches = $ExpectedCommit -and $deploymentCommit.StartsWith($ExpectedCommit)
+$cliMessageCommitMatches = $ExpectedCommit -and [string]::IsNullOrWhiteSpace($deploymentCommit) -and $deploymentMessage -match [regex]::Escape($ExpectedCommit)
 $runningInstances = @($deployment.instances | Where-Object { $_.status -eq "RUNNING" })
 
 if ($deploymentStatus -ne "SUCCESS") {
@@ -116,8 +125,11 @@ if ($deploymentStatus -ne "SUCCESS") {
 if ($runningInstances.Count -lt 1) {
     throw "Latest Railway deployment $deploymentId has no RUNNING instance."
 }
-if ($ExpectedCommit -and -not $deploymentCommit.StartsWith($ExpectedCommit)) {
+if ($ExpectedCommit -and -not $metadataCommitMatches -and -not $cliMessageCommitMatches) {
     throw "Latest Railway deployment $deploymentId is commit $deploymentCommit, expected $ExpectedCommit."
+}
+if ($cliMessageCommitMatches) {
+    Write-Host "Railway deployment commit metadata is empty; accepted CLI deploy message containing expected commit $ExpectedCommit."
 }
 
 $root = Normalize-BaseUrl -Url $BaseUrl
@@ -130,7 +142,7 @@ $deadline = (Get-Date).AddSeconds([Math]::Max(15, $ReadyTimeoutSeconds))
 $logs = ""
 do {
     $logs = Get-DeploymentLogs -DeploymentId $deploymentId
-    if (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit) {
+    if (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit -AllowUnknownCommit $cliMessageCommitMatches) {
         break
     }
 
@@ -141,11 +153,11 @@ do {
     }
 } while ((Get-Date) -lt $deadline)
 
-if (-not (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit)) {
+if (-not (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit -AllowUnknownCommit $cliMessageCommitMatches)) {
     Write-Host "Last checked logs did not contain the complete ready sequence before timeout."
 }
 
-if ($logs -notmatch "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($ExpectedCommit))") {
+if ($logs -notmatch "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($ExpectedCommit))" -and -not ($cliMessageCommitMatches -and $logs -match "\[boot\] NitsyClaw bot starting.*commit=unknown")) {
     throw "Railway logs for $deploymentId do not show the expected boot commit $ExpectedCommit."
 }
 if ($logs -notmatch "\[wwebjs\] client ready") {
