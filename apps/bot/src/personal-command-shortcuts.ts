@@ -72,6 +72,10 @@ export interface DemoChecklistShortcut {
   kind: "demo-checklist";
 }
 
+export interface DemoResultsShortcut {
+  kind: "demo-results";
+}
+
 export interface QueuedIntegrationShortcut {
   toolName:
     | "queue_email_connection_request"
@@ -564,6 +568,21 @@ export function parseDemoChecklistShortcut(text: string): DemoChecklistShortcut 
     trimmed === "what should i try"
   ) {
     return { kind: "demo-checklist" };
+  }
+  return null;
+}
+
+export function parseDemoResultsShortcut(text: string): DemoResultsShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "demo results" ||
+    trimmed === "show demo results" ||
+    trimmed === "validation results" ||
+    trimmed === "test results" ||
+    trimmed === "demo report" ||
+    trimmed === "validation report"
+  ) {
+    return { kind: "demo-results" };
   }
   return null;
 }

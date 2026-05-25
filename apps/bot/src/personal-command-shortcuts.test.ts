@@ -8,6 +8,7 @@ import {
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
   parseDemoChecklistShortcut,
+  parseDemoResultsShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parsePendingFeatureDevelopmentShortcut,
@@ -235,6 +236,13 @@ describe("personal command shortcuts", () => {
     expect(parseDemoChecklistShortcut("what should I test?")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("run demo checklist")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects demo results requests", () => {
+    expect(parseDemoResultsShortcut("demo results")).toEqual({ kind: "demo-results" });
+    expect(parseDemoResultsShortcut("validation report")).toEqual({ kind: "demo-results" });
+    expect(parseDemoResultsShortcut("show demo results")).toEqual({ kind: "demo-results" });
+    expect(parseDemoResultsShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects WhatsApp control plane requests", () => {

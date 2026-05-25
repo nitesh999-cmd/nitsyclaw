@@ -787,6 +787,70 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers demo results requests from recent WhatsApp command jobs", async () => {
+    const state = getFakeDbState(deps.db);
+    const baseJob = {
+      source: "whatsapp",
+      ownerHash: "owner",
+      riskLevel: "safe",
+      receiptText: "Working on it.",
+      resultText: "ok",
+      error: null,
+      attempts: 0,
+      maxAttempts: 3,
+      sourceMessageId: null,
+      dedupeKey: null,
+      nextRunAt: null,
+      completedAt: new Date("2026-04-25T07:59:00Z"),
+      updatedAt: new Date("2026-04-25T07:59:00Z"),
+      createdAt: new Date("2026-04-25T07:59:00Z"),
+    };
+    state.command_jobs.push(
+      {
+        ...baseJob,
+        id: "11111111-1111-4111-8111-111111111111",
+        command: "proof test",
+        status: "done",
+        sourceExternalId: "x-proof",
+      },
+      {
+        ...baseJob,
+        id: "22222222-2222-4222-8222-222222222222",
+        command: "bill summary: AGL bill $240 due 18 May ref 12345",
+        status: "done",
+        sourceExternalId: "x-bill",
+      },
+      {
+        ...baseJob,
+        id: "33333333-3333-4333-8333-333333333333",
+        command: "I spent $18.40 at Chemist Warehouse for medicine",
+        status: "failed",
+        error: "temporary parser failure",
+        sourceExternalId: "x-expense",
+      },
+    );
+
+    await router.handle({
+      id: "x-demo-results",
+      from: OWNER,
+      body: "demo results",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Demo results: 2/6 passed");
+    expect(wa.sent[0].body).toContain("Proof: passed");
+    expect(wa.sent[0].body).toContain("Bill: passed");
+    expect(wa.sent[0].body).toContain("Expense: needs attention");
+    expect(wa.sent[0].body).toContain("Reminder: not checked");
+    expect(wa.sent[0].body).toContain("Weekly: not checked");
+    expect(wa.sent[0].body).toContain("Incident: not checked");
+    expect(wa.sent[0].body).toContain("Send demo checklist");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("queues setup-heavy integration requests deterministically before the model loop", async () => {
     await router.handle({
       id: "x-connect-google-photos",

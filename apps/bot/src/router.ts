@@ -111,6 +111,7 @@ import {
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
   parseDemoChecklistShortcut,
+  parseDemoResultsShortcut,
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
@@ -921,6 +922,46 @@ export class Router {
         "6. what went wrong",
       ],
       next: "If all pass, validate with a real bill/receipt. If one fails, send proof details.",
+    });
+  }
+
+  private async formatDemoResultsReply(): Promise<string> {
+    const jobs = (await listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 20 }))
+      .filter((job) => !isDemoResultsCommand(job.command));
+    const steps = [
+      { label: "Proof", match: (command: string) => isExactCommand(command, ["proof test", "canary test", "whatsapp proof"]) },
+      { label: "Bill", match: (command: string) => command.includes("bill summary") || command.includes("agl bill") },
+      { label: "Expense", match: (command: string) => command.includes("chemist warehouse") || /\bi spent\b/.test(command) },
+      { label: "Reminder", match: (command: string) => command.includes("remind me to pay agl") || command.includes("remind me to call") },
+      { label: "Weekly", match: (command: string) => command.includes("weekly admin digest") || command.includes("coming up this week") },
+      { label: "Incident", match: (command: string) => command.includes("what went wrong") || command.includes("incident summary") },
+    ];
+
+    const rows = steps.map((step) => {
+      const job = jobs.find((candidate) => step.match(normalizeCommandForDemo(candidate.command)));
+      if (!job) return { label: step.label, status: "not checked" };
+      if (job.status === "done") return { label: step.label, status: "passed" };
+      if (job.status === "failed" || job.status === "retrying") return { label: step.label, status: `needs attention: ${clipForWhatsApp(job.error ?? job.status, 80)}` };
+      if (job.status === "needs_approval" || job.status === "needs_clarification") return { label: step.label, status: job.status.replace("_", " ") };
+      return { label: step.label, status: job.status };
+    });
+    const passed = rows.filter((row) => row.status === "passed").length;
+    const needsAttention = rows.filter((row) => row.status !== "passed" && row.status !== "not checked").length;
+    const missing = rows.filter((row) => row.status === "not checked").length;
+
+    return formatWhatsAppReplyShape({
+      answer: `Demo results: ${passed}/6 passed.`,
+      state: needsAttention
+        ? `${needsAttention} need attention; ${missing} not checked.`
+        : missing
+          ? `${missing} not checked yet.`
+          : "Controlled demo spine passed recently.",
+      details: rows.map((row) => `${row.label}: ${row.status}`),
+      next: missing
+        ? "Send demo checklist and run the missing prompts."
+        : needsAttention
+          ? "Send proof details, then fix the failing step."
+          : "Validate with a real bill/receipt next.",
     });
   }
 
@@ -1891,6 +1932,14 @@ export class Router {
       return;
     }
 
+    const demoResults = parseDemoResultsShortcut(effectiveText);
+    if (demoResults) {
+      const reply = await this.formatDemoResultsReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
     const autonomousWork = parseAutonomousWorkShortcut(effectiveText);
     if (autonomousWork) {
       const reply = this.formatAutonomousWorkReply();
@@ -2370,6 +2419,24 @@ function isRepeatNoise(content: string, currentText: string): boolean {
 
 function normalizeForRepeat(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
+}
+
+function normalizeCommandForDemo(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
+}
+
+function isExactCommand(command: string, expected: string[]): boolean {
+  return expected.includes(command);
+}
+
+function isDemoResultsCommand(command: string): boolean {
+  const normalized = normalizeCommandForDemo(command);
+  return normalized === "demo results" ||
+    normalized === "show demo results" ||
+    normalized === "validation results" ||
+    normalized === "test results" ||
+    normalized === "demo report" ||
+    normalized === "validation report";
 }
 
 function clipForWhatsApp(value: string, max = 1200): string {

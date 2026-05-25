@@ -197,6 +197,24 @@ const replies: ReplyBudget[] = [
     maxChars: 900,
   },
   {
+    name: "demo results",
+    reply: formatWhatsAppReplyShape({
+      answer: "Demo results: 4/6 passed.",
+      state: "1 need attention; 1 not checked.",
+      details: [
+        "Proof: passed",
+        "Bill: passed",
+        "Expense: passed",
+        "Reminder: passed",
+        "Weekly: not checked",
+        "Incident: needs attention: recent send failure",
+      ],
+      next: "Send proof details, then fix the failing step.",
+    }),
+    maxLines: 12,
+    maxChars: 900,
+  },
+  {
     name: "pending build plan",
     reply: formatWhatsAppPendingFeatureDevelopmentPlan(),
     maxLines: 12,
