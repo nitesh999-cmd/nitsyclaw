@@ -9,6 +9,7 @@ import {
   parseDailyStatusShortcut,
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
+  parseDemoStartShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
   parsePendingFeatureDevelopmentShortcut,
@@ -236,6 +237,13 @@ describe("personal command shortcuts", () => {
     expect(parseDemoChecklistShortcut("what should I test?")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("run demo checklist")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects demo start requests", () => {
+    expect(parseDemoStartShortcut("start demo")).toEqual({ kind: "demo-start" });
+    expect(parseDemoStartShortcut("new demo")).toEqual({ kind: "demo-start" });
+    expect(parseDemoStartShortcut("start validation")).toEqual({ kind: "demo-start" });
+    expect(parseDemoStartShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects demo results requests", () => {

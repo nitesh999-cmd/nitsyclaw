@@ -787,6 +787,23 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("starts a scoped demo session marker with the same validation prompts", async () => {
+    await router.handle({
+      id: "x-start-demo",
+      from: OWNER,
+      body: "start demo",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Demo session started");
+    expect(wa.sent[0].body).toContain("Results will use commands after this marker");
+    expect(wa.sent[0].body).toContain("proof test");
+    expect(wa.sent[0].body).toContain("weekly admin digest");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers demo results requests from recent WhatsApp command jobs", async () => {
     const state = getFakeDbState(deps.db);
     const baseJob = {
@@ -849,6 +866,65 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("scopes demo results to commands after the latest start demo marker", async () => {
+    const state = getFakeDbState(deps.db);
+    const baseJob = {
+      source: "whatsapp",
+      ownerHash: "owner",
+      riskLevel: "safe",
+      receiptText: "Working on it.",
+      resultText: "ok",
+      error: null,
+      attempts: 0,
+      maxAttempts: 3,
+      sourceMessageId: null,
+      dedupeKey: null,
+      nextRunAt: null,
+      completedAt: new Date("2026-04-25T08:00:00Z"),
+      updatedAt: new Date("2026-04-25T08:00:00Z"),
+    };
+    state.command_jobs.push(
+      {
+        ...baseJob,
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        command: "proof test",
+        status: "done",
+        sourceExternalId: "x-old-proof",
+        createdAt: new Date("2026-04-25T07:00:00Z"),
+      },
+      {
+        ...baseJob,
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        command: "start demo",
+        status: "done",
+        sourceExternalId: "x-start-demo",
+        createdAt: new Date("2026-04-25T07:30:00Z"),
+      },
+      {
+        ...baseJob,
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        command: "weekly admin digest",
+        status: "done",
+        sourceExternalId: "x-weekly",
+        createdAt: new Date("2026-04-25T07:45:00Z"),
+      },
+    );
+
+    await router.handle({
+      id: "x-demo-results-scoped",
+      from: OWNER,
+      body: "demo results",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Demo results: 1/6 passed");
+    expect(wa.sent[0].body).toContain("Proof: not checked");
+    expect(wa.sent[0].body).toContain("Weekly: passed");
+    expect(wa.sent[0].body).toContain("not checked yet in this session");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
   });
 
   it("queues setup-heavy integration requests deterministically before the model loop", async () => {

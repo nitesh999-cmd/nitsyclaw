@@ -112,6 +112,7 @@ import {
   parseDailyStatusShortcut,
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
+  parseDemoStartShortcut,
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
@@ -909,10 +910,12 @@ export class Router {
     ].join("\n");
   }
 
-  private formatDemoChecklistReply(): string {
+  private formatDemoChecklistReply(started = false): string {
     return formatWhatsAppReplyShape({
-      answer: "Demo checklist: run these in WhatsApp.",
-      state: "Goal: prove the life-admin spine works before more feature build.",
+      answer: started ? "Demo session started. Run these in WhatsApp." : "Demo checklist: run these in WhatsApp.",
+      state: started
+        ? "Results will use commands after this marker."
+        : "Goal: prove the life-admin spine works before more feature build.",
       details: [
         "1. proof test",
         "2. bill summary: AGL bill $240 due 18 May ref 12345",
@@ -928,6 +931,10 @@ export class Router {
   private async formatDemoResultsReply(): Promise<string> {
     const jobs = (await listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 20 }))
       .filter((job) => !isDemoResultsCommand(job.command));
+    const sessionStart = jobs.find((job) => isDemoStartCommand(job.command));
+    const scopedJobs = sessionStart
+      ? jobs.filter((job) => job.id !== sessionStart.id && job.createdAt.getTime() > sessionStart.createdAt.getTime())
+      : jobs;
     const steps = [
       { label: "Proof", match: (command: string) => isExactCommand(command, ["proof test", "canary test", "whatsapp proof"]) },
       { label: "Bill", match: (command: string) => command.includes("bill summary") || command.includes("agl bill") },
@@ -938,7 +945,7 @@ export class Router {
     ];
 
     const rows = steps.map((step) => {
-      const job = jobs.find((candidate) => step.match(normalizeCommandForDemo(candidate.command)));
+      const job = scopedJobs.find((candidate) => step.match(normalizeCommandForDemo(candidate.command)));
       if (!job) return { label: step.label, status: "not checked" };
       if (job.status === "done") return { label: step.label, status: "passed" };
       if (job.status === "failed" || job.status === "retrying") return { label: step.label, status: `needs attention: ${clipForWhatsApp(job.error ?? job.status, 80)}` };
@@ -954,7 +961,7 @@ export class Router {
       state: needsAttention
         ? `${needsAttention} need attention; ${missing} not checked.`
         : missing
-          ? `${missing} not checked yet.`
+          ? `${missing} not checked yet${sessionStart ? " in this session" : ""}.`
           : "Controlled demo spine passed recently.",
       details: rows.map((row) => `${row.label}: ${row.status}`),
       next: missing
@@ -1924,6 +1931,14 @@ export class Router {
       return;
     }
 
+    const demoStart = parseDemoStartShortcut(effectiveText);
+    if (demoStart) {
+      const reply = this.formatDemoChecklistReply(true);
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
     const demoChecklist = parseDemoChecklistShortcut(effectiveText);
     if (demoChecklist) {
       const reply = this.formatDemoChecklistReply();
@@ -2437,6 +2452,16 @@ function isDemoResultsCommand(command: string): boolean {
     normalized === "test results" ||
     normalized === "demo report" ||
     normalized === "validation report";
+}
+
+function isDemoStartCommand(command: string): boolean {
+  const normalized = normalizeCommandForDemo(command);
+  return normalized === "start demo" ||
+    normalized === "begin demo" ||
+    normalized === "new demo" ||
+    normalized === "start validation" ||
+    normalized === "begin validation" ||
+    normalized === "start demo session";
 }
 
 function clipForWhatsApp(value: string, max = 1200): string {

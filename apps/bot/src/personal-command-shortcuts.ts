@@ -72,6 +72,10 @@ export interface DemoChecklistShortcut {
   kind: "demo-checklist";
 }
 
+export interface DemoStartShortcut {
+  kind: "demo-start";
+}
+
 export interface DemoResultsShortcut {
   kind: "demo-results";
 }
@@ -568,6 +572,21 @@ export function parseDemoChecklistShortcut(text: string): DemoChecklistShortcut 
     trimmed === "what should i try"
   ) {
     return { kind: "demo-checklist" };
+  }
+  return null;
+}
+
+export function parseDemoStartShortcut(text: string): DemoStartShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "start demo" ||
+    trimmed === "begin demo" ||
+    trimmed === "new demo" ||
+    trimmed === "start validation" ||
+    trimmed === "begin validation" ||
+    trimmed === "start demo session"
+  ) {
+    return { kind: "demo-start" };
   }
   return null;
 }

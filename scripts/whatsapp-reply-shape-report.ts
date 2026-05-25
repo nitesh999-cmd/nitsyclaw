@@ -197,6 +197,24 @@ const replies: ReplyBudget[] = [
     maxChars: 900,
   },
   {
+    name: "start demo",
+    reply: formatWhatsAppReplyShape({
+      answer: "Demo session started. Run these in WhatsApp.",
+      state: "Results will use commands after this marker.",
+      details: [
+        "1. proof test",
+        "2. bill summary: AGL bill $240 due 18 May ref 12345",
+        "3. I spent $18.40 at Chemist Warehouse for medicine",
+        "4. Remind me to pay AGL on 17 May at 9 am",
+        "5. weekly admin digest",
+        "6. what went wrong",
+      ],
+      next: "If all pass, validate with a real bill/receipt. If one fails, send proof details.",
+    }),
+    maxLines: 12,
+    maxChars: 900,
+  },
+  {
     name: "demo results",
     reply: formatWhatsAppReplyShape({
       answer: "Demo results: 4/6 passed.",
