@@ -217,8 +217,8 @@ const replies: ReplyBudget[] = [
   {
     name: "demo results",
     reply: formatWhatsAppReplyShape({
-      answer: "Demo results: 4/6 passed.",
-      state: "1 need attention; 1 not checked.",
+      answer: "Demo results: 4/6 passed, 1 attention, 1 missing.",
+      state: "Fix Incident first; 1 not checked.",
       details: [
         "Proof: passed",
         "Bill: passed",
@@ -227,7 +227,7 @@ const replies: ReplyBudget[] = [
         "Weekly: not checked",
         "Incident: needs attention: recent send failure",
       ],
-      next: "Send proof details, then fix the failing step.",
+      next: "Send proof details, fix Incident, then run Weekly.",
     }),
     maxLines: 12,
     maxChars: 900,

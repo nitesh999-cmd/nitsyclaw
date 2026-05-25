@@ -955,19 +955,21 @@ export class Router {
     const passed = rows.filter((row) => row.status === "passed").length;
     const needsAttention = rows.filter((row) => row.status !== "passed" && row.status !== "not checked").length;
     const missing = rows.filter((row) => row.status === "not checked").length;
+    const firstIssue = rows.find((row) => row.status !== "passed" && row.status !== "not checked");
+    const firstMissing = rows.find((row) => row.status === "not checked");
 
     return formatWhatsAppReplyShape({
-      answer: `Demo results: ${passed}/6 passed.`,
+      answer: `Demo results: ${passed}/6 passed, ${needsAttention} attention, ${missing} missing.`,
       state: needsAttention
-        ? `${needsAttention} need attention; ${missing} not checked.`
+        ? `Fix ${firstIssue?.label ?? "the failing step"} first; ${missing} not checked.`
         : missing
           ? `${missing} not checked yet${sessionStart ? " in this session" : ""}.`
           : "Controlled demo spine passed recently.",
       details: rows.map((row) => `${row.label}: ${row.status}`),
-      next: missing
-        ? "Send demo checklist and run the missing prompts."
-        : needsAttention
-          ? "Send proof details, then fix the failing step."
+      next: needsAttention
+        ? `Send proof details, fix ${firstIssue?.label ?? "the failing step"}, then run ${firstMissing?.label ?? "remaining checks"}.`
+        : missing
+          ? "Send demo checklist and run the missing prompts."
           : "Validate with a real bill/receipt next.",
     });
   }

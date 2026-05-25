@@ -855,14 +855,15 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Demo results: 2/6 passed");
+    expect(wa.sent[0].body).toContain("Demo results: 2/6 passed, 1 attention, 3 missing");
     expect(wa.sent[0].body).toContain("Proof: passed");
     expect(wa.sent[0].body).toContain("Bill: passed");
     expect(wa.sent[0].body).toContain("Expense: needs attention");
     expect(wa.sent[0].body).toContain("Reminder: not checked");
     expect(wa.sent[0].body).toContain("Weekly: not checked");
     expect(wa.sent[0].body).toContain("Incident: not checked");
-    expect(wa.sent[0].body).toContain("Send demo checklist");
+    expect(wa.sent[0].body).toContain("Fix Expense first");
+    expect(wa.sent[0].body).toContain("Send proof details, fix Expense, then run Reminder");
     expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
@@ -920,7 +921,7 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Demo results: 1/6 passed");
+    expect(wa.sent[0].body).toContain("Demo results: 1/6 passed, 0 attention, 5 missing");
     expect(wa.sent[0].body).toContain("Proof: not checked");
     expect(wa.sent[0].body).toContain("Weekly: passed");
     expect(wa.sent[0].body).toContain("not checked yet in this session");
