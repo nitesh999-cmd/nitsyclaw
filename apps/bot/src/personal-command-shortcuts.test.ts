@@ -12,6 +12,7 @@ import {
   parseDemoStartShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseLifeAdminCockpitShortcut,
   parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
   parseWhatsAppControlPlaneShortcut,
@@ -284,6 +285,13 @@ describe("personal command shortcuts", () => {
     expect(parseWeeklyAdminDigestShortcut("what's coming up this week?")).toEqual({ kind: "weekly-admin-digest" });
     expect(parseWeeklyAdminDigestShortcut("show my admin inbox")).toEqual({ kind: "weekly-admin-digest" });
     expect(parseWeeklyAdminDigestShortcut("weather this week")).toBeNull();
+  });
+
+  it("detects life admin cockpit shortcuts", () => {
+    expect(parseLifeAdminCockpitShortcut("life admin")).toEqual({ kind: "life-admin-cockpit" });
+    expect(parseLifeAdminCockpitShortcut("what should I do now?")).toEqual({ kind: "life-admin-cockpit" });
+    expect(parseLifeAdminCockpitShortcut("what needs my attention")).toEqual({ kind: "life-admin-cockpit" });
+    expect(parseLifeAdminCockpitShortcut("weather now")).toBeNull();
   });
 
   it("detects expense and receipt search shortcuts", () => {

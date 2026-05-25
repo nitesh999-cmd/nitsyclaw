@@ -116,6 +116,7 @@ import {
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
   parseHelpShortcut,
+  parseLifeAdminCockpitShortcut,
   parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
   parseWhatsAppControlPlaneShortcut,
@@ -448,6 +449,41 @@ export class Router {
       "Try next: bill summary: <paste bill> | find expense <merchant> | remind me to pay <bill> tomorrow",
       "No external accounts used. This is local NitsyClaw data only.",
     ].join("\n");
+  }
+
+  private async formatLifeAdminCockpitReply(userPhone: string): Promise<string> {
+    const now = this.deps.now();
+    const [reminders, expenses, documents, commandJobs, latestConfirmation] = await Promise.all([
+      listPendingReminders(this.deps.db, this.tenant(), now, 10),
+      this.getMonthlyExpenseSnapshot(),
+      this.getRecentDocumentLines(userPhone, 2),
+      listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 8 }),
+      getLatestPendingConfirmation(this.deps.db, this.tenant()).catch(() => null),
+    ]);
+    const needsAttention = commandJobs
+      .filter((job) => job.status === "failed" || job.status === "retrying" || job.status === "needs_approval" || job.status === "needs_clarification")
+      .slice(0, 2);
+    const nextReminder = reminders[0];
+    const focus = latestConfirmation
+      ? `Approve or reject: ${clipForWhatsApp(latestConfirmation.action, 80)}`
+      : needsAttention[0]
+        ? `Clear: ${clipForWhatsApp(needsAttention[0].command, 80)}`
+        : nextReminder
+          ? `Next reminder: ${clipForWhatsApp(nextReminder.text, 80)}`
+          : "Add one real bill, receipt, or reminder.";
+
+    return formatWhatsAppReplyShape({
+      answer: "Life admin cockpit: ready.",
+      state: "Local WhatsApp data only. No email, bank, Drive, Photos, SMS, or calendar accounts used.",
+      details: [
+        `Focus: ${focus}`,
+        `Reminders: ${reminders.length ? `${reminders.length} pending` : "none pending"}`,
+        `Spending: ${clipForWhatsApp(expenses.replace(/\n/g, " | "), 140)}`,
+        `Files/bills: ${clipForWhatsApp(documents.replace(/\n/g, " | "), 140)}`,
+        `Open items: ${latestConfirmation ? "approval waiting" : needsAttention.length ? `${needsAttention.length} need attention` : "none found"}`,
+      ],
+      next: "Try: weekly admin digest | bill summary: <text> | expense summary | demo reset",
+    });
   }
 
   private async formatExpenseSearchReply(query: string): Promise<string> {
@@ -1958,6 +1994,19 @@ export class Router {
       const reply = await this.formatDemoResultsReply();
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const lifeAdminCockpit = parseLifeAdminCockpitShortcut(effectiveText);
+    if (lifeAdminCockpit) {
+      try {
+        const reply = await this.formatLifeAdminCockpitReply(msg.from);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (lifeAdminError) {
+        await this.failWhatsAppCommandJob(commandJob, lifeAdminError);
+        await this.sendPublicFailure("life admin cockpit", "Couldn't load life admin cockpit. I logged it; try again shortly.", lifeAdminError);
+      }
       return;
     }
 

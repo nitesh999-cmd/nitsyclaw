@@ -104,6 +104,10 @@ export interface WeeklyAdminDigestShortcut {
   kind: "weekly-admin-digest";
 }
 
+export interface LifeAdminCockpitShortcut {
+  kind: "life-admin-cockpit";
+}
+
 export interface ExpenseSearchShortcut {
   query: string;
 }
@@ -773,6 +777,25 @@ export function parseWeeklyAdminDigestShortcut(text: string): WeeklyAdminDigestS
     trimmed === "this week"
   ) {
     return { kind: "weekly-admin-digest" };
+  }
+  return null;
+}
+
+export function parseLifeAdminCockpitShortcut(text: string): LifeAdminCockpitShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (/\b(weather|forecast|rain|temperature)\b/.test(trimmed)) return null;
+  if (
+    trimmed === "life admin" ||
+    trimmed === "admin cockpit" ||
+    trimmed === "admin command centre" ||
+    trimmed === "admin command center" ||
+    trimmed === "what should i do now" ||
+    trimmed === "what should i handle now" ||
+    trimmed === "what needs my attention" ||
+    trimmed === "what needs attention" ||
+    trimmed === "what should i sort out"
+  ) {
+    return { kind: "life-admin-cockpit" };
   }
   return null;
 }

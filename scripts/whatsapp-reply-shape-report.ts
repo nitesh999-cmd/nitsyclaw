@@ -251,6 +251,23 @@ const replies: ReplyBudget[] = [
     maxChars: 900,
   },
   {
+    name: "life admin",
+    reply: formatWhatsAppReplyShape({
+      answer: "Life admin cockpit: ready.",
+      state: "Local WhatsApp data only. No email, bank, Drive, Photos, SMS, or calendar accounts used.",
+      details: [
+        "Focus: Clear: approve bill complaint draft",
+        "Reminders: 1 pending",
+        "Spending: This month: AUD 6.50 across 1 expense. Top: health AUD 6.50.",
+        "Files/bills: Recent files: agl-bill.txt",
+        "Open items: 1 need attention",
+      ],
+      next: "Try: weekly admin digest | bill summary: <text> | expense summary | demo reset",
+    }),
+    maxLines: 10,
+    maxChars: 900,
+  },
+  {
     name: "pending build plan",
     reply: formatWhatsAppPendingFeatureDevelopmentPlan(),
     maxLines: 12,

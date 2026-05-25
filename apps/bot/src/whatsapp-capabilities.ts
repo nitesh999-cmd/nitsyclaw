@@ -53,6 +53,7 @@ export const WHATSAPP_TRY_COMMANDS = [
 ] as const;
 
 export const WHATSAPP_PRACTICAL_EXAMPLES = [
+  "what should I do now?",
   "Remind me to call Mukesh tomorrow at 10 am",
   "I spent $18.40 at Chemist Warehouse for medicine",
   "expense summary",
@@ -193,11 +194,11 @@ export function formatWhatsAppHelpReply(
     "Say what you need. I will answer, save, remind, log, summarise, or draft.",
     "",
     "Try:",
-    "1. Remind me to call Mukesh tomorrow at 10 am",
-    "2. I spent $18.40 at Chemist Warehouse",
-    "3. Bill summary: AGL bill $240 due 18 May",
-    "4. Check before send: I am angry about this bill",
-    "5. Call script: ask my energy retailer for a better rate",
+    "1. What should I do now?",
+    "2. Remind me to call Mukesh tomorrow at 10 am",
+    "3. I spent $18.40 at Chemist Warehouse",
+    "4. Bill summary: AGL bill $240 due 18 May",
+    "5. Check before send: I am angry about this bill",
     "Works now: voice, reminders, memory, AUD expenses, bill/doc summaries, drafts, call scripts.",
     `Needs setup: ${compactList(needsSetup, 5)}.`,
     "Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.",
@@ -223,7 +224,7 @@ export function formatWhatsAppPendingFeatureDevelopmentPlan(
     "Pending build plan",
     "Truth: I can build safe local rails now. Real external actions need account/provider setup first.",
     "",
-    "Works now: WhatsApp routing, reminders, AUD expenses, bills/docs, drafts, proof checks, queue capture, tests.",
+    "Works now: WhatsApp routing, life-admin cockpit, reminders, AUD expenses, bills/docs, drafts, proof checks, queue capture, tests.",
     "Can build without you: clearer replies, setup checklists, safety gates, local tools, and tests.",
     "",
     `Needs setup before live action: ${compactList(setupNames, 10)}.`,

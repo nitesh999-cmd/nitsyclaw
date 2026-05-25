@@ -1240,6 +1240,53 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers life admin cockpit with the next useful local action", async () => {
+    const state = getFakeDbState(deps.db);
+    state.reminders.push({
+      id: "reminder-cockpit",
+      text: "pay AGL bill",
+      fireAt: new Date("2026-04-28T09:00:00Z"),
+      rrule: null,
+      status: "pending",
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+    });
+    state.expenses.push({
+      id: "expense-cockpit",
+      amount: 650,
+      currency: "AUD",
+      category: "health",
+      merchant: "Chemist Warehouse",
+      occurredAt: new Date("2026-04-24T07:00:00Z"),
+      createdAt: new Date("2026-04-24T08:00:00Z"),
+    });
+    state.command_jobs.push({
+      id: "job-cockpit",
+      source: "whatsapp",
+      ownerHash: "owner",
+      command: "approve bill complaint draft",
+      status: "needs_approval",
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+      updatedAt: new Date("2026-04-25T08:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-life-admin",
+      from: OWNER,
+      body: "what should I do now?",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Life admin cockpit: ready");
+    expect(wa.sent[0].body).toContain("Clear: approve bill complaint draft");
+    expect(wa.sent[0].body).toContain("Reminders: 1 pending");
+    expect(wa.sent[0].body).toContain("This month: AUD 6.50");
+    expect(wa.sent[0].body).toContain("No email, bank, Drive, Photos, SMS, or calendar accounts used");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("searches local receipts and expenses from WhatsApp", async () => {
     const state = getFakeDbState(deps.db);
     state.expenses.push(
