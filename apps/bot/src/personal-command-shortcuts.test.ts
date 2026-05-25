@@ -234,15 +234,18 @@ describe("personal command shortcuts", () => {
 
   it("detects demo checklist requests", () => {
     expect(parseDemoChecklistShortcut("demo checklist")).toEqual({ kind: "demo-checklist" });
+    expect(parseDemoChecklistShortcut("demo help")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("what should I test?")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("run demo checklist")).toEqual({ kind: "demo-checklist" });
     expect(parseDemoChecklistShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects demo start requests", () => {
-    expect(parseDemoStartShortcut("start demo")).toEqual({ kind: "demo-start" });
-    expect(parseDemoStartShortcut("new demo")).toEqual({ kind: "demo-start" });
-    expect(parseDemoStartShortcut("start validation")).toEqual({ kind: "demo-start" });
+    expect(parseDemoStartShortcut("start demo")).toEqual({ kind: "demo-start", action: "start" });
+    expect(parseDemoStartShortcut("new demo")).toEqual({ kind: "demo-start", action: "start" });
+    expect(parseDemoStartShortcut("start validation")).toEqual({ kind: "demo-start", action: "start" });
+    expect(parseDemoStartShortcut("demo reset")).toEqual({ kind: "demo-start", action: "reset" });
+    expect(parseDemoStartShortcut("restart demo")).toEqual({ kind: "demo-start", action: "reset" });
     expect(parseDemoStartShortcut("weather tomorrow")).toBeNull();
   });
 

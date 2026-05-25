@@ -74,6 +74,7 @@ export interface DemoChecklistShortcut {
 
 export interface DemoStartShortcut {
   kind: "demo-start";
+  action: "start" | "reset";
 }
 
 export interface DemoResultsShortcut {
@@ -565,6 +566,8 @@ export function parseDemoChecklistShortcut(text: string): DemoChecklistShortcut 
   const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
   if (
     trimmed === "demo checklist" ||
+    trimmed === "demo help" ||
+    trimmed === "help demo" ||
     trimmed === "run demo checklist" ||
     trimmed === "validation checklist" ||
     trimmed === "test checklist" ||
@@ -579,6 +582,14 @@ export function parseDemoChecklistShortcut(text: string): DemoChecklistShortcut 
 export function parseDemoStartShortcut(text: string): DemoStartShortcut | null {
   const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
   if (
+    trimmed === "demo reset" ||
+    trimmed === "reset demo" ||
+    trimmed === "restart demo" ||
+    trimmed === "restart validation"
+  ) {
+    return { kind: "demo-start", action: "reset" };
+  }
+  if (
     trimmed === "start demo" ||
     trimmed === "begin demo" ||
     trimmed === "new demo" ||
@@ -586,7 +597,7 @@ export function parseDemoStartShortcut(text: string): DemoStartShortcut | null {
     trimmed === "begin validation" ||
     trimmed === "start demo session"
   ) {
-    return { kind: "demo-start" };
+    return { kind: "demo-start", action: "start" };
   }
   return null;
 }

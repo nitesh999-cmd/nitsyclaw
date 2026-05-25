@@ -910,11 +910,15 @@ export class Router {
     ].join("\n");
   }
 
-  private formatDemoChecklistReply(started = false): string {
+  private formatDemoChecklistReply(mode: "checklist" | "start" | "reset" = "checklist"): string {
     return formatWhatsAppReplyShape({
-      answer: started ? "Demo session started. Run these in WhatsApp." : "Demo checklist: run these in WhatsApp.",
-      state: started
-        ? "Results will use commands after this marker."
+      answer: mode === "reset"
+        ? "Demo session reset. Run these in WhatsApp."
+        : mode === "start"
+          ? "Demo session started. Run these in WhatsApp."
+          : "Demo checklist: run these in WhatsApp.",
+      state: mode !== "checklist"
+        ? "Demo results will only count commands after this marker."
         : "Goal: prove the life-admin spine works before more feature build.",
       details: [
         "1. proof test",
@@ -1935,7 +1939,7 @@ export class Router {
 
     const demoStart = parseDemoStartShortcut(effectiveText);
     if (demoStart) {
-      const reply = this.formatDemoChecklistReply(true);
+      const reply = this.formatDemoChecklistReply(demoStart.action);
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
@@ -2463,7 +2467,11 @@ function isDemoStartCommand(command: string): boolean {
     normalized === "new demo" ||
     normalized === "start validation" ||
     normalized === "begin validation" ||
-    normalized === "start demo session";
+    normalized === "start demo session" ||
+    normalized === "demo reset" ||
+    normalized === "reset demo" ||
+    normalized === "restart demo" ||
+    normalized === "restart validation";
 }
 
 function clipForWhatsApp(value: string, max = 1200): string {

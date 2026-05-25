@@ -797,11 +797,26 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("Demo session started");
-    expect(wa.sent[0].body).toContain("Results will use commands after this marker");
+    expect(wa.sent[0].body).toContain("Demo results will only count commands after this marker");
     expect(wa.sent[0].body).toContain("proof test");
     expect(wa.sent[0].body).toContain("weekly admin digest");
     expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("resets a scoped demo session marker with plain reset wording", async () => {
+    await router.handle({
+      id: "x-reset-demo",
+      from: OWNER,
+      body: "demo reset",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Demo session reset");
+    expect(wa.sent[0].body).toContain("Demo results will only count commands after this marker");
+    expect(wa.sent[0].body).toContain("proof test");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
   });
 
   it("answers demo results requests from recent WhatsApp command jobs", async () => {
