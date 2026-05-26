@@ -73,6 +73,20 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("pnpm test");
   });
 
+  it("waits for Railway and runs the deploy watchdog before WhatsApp production smoke", () => {
+    expect(workflow).toContain("Wait for Railway deployment");
+    expect(workflow).toContain("./scripts/railway-wait-for-commit.ps1");
+    expect(workflow).toContain("Check Railway deploy watchdog");
+    expect(workflow).toContain("./scripts/railway-deploy-watchdog.ps1");
+    expect(workflow).toContain("Run WhatsApp production smoke");
+    expect(workflow.indexOf("./scripts/railway-wait-for-commit.ps1")).toBeLessThan(
+      workflow.indexOf("./scripts/railway-deploy-watchdog.ps1"),
+    );
+    expect(workflow.indexOf("./scripts/railway-deploy-watchdog.ps1")).toBeLessThan(
+      workflow.indexOf("./scripts/whatsapp-production-smoke.ps1"),
+    );
+  });
+
   it("has a Linux Vercel packaging gate for main branch releases", () => {
     expect(workflow).toContain("vercel-build:");
     expect(workflow).toContain("node-version: 22.19.0");

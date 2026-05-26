@@ -1,4 +1,7 @@
 param(
+    [string]$ProjectId = $(if ($env:RAILWAY_PROJECT_ID) { $env:RAILWAY_PROJECT_ID } else { "14a48d9f-310a-446f-9350-77a28ebdc239" }),
+    [string]$Environment = $(if ($env:RAILWAY_ENVIRONMENT) { $env:RAILWAY_ENVIRONMENT } else { "production" }),
+    [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
     [string]$ExpectedCommit = $(git rev-parse --short HEAD),
     [int]$TimeoutSeconds = 900,
     [int]$PollSeconds = 30
@@ -22,17 +25,27 @@ if ($PollSeconds -lt 5) {
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
 Write-Host "== Railway deploy wait =="
+Write-Host "Project: $ProjectId"
+Write-Host "Environment: $Environment"
+Write-Host "Service: $Service"
 Write-Host "Expected commit: $ExpectedCommit"
 Write-Host "Timeout: $TimeoutSeconds seconds"
 
 while ((Get-Date) -lt $deadline) {
-    $json = pnpm dlx @railway/cli deployment list --json 2>&1
+    $rawDeploymentList = pnpm dlx @railway/cli deployment list `
+        --project $ProjectId `
+        --environment $Environment `
+        --service $Service `
+        --limit 10 `
+        --json 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Host ($json -join "`n")
+        Write-Host ([string]::Join("`n", @($rawDeploymentList)))
         throw "Railway deployment list failed."
     }
 
-    $deployments = $json | ConvertFrom-Json
+    $deploymentListText = [string]::Join("`n", @($rawDeploymentList))
+    $parsedDeployments = $deploymentListText | ConvertFrom-Json
+    $deployments = if ($parsedDeployments -is [System.Array]) { $parsedDeployments } else { @($parsedDeployments) }
     $latest = @($deployments)[0]
     if (-not $latest) {
         throw "Railway returned no deployments."
@@ -42,10 +55,16 @@ while ((Get-Date) -lt $deadline) {
     $status = [string]$latest.status
     $id = [string]$latest.id
     $message = [string]$latest.meta.commitMessage
+    if ([string]::IsNullOrWhiteSpace($message)) {
+        $message = [string]$latest.meta.cliMessage
+    }
+    $commitMatches = $ExpectedCommit -and $commit.StartsWith($ExpectedCommit)
+    $messageMatches = $ExpectedCommit -and [string]::IsNullOrWhiteSpace($commit) -and $message -match [regex]::Escape($ExpectedCommit)
+    $commitLabel = if ($commit.Length -gt 0) { $commit.Substring(0, [Math]::Min(7, $commit.Length)) } else { "no-commit" }
 
-    Write-Host "$((Get-Date).ToString("HH:mm:ss")) $status $id $($commit.Substring(0, [Math]::Min(7, $commit.Length))) $message"
+    Write-Host "$((Get-Date).ToString("HH:mm:ss")) $status $id $commitLabel $message"
 
-    if ($commit.StartsWith($ExpectedCommit)) {
+    if ($commitMatches -or $messageMatches) {
         if ($status -eq "SUCCESS") {
             Write-Host "Railway deployment succeeded: $id"
             exit 0

@@ -337,7 +337,12 @@ describe("package scripts", () => {
     const source = readFileSync("scripts/railway-wait-for-commit.ps1", "utf8");
 
     expect(source).toContain("$PSNativeCommandUseErrorActionPreference = $false");
-    expect(source).toContain("@railway/cli deployment list --json");
+    expect(source).toContain("@railway/cli deployment list `");
+    expect(source).toContain("--project $ProjectId");
+    expect(source).toContain("--environment $Environment");
+    expect(source).toContain("--service $Service");
+    expect(source).toContain("[string]::Join");
+    expect(source).toContain("cliMessage");
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 

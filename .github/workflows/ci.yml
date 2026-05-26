@@ -90,6 +90,14 @@ jobs:
             exit 0
           fi
           echo "configured=true" >> "$GITHUB_OUTPUT"
+      - name: Wait for Railway deployment
+        if: steps.railway-token.outputs.configured == 'true'
+        shell: pwsh
+        run: ./scripts/railway-wait-for-commit.ps1 -ExpectedCommit "${{ github.sha }}" -TimeoutSeconds 900 -PollSeconds 30
+      - name: Check Railway deploy watchdog
+        if: steps.railway-token.outputs.configured == 'true'
+        shell: pwsh
+        run: ./scripts/railway-deploy-watchdog.ps1 -MaxBuildingAgeSeconds 900
       - name: Run WhatsApp production smoke
         if: steps.railway-token.outputs.configured == 'true'
         shell: pwsh
