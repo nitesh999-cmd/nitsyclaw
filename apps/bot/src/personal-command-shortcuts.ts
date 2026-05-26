@@ -109,7 +109,7 @@ export interface LifeAdminCockpitShortcut {
 }
 
 export interface AdminInboxActionShortcut {
-  action: "done" | "dismiss" | "snooze" | "reschedule";
+  action: "done" | "dismiss" | "snooze" | "reschedule" | "history";
   whenText?: string;
 }
 
@@ -809,6 +809,13 @@ export function parseAdminInboxActionShortcut(text: string): AdminInboxActionSho
   const raw = text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/g, "");
   const lowered = raw.toLowerCase();
   if (!raw) return null;
+
+  if (
+    /^(?:admin|inbox|life admin)\s+(?:history|actions|activity)$/.test(lowered) ||
+    /^(?:show\s+)?(?:last|recent)\s+(?:admin|inbox|life admin)\s+(?:actions|activity)$/.test(lowered)
+  ) {
+    return { action: "history" };
+  }
 
   if (
     /^(?:admin|inbox|life admin)\s+(?:done|complete|mark done)$/.test(lowered) ||

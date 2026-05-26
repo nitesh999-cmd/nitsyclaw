@@ -601,10 +601,34 @@ export class Router {
     return planned?.fireAt ?? null;
   }
 
+  private async formatAdminActionHistoryReply(): Promise<string> {
+    const jobs = await listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 20 });
+    const actionJobs = jobs
+      .map((job) => ({ job, shortcut: parseAdminInboxActionShortcut(job.command) }))
+      .filter((item): item is { job: CommandJob; shortcut: AdminInboxActionShortcut } =>
+        Boolean(item.shortcut && item.shortcut.action !== "history"),
+      )
+      .slice(0, 5);
+    const lines = actionJobs.map(({ job, shortcut }) =>
+      `- ${this.formatLocalDateTime(job.createdAt)}: ${shortcut.action} - ${job.status}`,
+    );
+
+    return formatWhatsAppReplyShape({
+      answer: "Admin action history.",
+      state: "Local WhatsApp admin actions only. No external accounts used.",
+      details: lines.length ? lines : ["No recent admin actions found."],
+      next: "Try: life admin | admin done | admin snooze tomorrow 9am",
+    });
+  }
+
   private async formatAdminInboxActionReply(
     action: AdminInboxActionShortcut,
     userPhone: string,
   ): Promise<string> {
+    if (action.action === "history") {
+      return this.formatAdminActionHistoryReply();
+    }
+
     const priority = await this.getTopLifeAdminPriority(userPhone);
     if (priority.kind === "confirmation") {
       if (action.action === "dismiss") {

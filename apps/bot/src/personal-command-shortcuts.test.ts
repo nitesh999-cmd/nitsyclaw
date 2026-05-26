@@ -296,6 +296,8 @@ describe("personal command shortcuts", () => {
   });
 
   it("detects admin inbox action shortcuts", () => {
+    expect(parseAdminInboxActionShortcut("admin history")).toEqual({ action: "history" });
+    expect(parseAdminInboxActionShortcut("show last admin actions")).toEqual({ action: "history" });
     expect(parseAdminInboxActionShortcut("admin done")).toEqual({ action: "done" });
     expect(parseAdminInboxActionShortcut("done inbox")).toEqual({ action: "done" });
     expect(parseAdminInboxActionShortcut("admin dismiss")).toEqual({ action: "dismiss" });

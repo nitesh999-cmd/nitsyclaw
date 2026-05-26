@@ -1363,6 +1363,52 @@ describe("Router (integration)", () => {
     expect(state.confirmations[0].status).toBe("pending");
   });
 
+  it("shows recent admin action history from WhatsApp", async () => {
+    const state = getFakeDbState(deps.db);
+    state.command_jobs.push(
+      {
+        id: "job-admin-1",
+        source: "whatsapp",
+        ownerHash: "owner",
+        command: "admin done",
+        status: "done",
+        createdAt: new Date("2026-04-25T08:00:00Z"),
+        updatedAt: new Date("2026-04-25T08:00:00Z"),
+      },
+      {
+        id: "job-admin-2",
+        source: "whatsapp",
+        ownerHash: "owner",
+        command: "admin snooze tomorrow 9am",
+        status: "retrying",
+        createdAt: new Date("2026-04-25T08:05:00Z"),
+        updatedAt: new Date("2026-04-25T08:05:00Z"),
+      },
+      {
+        id: "job-normal",
+        source: "whatsapp",
+        ownerHash: "owner",
+        command: "weather tomorrow",
+        status: "done",
+        createdAt: new Date("2026-04-25T08:06:00Z"),
+        updatedAt: new Date("2026-04-25T08:06:00Z"),
+      },
+    );
+
+    await router.handle({
+      id: "x-admin-history",
+      from: OWNER,
+      body: "admin history",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Admin action history");
+    expect(wa.sent[0].body).toContain("done - done");
+    expect(wa.sent[0].body).toContain("snooze - retrying");
+    expect(wa.sent[0].body).not.toContain("weather tomorrow");
+  });
+
   it("searches local receipts and expenses from WhatsApp", async () => {
     const state = getFakeDbState(deps.db);
     state.expenses.push(
