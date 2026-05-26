@@ -43,9 +43,11 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Runtime writes WhatsApp session and local secret files under the non-root
-# node user's home directory, not inside the repository.
+# node user's home directory, not inside the repository. Do not chown /app
+# recursively here; Railway build logs showed that walking node_modules can
+# add minutes to every deploy.
 RUN mkdir -p /home/node/.nitsyclaw/secrets \
-    && chown -R node:node /app /home/node/.nitsyclaw
+    && chown -R node:node /home/node/.nitsyclaw
 
 COPY scripts/docker-entrypoint.sh /usr/local/bin/nitsyclaw-entrypoint.sh
 RUN chmod 755 /usr/local/bin/nitsyclaw-entrypoint.sh

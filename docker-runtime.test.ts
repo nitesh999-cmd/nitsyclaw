@@ -26,6 +26,7 @@ describe("Railway Docker runtime", () => {
     expect(dockerfile).toContain("nosemgrep: dockerfile.security.last-user-is-root.last-user-is-root");
     expect(dockerfile).toContain("USER root");
     expect(dockerfile).not.toContain("USER node\n\n# Start command");
+    expect(dockerfile).not.toContain("chown -R node:node /app");
 
     if (hasCommand("sh")) {
       execFileSync("sh", ["-n", "scripts/docker-entrypoint.sh"]);
