@@ -1288,6 +1288,81 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("marks the top admin reminder done from WhatsApp", async () => {
+    const state = getFakeDbState(deps.db);
+    state.reminders.push({
+      id: "reminder-admin-done",
+      text: "pay AGL bill",
+      fireAt: new Date("2026-04-26T09:00:00Z"),
+      rrule: null,
+      status: "pending",
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-admin-done",
+      from: OWNER,
+      body: "admin done",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Marked reminder done");
+    expect(wa.sent[0].body).toContain("pay AGL bill");
+    expect(state.reminders[0].status).toBe("fired");
+    expect(wa.sent[0].body).not.toContain("Saved. Working on it.");
+  });
+
+  it("reschedules the top admin reminder from WhatsApp", async () => {
+    const state = getFakeDbState(deps.db);
+    state.reminders.push({
+      id: "reminder-admin-snooze",
+      text: "call dentist",
+      fireAt: new Date("2026-04-26T09:00:00Z"),
+      rrule: null,
+      status: "pending",
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-admin-snooze",
+      from: OWNER,
+      body: "admin snooze tomorrow 9am",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Rescheduled reminder");
+    expect(wa.sent[0].body).toContain("call dentist");
+    expect(state.reminders[0].status).toBe("pending");
+    expect(state.reminders[0].fireAt).toBeInstanceOf(Date);
+    expect((state.reminders[0].fireAt as Date).getTime()).not.toBe(new Date("2026-04-26T09:00:00Z").getTime());
+  });
+
+  it("keeps approval actions explicit from admin shortcuts", async () => {
+    const state = getFakeDbState(deps.db);
+    state.confirmations.push({
+      id: "confirmation-admin",
+      action: "send complaint email",
+      payload: {},
+      status: "pending",
+      expiresAt: new Date("2026-04-25T09:00:00Z"),
+      createdAt: new Date("2026-04-25T08:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-admin-approval",
+      from: OWNER,
+      body: "admin done",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Approval is waiting");
+    expect(wa.sent[0].body).toContain("will not approve");
+    expect(state.confirmations[0].status).toBe("pending");
+  });
+
   it("searches local receipts and expenses from WhatsApp", async () => {
     const state = getFakeDbState(deps.db);
     state.expenses.push(

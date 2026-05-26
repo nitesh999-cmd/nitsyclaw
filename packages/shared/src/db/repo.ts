@@ -156,6 +156,16 @@ export async function markReminderFired(db: DB, tenant: TenantContext, id: strin
   await db.update(reminders).set({ status: "fired" }).where(eq(reminders.id, id));
 }
 
+export async function cancelReminder(db: DB, tenant: TenantContext, id: string) {
+  guardUnscopedCustomerDataAccess(tenant);
+  await db.update(reminders).set({ status: "cancelled" }).where(eq(reminders.id, id));
+}
+
+export async function rescheduleReminder(db: DB, tenant: TenantContext, id: string, fireAt: Date) {
+  guardUnscopedCustomerDataAccess(tenant);
+  await db.update(reminders).set({ status: "pending", fireAt }).where(eq(reminders.id, id));
+}
+
 export async function insertExpense(db: DB, tenant: TenantContext, e: NewExpense) {
   guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db.insert(expenses).values(e).returning();

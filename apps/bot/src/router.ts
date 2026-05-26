@@ -61,6 +61,7 @@ import {
 } from "@nitsyclaw/shared/features";
 import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
 import {
+  cancelReminder,
   getLatestPendingConfirmation,
   insertMessage,
   insertExpense,
@@ -72,8 +73,11 @@ import {
   listPendingReminders,
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
+  markReminderFired,
   recentExpensesBetween,
   recentMessages,
+  rescheduleReminder,
+  setConfirmationStatus,
   updateMessageMetadata,
 } from "@nitsyclaw/shared/db";
 import {
@@ -83,8 +87,9 @@ import {
   markCommandJobWorking,
   refreshCommandJobIntent,
   recordCommandJobFailure,
+  snoozeCommandJob,
 } from "@nitsyclaw/shared/ops/command-jobs";
-import type { CommandJob } from "@nitsyclaw/shared/db";
+import type { CommandJob, Reminder } from "@nitsyclaw/shared/db";
 import type { SystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
@@ -104,6 +109,8 @@ import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
   parseBuildAgentShortcut,
+  parseAdminInboxActionShortcut,
+  type AdminInboxActionShortcut,
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
   parseCantDoGuardShortcut,
@@ -151,6 +158,41 @@ import {
   type WhatsAppProviderReadinessKey,
   getWhatsAppProviderReadiness,
 } from "./whatsapp-provider-readiness.js";
+
+type LifeAdminPriorityItem =
+  | {
+      kind: "confirmation";
+      id: string;
+      score: number;
+      label: string;
+      summary: string;
+      next: string;
+    }
+  | {
+      kind: "command-job";
+      id: string;
+      status: CommandJob["status"];
+      score: number;
+      label: string;
+      summary: string;
+      next: string;
+    }
+  | {
+      kind: "reminder";
+      id: string;
+      fireAt: Date;
+      score: number;
+      label: string;
+      summary: string;
+      next: string;
+    }
+  | {
+      kind: "habit";
+      score: number;
+      label: string;
+      summary: string;
+      next: string;
+    };
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -451,6 +493,210 @@ export class Router {
     ].join("\n");
   }
 
+  private buildLifeAdminPriorityItems(args: {
+    now: Date;
+    reminders: Reminder[];
+    expenses: string;
+    documents: string;
+    commandJobs: CommandJob[];
+    latestConfirmation: { id: string; action: string } | null;
+  }): LifeAdminPriorityItem[] {
+    const priorityItems: LifeAdminPriorityItem[] = [];
+    if (args.latestConfirmation) {
+      priorityItems.push({
+        kind: "confirmation",
+        id: args.latestConfirmation.id,
+        score: 100,
+        label: "Approval",
+        summary: clipForWhatsApp(args.latestConfirmation.action, 80),
+        next: "Reply approved or no.",
+      });
+    }
+    for (const job of args.commandJobs) {
+      const scoreByStatus: Partial<Record<CommandJob["status"], number>> = {
+        failed: 95,
+        needs_approval: 90,
+        needs_clarification: 85,
+        retrying: 70,
+        working: 45,
+      };
+      const score = scoreByStatus[job.status];
+      if (!score) continue;
+      priorityItems.push({
+        kind: "command-job",
+        id: job.id,
+        status: job.status,
+        score,
+        label: job.status === "failed" ? "Fix failed task" : job.status.replace(/_/g, " "),
+        summary: clipForWhatsApp(job.command, 80),
+        next: job.status === "needs_clarification" ? "Answer the short question." : "Clear this before adding more work.",
+      });
+    }
+    const nextReminder = args.reminders[0];
+    if (nextReminder) {
+      const hoursUntil = (nextReminder.fireAt.getTime() - args.now.getTime()) / (60 * 60 * 1000);
+      priorityItems.push({
+        kind: "reminder",
+        id: nextReminder.id,
+        fireAt: nextReminder.fireAt,
+        score: hoursUntil < 0 ? 88 : hoursUntil <= 24 ? 78 : 40,
+        label: hoursUntil < 0 ? "Overdue reminder" : "Next reminder",
+        summary: clipForWhatsApp(nextReminder.text, 80),
+        next: "Handle it, reschedule it, or mark it done.",
+      });
+    }
+    if (args.expenses.startsWith("- No expenses")) {
+      priorityItems.push({
+        kind: "habit",
+        score: 20,
+        label: "Expense habit",
+        summary: "No expenses logged this month",
+        next: "Send one receipt or say what you spent.",
+      });
+    }
+    if (args.documents.startsWith("- No recent")) {
+      priorityItems.push({
+        kind: "habit",
+        score: 15,
+        label: "Bill capture",
+        summary: "No recent bill/document uploads",
+        next: "Paste or upload one bill to create the admin trail.",
+      });
+    }
+    return priorityItems.sort((a, b) => b.score - a.score);
+  }
+
+  private async getTopLifeAdminPriority(userPhone: string): Promise<LifeAdminPriorityItem> {
+    const now = this.deps.now();
+    const [reminders, expenses, documents, commandJobs, latestConfirmation] = await Promise.all([
+      listPendingReminders(this.deps.db, this.tenant(), now, 10),
+      this.getMonthlyExpenseSnapshot(),
+      this.getRecentDocumentLines(userPhone, 2),
+      listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 8 }),
+      getLatestPendingConfirmation(this.deps.db, this.tenant()).catch(() => null),
+    ]);
+    return this.buildLifeAdminPriorityItems({
+      now,
+      reminders,
+      expenses,
+      documents,
+      commandJobs,
+      latestConfirmation,
+    })[0] ?? {
+      kind: "habit",
+      score: 0,
+      label: "Start",
+      summary: "Add one real bill, receipt, or reminder",
+      next: "Send a bill, receipt, or reminder request.",
+    };
+  }
+
+  private parseAdminActionTime(action: AdminInboxActionShortcut): Date | null {
+    if (!action.whenText) return null;
+    const planned = planReminder({
+      text: action.whenText,
+      now: this.deps.now(),
+      timezone: this.deps.timezone,
+    });
+    return planned?.fireAt ?? null;
+  }
+
+  private async formatAdminInboxActionReply(
+    action: AdminInboxActionShortcut,
+    userPhone: string,
+  ): Promise<string> {
+    const priority = await this.getTopLifeAdminPriority(userPhone);
+    if (priority.kind === "confirmation") {
+      if (action.action === "dismiss") {
+        await setConfirmationStatus(this.deps.db, this.tenant(), priority.id, "rejected");
+        return formatWhatsAppReplyShape({
+          answer: "Dismissed approval request.",
+          state: "No external action was taken.",
+          details: [`Cleared: ${priority.summary}`],
+          next: "Send life admin to see the next item.",
+        });
+      }
+      return formatWhatsAppReplyShape({
+        answer: "Approval is waiting.",
+        state: "For safety I will not approve, snooze, or mark an approval done from a shortcut.",
+        details: [`Waiting: ${priority.summary}`],
+        next: "Reply with the exact approval response shown in WhatsApp, or say admin dismiss.",
+      });
+    }
+
+    if (priority.kind === "reminder") {
+      if (action.action === "done") {
+        await markReminderFired(this.deps.db, this.tenant(), priority.id);
+        return formatWhatsAppReplyShape({
+          answer: "Marked reminder done.",
+          state: "Updated local NitsyClaw reminders only.",
+          details: [`Done: ${priority.summary}`],
+          next: "Send life admin to see the next item.",
+        });
+      }
+      if (action.action === "dismiss") {
+        await cancelReminder(this.deps.db, this.tenant(), priority.id);
+        return formatWhatsAppReplyShape({
+          answer: "Dismissed reminder.",
+          state: "Updated local NitsyClaw reminders only.",
+          details: [`Cleared: ${priority.summary}`],
+          next: "Send life admin to see the next item.",
+        });
+      }
+      const fireAt = this.parseAdminActionTime(action);
+      if (!fireAt) {
+        return formatWhatsAppReplyShape({
+          answer: "I need a clearer time.",
+          state: "No reminder was changed.",
+          details: [`Reminder: ${priority.summary}`],
+          next: "Try: admin snooze tomorrow 9am",
+        });
+      }
+      await rescheduleReminder(this.deps.db, this.tenant(), priority.id, fireAt);
+      return formatWhatsAppReplyShape({
+        answer: "Rescheduled reminder.",
+        state: "Updated local NitsyClaw reminders only.",
+        details: [`Reminder: ${priority.summary}`, `New time: ${this.formatLocalDateTime(fireAt)}`],
+        next: "Send life admin to see the next item.",
+      });
+    }
+
+    if (priority.kind === "command-job") {
+      if (action.action === "done" || action.action === "dismiss") {
+        await completeCommandJob(this.deps.db, priority.id, "Cleared from WhatsApp admin inbox.");
+        return formatWhatsAppReplyShape({
+          answer: "Cleared admin inbox item.",
+          state: "No external action was taken.",
+          details: [`Cleared: ${priority.summary}`],
+          next: "Send life admin to see the next item.",
+        });
+      }
+      const nextRunAt = this.parseAdminActionTime(action);
+      if (!nextRunAt) {
+        return formatWhatsAppReplyShape({
+          answer: "I need a clearer time.",
+          state: "No admin inbox item was changed.",
+          details: [`Item: ${priority.summary}`],
+          next: "Try: admin snooze tomorrow 9am",
+        });
+      }
+      await snoozeCommandJob(this.deps.db, priority.id, nextRunAt);
+      return formatWhatsAppReplyShape({
+        answer: "Snoozed admin inbox item.",
+        state: "No external action was taken.",
+        details: [`Item: ${priority.summary}`, `New time: ${this.formatLocalDateTime(nextRunAt)}`],
+        next: "Send life admin to see the next item.",
+      });
+    }
+
+    return formatWhatsAppReplyShape({
+      answer: "No actionable admin item found.",
+      state: "Nothing was changed.",
+      details: [`Top suggestion: ${priority.summary}`],
+      next: "Try: weekly admin digest | remind me to pay a bill tomorrow",
+    });
+  }
+
   private async formatLifeAdminCockpitReply(userPhone: string): Promise<string> {
     const now = this.deps.now();
     const [reminders, expenses, documents, commandJobs, latestConfirmation] = await Promise.all([
@@ -463,59 +709,15 @@ export class Router {
     const needsAttention = commandJobs
       .filter((job) => job.status === "failed" || job.status === "retrying" || job.status === "needs_approval" || job.status === "needs_clarification")
       .slice(0, 2);
-    const nextReminder = reminders[0];
-    const priorityItems: Array<{ score: number; label: string; summary: string; next: string }> = [];
-    if (latestConfirmation) {
-      priorityItems.push({
-        score: 100,
-        label: "Approval",
-        summary: clipForWhatsApp(latestConfirmation.action, 80),
-        next: "Reply approved or no.",
-      });
-    }
-    for (const job of commandJobs) {
-      const scoreByStatus: Record<string, number> = {
-        failed: 95,
-        needs_approval: 90,
-        needs_clarification: 85,
-        retrying: 70,
-        working: 45,
-      };
-      const score = scoreByStatus[job.status];
-      if (!score) continue;
-      priorityItems.push({
-        score,
-        label: job.status === "failed" ? "Fix failed task" : job.status.replace(/_/g, " "),
-        summary: clipForWhatsApp(job.command, 80),
-        next: job.status === "needs_clarification" ? "Answer the short question." : "Clear this before adding more work.",
-      });
-    }
-    if (nextReminder) {
-      const hoursUntil = (nextReminder.fireAt.getTime() - now.getTime()) / (60 * 60 * 1000);
-      priorityItems.push({
-        score: hoursUntil < 0 ? 88 : hoursUntil <= 24 ? 78 : 40,
-        label: hoursUntil < 0 ? "Overdue reminder" : "Next reminder",
-        summary: clipForWhatsApp(nextReminder.text, 80),
-        next: "Handle it, reschedule it, or mark it done.",
-      });
-    }
-    if (expenses.startsWith("- No expenses")) {
-      priorityItems.push({
-        score: 20,
-        label: "Expense habit",
-        summary: "No expenses logged this month",
-        next: "Send one receipt or say what you spent.",
-      });
-    }
-    if (documents.startsWith("- No recent")) {
-      priorityItems.push({
-        score: 15,
-        label: "Bill capture",
-        summary: "No recent bill/document uploads",
-        next: "Paste or upload one bill to create the admin trail.",
-      });
-    }
-    const priority = priorityItems.sort((a, b) => b.score - a.score)[0] ?? {
+    const priority = this.buildLifeAdminPriorityItems({
+      now,
+      reminders,
+      expenses,
+      documents,
+      commandJobs,
+      latestConfirmation,
+    })[0] ?? {
+      kind: "habit",
       score: 0,
       label: "Start",
       summary: "Add one real bill, receipt, or reminder",
@@ -2045,6 +2247,19 @@ export class Router {
       const reply = await this.formatDemoResultsReply();
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const adminInboxAction = parseAdminInboxActionShortcut(effectiveText);
+    if (adminInboxAction) {
+      try {
+        const reply = await this.formatAdminInboxActionReply(adminInboxAction, msg.from);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (adminInboxActionError) {
+        await this.failWhatsAppCommandJob(commandJob, adminInboxActionError);
+        await this.sendPublicFailure("admin inbox action", "Couldn't update admin inbox. I logged it; try again shortly.", adminInboxActionError);
+      }
       return;
     }
 

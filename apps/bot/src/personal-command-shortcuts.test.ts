@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseAdminInboxActionShortcut,
   parseBuildAgentShortcut,
   parseAutonomousWorkShortcut,
   parseBugReportShortcut,
@@ -292,6 +293,22 @@ describe("personal command shortcuts", () => {
     expect(parseLifeAdminCockpitShortcut("what should I do now?")).toEqual({ kind: "life-admin-cockpit" });
     expect(parseLifeAdminCockpitShortcut("what needs my attention")).toEqual({ kind: "life-admin-cockpit" });
     expect(parseLifeAdminCockpitShortcut("weather now")).toBeNull();
+  });
+
+  it("detects admin inbox action shortcuts", () => {
+    expect(parseAdminInboxActionShortcut("admin done")).toEqual({ action: "done" });
+    expect(parseAdminInboxActionShortcut("done inbox")).toEqual({ action: "done" });
+    expect(parseAdminInboxActionShortcut("admin dismiss")).toEqual({ action: "dismiss" });
+    expect(parseAdminInboxActionShortcut("clear life admin")).toEqual({ action: "dismiss" });
+    expect(parseAdminInboxActionShortcut("admin snooze tomorrow 9am")).toEqual({
+      action: "snooze",
+      whenText: "tomorrow 9am",
+    });
+    expect(parseAdminInboxActionShortcut("reschedule inbox Friday 4pm")).toEqual({
+      action: "reschedule",
+      whenText: "Friday 4pm",
+    });
+    expect(parseAdminInboxActionShortcut("weather tomorrow")).toBeNull();
   });
 
   it("detects expense and receipt search shortcuts", () => {

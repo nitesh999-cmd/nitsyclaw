@@ -94,6 +94,19 @@ export async function completeCommandJob(
   });
 }
 
+export async function snoozeCommandJob(
+  db: DB,
+  id: string,
+  nextRunAt: Date,
+): Promise<CommandJob> {
+  return updateCommandJob(db, id, {
+    status: "retrying",
+    error: null,
+    nextRunAt,
+    updatedAt: new Date(),
+  });
+}
+
 export async function updateCommandJobCommand(
   db: DB,
   id: string,

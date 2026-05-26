@@ -108,6 +108,11 @@ export interface LifeAdminCockpitShortcut {
   kind: "life-admin-cockpit";
 }
 
+export interface AdminInboxActionShortcut {
+  action: "done" | "dismiss" | "snooze" | "reschedule";
+  whenText?: string;
+}
+
 export interface ExpenseSearchShortcut {
   query: string;
 }
@@ -797,6 +802,40 @@ export function parseLifeAdminCockpitShortcut(text: string): LifeAdminCockpitSho
   ) {
     return { kind: "life-admin-cockpit" };
   }
+  return null;
+}
+
+export function parseAdminInboxActionShortcut(text: string): AdminInboxActionShortcut | null {
+  const raw = text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/g, "");
+  const lowered = raw.toLowerCase();
+  if (!raw) return null;
+
+  if (
+    /^(?:admin|inbox|life admin)\s+(?:done|complete|mark done)$/.test(lowered) ||
+    /^(?:done|complete)\s+(?:admin|inbox|life admin)$/.test(lowered)
+  ) {
+    return { action: "done" };
+  }
+
+  if (
+    /^(?:admin|inbox|life admin)\s+(?:dismiss|clear)$/.test(lowered) ||
+    /^(?:dismiss|clear)\s+(?:admin|inbox|life admin)$/.test(lowered)
+  ) {
+    return { action: "dismiss" };
+  }
+
+  let match =
+    raw.match(/^(?:admin|inbox|life admin)\s+snooze\s+(.+)$/i) ??
+    raw.match(/^snooze\s+(?:admin|inbox|life admin)\s+(.+)$/i);
+  const snoozeText = match?.[1]?.trim();
+  if (snoozeText) return { action: "snooze", whenText: snoozeText.slice(0, 80) };
+
+  match =
+    raw.match(/^(?:admin|inbox|life admin)\s+reschedule\s+(.+)$/i) ??
+    raw.match(/^reschedule\s+(?:admin|inbox|life admin)\s+(.+)$/i);
+  const rescheduleText = match?.[1]?.trim();
+  if (rescheduleText) return { action: "reschedule", whenText: rescheduleText.slice(0, 80) };
+
   return null;
 }
 

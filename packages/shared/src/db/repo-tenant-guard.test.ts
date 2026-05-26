@@ -10,6 +10,8 @@ const guardedRepoFunctions = [
   "dueReminders",
   "listPendingReminders",
   "markReminderFired",
+  "cancelReminder",
+  "rescheduleReminder",
   "insertExpense",
   "expensesBetween",
   "recentExpensesBetween",
