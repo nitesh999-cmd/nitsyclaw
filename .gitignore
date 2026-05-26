@@ -60,3 +60,6 @@ graphify-out/cache/
 
 # Local operator proof logs
 .nitsyclaw-local/
+
+# Local agent/build artifacts
+artifacts/
