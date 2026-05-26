@@ -29,6 +29,7 @@
     "railway:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
     "railway:safe-config": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-safe-config.ps1",
     "railway:diagnose": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",
+    "railway:deploy-watchdog": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-deploy-watchdog.ps1",
     "railway:qr-open": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1",
     "railway:qr-close": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-close.ps1",
     "railway:whatsapp-recover": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-recover.ps1",

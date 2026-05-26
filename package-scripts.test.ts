@@ -241,6 +241,29 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\bdeploy\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
+  test("Railway deploy watchdog reports stuck builds without mutating deployments", () => {
+    expect(rootPackage.scripts?.["railway:deploy-watchdog"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-deploy-watchdog.ps1",
+    );
+
+    const source = readFileSync("scripts/railway-deploy-watchdog.ps1", "utf8");
+    expect(source).toContain("@railway/cli");
+    expect(source).toContain("deployment");
+    expect(source).toContain("list");
+    expect(source).toContain("MaxBuildingAgeSeconds");
+    expect(source).toContain("BUILDING");
+    expect(source).toContain("DEPLOYING");
+    expect(source).toMatch(/previous successful deployment/i);
+    expect(source).toContain("/healthz");
+    expect(source).toContain("manual Railway upload deploy");
+    const executableRailwayMutationLines = source
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => /@railway\/cli/.test(line))
+      .filter((line) => /\b(up|restart|redeploy|remove|delete)\b/.test(line));
+    expect(executableRailwayMutationLines).toEqual([]);
+  });
+
   test("local WhatsApp proof runs web smoke and WhatsApp tests without Railway credentials", () => {
     expect(rootPackage.scripts?.["whatsapp:proof-local"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
