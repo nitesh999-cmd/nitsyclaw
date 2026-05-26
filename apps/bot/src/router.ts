@@ -464,19 +464,70 @@ export class Router {
       .filter((job) => job.status === "failed" || job.status === "retrying" || job.status === "needs_approval" || job.status === "needs_clarification")
       .slice(0, 2);
     const nextReminder = reminders[0];
-    const focus = latestConfirmation
-      ? `Approve or reject: ${clipForWhatsApp(latestConfirmation.action, 80)}`
-      : needsAttention[0]
-        ? `Clear: ${clipForWhatsApp(needsAttention[0].command, 80)}`
-        : nextReminder
-          ? `Next reminder: ${clipForWhatsApp(nextReminder.text, 80)}`
-          : "Add one real bill, receipt, or reminder.";
+    const priorityItems: Array<{ score: number; label: string; summary: string; next: string }> = [];
+    if (latestConfirmation) {
+      priorityItems.push({
+        score: 100,
+        label: "Approval",
+        summary: clipForWhatsApp(latestConfirmation.action, 80),
+        next: "Reply approved or no.",
+      });
+    }
+    for (const job of commandJobs) {
+      const scoreByStatus: Record<string, number> = {
+        failed: 95,
+        needs_approval: 90,
+        needs_clarification: 85,
+        retrying: 70,
+        working: 45,
+      };
+      const score = scoreByStatus[job.status];
+      if (!score) continue;
+      priorityItems.push({
+        score,
+        label: job.status === "failed" ? "Fix failed task" : job.status.replace(/_/g, " "),
+        summary: clipForWhatsApp(job.command, 80),
+        next: job.status === "needs_clarification" ? "Answer the short question." : "Clear this before adding more work.",
+      });
+    }
+    if (nextReminder) {
+      const hoursUntil = (nextReminder.fireAt.getTime() - now.getTime()) / (60 * 60 * 1000);
+      priorityItems.push({
+        score: hoursUntil < 0 ? 88 : hoursUntil <= 24 ? 78 : 40,
+        label: hoursUntil < 0 ? "Overdue reminder" : "Next reminder",
+        summary: clipForWhatsApp(nextReminder.text, 80),
+        next: "Handle it, reschedule it, or mark it done.",
+      });
+    }
+    if (expenses.startsWith("- No expenses")) {
+      priorityItems.push({
+        score: 20,
+        label: "Expense habit",
+        summary: "No expenses logged this month",
+        next: "Send one receipt or say what you spent.",
+      });
+    }
+    if (documents.startsWith("- No recent")) {
+      priorityItems.push({
+        score: 15,
+        label: "Bill capture",
+        summary: "No recent bill/document uploads",
+        next: "Paste or upload one bill to create the admin trail.",
+      });
+    }
+    const priority = priorityItems.sort((a, b) => b.score - a.score)[0] ?? {
+      score: 0,
+      label: "Start",
+      summary: "Add one real bill, receipt, or reminder",
+      next: "Send a bill, receipt, or reminder request.",
+    };
 
     return formatWhatsAppReplyShape({
       answer: "Life admin cockpit: ready.",
       state: "Local WhatsApp data only. No email, bank, Drive, Photos, SMS, or calendar accounts used.",
       details: [
-        `Focus: ${focus}`,
+        `Priority: ${priority.label} - ${priority.summary}`,
+        `Next action: ${priority.next}`,
         `Reminders: ${reminders.length ? `${reminders.length} pending` : "none pending"}`,
         `Spending: ${clipForWhatsApp(expenses.replace(/\n/g, " | "), 140)}`,
         `Files/bills: ${clipForWhatsApp(documents.replace(/\n/g, " | "), 140)}`,

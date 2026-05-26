@@ -1278,7 +1278,8 @@ describe("Router (integration)", () => {
     });
 
     expect(wa.sent[0].body).toContain("Life admin cockpit: ready");
-    expect(wa.sent[0].body).toContain("Clear: approve bill complaint draft");
+    expect(wa.sent[0].body).toContain("Priority: needs approval - approve bill complaint draft");
+    expect(wa.sent[0].body).toContain("Next action: Clear this before adding more work.");
     expect(wa.sent[0].body).toContain("Reminders: 1 pending");
     expect(wa.sent[0].body).toContain("This month: AUD 6.50");
     expect(wa.sent[0].body).toContain("No email, bank, Drive, Photos, SMS, or calendar accounts used");
