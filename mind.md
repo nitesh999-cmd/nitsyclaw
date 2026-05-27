@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-05-26 (daily build agent run — network blocked day 11)
+> Updated: 2026-05-27 (daily build agent run — network blocked day 12)
 
 ---
 
@@ -625,6 +625,65 @@ For ten consecutive days the CCR network allowlist has not been updated. Until `
 | TCP 6543 to Supabase | FAILED -- blocked |
 | ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed (CCR MITM proxy confirmed) |
 | nitsyclaw.vercel.app HTTPS | FAILED -- 403 host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
+
+---
+
+## 26. Session 2026-05-27 -- Daily build agent run (BLOCKED day 12)
+
+**Date:** 2026-05-27
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented -- blocked by network policy (twelfth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | FAILED (exit 1) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+Note: The TLS certificate seen on nitsyclaw.vercel.app shows issuer "O=Anthropic; CN=sandbox-egress-production TLS Inspection CA", confirming CCR uses an HTTPS MITM inspection proxy. The proxy issues its own cert, inspects traffic, and returns 403 for non-allowlisted hosts before the request reaches the real server. This is why `curl -sv` shows a successful TLS handshake (with Anthropic's cert) followed by a 403 application response.
+
+### Context
+
+Git state: container started with HEAD at `25b2632` (stale -- same cached ref as session 25). After `git fetch origin main && git checkout main && git merge --ff-only origin/main`, fast-forwarded 30 commits to `a1d02b0`. New commits from other Claude sessions with DB/network access: Harden Railway CI deploy verification, Reduce Railway Docker build ownership work, Add Railway deploy watchdog, Ignore local agent artifacts, Add WhatsApp admin action history, and several others.
+
+### Verification
+
+- `pnpm install --frozen-lockfile` -- OK
+- `npx tsc --noEmit -p apps/dashboard/tsconfig.json` -- PASS (pre-existing baseUrl deprecation warning only)
+- `pnpm test` -- PASS (177 test files / 802 tests, all green -- 3 more tests than session 25 due to new Railway/admin features)
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-25 confirmed no new P0/P1 issues. Session 26 confirms the same: no new P0/P1 issues visible from code. The 30 new commits landed cleanly with no regressions.
+
+### L39 still unresolved (day 12)
+
+For twelve consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add `nitsyclaw.vercel.app` and `ntfy.sh` to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim `feature_requests` rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 30 commits to a1d02b0 (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (177 files / 802 tests) | PASS -- all green |
+| TCP 6543 to Supabase | FAILED -- blocked |
+| ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed (Anthropic MITM proxy confirmed) |
 | Query pending feature_requests | FAILED -- all paths blocked |
 | ntfy start notification | FAILED -- host not in allowlist |
 | Features implemented | 0 |
