@@ -54,6 +54,7 @@ describe("package scripts", () => {
   test("WhatsApp CI scripts avoid OS-specific shell wrappers", () => {
     const replies = rootPackage.scripts?.["ci:whatsapp-replies"] ?? "";
     const snapshots = rootPackage.scripts?.["ci:whatsapp-snapshots"] ?? "";
+    const workflowSource = readFileSync(".github/workflows/ci.yml", "utf8");
 
     expect(replies).toBe("node scripts/whatsapp-reply-ci.mjs");
     const replyCiSource = readFileSync("scripts/whatsapp-reply-ci.mjs", "utf8");
@@ -68,6 +69,10 @@ describe("package scripts", () => {
     expect(snapshots).toBe("pnpm run whatsapp:reply-snapshots && git diff --exit-code -- docs/whatsapp-reply-snapshots.md");
     expect(replies).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
     expect(snapshots).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
+    expect(workflowSource).toContain("WhatsApp reply shape budget");
+    expect(workflowSource).toContain("shell: bash");
+    expect(workflowSource).toContain("pnpm run whatsapp:reply-shape-report");
+    expect(workflowSource).toContain("pnpm exec vitest run apps/bot/test/router.integration.test.ts");
   });
 
   test("release preflight runs the safe PowerShell gate", () => {
