@@ -68,7 +68,8 @@ describe("GitHub Actions CI workflow", () => {
   });
 
   it("has a Windows lane for PowerShell and package-script regressions", () => {
-    expect(workflow).toContain("runs-on: windows-latest");
+    expect(workflow).toContain("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true");
+    expect(workflow).toContain("runs-on: windows-2025-vs2026");
     expect(workflow).toContain("Parse tracked PowerShell scripts");
     expect(workflow).toContain("pnpm test");
   });
