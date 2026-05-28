@@ -78,7 +78,7 @@ describe("package scripts", () => {
 
   test("release preflight runs the safe PowerShell gate", () => {
     expect(rootPackage.scripts?.["release:preflight"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     );
 
     const source = readFileSync("scripts/preflight.ps1", "utf8");
@@ -96,7 +96,7 @@ describe("package scripts", () => {
 
   test("Vercel build gate uses the checked PowerShell wrapper", () => {
     expect(rootPackage.scripts?.["release:vercel-build"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
     );
 
     const source = readFileSync("scripts/vercel-build.ps1", "utf8");
@@ -106,7 +106,7 @@ describe("package scripts", () => {
 
   test("audit doctor checks machine blockers before external security gates", () => {
     expect(rootPackage.scripts?.["audit:doctor"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit-doctor.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/audit-doctor.ps1",
     );
 
     const source = readFileSync("scripts/audit-doctor.ps1", "utf8");
@@ -118,13 +118,13 @@ describe("package scripts", () => {
 
   test("deep security gate runs Semgrep and pnpm audit", () => {
     expect(rootPackage.scripts?.["security:semgrep"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/semgrep-scan.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/semgrep-scan.ps1",
     );
     expect(rootPackage.scripts?.["security:audit"]).toBe(
       "pnpm audit --audit-level=moderate",
     );
     expect(rootPackage.scripts?.["security:deep"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/security-deep.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/security-deep.ps1",
     );
 
     const semgrepSource = readFileSync("scripts/semgrep-scan.ps1", "utf8");
@@ -138,7 +138,7 @@ describe("package scripts", () => {
 
   test("Snyk gate is explicit and separate from the default release gate", () => {
     expect(rootPackage.scripts?.["security:snyk"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/snyk-scan.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/snyk-scan.ps1",
     );
     expect(rootPackage.scripts?.["release:check"]).not.toContain("security:snyk");
 
@@ -150,7 +150,7 @@ describe("package scripts", () => {
 
   test("ZAP baseline gate is explicit and requires Docker", () => {
     expect(rootPackage.scripts?.["security:zap"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zap-baseline.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/zap-baseline.ps1",
     );
 
     const source = readFileSync("scripts/zap-baseline.ps1", "utf8");
@@ -226,7 +226,7 @@ describe("package scripts", () => {
       "pnpm dlx @railway/cli login --browserless",
     );
     expect(rootPackage.scripts?.["railway:preflight"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-preflight.ps1",
     );
 
     const source = readFileSync("scripts/railway-preflight.ps1", "utf8");
@@ -245,10 +245,10 @@ describe("package scripts", () => {
 
   test("Railway QR recovery scripts use protected token windows instead of QR logs", () => {
     expect(rootPackage.scripts?.["railway:qr-open"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1",
     );
     expect(rootPackage.scripts?.["railway:qr-close"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-close.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-close.ps1",
     );
 
     const openSource = readFileSync("scripts/railway-qr-open.ps1", "utf8");
@@ -273,7 +273,7 @@ describe("package scripts", () => {
 
   test("Railway diagnose captures read-only crash logs without mutating deployments", () => {
     expect(rootPackage.scripts?.["railway:diagnose"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-diagnose.ps1",
     );
 
     const source = readFileSync("scripts/railway-diagnose.ps1", "utf8");
@@ -288,7 +288,7 @@ describe("package scripts", () => {
 
   test("Railway deploy watchdog reports stuck builds without mutating deployments", () => {
     expect(rootPackage.scripts?.["railway:deploy-watchdog"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-deploy-watchdog.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-deploy-watchdog.ps1",
     );
 
     const source = readFileSync("scripts/railway-deploy-watchdog.ps1", "utf8");
@@ -312,7 +312,7 @@ describe("package scripts", () => {
 
   test("local WhatsApp proof runs web smoke and WhatsApp tests without Railway credentials", () => {
     expect(rootPackage.scripts?.["whatsapp:proof-local"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
     );
 
     const source = readFileSync("scripts/whatsapp-proof-local.ps1", "utf8");
@@ -326,7 +326,7 @@ describe("package scripts", () => {
 
   test("post-deploy proof combines Railway, public smoke, and phone prompts", () => {
     expect(rootPackage.scripts?.["release:post-deploy-proof"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
     );
 
     const source = readFileSync("scripts/post-deploy-proof.ps1", "utf8");
@@ -361,7 +361,7 @@ describe("package scripts", () => {
 
   test("WhatsApp full release proves the pushed commit without mutating git", () => {
     expect(rootPackage.scripts?.["release:whatsapp-full"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
     );
 
     const source = readFileSync("scripts/whatsapp-full-release.ps1", "utf8");
@@ -403,7 +403,7 @@ describe("package scripts", () => {
     expect(shapeSource).toContain("whatsapp-reply-format.test.ts");
 
     expect(rootPackage.scripts?.["whatsapp:release-gate"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
     );
 
     const source = readFileSync("scripts/whatsapp-release-gate.ps1", "utf8");
