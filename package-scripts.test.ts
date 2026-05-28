@@ -31,6 +31,26 @@ describe("package scripts", () => {
     expect(script).not.toMatch(/\bgit\b|\bvercel\b|deploy|reset|stash/);
   });
 
+  test("GitHub CI status checker is read-only and token-safe", () => {
+    expect(rootPackage.scripts?.["ci:github-status"]).toBe(
+      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/github-ci-status.ps1",
+    );
+
+    const source = readFileSync("scripts/github-ci-status.ps1", "utf8");
+    expect(source).toContain("api.github.com/repos/$Owner/$Repo/actions/runs");
+    expect(source).toContain("GITHUB_TOKEN");
+    expect(source).toContain("workflow_runs");
+    expect(source).toContain("AllowInProgress");
+    expect(source).not.toContain("Write-Host $env:GITHUB_TOKEN");
+    expect(source).not.toMatch(/\bPOST\b|\bPATCH\b|\bPUT\b|\bDELETE\b/);
+  });
+
+  test("PowerShell syntax script uses cross-platform pwsh for CI", () => {
+    expect(rootPackage.scripts?.["ci:powershell"]).toBe(
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
+    );
+  });
+
   test("release preflight runs the safe PowerShell gate", () => {
     expect(rootPackage.scripts?.["release:preflight"]).toBe(
       "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
