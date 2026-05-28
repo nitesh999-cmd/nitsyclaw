@@ -30,7 +30,7 @@ docker run --rm -t `
     -w /zap/wrk `
     -v "${workspace}:/zap/wrk/:rw" `
     ghcr.io/zaproxy/zaproxy:stable `
-    zap-baseline.py `
+    /zap/zap-baseline.py `
     -t $Target `
     -r $Report `
     -I
