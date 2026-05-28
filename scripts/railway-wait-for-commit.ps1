@@ -32,7 +32,7 @@ Write-Host "Expected commit: $ExpectedCommit"
 Write-Host "Timeout: $TimeoutSeconds seconds"
 
 while ((Get-Date) -lt $deadline) {
-    $rawDeploymentList = pnpm dlx @railway/cli deployment list `
+    $rawDeploymentList = pnpm --silent dlx @railway/cli deployment list `
         --project $ProjectId `
         --environment $Environment `
         --service $Service `

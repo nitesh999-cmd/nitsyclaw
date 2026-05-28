@@ -5,22 +5,22 @@ These are representative deterministic replies used by the reply budget gate.
 
 ## what can you do
 
-Budget: 13/13 lines, 722/900 chars.
+Budget: 13/13 lines, 714/900 chars.
 
 ```text
 NitsyClaw menu
 Say what you need. I will answer, save, remind, log, summarise, or draft.
 
 Try:
-1. Remind me to call Mukesh tomorrow at 10 am
-2. I spent $18.40 at Chemist Warehouse
-3. Bill summary: AGL bill $240 due 18 May
-4. Check before send: I am angry about this bill
-5. Call script: ask my energy retailer for a better rate
+1. What should I do now?
+2. Remind me to call Mukesh tomorrow at 10 am
+3. I spent $18.40 at Chemist Warehouse
+4. Bill summary: AGL bill $240 due 18 May
+5. Check before send: I am angry about this bill
 Works now: voice, reminders, memory, AUD expenses, bill/doc summaries, drafts, call scripts.
-Needs setup: Gmail, Outlook, Google Drive, OneDrive, Google Photos, +4 more.
+Needs setup: Gmail, Outlook / M365, Google Drive, OneDrive, Google Photos, +3 more.
 Safety: I draft before risky actions. Sending, calling, deleting, booking, paying, or changing external data needs confirmation.
-More: status | proof test | pending build plan | what went wrong | feature queue | local status
+More: status | proof test | can't-do guard | pending build plan | what went wrong | feature queue | local status
 ```
 
 ## local status
@@ -122,18 +122,97 @@ It does not test Gmail, Drive, bank feeds, phone/SMS sending, or other provider 
 If this looked slow, duplicated, or wrong, send: what went wrong
 ```
 
+## demo checklist
+
+Budget: 9/12 lines, 394/900 chars.
+
+```text
+Demo checklist: run these in WhatsApp.
+Goal: prove the life-admin spine works before more feature build.
+1. proof test
+2. bill summary: AGL bill $240 due 18 May ref 12345
+3. I spent $18.40 at Chemist Warehouse for medicine
+4. Remind me to pay AGL on 17 May at 9 am
+5. weekly admin digest
+6. what went wrong
+Next: If all pass, validate with a real bill/receipt. If one fails, send proof details.
+```
+
+## start demo
+
+Budget: 9/12 lines, 391/900 chars.
+
+```text
+Demo session started. Run these in WhatsApp.
+Demo results will only count commands after this marker.
+1. proof test
+2. bill summary: AGL bill $240 due 18 May ref 12345
+3. I spent $18.40 at Chemist Warehouse for medicine
+4. Remind me to pay AGL on 17 May at 9 am
+5. weekly admin digest
+6. what went wrong
+Next: If all pass, validate with a real bill/receipt. If one fails, send proof details.
+```
+
+## demo reset
+
+Budget: 9/12 lines, 389/900 chars.
+
+```text
+Demo session reset. Run these in WhatsApp.
+Demo results will only count commands after this marker.
+1. proof test
+2. bill summary: AGL bill $240 due 18 May ref 12345
+3. I spent $18.40 at Chemist Warehouse for medicine
+4. Remind me to pay AGL on 17 May at 9 am
+5. weekly admin digest
+6. what went wrong
+Next: If all pass, validate with a real bill/receipt. If one fails, send proof details.
+```
+
+## demo results
+
+Budget: 9/12 lines, 268/900 chars.
+
+```text
+Demo results: 4/6 passed, 1 attention, 1 missing.
+Fix Incident first; 1 not checked.
+Proof: passed
+Bill: passed
+Expense: passed
+Reminder: passed
+Weekly: not checked
+Incident: needs attention: recent send failure
+Next: Send proof details, fix Incident, then run Weekly.
+```
+
+## life admin
+
+Budget: 8/10 lines, 404/900 chars.
+
+```text
+Life admin cockpit: ready.
+Local WhatsApp data only. No email, bank, Drive, Photos, SMS, or calendar accounts used.
+Focus: Clear: approve bill complaint draft
+Reminders: 1 pending
+Spending: This month: AUD 6.50 across 1 expense. Top: health AUD 6.50.
+Files/bills: Recent files: agl-bill.txt
+Open items: 1 need attention
+Next: Try: weekly admin digest | bill summary: <text> | expense summary | demo reset
+```
+
 ## pending build plan
 
-Budget: 11/12 lines, 729/900 chars.
+Budget: 11/12 lines, 756/900 chars.
 
 ```text
 Pending build plan
 Truth: I can build safe local rails now. Real external actions need account/provider setup first.
 
-Works now: WhatsApp routing, reminders, AUD expenses, bills/docs, drafts, proof checks, queue capture, tests.
+Works now: WhatsApp routing, life-admin cockpit, reminders, AUD expenses, bills/docs, drafts, proof checks, queue capture, tests.
 Can build without you: clearer replies, setup checklists, safety gates, local tools, and tests.
 
-Needs setup before live action: Gmail, Outlook, Google Drive, OneDrive, Google Photos, Spotify, Bank feeds, Phone/SMS, Birthdays, Social video.
+Needs setup before live action: Gmail, Outlook / M365, Google Drive, OneDrive, Google Photos, Spotify, Bank feeds, Phone/SMS, Birthdays, Social video.
 Connected external accounts: none yet. Local tools are working.
 
 Best next setup: Gmail/Outlook for email PA, Spotify for quickest demo, Phone/SMS only after wrong-recipient safeguards.

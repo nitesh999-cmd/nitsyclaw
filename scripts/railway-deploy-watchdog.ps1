@@ -78,8 +78,8 @@ Write-Host "Service: $Service"
 Write-Host "Environment: $Environment"
 Write-Host "Max building age: ${MaxBuildingAgeSeconds}s"
 
-Write-Host "pnpm dlx @railway/cli deployment list --service $Service --environment $Environment --limit 10 --json"
-$rawDeploymentList = & pnpm dlx @railway/cli deployment list --service $Service --environment $Environment --limit 10 --json 2>&1
+Write-Host "pnpm --silent dlx @railway/cli deployment list --service $Service --environment $Environment --limit 10 --json"
+$rawDeploymentList = & pnpm --silent dlx @railway/cli deployment list --service $Service --environment $Environment --limit 10 --json 2>&1
 $deploymentListText = [string]::Join("`n", @($rawDeploymentList))
 if ($LASTEXITCODE -ne 0) {
     Write-Host $deploymentListText

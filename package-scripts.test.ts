@@ -33,7 +33,7 @@ describe("package scripts", () => {
 
   test("GitHub CI status checker is read-only and token-safe", () => {
     expect(rootPackage.scripts?.["ci:github-status"]).toBe(
-      "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/github-ci-status.ps1",
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/github-ci-status.ps1",
     );
 
     const source = readFileSync("scripts/github-ci-status.ps1", "utf8");
@@ -48,6 +48,15 @@ describe("package scripts", () => {
   test("PowerShell syntax script uses cross-platform pwsh for CI", () => {
     expect(rootPackage.scripts?.["ci:powershell"]).toBe(
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
+    );
+  });
+
+  test("WhatsApp CI scripts use cross-platform pwsh", () => {
+    expect(rootPackage.scripts?.["ci:whatsapp-replies"]).toBe(
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-shape.ps1",
+    );
+    expect(rootPackage.scripts?.["ci:whatsapp-snapshots"]).toBe(
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-snapshots-check.ps1",
     );
   });
 
@@ -268,6 +277,7 @@ describe("package scripts", () => {
 
     const source = readFileSync("scripts/railway-deploy-watchdog.ps1", "utf8");
     expect(source).toContain("@railway/cli");
+    expect(source).toContain("pnpm --silent dlx @railway/cli");
     expect(source).toContain("deployment");
     expect(source).toContain("list");
     expect(source).toContain("MaxBuildingAgeSeconds");
@@ -357,6 +367,7 @@ describe("package scripts", () => {
     const source = readFileSync("scripts/railway-wait-for-commit.ps1", "utf8");
 
     expect(source).toContain("$PSNativeCommandUseErrorActionPreference = $false");
+    expect(source).toContain("pnpm --silent dlx @railway/cli deployment list `");
     expect(source).toContain("@railway/cli deployment list `");
     expect(source).toContain("--project $ProjectId");
     expect(source).toContain("--environment $Environment");
