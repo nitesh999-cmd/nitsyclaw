@@ -20,17 +20,26 @@ if ($Report -notmatch '^[a-zA-Z0-9._-]+\.html$') {
 }
 
 $workspace = (Get-Location).Path
+$reportPath = Join-Path $workspace $Report
+if (Test-Path $reportPath) {
+    Remove-Item $reportPath -Force
+}
+
 docker run --rm -t `
     --add-host=host.docker.internal:host-gateway `
     -v "${workspace}:/zap/wrk/:rw" `
     ghcr.io/zaproxy/zaproxy:stable `
     zap-baseline.py `
     -t $Target `
-    -r $Report `
+    -r "/zap/wrk/$Report" `
     -I
 
 if ($LASTEXITCODE -ne 0) {
     throw "OWASP ZAP baseline failed for $Target."
+}
+
+if (-not (Test-Path $reportPath)) {
+    throw "OWASP ZAP baseline passed but did not create $Report in $workspace."
 }
 
 Write-Host "OWASP ZAP baseline passed. Report: $Report"
