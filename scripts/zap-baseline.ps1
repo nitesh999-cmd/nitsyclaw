@@ -27,11 +27,12 @@ if (Test-Path $reportPath) {
 
 docker run --rm -t `
     --add-host=host.docker.internal:host-gateway `
+    -w /zap/wrk `
     -v "${workspace}:/zap/wrk/:rw" `
     ghcr.io/zaproxy/zaproxy:stable `
     zap-baseline.py `
     -t $Target `
-    -r "/zap/wrk/$Report" `
+    -r $Report `
     -I
 
 if ($LASTEXITCODE -ne 0) {
