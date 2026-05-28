@@ -51,13 +51,16 @@ describe("package scripts", () => {
     );
   });
 
-  test("WhatsApp CI scripts use cross-platform pwsh", () => {
-    expect(rootPackage.scripts?.["ci:whatsapp-replies"]).toBe(
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-shape.ps1",
-    );
-    expect(rootPackage.scripts?.["ci:whatsapp-snapshots"]).toBe(
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-snapshots-check.ps1",
-    );
+  test("WhatsApp CI scripts avoid OS-specific shell wrappers", () => {
+    const replies = rootPackage.scripts?.["ci:whatsapp-replies"] ?? "";
+    const snapshots = rootPackage.scripts?.["ci:whatsapp-snapshots"] ?? "";
+
+    expect(replies).toContain("whatsapp:reply-shape-report");
+    expect(replies).toContain("vitest run");
+    expect(replies).toContain("whatsapp-reply-format.test.ts");
+    expect(snapshots).toBe("pnpm run whatsapp:reply-snapshots && git diff --exit-code -- docs/whatsapp-reply-snapshots.md");
+    expect(replies).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
+    expect(snapshots).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
   });
 
   test("release preflight runs the safe PowerShell gate", () => {
