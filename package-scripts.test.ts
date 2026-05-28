@@ -59,6 +59,8 @@ describe("package scripts", () => {
     const replyCiSource = readFileSync("scripts/whatsapp-reply-ci.mjs", "utf8");
     expect(replyCiSource).toContain("spawnSync");
     expect(replyCiSource).toContain("shell: false");
+    expect(replyCiSource).toContain("npm_execpath");
+    expect(replyCiSource).toContain("process.execPath");
     expect(replyCiSource).toContain("whatsapp:reply-shape-report");
     expect(replyCiSource).toContain("vitest");
     expect(replyCiSource).toContain("whatsapp-reply-format.test.ts");

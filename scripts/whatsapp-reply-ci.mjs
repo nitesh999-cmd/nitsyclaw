@@ -1,17 +1,21 @@
 import { spawnSync } from "node:child_process";
 
-const isWindows = process.platform === "win32";
-
 function pnpmCommand(args) {
-  if (!isWindows) {
-    return { command: "pnpm", args, shell: false };
+  if (process.env.npm_execpath) {
+    return {
+      command: process.execPath,
+      args: [process.env.npm_execpath, ...args],
+      shell: false,
+    };
   }
 
-  return {
-    command: process.env.ComSpec ?? "cmd.exe",
-    args: ["/d", "/s", "/c", "pnpm", ...args],
-    shell: false,
-  };
+  return process.platform === "win32"
+    ? {
+        command: process.env.ComSpec ?? "cmd.exe",
+        args: ["/d", "/s", "/c", "pnpm", ...args],
+        shell: false,
+      }
+    : { command: "pnpm", args, shell: false };
 }
 
 function run(label, commandSpec) {
