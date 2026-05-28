@@ -56,16 +56,13 @@ describe("package scripts", () => {
     const snapshots = rootPackage.scripts?.["ci:whatsapp-snapshots"] ?? "";
     const workflowSource = readFileSync(".github/workflows/ci.yml", "utf8");
 
-    expect(replies).toBe("node scripts/whatsapp-reply-ci.mjs");
-    const replyCiSource = readFileSync("scripts/whatsapp-reply-ci.mjs", "utf8");
-    expect(replyCiSource).toContain("spawnSync");
-    expect(replyCiSource).toContain("shell: false");
-    expect(replyCiSource).toContain("npm_execpath");
-    expect(replyCiSource).toContain("process.execPath");
-    expect(replyCiSource).toContain("whatsapp:reply-shape-report");
-    expect(replyCiSource).toContain("vitest");
-    expect(replyCiSource).toContain("whatsapp-reply-format.test.ts");
-    expect(replyCiSource).not.toContain("--testNamePattern");
+    expect(replies).toContain("pnpm run whatsapp:reply-shape-report");
+    expect(replies).toContain("pnpm exec vitest run apps/bot/test/router.integration.test.ts");
+    expect(replies).toContain("apps/bot/src/whatsapp-provider-readiness.test.ts");
+    expect(replies).toContain("apps/bot/src/whatsapp-capability-registry.test.ts");
+    expect(replies).toContain("apps/bot/src/whatsapp-reply-format.test.ts");
+    expect(replies).not.toContain("--testNamePattern");
+    expect(replies).not.toContain("child_process");
     expect(snapshots).toBe("pnpm run whatsapp:reply-snapshots && git diff --exit-code -- docs/whatsapp-reply-snapshots.md");
     expect(replies).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
     expect(snapshots).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
