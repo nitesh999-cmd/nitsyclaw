@@ -1,7 +1,5 @@
 import { spawnSync } from "node:child_process";
 
-const testNamePattern =
-  "Saved|working receipt|what can you do|ready pending setup status|pending items|local files|provider readiness|capability|self-test|incident summary|canary|WhatsApp reply format";
 const isWindows = process.platform === "win32";
 
 function pnpmCommand(args) {
@@ -45,6 +43,4 @@ run("WhatsApp reply shape tests", pnpmCommand([
   "apps/bot/src/whatsapp-provider-readiness.test.ts",
   "apps/bot/src/whatsapp-capability-registry.test.ts",
   "apps/bot/src/whatsapp-reply-format.test.ts",
-  "--testNamePattern",
-  testNamePattern,
 ]));

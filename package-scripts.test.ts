@@ -62,6 +62,7 @@ describe("package scripts", () => {
     expect(replyCiSource).toContain("whatsapp:reply-shape-report");
     expect(replyCiSource).toContain("vitest");
     expect(replyCiSource).toContain("whatsapp-reply-format.test.ts");
+    expect(replyCiSource).not.toContain("--testNamePattern");
     expect(snapshots).toBe("pnpm run whatsapp:reply-snapshots && git diff --exit-code -- docs/whatsapp-reply-snapshots.md");
     expect(replies).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
     expect(snapshots).not.toMatch(/\bpowershell\b|\bpwsh\b/i);
