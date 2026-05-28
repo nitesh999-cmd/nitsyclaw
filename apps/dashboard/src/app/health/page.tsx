@@ -416,7 +416,37 @@ export default async function HealthPage() {
             </div>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section className="nc-section" data-testid="admin-observability">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="nc-eyebrow">Admin observability</div>
+              <h3 className="mt-2 text-2xl font-semibold text-amber-300">Setup needed</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Database-backed metrics are unavailable. The health page is rendering a safe fallback instead of exposing raw configuration details.
+              </p>
+            </div>
+            <a href="/api/healthz" className="nc-button">API health</a>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {[
+              ["Queue age", "unavailable", "Needs database access."],
+              ["Route failures", "unavailable", "Needs audit log access."],
+              ["Slow calls", "unavailable", "Needs audit log access."],
+              ["Auth lockouts", "unavailable", "Needs auth attempt access."],
+              ["Heartbeat", "unavailable", "Needs heartbeat access."],
+              ["Deployment", "unknown", "Runtime identity is still shown below when available."],
+            ].map(([label, value, detail]) => (
+              <div key={label} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                <div className="nc-eyebrow">{label}</div>
+                <div className="mt-2 text-slate-100">{value}</div>
+                <p className="mt-1 text-xs text-slate-500">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
         {rows.map(([label, ok, detail]) => (

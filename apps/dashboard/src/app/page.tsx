@@ -77,16 +77,11 @@ export default async function TodayPage() {
   let data: TodayState;
   try {
     data = await loadTodayWithTimeout();
-  } catch {
-    return (
-      <div className="nc-page">
-        <section className="nc-hero">
-          <div className="nc-eyebrow">Today</div>
-          <h2 className="mt-2 text-3xl font-semibold">Dashboard unavailable</h2>
-          <p className="mt-3 nc-muted">Database is not configured. Your home view is protected until storage is connected.</p>
-        </section>
-      </div>
-    );
+  } catch (error) {
+    console.error("[dashboard] today data unavailable; rendering safe demo shell", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    data = { ...emptyTodayData(), dataUnavailable: true };
   }
   const topReminder = data.pendingReminders[0] ?? null;
   const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length;

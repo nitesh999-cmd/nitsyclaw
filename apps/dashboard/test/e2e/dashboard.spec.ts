@@ -59,12 +59,10 @@ test.describe("dashboard routes render", () => {
 
   test("Today page", async ({ page }) => {
     await page.goto("/");
-    if (hasDatabase) {
-      await expect(page.getByRole("heading", { name: /Life admin, sorted/ })).toBeVisible();
-      await expect(page.getByTestId("today-quick-start")).toBeVisible();
-    } else {
-      await expect(page.getByRole("heading", { name: "Dashboard unavailable" })).toBeVisible();
-      await expect(page.getByText("Database is not configured")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Life admin, sorted/ })).toBeVisible();
+    await expect(page.getByTestId("today-quick-start")).toBeVisible();
+    if (!hasDatabase) {
+      await expect(page.getByText(/safe temporary view/)).toBeVisible();
     }
   });
 
