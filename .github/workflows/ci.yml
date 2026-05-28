@@ -22,11 +22,12 @@ jobs:
       - name: PowerShell syntax
         shell: pwsh
         run: pnpm ci:powershell
-      - name: WhatsApp reply shape budget
+      - name: WhatsApp reply shape report
         shell: bash
-        run: |
-          pnpm run whatsapp:reply-shape-report
-          pnpm exec vitest run apps/bot/test/router.integration.test.ts apps/bot/src/whatsapp-provider-readiness.test.ts apps/bot/src/whatsapp-capability-registry.test.ts apps/bot/src/whatsapp-reply-format.test.ts
+        run: pnpm run whatsapp:reply-shape-report
+      - name: WhatsApp reply shape tests
+        shell: bash
+        run: pnpm exec vitest run apps/bot/test/router.integration.test.ts apps/bot/src/whatsapp-provider-readiness.test.ts apps/bot/src/whatsapp-capability-registry.test.ts apps/bot/src/whatsapp-reply-format.test.ts
       - name: WhatsApp reply snapshot drift
         shell: pwsh
         run: pnpm ci:whatsapp-snapshots
