@@ -25,10 +25,8 @@ export default function BigPromise() {
       <div className="container-page">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center">
           <div>
-            <span className="eyebrow border-white/15 bg-white/10 text-slate-200">
-              The goal
-            </span>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+            <span className="eyebrow-dark">The goal</span>
+            <h2 className="section-title-light mt-4">
               Turn business chaos into a simple operating system.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-slate-300">

@@ -7,9 +7,7 @@ export default function About() {
       <div className="container-page">
         <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <span className="eyebrow border-white/15 bg-white/10 text-slate-200">
-              About Nitesh
-            </span>
+            <span className="eyebrow-dark">About Nitesh</span>
             <div className="mt-6 flex items-center gap-4">
               <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-xl font-bold text-ink">
                 NB
@@ -24,8 +22,8 @@ export default function About() {
               </div>
             </div>
             <p className="mt-6 text-sm leading-relaxed text-slate-400">
-              LinkedIn positioning: Acquisitions Manager · Commercial Energy ·
-              Lighting · Solar · Battery.
+              Current focus: Acquisitions Manager — Commercial Energy, Solar,
+              Battery &amp; Lighting.
             </p>
           </div>
 

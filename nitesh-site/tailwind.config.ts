@@ -14,8 +14,10 @@ const config: Config = {
           soft: "#111a2e",
         },
         accent: {
-          DEFAULT: "#10b981",
-          strong: "#059669",
+          DEFAULT: "#059669",
+          // Button/base green meets WCAG AA (>=4.5:1) for white text.
+          strong: "#047857",
+          darker: "#065f46",
           soft: "#34d399",
         },
       },

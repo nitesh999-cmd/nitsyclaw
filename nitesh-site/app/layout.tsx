@@ -73,7 +73,7 @@ const jsonLd = {
     addressCountry: "AU",
   },
   sameAs: [SITE.linkedin],
-  founder: { "@type": "Person", name: SITE.name },
+  provider: { "@type": "Person", name: SITE.name },
 };
 
 export default function RootLayout({

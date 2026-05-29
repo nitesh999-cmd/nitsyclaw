@@ -14,10 +14,29 @@ export default function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close the mobile menu on Escape and lock background scroll while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
+  // Solid bar once scrolled or while the menu is open; otherwise transparent
+  // and overlapping the dark hero (which needs light-on-dark text).
+  const solid = scrolled || open;
+
   return (
     <header
       className={`sticky top-0 z-40 transition-colors duration-200 ${
-        scrolled
+        solid
           ? "border-b border-slate-200 bg-white/85 backdrop-blur"
           : "border-b border-transparent bg-transparent"
       }`}
@@ -27,12 +46,26 @@ export default function Header() {
         aria-label="Primary"
       >
         <a href="#top" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink text-sm font-bold text-white">
+          <span
+            className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold transition-colors ${
+              solid ? "bg-ink text-white" : "bg-white text-ink"
+            }`}
+          >
             NB
           </span>
           <span className="flex flex-col leading-none">
-            <span className="text-sm font-bold text-ink">Nitesh Basudkar</span>
-            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            <span
+              className={`text-sm font-bold transition-colors ${
+                solid ? "text-ink" : "text-white"
+              }`}
+            >
+              Nitesh Basudkar
+            </span>
+            <span
+              className={`text-[11px] font-medium uppercase tracking-wider transition-colors ${
+                solid ? "text-slate-500" : "text-slate-300"
+              }`}
+            >
               Sales &amp; Operations Fixer
             </span>
           </span>
@@ -43,7 +76,11 @@ export default function Header() {
             <a
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-slate-600 transition hover:text-ink"
+              className={`text-sm font-medium transition ${
+                solid
+                  ? "text-slate-600 hover:text-ink"
+                  : "text-slate-200 hover:text-white"
+              }`}
             >
               {link.label}
             </a>
@@ -59,7 +96,11 @@ export default function Header() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-ink lg:hidden"
+          className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors lg:hidden ${
+            solid
+              ? "border-slate-200 text-ink"
+              : "border-white/30 text-white"
+          }`}
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label="Toggle navigation menu"

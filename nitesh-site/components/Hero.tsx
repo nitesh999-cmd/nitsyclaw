@@ -31,7 +31,7 @@ export default function Hero() {
 
       <div className="container-page relative py-20 sm:py-24 lg:py-32">
         <div className="max-w-3xl animate-fade-up">
-          <span className="eyebrow border-white/15 bg-white/10 text-slate-200">
+          <span className="eyebrow-dark">
             <span className="h-1.5 w-1.5 rounded-full bg-accent-soft" />
             Melbourne-based · Working with Australian businesses
           </span>
