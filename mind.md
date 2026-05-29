@@ -806,3 +806,70 @@ For thirteen consecutive days the CCR network allowlist has not been updated. Un
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 28. Session 2026-05-29 -- Daily build agent run (BLOCKED day 14)
+
+**Date:** 2026-05-29
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 done, 0 rejected, 0 implemented -- blocked by network policy (fourteenth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | FAILED (timeout) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+### New: origin/main was force-pushed (unrelated history divergence)
+
+Git state: container started with local `main` at `25b2632`. After `git fetch origin main`, the remote showed a forced update (`+`) to `2d4fbba`. Local and remote branches had diverged with 50 commits each and no common ancestor -- `git merge --ff-only` failed with "refusing to merge unrelated histories". Working tree was clean (no local uncommitted changes). Resolved by `git reset --hard origin/main` (safe since CCR container has no user-authored work).
+
+New commits on origin/main are ZAP security CI work: "Allow ZAP container to write CI report", "Use absolute ZAP baseline entrypoint", "Fix ZAP report path in CI", "Update CI workflow guard for runner migration", "Harden CI migration and ZAP proof".
+
+### Lesson L42 -- Force-push can create unrelated-history divergence; use git reset --hard
+
+When `git fetch` shows a forced update (`+` prefix) and the branch histories have no common ancestor, `git merge --ff-only origin/main` fails with "refusing to merge unrelated histories". The correct resolution in a CCR container with a clean working tree is:
+```bash
+git reset --hard origin/main
+```
+This is safe in CCR because: (1) the container is ephemeral and was cloned fresh, (2) there is never user-authored work on the local branch beyond the session's own commits, (3) origin is the canonical source of truth (R8). Do not attempt `git merge --allow-unrelated-histories` -- that creates a merge commit that pollutes history.
+
+### Verification
+
+- `pnpm install --frozen-lockfile` -- OK
+- `npx tsc --noEmit -p apps/dashboard/tsconfig.json` -- PASS (no TypeScript errors)
+- `pnpm test` -- PASS (177 test files / 805 tests, all green -- same count as session 27)
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-27 confirmed no new P0/P1 issues. Session 28 confirms the same: no new P0/P1 issues visible from code. The ZAP CI commits (security testing hardening) landed cleanly with no test regressions.
+
+### L39 still unresolved (day 14)
+
+For fourteen consecutive days the CCR network allowlist has not been updated. Until `nitsyclaw.vercel.app` and `ntfy.sh` are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add `nitsyclaw.vercel.app` and `ntfy.sh` to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim `feature_requests` rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: force-push divergence resolved via git reset --hard origin/main (L42) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (177 files / 805 tests) | PASS -- all green |
+| TCP 6543 to Supabase | FAILED -- blocked |
+| ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
