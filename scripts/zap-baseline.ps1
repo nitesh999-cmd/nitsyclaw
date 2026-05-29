@@ -27,6 +27,7 @@ if (Test-Path $reportPath) {
 
 docker run --rm -t `
     --add-host=host.docker.internal:host-gateway `
+    --user root `
     -w /zap/wrk `
     -v "${workspace}:/zap/wrk/:rw" `
     ghcr.io/zaproxy/zaproxy:stable `
