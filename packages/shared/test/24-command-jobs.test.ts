@@ -129,14 +129,37 @@ describe("command execution jobs", () => {
     });
     expect(retrying.status).toBe("retrying");
     expect(retrying.attempts).toBe(1);
-    expect(retrying.nextRunAt?.toISOString()).toBe("2026-05-07T10:01:00.000Z");
+    expect(retrying.nextRunAt?.toISOString()).toBe("2026-05-07T10:05:00.000Z");
+    expect(retrying.error).toContain("category=network");
+    expect(retrying.error).toContain("retry in 5m");
 
     const failed = await recordCommandJobFailure(db, job.id, new Error("provider still down"), {
       now: new Date("2026-05-07T10:01:00Z"),
     });
     expect(failed.status).toBe("failed");
     expect(failed.attempts).toBe(2);
-    expect(failed.error).toBe("provider still down");
+    expect(failed.error).toContain("provider still down");
+    expect(failed.error).toContain("escalate=P0");
+  });
+
+  it("does not retry auth or validation failures", async () => {
+    const { db } = makeFakeDb();
+    const authJob = await createCommandJob(db, {
+      source: "dashboard",
+      ownerHash: "owner-hash",
+      command: "Connect Gmail.",
+      maxAttempts: 3,
+    });
+
+    const failed = await recordCommandJobFailure(db, authJob.id, new Error("401 invalid token"), {
+      now: new Date("2026-05-07T10:00:00Z"),
+    });
+
+    expect(failed.status).toBe("failed");
+    expect(failed.attempts).toBe(1);
+    expect(failed.nextRunAt).toBeNull();
+    expect(failed.error).toContain("category=auth");
+    expect(failed.error).toContain("escalate=P1");
   });
 
   it("redacts private data from persisted command job errors", async () => {

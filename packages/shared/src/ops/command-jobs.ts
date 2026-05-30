@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { DB } from "../db/client.js";
 import { redactAuditString } from "../db/repo.js";
 import { commandJobs, type CommandJob } from "../db/schema.js";
+import { planJobRetryPolicy } from "./job-retry-policy.js";
 import { analyzePersonalPaIntent, isRiskyPersonalPaAction } from "./personal-pa-intent.js";
 
 export type CommandJobSource = "whatsapp" | "dashboard";
@@ -157,14 +158,20 @@ export async function recordCommandJobFailure(
   const current = await getCommandJob(db, id);
   const now = opts.now ?? new Date();
   const attempts = current.attempts + 1;
-  const retryDelayMs = opts.retryDelayMs ?? 60_000;
-  const status: CommandJobStatus = attempts < current.maxAttempts ? "retrying" : "failed";
+  const policy = planJobRetryPolicy({
+    error,
+    attempts,
+    maxAttempts: current.maxAttempts,
+    now,
+    overrideDelayMs: opts.retryDelayMs,
+  });
+  const status: CommandJobStatus = policy.retry ? "retrying" : "failed";
 
   return updateCommandJob(db, id, {
     status,
     attempts,
-    error: publicErrorMessage(error),
-    nextRunAt: status === "retrying" ? new Date(now.getTime() + retryDelayMs) : null,
+    error: publicErrorMessage(error, policy),
+    nextRunAt: policy.nextRunAt,
     completedAt: status === "failed" ? now : null,
     updatedAt: now,
   });
@@ -220,12 +227,16 @@ export function isRiskyCommand(command: string): boolean {
   return isRiskyPersonalPaAction(command);
 }
 
-function publicErrorMessage(error: unknown): string {
+function publicErrorMessage(error: unknown, policy?: ReturnType<typeof planJobRetryPolicy>): string {
   const message =
     error instanceof Error && error.message.trim()
       ? error.message
       : String(error || "Unknown error");
-  return redactAuditString(message).slice(0, 240);
+  const redacted = redactAuditString(message);
+  const suffix = policy
+    ? ` category=${policy.category}; ${policy.retry ? `retry in ${Math.round(policy.nextDelayMs / 60_000)}m` : `escalate=${policy.escalation}`}`
+    : "";
+  return `${redacted}${suffix}`.slice(0, 240);
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
