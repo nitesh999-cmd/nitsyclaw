@@ -21,6 +21,8 @@ import {
   markCommandJobWorking,
   recordCommandJobFailure,
 } from "@nitsyclaw/shared/ops/command-jobs";
+import { executeOneCommandCapture } from "@nitsyclaw/shared/ops/one-command-capture";
+import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { parseLimitedJsonBody, validateChatBody } from "../../../lib/chat-validation";
 import {
   formatPrivateModeActionBlocked,
@@ -318,6 +320,46 @@ export async function POST(req: Request) {
       return NextResponse.json({
         reply,
         meta: { rounds: 0, tools: [{ name: "request_feature", success: true }], featureId: row.id, commandJob: commandJobMeta },
+      }, { headers: NO_STORE });
+    }
+
+    const oneCommandCapture = await executeOneCommandCapture({
+      db: deps.db,
+      tenant: privateOwnerTenant(ownerHash),
+      text: last.content,
+      source: "dashboard",
+      requestedBy: ownerHash,
+      now: deps.now(),
+      timezone: deps.timezone,
+    });
+    if (oneCommandCapture?.handled) {
+      try {
+        await insertMessage(deps.db, {
+          direction: "in",
+          surface: "dashboard",
+          fromNumber: ownerHash,
+          body: encryptDashboardText(last.content),
+        });
+        await insertMessage(deps.db, {
+          direction: "out",
+          surface: "dashboard",
+          fromNumber: ownerHash,
+          body: encryptDashboardText(oneCommandCapture.reply),
+        });
+      } catch (persistErr) {
+        const configError = publicConfigErrorOrNull(persistErr);
+        if (configError) {
+          return NextResponse.json({ reply: configError.reply }, { status: configError.status, headers: NO_STORE });
+        }
+      }
+      await completeCommandJob(deps.db, commandJob.id, oneCommandCapture.reply);
+      return NextResponse.json({
+        reply: oneCommandCapture.reply,
+        meta: {
+          rounds: 0,
+          tools: [{ name: oneCommandCapture.toolName ?? "parse_one_command_capture", success: true }],
+          commandJob: commandJobMeta,
+        },
       }, { headers: NO_STORE });
     }
 

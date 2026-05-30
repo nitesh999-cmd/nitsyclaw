@@ -89,6 +89,7 @@ import {
   recordCommandJobFailure,
   snoozeCommandJob,
 } from "@nitsyclaw/shared/ops/command-jobs";
+import { executeOneCommandCapture } from "@nitsyclaw/shared/ops/one-command-capture";
 import type { CommandJob, Reminder } from "@nitsyclaw/shared/db";
 import type { SystemHeartbeat } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
@@ -2136,6 +2137,22 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, peopleMemoryError);
         await this.sendPublicFailure("people memory", "Couldn't update people memory. I logged it; try again shortly.", peopleMemoryError);
       }
+      return;
+    }
+
+    const oneCommandCapture = await executeOneCommandCapture({
+      db: this.deps.db,
+      tenant: this.tenant(),
+      text: effectiveText,
+      source: "whatsapp",
+      requestedBy: hashPhone(this.ownerPhone),
+      now: this.deps.now(),
+      timezone: this.deps.timezone,
+      sourceMessageId: persisted.id,
+    });
+    if (oneCommandCapture?.handled) {
+      await this.sendAndPersist(oneCommandCapture.reply);
+      await this.completeWhatsAppCommandJob(commandJob, oneCommandCapture.reply);
       return;
     }
 
