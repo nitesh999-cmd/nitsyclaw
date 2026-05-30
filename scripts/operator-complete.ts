@@ -5,6 +5,7 @@ import {
   logAudit,
   setFeatureRequestStatus,
 } from "@nitsyclaw/shared/db";
+import { appendAgentRunLog } from "./agent-run-log";
 
 const args = parseArgs(process.argv.slice(2));
 loadLocalEnv([".env.local", "apps/dashboard/.env.local", ".env"]);
@@ -52,6 +53,16 @@ async function main() {
       ...(deployment ? { deployment } : {}),
     },
     success: true,
+  });
+  await appendAgentRunLog({
+    operation: "operator_runner.complete",
+    jobId: id,
+    inputSummary: note ?? `Mark operator item ${id} as ${status}.`,
+    decisions: [`status=${status}`],
+    verification: commit ? [`commit=${commit}`] : [],
+    result: `Operator item marked ${status}.`,
+    commit,
+    deployment,
   });
 
   console.log(`operator_item_${status}=${id}`);

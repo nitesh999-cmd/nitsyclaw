@@ -14,6 +14,7 @@ import {
   selectNextOperatorJob,
   type OperatorQueueJob,
 } from "../packages/shared/src/ops/operator-runner";
+import { appendAgentRunLog } from "./agent-run-log";
 
 const args = new Set(process.argv.slice(2));
 const shouldRun = args.has("--run");
@@ -84,6 +85,14 @@ async function main() {
       output: { decision: plan.decision, nextStatus: plan.nextStatus },
       success: true,
     });
+    await appendAgentRunLog({
+      operation: "operator_runner.reject",
+      jobId: job.id,
+      inputSummary: plan.summary,
+      decisions: [plan.decision, plan.rejectionReason ?? "rejected unsafe queued work"],
+      errors: [plan.rejectionReason ?? "unsafe queued work"],
+      result: "Rejected queued work before execution.",
+    });
     console.log("mode=mutated status=rejected");
     return;
   }
@@ -107,6 +116,14 @@ async function main() {
     input: { jobId: job.id },
     output: { decision: plan.decision, nextStatus: plan.nextStatus, commandCount: plan.commands.length },
     success: true,
+  });
+  await appendAgentRunLog({
+    operation: "operator_runner.claim",
+    jobId: job.id,
+    inputSummary: plan.summary,
+    decisions: [plan.decision, `next=${plan.nextStatus}`],
+    commandsRun: plan.commands,
+    result: "Claimed queued work for local operator execution.",
   });
 
   if (shouldRun) {
@@ -134,6 +151,18 @@ async function main() {
       success: run.success,
       error: run.success ? undefined : run.failureSummary,
       durationMs: run.durationMs,
+    });
+    await appendAgentRunLog({
+      operation: "operator_runner.verify",
+      jobId: job.id,
+      inputSummary: plan.summary,
+      decisions: [run.success ? "verification passed" : "verification failed"],
+      commandsRun: run.commands.map((command) => command.command),
+      errors: run.failureSummary ? [run.failureSummary] : [],
+      verification: run.commands.map((command) =>
+        `${command.command}: ${command.timedOut ? "timed out" : `exit ${command.exitCode}`}`,
+      ),
+      result: summary,
     });
     console.log(`mode=mutated status=in_progress verification=${run.success ? "passed" : "failed"}`);
     console.log(`report=${reportPath}`);
