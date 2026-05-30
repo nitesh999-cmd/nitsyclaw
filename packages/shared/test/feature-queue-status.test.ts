@@ -112,4 +112,52 @@ describe("feature queue status summary", () => {
     expect(JSON.stringify(mirror)).not.toContain("dedupe");
     expect(JSON.stringify(mirror)).not.toContain("requestedBy");
   });
+
+  it("uses priority scoring before recommending the next local build", () => {
+    const summary = summarizeFeatureQueueStatus({
+      now: new Date("2026-05-30T00:00:00Z"),
+      pending: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          description: "Improve dashboard copy",
+          type: "feature",
+          severity: null,
+          size: "S",
+          source: "dashboard",
+          implementationNotes: null,
+          createdAt: new Date("2026-05-29T00:00:00Z"),
+          completedAt: null,
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          description: "Reliability bug: WhatsApp loop breaker opened too often",
+          type: "bug",
+          severity: "P1",
+          size: "S",
+          source: "whatsapp",
+          implementationNotes: null,
+          createdAt: new Date("2026-05-28T00:00:00Z"),
+          completedAt: null,
+        },
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          description: "Connect Google Photos account",
+          type: "feature",
+          severity: null,
+          size: "S",
+          source: "whatsapp",
+          implementationNotes: null,
+          createdAt: new Date("2026-05-01T00:00:00Z"),
+          completedAt: null,
+        },
+      ],
+    });
+
+    expect(summary.recommendedNext).toMatchObject({
+      shortId: "22222222",
+      priority: "P0",
+      setupHeavy: false,
+    });
+    expect(summary.topPending.map((item) => item.shortId)).toEqual(["22222222", "11111111", "33333333"]);
+  });
 });

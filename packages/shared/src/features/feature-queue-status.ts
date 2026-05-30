@@ -1,4 +1,5 @@
 import type { FeatureRequest } from "../db/schema.js";
+import { rankPriorityItems } from "./23-memory-ops.js";
 
 type FeatureRow = Pick<
   FeatureRequest,
@@ -23,6 +24,9 @@ export interface FeatureQueueItem {
   source: FeatureRequest["source"];
   category: string;
   setupHeavy: boolean;
+  createdAt: Date;
+  priority: "P0" | "P1" | "P2" | "P3";
+  priorityScore: number;
 }
 
 export interface FeatureQueueBatch {
@@ -58,7 +62,7 @@ export interface FeatureQueueMirrorItem {
 export interface FeatureQueueMirror {
   pendingCount: number;
   recommendedNext: FeatureQueueMirrorItem | null;
-  batches: FeatureQueueBatch[];
+  batches: Array<Omit<FeatureQueueBatch, "examples"> & { examples: FeatureQueueMirrorItem[] }>;
   rows: FeatureQueueMirrorItem[];
   safety: string;
 }
@@ -95,10 +99,12 @@ export function summarizeFeatureQueueStatus(args: {
   pending: FeatureRow[];
   completed?: FeatureRow[];
   limit?: number;
+  now?: Date;
 }): FeatureQueueStatusSummary {
   const limit = args.limit ?? 5;
-  const pending = args.pending.map(toFeatureQueueItem);
-  const recentCompleted = (args.completed ?? []).map(toFeatureQueueItem);
+  const now = args.now ?? new Date();
+  const pending = prioritizeFeatureQueue(args.pending.map((row) => toFeatureQueueItem(row, now)));
+  const recentCompleted = (args.completed ?? []).map((row) => toFeatureQueueItem(row, now));
   const quickWins = pending
     .filter((item) => item.size === "S" && !item.setupHeavy)
     .slice(0, limit);
@@ -121,7 +127,7 @@ export function summarizeFeatureQueueStatus(args: {
 export function buildFeatureQueueMirror(args: { pending: FeatureRow[]; limit?: number }): FeatureQueueMirror {
   const limit = args.limit ?? 50;
   const summary = summarizeFeatureQueueStatus({ pending: args.pending, limit: Math.min(limit, 10) });
-  const items = args.pending.map(toFeatureQueueItem);
+  const items = args.pending.map((row) => toFeatureQueueItem(row));
   const mirrorItems = items.map((item) => toMirrorItem(item, args.pending));
   const rows = mirrorItems.slice(0, limit);
   const rowById = new Map(mirrorItems.map((row) => [row.id, row]));
@@ -172,8 +178,19 @@ export function formatFeatureQueueStatusForWhatsApp(summary: FeatureQueueStatusS
   return lines.join("\n");
 }
 
-function toFeatureQueueItem(row: FeatureRow): FeatureQueueItem {
+function toFeatureQueueItem(row: FeatureRow, now = new Date()): FeatureQueueItem {
   const category = classifyFeature(row.description);
+  const createdAt = row.createdAt ?? new Date(0);
+  const prioritySignal = scoreFeatureQueueItem({
+    type: row.type,
+    severity: row.severity,
+    size: row.size,
+    category,
+    setupHeavy: SETUP_HEAVY_CATEGORIES.has(category),
+    createdAt,
+    now,
+  });
+
   return {
     id: row.id,
     shortId: row.id.slice(0, 8),
@@ -184,6 +201,9 @@ function toFeatureQueueItem(row: FeatureRow): FeatureQueueItem {
     source: row.source,
     category,
     setupHeavy: SETUP_HEAVY_CATEGORIES.has(category),
+    createdAt,
+    priority: prioritySignal.priority,
+    priorityScore: prioritySignal.score,
   };
 }
 
@@ -221,13 +241,63 @@ function classifyFeature(description: string): string {
 function pickRecommendedNext(pending: FeatureQueueItem[]): FeatureQueueItem | null {
   const criticalBug = pending.find((item) => item.type === "bug" && (item.severity === "P0" || item.severity === "P1"));
   if (criticalBug) return criticalBug;
-  const codeOnlySmall = pending.find((item) => item.size === "S" && !item.setupHeavy);
-  if (codeOnlySmall) return codeOnlySmall;
-  const reliability = pending.find((item) => item.category === "reliability");
-  if (reliability) return reliability;
-  const ui = pending.find((item) => item.category === "ui" && item.size !== "L");
-  if (ui) return ui;
+
+  const buildable = pending.filter((item) => !item.setupHeavy);
+  if (buildable.length > 0) return buildable[0] ?? null;
+
   return pending[0] ?? null;
+}
+
+function prioritizeFeatureQueue(pending: FeatureQueueItem[]): FeatureQueueItem[] {
+  return [...pending].sort((a, b) => {
+    if (a.setupHeavy !== b.setupHeavy) return a.setupHeavy ? 1 : -1;
+    return b.priorityScore - a.priorityScore || a.createdAt.getTime() - b.createdAt.getTime();
+  });
+}
+
+function scoreFeatureQueueItem(args: {
+  type: FeatureRequest["type"];
+  severity: FeatureRequest["severity"];
+  size: FeatureRequest["size"];
+  category: string;
+  setupHeavy: boolean;
+  createdAt: Date;
+  now: Date;
+}): { score: number; priority: FeatureQueueItem["priority"] } {
+  const ageDays = Math.max(0, Math.floor((args.now.getTime() - args.createdAt.getTime()) / 86_400_000));
+  const impact =
+    args.type === "bug" || args.severity === "P0" || args.severity === "P1" || args.category === "reliability"
+      ? "high"
+      : args.category === "ui" || args.size === "S"
+        ? "medium"
+        : "low";
+  const risk =
+    args.type === "bug" || args.category === "reliability"
+      ? "high"
+      : args.setupHeavy
+        ? "medium"
+        : "low";
+  const dueInDays =
+    args.type === "bug" && args.severity === "P0"
+      ? 0
+      : args.type === "bug" && args.severity === "P1"
+        ? 1
+        : args.category === "reliability"
+          ? 2
+          : args.size === "S" && !args.setupHeavy
+            ? 7
+            : args.setupHeavy
+              ? 30
+              : 14;
+
+  const [ranked] = rankPriorityItems({
+    items: [{ title: "feature queue item", ageDays, dueInDays, impact, risk }],
+  }).ranked;
+
+  return {
+    score: ranked?.score ?? 0,
+    priority: ranked?.priority ?? "P3",
+  };
 }
 
 function buildBatches(pending: FeatureQueueItem[], limit: number): FeatureQueueBatch[] {
