@@ -43,7 +43,7 @@ const LEAKS = [
 
 export default function Leakage() {
   return (
-    <section id="leaks" className="bg-white py-20 sm:py-24">
+    <section id="leaks" className="reveal bg-white py-20 sm:py-24">
       <div className="container-page">
         <div className="max-w-3xl">
           <span className="eyebrow">The real problem</span>

@@ -34,15 +34,30 @@ export const mailtoHref = `mailto:${SITE.email}?subject=${encodeURIComponent(
 const WHATSAPP_MESSAGE =
   "Hi Nitesh, I'd like a quick look at where my business is leaking revenue after the lead comes in.";
 
-export const whatsappHref = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(
-  WHATSAPP_MESSAGE,
-)}`;
+// Build a wa.me deep link with a custom pre-filled message.
+export function whatsAppLink(message: string = WHATSAPP_MESSAGE): string {
+  return `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`;
+}
+
+export const whatsappHref = whatsAppLink();
+
+// Build a mailto with a custom subject/body.
+export function mailtoLink(subject: string, body: string): string {
+  return `mailto:${SITE.email}?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(body)}`;
+}
+
+// Honest, owner-keepable promise (used near contact CTAs).
+export const RESPONSE_LINE = "I usually reply the same day.";
+
+// tel: link, digits only (keeps the leading +).
+export const telHref = `tel:${SITE.phone.replace(/\s/g, "")}`;
 
 export const NAV_LINKS = [
   { label: "The leaks", href: "#leaks" },
-  { label: "What I fix", href: "#fix" },
+  { label: "Leak scan", href: "#scorecard" },
   { label: "Ways to start", href: "#offers" },
-  { label: "Method", href: "#method" },
-  { label: "About", href: "#about" },
+  { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ] as const;

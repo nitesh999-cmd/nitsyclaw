@@ -7,6 +7,7 @@ type Offer = {
   cta: string;
   featured?: boolean;
   tag: string;
+  note?: string;
 };
 
 const OFFERS: Offer[] = [
@@ -23,6 +24,7 @@ const OFFERS: Offer[] = [
       "Top 5 fixes ranked by impact",
     ],
     cta: "Start With an Audit",
+    note: "If I don't show you at least 3 concrete fixes worth more than the fee, you don't pay for it.",
   },
   {
     tag: "Recommended start",
@@ -58,7 +60,7 @@ const OFFERS: Offer[] = [
 
 export default function Offers() {
   return (
-    <section id="offers" className="bg-white py-20 sm:py-24">
+    <section id="offers" className="reveal bg-white py-20 sm:py-24">
       <div className="container-page">
         <div className="max-w-3xl">
           <span className="eyebrow">Simple ways to start</span>
@@ -78,7 +80,7 @@ export default function Offers() {
               key={offer.name}
               className={`relative flex h-full flex-col rounded-2xl border p-7 transition ${
                 offer.featured
-                  ? "border-accent-strong bg-ink text-white shadow-card-lg lg:-translate-y-3"
+                  ? "gradient-border border-transparent bg-ink text-white shadow-card-lg lg:-translate-y-3"
                   : "border-slate-200 bg-white text-slate-700 shadow-card hover:-translate-y-0.5 hover:shadow-card-lg"
               }`}
             >
@@ -123,6 +125,13 @@ export default function Offers() {
                   </li>
                 ))}
               </ul>
+
+              {offer.note && (
+                <p className="mt-5 rounded-xl border border-accent-strong/30 bg-accent-strong/[0.06] px-3.5 py-3 text-xs font-medium leading-relaxed text-accent-strong">
+                  <span className="font-bold">Low-risk promise: </span>
+                  {offer.note}
+                </p>
+              )}
 
               <a
                 href="#contact"

@@ -76,4 +76,150 @@ body {
   .btn-ghost-light {
     @apply btn border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20;
   }
+
+  /* Form controls */
+  .field {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-ink shadow-sm transition placeholder:text-slate-400 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30;
+  }
+}
+
+/* ===================================================================
+   Premium patterns — all progressively enhanced and reduced-motion safe.
+   Default (unsupported) state is always the final, fully-visible state.
+   =================================================================== */
+
+/* Top scroll-progress bar (scroll-driven, no JS) */
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background-image: linear-gradient(90deg, #047857, #34d399, #2dd4bf);
+  z-index: 50;
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-progress {
+      animation: progress-grow linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+}
+@keyframes progress-grow {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Reveal-on-scroll (scroll-driven, no JS). Visible by default. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+  }
+}
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Infinite logo/industry marquee. Static wrap fallback for reduced-motion. */
+.marquee {
+  display: flex;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee__track {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  padding-right: 0.75rem;
+  min-width: 100%;
+  animation: marquee 34s linear infinite;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .marquee__track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-width: 0;
+  }
+  .marquee__track[aria-hidden="true"] {
+    display: none;
+  }
+}
+
+/* Animated gradient border for the signature offer card. */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.gradient-border {
+  position: relative;
+  isolation: isolate;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--angle),
+    #34d399,
+    #2dd4bf,
+    #38bdf8,
+    #34d399
+  );
+  z-index: -1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gradient-border::before {
+    animation: spin-border 6s linear infinite;
+  }
+}
+@keyframes spin-border {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* Native <details> accordion: smooth open + rotating marker. */
+.faq-item > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.faq-item > summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item .faq-icon {
+  transition: transform 0.2s ease;
+}
+.faq-item[open] .faq-icon {
+  transform: rotate(45deg);
+}
+
+/* Safe-area padding helper for the sticky mobile CTA bar. */
+.safe-bottom {
+  padding-bottom: max(0.625rem, env(safe-area-inset-bottom));
 }

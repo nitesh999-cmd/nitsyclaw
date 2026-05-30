@@ -28,7 +28,7 @@ const SERVICES = [
 
 export default function WhatIFix() {
   return (
-    <section id="fix" className="bg-slate-50 py-20 sm:py-24">
+    <section id="fix" className="reveal bg-slate-50 py-20 sm:py-24">
       <div className="container-page">
         <div className="max-w-3xl">
           <span className="eyebrow">What I help fix</span>

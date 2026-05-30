@@ -28,7 +28,7 @@ const STEPS = [
 
 export default function Method() {
   return (
-    <section id="method" className="bg-slate-50 py-20 sm:py-24">
+    <section id="method" className="reveal bg-slate-50 py-20 sm:py-24">
       <div className="container-page">
         <div className="max-w-3xl">
           <span className="eyebrow">How it works</span>
