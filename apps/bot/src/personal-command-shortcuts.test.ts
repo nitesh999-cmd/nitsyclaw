@@ -11,6 +11,7 @@ import {
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
   parseDemoStartShortcut,
+  parseDriveStatusShortcut,
   parseFeatureQueueShortcut,
   parseGmailStatusShortcut,
   parseHelpShortcut,
@@ -147,6 +148,13 @@ describe("personal command shortcuts", () => {
     expect(parseOutlookStatusShortcut("m365 status")).toEqual({ kind: "outlook-status" });
     expect(parseOutlookStatusShortcut("can you read Outlook?")).toEqual({ kind: "outlook-status" });
     expect(parseOutlookStatusShortcut("connect Outlook")).toBeNull();
+  });
+
+  it("detects Drive connector status requests without queueing setup", () => {
+    expect(parseDriveStatusShortcut("drive status")).toEqual({ kind: "drive-status" });
+    expect(parseDriveStatusShortcut("google drive setup")).toEqual({ kind: "drive-status" });
+    expect(parseDriveStatusShortcut("can you browse Google Drive?")).toEqual({ kind: "drive-status" });
+    expect(parseDriveStatusShortcut("connect Google Drive")).toBeNull();
   });
 
   it("detects requests to develop all pending features without treating status as execution", () => {

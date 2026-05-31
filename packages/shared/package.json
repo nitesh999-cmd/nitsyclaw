@@ -13,6 +13,7 @@
     "./features": "./src/features/index.ts",
     "./integrations/spotify": "./src/integrations/spotify.ts",
     "./integrations/gmail-connector": "./src/integrations/gmail-connector.ts",
+    "./integrations/drive-connector": "./src/integrations/drive-connector.ts",
     "./integrations/outlook-connector": "./src/integrations/outlook-connector.ts",
     "./integrations/provider-readiness": "./src/integrations/provider-readiness.ts",
     "./ops/command-jobs": "./src/ops/command-jobs.ts",

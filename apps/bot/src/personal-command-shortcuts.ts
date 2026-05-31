@@ -47,6 +47,10 @@ export interface OutlookStatusShortcut {
   kind: "outlook-status";
 }
 
+export interface DriveStatusShortcut {
+  kind: "drive-status";
+}
+
 export interface PendingFeatureDevelopmentShortcut {
   kind: "pending-feature-development";
 }
@@ -484,6 +488,24 @@ export function parseOutlookStatusShortcut(text: string): OutlookStatusShortcut 
     trimmed === "can you search outlook"
   ) {
     return { kind: "outlook-status" };
+  }
+  return null;
+}
+
+export function parseDriveStatusShortcut(text: string): DriveStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "drive status" ||
+    trimmed === "google drive status" ||
+    trimmed === "drive setup" ||
+    trimmed === "google drive setup" ||
+    trimmed === "file connector status" ||
+    trimmed === "is drive connected" ||
+    trimmed === "can you read drive" ||
+    trimmed === "can you search drive" ||
+    trimmed === "can you browse google drive"
+  ) {
+    return { kind: "drive-status" };
   }
   return null;
 }

@@ -3,6 +3,7 @@
 
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import { formatDriveConnectorStatusForWhatsApp, getDriveConnectorStatus } from "@nitsyclaw/shared/integrations/drive-connector";
 import { formatGmailConnectorStatusForWhatsApp, getGmailConnectorStatus } from "@nitsyclaw/shared/integrations/gmail-connector";
 import { formatOutlookConnectorStatusForWhatsApp, getOutlookConnectorStatus } from "@nitsyclaw/shared/integrations/outlook-connector";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
@@ -123,6 +124,7 @@ import {
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
   parseDemoStartShortcut,
+  parseDriveStatusShortcut,
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
   parseGmailStatusShortcut,
@@ -2199,6 +2201,14 @@ export class Router {
     const outlookStatus = parseOutlookStatusShortcut(effectiveText);
     if (outlookStatus) {
       const reply = formatOutlookConnectorStatusForWhatsApp(getOutlookConnectorStatus(process.env));
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const driveStatus = parseDriveStatusShortcut(effectiveText);
+    if (driveStatus) {
+      const reply = formatDriveConnectorStatusForWhatsApp(getDriveConnectorStatus(process.env));
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;

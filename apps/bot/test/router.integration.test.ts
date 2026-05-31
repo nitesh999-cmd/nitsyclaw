@@ -463,6 +463,39 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers Drive status without claiming broad file access", async () => {
+    const oldGoogleCredentials = process.env.GOOGLE_CREDENTIALS_JSON;
+    const oldGoogleToken = process.env.GOOGLE_TOKEN_JSON;
+    const oldDriveAdapter = process.env.GOOGLE_DRIVE_SELECTED_FILE_ADAPTER;
+    delete process.env.GOOGLE_CREDENTIALS_JSON;
+    delete process.env.GOOGLE_TOKEN_JSON;
+    delete process.env.GOOGLE_DRIVE_SELECTED_FILE_ADAPTER;
+    try {
+      await router.handle({
+        id: "x-drive-status",
+        from: OWNER,
+        body: "drive status",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+    } finally {
+      if (oldGoogleCredentials) process.env.GOOGLE_CREDENTIALS_JSON = oldGoogleCredentials;
+      else delete process.env.GOOGLE_CREDENTIALS_JSON;
+      if (oldGoogleToken) process.env.GOOGLE_TOKEN_JSON = oldGoogleToken;
+      else delete process.env.GOOGLE_TOKEN_JSON;
+      if (oldDriveAdapter) process.env.GOOGLE_DRIVE_SELECTED_FILE_ADAPTER = oldDriveAdapter;
+      else delete process.env.GOOGLE_DRIVE_SELECTED_FILE_ADAPTER;
+    }
+
+    expect(wa.sent[0].body).toContain("Google Drive connector");
+    expect(wa.sent[0].body).toContain("Status: needs setup");
+    expect(wa.sent[0].body).toContain("GOOGLE_CREDENTIALS_JSON");
+    expect(wa.sent[0].body).toContain("selected-file access");
+    expect(wa.sent[0].body).toContain("Sharing, deleting, moving, or editing files stays blocked");
+    expect(wa.sent[0].body).not.toContain("Drive is connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers can't-do guard requests without the model loop", async () => {
     await router.handle({
       id: "x-cant-do-guard",
