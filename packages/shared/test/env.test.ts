@@ -21,6 +21,7 @@ describe("loadEnv", () => {
     expect(env.SERPER_API_KEY).toBeUndefined();
     expect(env.ENCRYPTION_KEY).toBe(ENCRYPTION_KEY);
     expect(env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS).toBe(60_000);
+    expect(env.NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS).toBe(240_000);
   });
 
   it("throws on missing required", () => {
@@ -62,6 +63,25 @@ describe("loadEnv", () => {
       ENCRYPTION_KEY,
       NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS: "-1",
     })).toThrow(/NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS/);
+  });
+
+  it("validates WhatsApp initialize timeout", () => {
+    const env = loadEnv({
+      ANTHROPIC_API_KEY: "k",
+      DATABASE_URL: "x",
+      WHATSAPP_OWNER_NUMBER: "+91",
+      ENCRYPTION_KEY,
+      NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS: "300000",
+    });
+    expect(env.NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS).toBe(300_000);
+
+    expect(() => loadEnv({
+      ANTHROPIC_API_KEY: "k",
+      DATABASE_URL: "x",
+      WHATSAPP_OWNER_NUMBER: "+91",
+      ENCRYPTION_KEY,
+      NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS: "1000",
+    })).toThrow(/NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS/);
   });
 
   it("rejects malformed encryption keys", () => {

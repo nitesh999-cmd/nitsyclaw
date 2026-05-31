@@ -50,6 +50,7 @@ async function main() {
     sessionDir: whatsappSessionDir(env.WHATSAPP_SESSION_DIR),
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
     presenceUnavailableIntervalMs: env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS,
+    initializeTimeoutMs: env.NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS,
     onQr: (payload) => qrRecovery.setQr(payload),
     onQrCleared: () => qrRecovery.clearQr(),
     onStatus: (event) => {

@@ -38,6 +38,7 @@ const envSchema = z.object({
   WHATSAPP_SESSION_DIR: z.string().default(".wa-session"),
   WHATSAPP_OWNER_NUMBER: z.string().min(1),
   NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS: z.coerce.number().min(0).max(3_600_000).default(60_000),
+  NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS: z.coerce.number().min(30_000).max(900_000).default(240_000),
   ENCRYPTION_KEY: encryptionKey,
   DAILY_LLM_BUDGET_USD: z.coerce.number().default(5),
   ENABLE_HEARTBEAT: envBoolean.default(true),
