@@ -434,6 +434,35 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers Outlook status without claiming live mailbox access", async () => {
+    const oldClientId = process.env.MS_CLIENT_ID;
+    const oldToken = process.env.MS_TOKEN_JSON;
+    delete process.env.MS_CLIENT_ID;
+    delete process.env.MS_TOKEN_JSON;
+    try {
+      await router.handle({
+        id: "x-outlook-status",
+        from: OWNER,
+        body: "outlook status",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+    } finally {
+      if (oldClientId) process.env.MS_CLIENT_ID = oldClientId;
+      else delete process.env.MS_CLIENT_ID;
+      if (oldToken) process.env.MS_TOKEN_JSON = oldToken;
+      else delete process.env.MS_TOKEN_JSON;
+    }
+
+    expect(wa.sent[0].body).toContain("Outlook connector");
+    expect(wa.sent[0].body).toContain("Status: needs setup");
+    expect(wa.sent[0].body).toContain("MS_CLIENT_ID");
+    expect(wa.sent[0].body).toContain("Automatic sending is not exposed");
+    expect(wa.sent[0].body).toContain("outlook status");
+    expect(wa.sent[0].body).not.toContain("Outlook is connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers can't-do guard requests without the model loop", async () => {
     await router.handle({
       id: "x-cant-do-guard",

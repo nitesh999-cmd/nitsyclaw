@@ -43,6 +43,10 @@ export interface GmailStatusShortcut {
   kind: "gmail-status";
 }
 
+export interface OutlookStatusShortcut {
+  kind: "outlook-status";
+}
+
 export interface PendingFeatureDevelopmentShortcut {
   kind: "pending-feature-development";
 }
@@ -463,6 +467,23 @@ export function parseGmailStatusShortcut(text: string): GmailStatusShortcut | nu
     trimmed === "can you search gmail"
   ) {
     return { kind: "gmail-status" };
+  }
+  return null;
+}
+
+export function parseOutlookStatusShortcut(text: string): OutlookStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "outlook status" ||
+    trimmed === "m365 status" ||
+    trimmed === "microsoft mail status" ||
+    trimmed === "outlook setup" ||
+    trimmed === "microsoft email setup" ||
+    trimmed === "is outlook connected" ||
+    trimmed === "can you read outlook" ||
+    trimmed === "can you search outlook"
+  ) {
+    return { kind: "outlook-status" };
   }
   return null;
 }

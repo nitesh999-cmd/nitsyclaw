@@ -15,6 +15,7 @@ import {
   parseGmailStatusShortcut,
   parseHelpShortcut,
   parseLifeAdminCockpitShortcut,
+  parseOutlookStatusShortcut,
   parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
   parseWhatsAppControlPlaneShortcut,
@@ -139,6 +140,13 @@ describe("personal command shortcuts", () => {
     expect(parseGmailStatusShortcut("email status")).toEqual({ kind: "gmail-status" });
     expect(parseGmailStatusShortcut("can you read Gmail?")).toEqual({ kind: "gmail-status" });
     expect(parseGmailStatusShortcut("connect Gmail")).toBeNull();
+  });
+
+  it("detects Outlook connector status requests without queueing setup", () => {
+    expect(parseOutlookStatusShortcut("outlook status")).toEqual({ kind: "outlook-status" });
+    expect(parseOutlookStatusShortcut("m365 status")).toEqual({ kind: "outlook-status" });
+    expect(parseOutlookStatusShortcut("can you read Outlook?")).toEqual({ kind: "outlook-status" });
+    expect(parseOutlookStatusShortcut("connect Outlook")).toBeNull();
   });
 
   it("detects requests to develop all pending features without treating status as execution", () => {

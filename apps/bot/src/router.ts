@@ -4,6 +4,7 @@
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { formatGmailConnectorStatusForWhatsApp, getGmailConnectorStatus } from "@nitsyclaw/shared/integrations/gmail-connector";
+import { formatOutlookConnectorStatusForWhatsApp, getOutlookConnectorStatus } from "@nitsyclaw/shared/integrations/outlook-connector";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
 import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
 import { detectIntent } from "@nitsyclaw/shared/utils";
@@ -136,6 +137,7 @@ import {
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
   parseNightlyHealthShortcut,
+  parseOutlookStatusShortcut,
   parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
   parseLocationStatusShortcut,
@@ -2189,6 +2191,14 @@ export class Router {
     const gmailStatus = parseGmailStatusShortcut(effectiveText);
     if (gmailStatus) {
       const reply = formatGmailConnectorStatusForWhatsApp(getGmailConnectorStatus(process.env));
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const outlookStatus = parseOutlookStatusShortcut(effectiveText);
+    if (outlookStatus) {
+      const reply = formatOutlookConnectorStatusForWhatsApp(getOutlookConnectorStatus(process.env));
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
