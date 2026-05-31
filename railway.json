@@ -2,9 +2,21 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile",
+    "watchPatterns": [
+      "apps/bot/**",
+      "packages/shared/**",
+      "Dockerfile",
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "railway.json",
+      "scripts/docker-entrypoint.sh"
+    ]
   },
   "deploy": {
+    "healthcheckPath": "/healthz",
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
