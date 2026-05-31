@@ -405,6 +405,35 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers Gmail status without claiming live mailbox access", async () => {
+    const oldGoogleCredentials = process.env.GOOGLE_CREDENTIALS_JSON;
+    const oldGoogleToken = process.env.GOOGLE_TOKEN_JSON;
+    delete process.env.GOOGLE_CREDENTIALS_JSON;
+    delete process.env.GOOGLE_TOKEN_JSON;
+    try {
+      await router.handle({
+        id: "x-gmail-status",
+        from: OWNER,
+        body: "gmail status",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+    } finally {
+      if (oldGoogleCredentials) process.env.GOOGLE_CREDENTIALS_JSON = oldGoogleCredentials;
+      else delete process.env.GOOGLE_CREDENTIALS_JSON;
+      if (oldGoogleToken) process.env.GOOGLE_TOKEN_JSON = oldGoogleToken;
+      else delete process.env.GOOGLE_TOKEN_JSON;
+    }
+
+    expect(wa.sent[0].body).toContain("Gmail connector");
+    expect(wa.sent[0].body).toContain("Status: needs setup");
+    expect(wa.sent[0].body).toContain("GOOGLE_CREDENTIALS_JSON");
+    expect(wa.sent[0].body).toContain("Sending is not automatic");
+    expect(wa.sent[0].body).toContain("search Gmail for <keyword>");
+    expect(wa.sent[0].body).not.toContain("Gmail is connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers can't-do guard requests without the model loop", async () => {
     await router.handle({
       id: "x-cant-do-guard",

@@ -39,6 +39,10 @@ export interface CapabilityStatusShortcut {
   kind: "capability-status";
 }
 
+export interface GmailStatusShortcut {
+  kind: "gmail-status";
+}
+
 export interface PendingFeatureDevelopmentShortcut {
   kind: "pending-feature-development";
 }
@@ -442,6 +446,23 @@ export function parseCapabilityStatusShortcut(text: string): CapabilityStatusSho
     trimmed === "what works and what needs setup"
   ) {
     return { kind: "capability-status" };
+  }
+  return null;
+}
+
+export function parseGmailStatusShortcut(text: string): GmailStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  if (
+    trimmed === "gmail status" ||
+    trimmed === "email status" ||
+    trimmed === "mailbox status" ||
+    trimmed === "gmail setup" ||
+    trimmed === "email setup" ||
+    trimmed === "is gmail connected" ||
+    trimmed === "can you read gmail" ||
+    trimmed === "can you search gmail"
+  ) {
+    return { kind: "gmail-status" };
   }
   return null;
 }

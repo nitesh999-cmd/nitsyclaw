@@ -12,6 +12,7 @@ import {
   parseDemoResultsShortcut,
   parseDemoStartShortcut,
   parseFeatureQueueShortcut,
+  parseGmailStatusShortcut,
   parseHelpShortcut,
   parseLifeAdminCockpitShortcut,
   parsePendingFeatureDevelopmentShortcut,
@@ -131,6 +132,13 @@ describe("personal command shortcuts", () => {
     expect(parseCapabilityStatusShortcut("capability map")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("what works and what needs setup")).toEqual({ kind: "capability-status" });
     expect(parseCapabilityStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects Gmail connector status requests without queueing setup", () => {
+    expect(parseGmailStatusShortcut("gmail status")).toEqual({ kind: "gmail-status" });
+    expect(parseGmailStatusShortcut("email status")).toEqual({ kind: "gmail-status" });
+    expect(parseGmailStatusShortcut("can you read Gmail?")).toEqual({ kind: "gmail-status" });
+    expect(parseGmailStatusShortcut("connect Gmail")).toBeNull();
   });
 
   it("detects requests to develop all pending features without treating status as execution", () => {

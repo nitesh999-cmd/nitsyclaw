@@ -3,6 +3,7 @@
 
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import { formatGmailConnectorStatusForWhatsApp, getGmailConnectorStatus } from "@nitsyclaw/shared/integrations/gmail-connector";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
 import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
 import { detectIntent } from "@nitsyclaw/shared/utils";
@@ -123,6 +124,7 @@ import {
   parseDemoStartShortcut,
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
+  parseGmailStatusShortcut,
   parseHelpShortcut,
   parseLifeAdminCockpitShortcut,
   parsePendingFeatureDevelopmentShortcut,
@@ -2181,6 +2183,14 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, statusError);
         await this.sendPublicFailure("capability status", "Couldn't load the current status. I logged it; try again shortly.", statusError);
       }
+      return;
+    }
+
+    const gmailStatus = parseGmailStatusShortcut(effectiveText);
+    if (gmailStatus) {
+      const reply = formatGmailConnectorStatusForWhatsApp(getGmailConnectorStatus(process.env));
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 

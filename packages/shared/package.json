@@ -12,6 +12,7 @@
     "./whatsapp": "./src/whatsapp/index.ts",
     "./features": "./src/features/index.ts",
     "./integrations/spotify": "./src/integrations/spotify.ts",
+    "./integrations/gmail-connector": "./src/integrations/gmail-connector.ts",
     "./integrations/provider-readiness": "./src/integrations/provider-readiness.ts",
     "./ops/command-jobs": "./src/ops/command-jobs.ts",
     "./ops/job-retry-policy": "./src/ops/job-retry-policy.ts",
