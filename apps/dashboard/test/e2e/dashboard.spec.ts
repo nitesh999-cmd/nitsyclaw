@@ -157,7 +157,11 @@ test.describe("dashboard routes render", () => {
   test("Health page exposes admin observability", async ({ page }) => {
     await page.goto("/health");
     await expect(page.getByTestId("admin-observability")).toBeVisible();
-    await expect(page.getByText("Queue age")).toBeVisible();
+    await expect(page.getByTestId("ops-slo-dashboard")).toBeVisible();
+    await expect(page.getByTestId("admin-observability").getByText("Queue age")).toBeVisible();
+    await expect(page.getByText("Production SLOs")).toBeVisible();
+    await expect(page.getByTestId("ops-slo-dashboard").getByText("Failed tool rate")).toBeVisible();
+    await expect(page.getByTestId("ops-slo-dashboard").getByText("Live smoke status")).toBeVisible();
     await expect(page.getByText("Route failures")).toBeVisible();
     await expect(page.getByText("Auth lockouts")).toBeVisible();
   });

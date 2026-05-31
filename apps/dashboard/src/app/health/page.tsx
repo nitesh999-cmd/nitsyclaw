@@ -19,6 +19,7 @@ import {
   buildDashboardRuntimeMetadata,
   runtimeCommitMismatch,
 } from "../../lib/runtime-identity";
+import { buildOpsSloDashboard, heartbeatAgeMinutes, p95 } from "../../lib/ops-slo";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ async function loadHealth() {
     schedulerHeartbeat,
     reminderHeartbeat,
     prunerHeartbeat,
+    liveSmokeHeartbeat,
   ] = await Promise.all([
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
     db.select().from(reminders).where(eq(reminders.status, "pending")).limit(25),
@@ -58,6 +60,7 @@ async function loadHealth() {
     getSystemHeartbeat(db, "bot-scheduler"),
     getSystemHeartbeat(db, "reminder-sweep"),
     getSystemHeartbeat(db, "memory-pruner"),
+    getSystemHeartbeat(db, "live-smoke"),
   ]);
   const providerHealth = await loadDashboardProviderHealth();
   const integrationReadiness = providerHealth.readiness;
@@ -76,7 +79,10 @@ async function loadHealth() {
     ? Math.max(...pendingQueueRows.map((row) => (now.getTime() - new Date(row.createdAt).getTime()) / (60 * 60 * 1000)))
     : 0;
   const recentFailureRows = recentAuditRows.filter((row) => !row.success && new Date(row.createdAt).getTime() >= dayAgoMs);
+  const recentAuditRows24h = recentAuditRows.filter((row) => new Date(row.createdAt).getTime() >= dayAgoMs);
   const slowAuditRows = recentAuditRows.filter((row) => (row.durationMs ?? 0) >= 2_000 && new Date(row.createdAt).getTime() >= dayAgoMs);
+  const apiP95LatencyMs = p95(recentAuditRows24h.map((row) => row.durationMs ?? -1));
+  const failedToolRate = recentAuditRows24h.length ? recentFailureRows.length / recentAuditRows24h.length : null;
   const activeAuthLockouts = authAttemptRows.filter((row) => row.lockedUntil && new Date(row.lockedUntil).getTime() > now.getTime()).length;
   const authFailureRows = authAttemptRows.filter((row) => row.failures > 0).length;
   return {
@@ -88,6 +94,8 @@ async function loadHealth() {
     queueCounts,
     oldestQueueAgeHours,
     recentFailures24h: recentFailureRows.length,
+    apiP95LatencyMs,
+    failedToolRate,
     slowCalls24h: slowAuditRows.length,
     slowCallMaxMs: slowAuditRows.reduce((max, row) => Math.max(max, row.durationMs ?? 0), 0),
     activeAuthLockouts,
@@ -111,6 +119,8 @@ async function loadHealth() {
     reminderFreshness: classifyHeartbeat(reminderHeartbeat, new Date()),
     prunerHeartbeat,
     prunerFreshness: classifyHeartbeat(prunerHeartbeat, new Date(), 26 * 60 * 60 * 1000), // daily — stale after 26h
+    liveSmokeHeartbeat,
+    liveSmokeFreshness: classifyHeartbeat(liveSmokeHeartbeat, new Date(), 24 * 60 * 60 * 1000),
   };
 }
 
@@ -259,6 +269,25 @@ export default async function HealthPage() {
         activeAuthLockouts: data.activeAuthLockouts,
       })
     : null;
+  const opsSlo = buildOpsSloDashboard(data
+    ? {
+        dashboardOk: data.database,
+        botFreshness: data.botRuntimeFreshness,
+        botFreshMinutes: heartbeatAgeMinutes(data.botRuntimeHeartbeat, new Date()),
+        queueOldestHours: data.oldestQueueAgeHours,
+        apiP95LatencyMs: data.apiP95LatencyMs,
+        failedToolRate: data.failedToolRate,
+        liveSmokeFreshness: data.liveSmokeFreshness,
+      }
+    : {
+        dashboardOk: false,
+        botFreshness: "missing",
+        botFreshMinutes: null,
+        queueOldestHours: 0,
+        apiP95LatencyMs: null,
+        failedToolRate: null,
+        liveSmokeFreshness: "missing",
+      });
 
   return (
     <div className="nc-page">
@@ -447,6 +476,55 @@ export default async function HealthPage() {
           </div>
         </section>
       )}
+
+      <section className="nc-section" data-testid="ops-slo-dashboard">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="nc-eyebrow">Production SLOs</div>
+              <h3 className={`mt-2 text-2xl font-semibold ${
+                opsSlo.status === "healthy" ? "text-emerald-300" : opsSlo.status === "watch" ? "text-amber-300" : "text-red-300"
+              }`}>
+                {opsSlo.score}/100 {opsSlo.status === "healthy" ? "healthy" : opsSlo.status === "watch" ? "watch" : "action needed"}
+              </h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Service-level indicators for availability, bot freshness, queue age, latency, failed tools, and smoke proof.
+              </p>
+            </div>
+            <code className="rounded-md border border-slate-800 bg-black/30 px-3 py-2 text-xs text-emerald-200">
+              pnpm run whatsapp:prod-smoke
+            </code>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {opsSlo.indicators.map((indicator) => (
+              <div key={indicator.key} className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="nc-eyebrow">{indicator.label}</div>
+                    <div className={
+                      indicator.tone === "good"
+                        ? "mt-2 text-lg font-semibold text-emerald-300"
+                        : indicator.tone === "watch"
+                          ? "mt-2 text-lg font-semibold text-amber-300"
+                          : "mt-2 text-lg font-semibold text-red-300"
+                    }>
+                      {indicator.value}
+                    </div>
+                  </div>
+                  <span className={
+                    indicator.passed
+                      ? "rounded-full border border-emerald-900 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-300"
+                      : "rounded-full border border-amber-900 bg-amber-950/40 px-2 py-1 text-xs text-amber-300"
+                  }>
+                    {indicator.passed ? "passing" : "check"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">Target: {indicator.target}</p>
+                <p className="mt-2 text-xs text-slate-400">{indicator.detail}</p>
+              </div>
+            ))}
+          </div>
+      </section>
 
       <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
         {rows.map(([label, ok, detail]) => (
