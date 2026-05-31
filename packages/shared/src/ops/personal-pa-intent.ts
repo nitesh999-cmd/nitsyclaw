@@ -1,3 +1,5 @@
+import { isHighRiskCommand } from "./safe-command-parser.js";
+
 export type PersonalPaIntentKind = "actionable" | "needs_clarification" | "approval_required";
 
 export interface PersonalPaIntentDecision {
@@ -68,7 +70,7 @@ export function analyzePersonalPaIntent(input: string): PersonalPaIntentDecision
 }
 
 export function isRiskyPersonalPaAction(input: string): boolean {
-  return RISKY_ACTION_RE.test(input);
+  return RISKY_ACTION_RE.test(input) || isHighRiskCommand(input);
 }
 
 export function canAgentClarifySafely(input: string): boolean {

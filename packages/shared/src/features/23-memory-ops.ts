@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import type { ToolRegistry } from "../agent/tools.js";
+import { parseSafeCommand as parseSafeCommandStructured } from "../ops/safe-command-parser.js";
 
 type Priority = "P0" | "P1" | "P2" | "P3";
 type CommandRisk = "low" | "medium" | "high";
@@ -219,24 +220,13 @@ export function planJobRetryPolicy(input: JobRetryPolicyInput): {
 export function parseSafeCommand(input: SafeCommandParseInput): {
   intent: string;
   target: string;
+  dateText?: string;
   channel: string;
   risk: CommandRisk;
   requiresConfirmation: boolean;
+  confirmationReason: string;
 } {
-  const text = cleanText(input.text);
-  const risk: CommandRisk = /\b(delete|send|pay|call|book|connect|grant|share)\b/i.test(text)
-    ? "high"
-    : /\b(read|import|export|search|draft)\b/i.test(text)
-      ? "medium"
-      : "low";
-  const channel = /\bwhatsapp\b/i.test(text) ? "whatsapp" : /\bemail|gmail|outlook\b/i.test(text) ? "email" : "dashboard";
-  return {
-    intent: firstMatch(text, /\b(delete|send|pay|call|book|connect|grant|share|read|import|export|search|draft|remember|summarise|summarize)\b/i) || "capture",
-    target: text.replace(/\b(please|can you|could you|nitsy|claw)\b/gi, "").trim().slice(0, 120),
-    channel,
-    risk,
-    requiresConfirmation: risk !== "low",
-  };
+  return parseSafeCommandStructured(input);
 }
 
 export function createOpsSloSnapshot(input: OpsSloSnapshotInput): {
@@ -429,10 +419,6 @@ function priorityFromScore(score: number): Priority {
   if (score >= 55) return "P1";
   if (score >= 30) return "P2";
   return "P3";
-}
-
-function firstMatch(text: string, pattern: RegExp): string | undefined {
-  return text.match(pattern)?.[0]?.toLowerCase();
 }
 
 function yearFromDate(value: string | undefined): number | undefined {

@@ -17,6 +17,7 @@
     "./ops/job-retry-policy": "./src/ops/job-retry-policy.ts",
     "./ops/one-command-capture": "./src/ops/one-command-capture.ts",
     "./ops/personal-pa-intent": "./src/ops/personal-pa-intent.ts",
+    "./ops/safe-command-parser": "./src/ops/safe-command-parser.ts",
     "./ops/heartbeat": "./src/ops/heartbeat.ts",
     "./customer-instance": "./src/customer-instance.ts",
     "./tenancy": "./src/tenancy.ts",

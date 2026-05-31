@@ -139,9 +139,10 @@ describe("memory and ops batch 2 tools", () => {
     const command = parseSafeCommand({ text: "Send this SMS to accountant on WhatsApp" });
 
     expect(command.intent).toBe("send");
-    expect(command.channel).toBe("whatsapp");
+    expect(command.channel).toBe("sms");
     expect(command.risk).toBe("high");
     expect(command.requiresConfirmation).toBe(true);
+    expect(command.confirmationReason).toContain("send");
   });
 
   it("creates ops SLO snapshots", () => {
