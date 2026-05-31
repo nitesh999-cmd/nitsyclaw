@@ -158,8 +158,10 @@ test.describe("dashboard routes render", () => {
     await page.goto("/health");
     await expect(page.getByTestId("admin-observability")).toBeVisible();
     await expect(page.getByTestId("ops-slo-dashboard")).toBeVisible();
+    await expect(page.getByTestId("incident-timeline")).toBeVisible();
     await expect(page.getByTestId("admin-observability").getByText("Queue age")).toBeVisible();
     await expect(page.getByText("Production SLOs")).toBeVisible();
+    await expect(page.getByText("Incident timeline")).toBeVisible();
     await expect(page.getByTestId("ops-slo-dashboard").getByText("Failed tool rate")).toBeVisible();
     await expect(page.getByTestId("ops-slo-dashboard").getByText("Live smoke status")).toBeVisible();
     await expect(page.getByText("Route failures")).toBeVisible();

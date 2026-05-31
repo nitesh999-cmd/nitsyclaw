@@ -19,6 +19,7 @@ import {
   buildDashboardRuntimeMetadata,
   runtimeCommitMismatch,
 } from "../../lib/runtime-identity";
+import { buildIncidentTimeline } from "../../lib/incident-timeline";
 import { buildOpsSloDashboard, heartbeatAgeMinutes, p95 } from "../../lib/ops-slo";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,22 @@ async function loadHealth() {
   const failedToolRate = recentAuditRows24h.length ? recentFailureRows.length / recentAuditRows24h.length : null;
   const activeAuthLockouts = authAttemptRows.filter((row) => row.lockedUntil && new Date(row.lockedUntil).getTime() > now.getTime()).length;
   const authFailureRows = authAttemptRows.filter((row) => row.failures > 0).length;
+  const incidentTimeline = buildIncidentTimeline({
+    now,
+    auditRows: recentAuditRows,
+    commandJobs: commandJobRows,
+    heartbeats: [
+      botRuntimeHeartbeat,
+      whatsappHeartbeat,
+      whatsappSendHeartbeat,
+      whatsappLoopGuardHeartbeat,
+      watchdogHeartbeat,
+      schedulerHeartbeat,
+      reminderHeartbeat,
+      prunerHeartbeat,
+      liveSmokeHeartbeat,
+    ],
+  });
   return {
     database: true,
     dashboardRuntime: buildDashboardRuntimeMetadata(process.env),
@@ -102,6 +119,7 @@ async function loadHealth() {
     authFailureRows,
     commandJobCounts,
     latestAudit: latestAuditRows[0] ?? null,
+    incidentTimeline,
     integrationReadiness,
     botRuntimeHeartbeat,
     botRuntimeFreshness: classifyHeartbeat(botRuntimeHeartbeat, new Date(), 30 * 24 * 60 * 60 * 1000),
@@ -288,6 +306,11 @@ export default async function HealthPage() {
         failedToolRate: null,
         liveSmokeFreshness: "missing",
       });
+  const incidentTimeline = data?.incidentTimeline ?? buildIncidentTimeline({
+    auditRows: [],
+    commandJobs: [],
+    heartbeats: [],
+  });
 
   return (
     <div className="nc-page">
@@ -524,6 +547,85 @@ export default async function HealthPage() {
               </div>
             ))}
           </div>
+      </section>
+
+      <section className="nc-section" data-testid="incident-timeline">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="nc-eyebrow">Incident timeline</div>
+            <h3 className={`mt-2 text-2xl font-semibold ${
+              incidentTimeline.status === "clear"
+                ? "text-emerald-300"
+                : incidentTimeline.status === "watch"
+                  ? "text-amber-300"
+                  : "text-red-300"
+            }`}>
+              {incidentTimeline.status === "clear"
+                ? "No active incident signals"
+                : incidentTimeline.status === "watch"
+                  ? "Watch recent signals"
+                  : "Action needed"}
+            </h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Recent outages and broken flows with detection time, symptoms, affected surfaces, actions, and recovery proof.
+            </p>
+          </div>
+          <a href="/health" className="nc-button">Refresh timeline</a>
+        </div>
+
+        {incidentTimeline.items.length === 0 ? (
+          <div className="mt-5 rounded-lg border border-slate-800 bg-slate-950/50 p-4 text-sm text-slate-400">
+            No recent incident signals found in audit logs, command jobs, or heartbeats. Keep running production smoke after deploys.
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {incidentTimeline.items.map((item) => (
+              <article key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={
+                        item.severity === "P1"
+                          ? "rounded-full border border-red-900 bg-red-950/40 px-2 py-1 text-xs text-red-300"
+                          : item.severity === "P2"
+                            ? "rounded-full border border-amber-900 bg-amber-950/40 px-2 py-1 text-xs text-amber-300"
+                            : "rounded-full border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-300"
+                      }>
+                        {item.severity}
+                      </span>
+                      <span className={
+                        item.status === "recovered"
+                          ? "rounded-full border border-emerald-900 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-300"
+                          : item.status === "watch"
+                            ? "rounded-full border border-amber-900 bg-amber-950/40 px-2 py-1 text-xs text-amber-300"
+                            : "rounded-full border border-red-900 bg-red-950/40 px-2 py-1 text-xs text-red-300"
+                      }>
+                        {item.status}
+                      </span>
+                    </div>
+                    <h4 className="mt-3 text-base font-semibold text-slate-100">{item.symptom}</h4>
+                    <p className="mt-1 text-xs text-slate-500">Detected: {item.detectedAt.toLocaleString()}</p>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Surface: {item.affectedSurfaces.join(", ") || "Unknown"}
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <div className="nc-eyebrow">Actions</div>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-400">
+                      {item.actionsTaken.map((action) => <li key={action}>{action}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="nc-eyebrow">Recovery proof</div>
+                    <p className="mt-2 text-sm text-slate-400">{item.recoveryProof}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="divide-y divide-slate-800 border-y border-slate-800 bg-slate-950/45">
