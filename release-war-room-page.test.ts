@@ -9,12 +9,21 @@ describe("release war room page", () => {
     expect(source).toContain("Post-deploy proof");
     expect(source).toContain("Open P0/P1 risk");
     expect(source).toContain("Rollback notes");
+    expect(source).toContain("Rollback plan");
+    expect(source).toContain("Previous deployment target");
+    expect(source).toContain("Migration status");
+    expect(source).toContain("Known risk before rollback");
+    expect(source).toContain("Rollback command guidance");
     expect(source).toContain("pnpm run release:post-deploy-proof");
     expect(source).toContain("/whatsapp-recovery");
 
     const helper = readFileSync("apps/dashboard/src/lib/release-war-room.ts", "utf8");
     expect(helper).toContain("proof test");
     expect(helper).toContain("release:wait-railway");
+    expect(helper).toContain("scripts/vercel-rollback.ps1");
+    expect(helper).toContain("NITSYCLAW_PREVIOUS_DASHBOARD_DEPLOYMENT_URL");
+    expect(helper).toContain("NITSYCLAW_RELEASE_MIGRATION_STATUS");
+    expect(helper).toContain("npx vercel ls nitsyclaw");
   });
 
   test("is linked from the dashboard advanced navigation", () => {

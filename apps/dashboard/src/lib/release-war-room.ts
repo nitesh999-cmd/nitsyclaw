@@ -45,6 +45,14 @@ export interface ReleaseWarRoomSummary {
     serverSideGates: string[];
     phonePrompts: string[];
   };
+  rollback: {
+    currentCommit: string;
+    currentDeployment: string;
+    previousDeployment: string;
+    migrationStatus: string;
+    knownRisks: string[];
+    commands: string[];
+  };
   rollbackNotes: string[];
   status: "ready" | "watch" | "blocked";
 }
@@ -97,6 +105,11 @@ export async function loadReleaseWarRoomSummary(
   const botCommit = heartbeatText(botRuntimeHeartbeat, "commitShort") ?? heartbeatText(botRuntimeHeartbeat, "commit") ?? "unknown";
   const mismatch = runtimeCommitMismatch(runtime.commit, botRuntimeHeartbeat);
   const blockers = [...sale.blockers, ...customer.blockers].filter((value, index, values) => values.indexOf(value) === index);
+  const previousDeployment = cleanEnv(env.NITSYCLAW_PREVIOUS_DASHBOARD_DEPLOYMENT_URL)
+    ?? cleanEnv(env.VERCEL_PREVIOUS_DEPLOYMENT_URL)
+    ?? "Not recorded. Use npx vercel ls nitsyclaw and choose the most recent prior Ready production deployment.";
+  const rollbackMigrationStatus = cleanEnv(env.NITSYCLAW_RELEASE_MIGRATION_STATUS)
+    ?? "Not recorded. Treat schema rollback as unknown until the deploy handoff confirms no migration or names the exact backout plan.";
   const troubleSignals = [
     whatsappFreshness !== "ok",
     whatsappSendFreshness !== "ok" || whatsappSendHeartbeat?.status === "error",
@@ -150,6 +163,27 @@ export async function loadReleaseWarRoomSummary(
         "build all pending features",
       ],
     },
+    rollback: {
+      currentCommit: runtime.commitShort,
+      currentDeployment: runtime.deploymentId ?? "unknown",
+      previousDeployment,
+      migrationStatus: rollbackMigrationStatus,
+      knownRisks: rollbackRisks({
+        mismatch,
+        queueP0P1,
+        commandFailures: commandCounts.failed ?? 0,
+        whatsappFreshness,
+        whatsappSendFreshness,
+        loopGuardStatus,
+        blockers,
+      }),
+      commands: [
+        "npx vercel ls nitsyclaw --cwd \"C:\\Users\\Nitesh\\projects\\NitsyClaw\"",
+        "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl \"<previous-ready-production-url>\"",
+        "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-rollback.ps1 -TargetDeploymentUrl \"<previous-ready-production-url>\" -DryRun:$false",
+        "pnpm release:live-smoke",
+      ],
+    },
     rollbackNotes: [
       "In Railway, promote the previous successful deployment if the WhatsApp worker breaks.",
       "For dashboard rollback, use the checked rollback helper against the previous ready deployment.",
@@ -157,6 +191,33 @@ export async function loadReleaseWarRoomSummary(
     ],
     status: troubleSignals === 0 ? "ready" : troubleSignals <= 2 ? "watch" : "blocked",
   };
+}
+
+function rollbackRisks(input: {
+  mismatch: boolean;
+  queueP0P1: number;
+  commandFailures: number;
+  whatsappFreshness: string;
+  whatsappSendFreshness: string;
+  loopGuardStatus: string;
+  blockers: string[];
+}): string[] {
+  const risks = [
+    input.mismatch ? "Dashboard and WhatsApp worker commits differ." : null,
+    input.queueP0P1 > 0 ? `${input.queueP0P1} open P0/P1 queue item(s).` : null,
+    input.commandFailures > 0 ? `${input.commandFailures} failed command job(s).` : null,
+    input.whatsappFreshness !== "ok" ? `WhatsApp client freshness is ${input.whatsappFreshness}.` : null,
+    input.whatsappSendFreshness !== "ok" ? `WhatsApp send freshness is ${input.whatsappSendFreshness}.` : null,
+    input.loopGuardStatus === "paused" ? "WhatsApp loop guard is paused." : null,
+    ...input.blockers.slice(0, 3),
+  ].filter((risk): risk is string => Boolean(risk));
+
+  return risks.length ? risks : ["No active rollback-specific risk detected by the release war room."];
+}
+
+function cleanEnv(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 function heartbeatText(

@@ -123,6 +123,37 @@ export default async function ReleasePage() {
         </div>
       </section>
 
+      <section className="nc-section" data-testid="release-rollback-plan">
+        <div className="nc-eyebrow">Rollback plan</div>
+        <h3 className="mt-2 text-xl font-semibold text-slate-100">Know the restore path before calling a deploy healthy</h3>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <RollbackFact label="Current commit" value={summary.rollback.currentCommit} />
+          <RollbackFact label="Current deployment" value={summary.rollback.currentDeployment} />
+          <RollbackFact label="Previous deployment target" value={summary.rollback.previousDeployment} />
+          <RollbackFact label="Migration status" value={summary.rollback.migrationStatus} />
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <div className="text-sm font-medium text-slate-200">Known risk before rollback</div>
+            <ul className="mt-3 space-y-2 text-sm text-slate-400">
+              {summary.rollback.knownRisks.map((risk) => (
+                <li key={risk}>- {plainBlocker(risk)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-slate-200">Rollback command guidance</div>
+            <div className="mt-3 space-y-2">
+              {summary.rollback.commands.map((command) => (
+                <code key={command} className="block rounded-md border border-slate-800 bg-black/30 px-3 py-2 text-xs text-emerald-200">
+                  {command}
+                </code>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="nc-section">
         <div className="nc-eyebrow">Latest audit signal</div>
         <p className="mt-2 text-sm text-slate-400">{summary.latestAudit ?? "No tool audit signal found."}</p>
@@ -130,6 +161,15 @@ export default async function ReleasePage() {
           <p className="mt-2 text-xs text-slate-500">Dashboard deployment: {summary.dashboardDeploymentId}</p>
         ) : null}
       </section>
+    </div>
+  );
+}
+
+function RollbackFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+      <div className="nc-eyebrow">{label}</div>
+      <div className="mt-2 break-words text-sm font-medium text-slate-100">{value}</div>
     </div>
   );
 }
