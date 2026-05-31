@@ -65,6 +65,11 @@ describe("dashboard health page", () => {
     const source = readFileSync("apps/dashboard/src/app/health/page.tsx", "utf8");
 
     expect(source).toContain("dashboardAuthAttempts");
+    expect(source).toContain("buildOpsAlerts");
+    expect(source).toContain("Production alerts");
+    expect(source).toContain("stale WhatsApp runtime");
+    expect(source).toContain("failed jobs");
+    expect(source).toContain("production smoke proof");
     expect(source).toContain("Admin observability");
     expect(source).toContain("Queue age");
     expect(source).toContain("Route failures");

@@ -21,6 +21,7 @@ import {
 } from "../../lib/runtime-identity";
 import { buildIncidentTimeline } from "../../lib/incident-timeline";
 import { buildOpsSloDashboard, heartbeatAgeMinutes, p95 } from "../../lib/ops-slo";
+import { buildOpsAlerts } from "../../lib/ops-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -306,6 +307,23 @@ export default async function HealthPage() {
         failedToolRate: null,
         liveSmokeFreshness: "missing",
       });
+  const opsAlerts = buildOpsAlerts({
+    botFreshness: data?.botRuntimeFreshness ?? "missing",
+    whatsappFreshness: data?.whatsappFreshness ?? "missing",
+    whatsappSendFreshness: data?.whatsappSendFreshness ?? "missing",
+    whatsappSendStatus: data?.whatsappSendHeartbeat?.status ?? null,
+    loopGuardStatus: data?.whatsappLoopGuardHeartbeat?.status ?? null,
+    failedCommandJobs: data?.commandJobCounts.failed ?? 0,
+    retryingCommandJobs: data?.commandJobCounts.retrying ?? 0,
+    failedToolRate: data?.failedToolRate ?? null,
+    recentFailures24h: data?.recentFailures24h ?? 0,
+    activeAuthLockouts: data?.activeAuthLockouts ?? 0,
+    liveSmokeFreshness: data?.liveSmokeFreshness ?? "missing",
+    liveSmokeStatus: data?.liveSmokeHeartbeat?.status ?? null,
+    missingEnvLabels: rows
+      .filter(([label, ok]) => !ok && label !== "Public sale" && label !== "Spotify env")
+      .map(([label]) => label),
+  });
   const incidentTimeline = data?.incidentTimeline ?? buildIncidentTimeline({
     auditRows: [],
     commandJobs: [],
@@ -411,6 +429,50 @@ export default async function HealthPage() {
           </div>
         </div>
       )}
+
+      <section className="nc-section" data-testid="ops-alerts">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="nc-eyebrow">Production alerts</div>
+            <h3 className={`mt-2 text-2xl font-semibold ${opsAlerts.length ? "text-amber-300" : "text-emerald-300"}`}>
+              {opsAlerts.length ? `${opsAlerts.length} alert(s) need review` : "No active alerts"}
+            </h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Watches stale WhatsApp runtime, high error rate, failed jobs, missing env, login lockout pressure, and production smoke proof.
+            </p>
+          </div>
+          <a href="/release" className="nc-button">Open release plan</a>
+        </div>
+
+        {opsAlerts.length ? (
+          <div className="mt-5 divide-y divide-slate-800 border-y border-slate-800">
+            {opsAlerts.map((alert) => (
+              <div key={alert.key} className="grid gap-3 py-4 md:grid-cols-[80px_1fr_1.4fr]">
+                <div>
+                  <span className={
+                    alert.severity === "P1"
+                      ? "rounded-full border border-red-900 bg-red-950/40 px-2 py-1 text-xs text-red-300"
+                      : alert.severity === "P2"
+                        ? "rounded-full border border-amber-900 bg-amber-950/40 px-2 py-1 text-xs text-amber-300"
+                        : "rounded-full border border-slate-800 bg-slate-900/70 px-2 py-1 text-xs text-slate-300"
+                  }>
+                    {alert.severity}
+                  </span>
+                </div>
+                <div>
+                  <div className="font-medium text-slate-100">{alert.title}</div>
+                  <p className="mt-1 text-sm text-slate-400">{alert.detail}</p>
+                </div>
+                <div className="text-sm text-slate-300">{alert.action}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-4 text-sm text-emerald-200">
+            No alert thresholds are currently tripped. Keep running smoke proof after deploys.
+          </div>
+        )}
+      </section>
 
       {data && opsStatus ? (
         <section className="nc-section" data-testid="admin-observability">
