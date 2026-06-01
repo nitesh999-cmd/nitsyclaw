@@ -4,7 +4,7 @@ param(
     [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
     [string]$BaseUrl = $(if ($env:NITSYCLAW_RAILWAY_PUBLIC_URL) { $env:NITSYCLAW_RAILWAY_PUBLIC_URL } else { "https://web-production-c98e2.up.railway.app" }),
     [string]$ExpectedCommit = $(git rev-parse --short HEAD),
-    [int]$ReadyTimeoutSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS } else { 180 }),
+    [int]$ReadyTimeoutSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS } else { 600 }),
     [int]$ReadyPollSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS } else { 10 }),
     [switch]$AllowServingCommit
 )
