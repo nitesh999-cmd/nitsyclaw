@@ -393,6 +393,17 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
+  test("Railway deploy watchdog accepts skipped CI deploys when public health is ok", () => {
+    const source = readFileSync("scripts/railway-deploy-watchdog.ps1", "utf8");
+
+    expect(source).toContain('$latestStatus -eq "SKIPPED"');
+    expect(source).toContain("$root/healthz");
+    expect(source).toContain('if ([string]$health.Content -ne "ok")');
+    expect(source).toContain('if ($priorSuccess) { [string]$priorSuccess.id } else { "unknown" }');
+    expect(source).toContain("serving_deployment=$priorId");
+    expect(source).not.toContain("was SKIPPED and no prior SUCCESS deployment was found");
+  });
+
   test("Railway WhatsApp proof scripts use cross-platform PowerShell Core", () => {
     const smokeSource = readFileSync("scripts/whatsapp-production-smoke.ps1", "utf8");
     const survivalSource = readFileSync("scripts/railway-whatsapp-survival-proof.ps1", "utf8");
