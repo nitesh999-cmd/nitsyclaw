@@ -4,7 +4,8 @@ param(
     [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
     [string]$BaseUrl = $(if ($env:NITSYCLAW_RAILWAY_PUBLIC_URL) { $env:NITSYCLAW_RAILWAY_PUBLIC_URL } else { "https://web-production-c98e2.up.railway.app" }),
     [string]$ExpectedCommit = $(git rev-parse --short HEAD),
-    [switch]$SkipRailwayReady
+    [switch]$SkipRailwayReady,
+    [switch]$AllowServingCommit
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,7 +37,8 @@ if (-not $SkipRailwayReady) {
             -Environment $Environment `
             -Service $Service `
             -BaseUrl $BaseUrl `
-            -ExpectedCommit $ExpectedCommit
+            -ExpectedCommit $ExpectedCommit `
+            -AllowServingCommit:$AllowServingCommit
     }
 }
 

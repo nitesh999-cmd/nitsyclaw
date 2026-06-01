@@ -100,10 +100,14 @@ jobs:
         if: steps.railway-token.outputs.configured == 'true'
         shell: pwsh
         run: ./scripts/railway-deploy-watchdog.ps1 -MaxBuildingAgeSeconds 900
-      - name: Run WhatsApp production smoke
-        if: steps.railway-token.outputs.configured == 'true'
+      - name: Run WhatsApp production smoke for pushed deployment
+        if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'push'
         shell: pwsh
         run: ./scripts/whatsapp-production-smoke.ps1
+      - name: Run WhatsApp production smoke for serving deployment
+        if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: ./scripts/whatsapp-production-smoke.ps1 -AllowServingCommit
 
   security:
     runs-on: ubuntu-latest

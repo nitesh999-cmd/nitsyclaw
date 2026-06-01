@@ -74,15 +74,18 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("pnpm test");
   });
 
-  it("waits for Railway and runs the deploy watchdog before WhatsApp production smoke", () => {
+  it("waits for Railway on push and smoke-tests the serving deployment on manual runs", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain("steps.railway-token.outputs.configured == 'true' && github.event_name == 'push'");
+    expect(workflow).toContain("steps.railway-token.outputs.configured == 'true' && github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain("Wait for Railway deployment");
     expect(workflow).toContain("./scripts/railway-wait-for-commit.ps1");
     expect(workflow).toContain("Check Railway deploy watchdog");
     expect(workflow).toContain("./scripts/railway-deploy-watchdog.ps1");
-    expect(workflow).toContain("Run WhatsApp production smoke");
+    expect(workflow).toContain("Run WhatsApp production smoke for pushed deployment");
+    expect(workflow).toContain("Run WhatsApp production smoke for serving deployment");
+    expect(workflow).toContain("./scripts/whatsapp-production-smoke.ps1 -AllowServingCommit");
     expect(workflow).toContain("fetch-depth: 2");
     expect(workflow).toContain("pnpm exec tsx scripts/ci-railway-token-gate.ts");
     expect(workflow.indexOf("./scripts/railway-wait-for-commit.ps1")).toBeLessThan(

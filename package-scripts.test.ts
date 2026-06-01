@@ -348,6 +348,8 @@ describe("package scripts", () => {
 
     expect(source).toContain("ReadyTimeoutSeconds");
     expect(source).toContain("ReadyPollSeconds");
+    expect(source).toContain("AllowServingCommit");
+    expect(source).toContain("proving currently serving Railway commit");
     expect(source).toContain("NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS");
     expect(source).toContain("Get-DeploymentLogs");
     expect(source).toContain("Test-ReadyLogs");
@@ -395,6 +397,9 @@ describe("package scripts", () => {
     const smokeSource = readFileSync("scripts/whatsapp-production-smoke.ps1", "utf8");
     const survivalSource = readFileSync("scripts/railway-whatsapp-survival-proof.ps1", "utf8");
     const recoverSource = readFileSync("scripts/railway-whatsapp-recover.ps1", "utf8");
+
+    expect(smokeSource).toContain("AllowServingCommit");
+    expect(smokeSource).toContain("-AllowServingCommit:$AllowServingCommit");
 
     for (const source of [smokeSource, survivalSource, recoverSource]) {
       expect(source).toContain("pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/");

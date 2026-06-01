@@ -5,7 +5,8 @@ param(
     [string]$BaseUrl = $(if ($env:NITSYCLAW_RAILWAY_PUBLIC_URL) { $env:NITSYCLAW_RAILWAY_PUBLIC_URL } else { "https://web-production-c98e2.up.railway.app" }),
     [string]$ExpectedCommit = $(git rev-parse --short HEAD),
     [int]$ReadyTimeoutSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS } else { 180 }),
-    [int]$ReadyPollSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS } else { 10 })
+    [int]$ReadyPollSeconds = $(if ($env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS) { [int]$env:NITSYCLAW_RAILWAY_READY_POLL_SECONDS } else { 10 }),
+    [switch]$AllowServingCommit
 )
 
 $ErrorActionPreference = "Stop"
@@ -115,8 +116,6 @@ $deploymentId = [string]$deployment.id
 $deploymentStatus = [string]$deployment.status
 $deploymentCommit = [string]$deployment.meta.commitHash
 $deploymentMessage = [string]$deployment.meta.cliMessage
-$metadataCommitMatches = $ExpectedCommit -and $deploymentCommit.StartsWith($ExpectedCommit)
-$cliMessageCommitMatches = $ExpectedCommit -and [string]::IsNullOrWhiteSpace($deploymentCommit) -and $deploymentMessage -match [regex]::Escape($ExpectedCommit)
 $runningInstances = @($deployment.instances | Where-Object { $_.status -eq "RUNNING" })
 
 if ($deploymentStatus -ne "SUCCESS") {
@@ -125,11 +124,22 @@ if ($deploymentStatus -ne "SUCCESS") {
 if ($runningInstances.Count -lt 1) {
     throw "Latest Railway deployment $deploymentId has no RUNNING instance."
 }
+$commitToVerify = $ExpectedCommit
+$metadataCommitMatches = $commitToVerify -and $deploymentCommit.StartsWith($commitToVerify)
+$cliMessageCommitMatches = $commitToVerify -and [string]::IsNullOrWhiteSpace($deploymentCommit) -and $deploymentMessage -match [regex]::Escape($commitToVerify)
+if ($commitToVerify -and -not $metadataCommitMatches -and -not $cliMessageCommitMatches -and $AllowServingCommit) {
+    if ([string]::IsNullOrWhiteSpace($deploymentCommit)) {
+        throw "AllowServingCommit was requested, but Railway deployment $deploymentId has no commit metadata."
+    }
+    $commitToVerify = $deploymentCommit.Substring(0, [Math]::Min(7, $deploymentCommit.Length))
+    $metadataCommitMatches = $true
+    Write-Host "Expected commit $ExpectedCommit is not deployed; proving currently serving Railway commit $commitToVerify instead."
+}
 if ($ExpectedCommit -and -not $metadataCommitMatches -and -not $cliMessageCommitMatches) {
     throw "Latest Railway deployment $deploymentId is commit $deploymentCommit, expected $ExpectedCommit."
 }
 if ($cliMessageCommitMatches) {
-    Write-Host "Railway deployment commit metadata is empty; accepted CLI deploy message containing expected commit $ExpectedCommit."
+    Write-Host "Railway deployment commit metadata is empty; accepted CLI deploy message containing expected commit $commitToVerify."
 }
 
 $root = Normalize-BaseUrl -Url $BaseUrl
@@ -142,7 +152,7 @@ $deadline = (Get-Date).AddSeconds([Math]::Max(15, $ReadyTimeoutSeconds))
 $logs = ""
 do {
     $logs = Get-DeploymentLogs -DeploymentId $deploymentId
-    if (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit -AllowUnknownCommit $cliMessageCommitMatches) {
+    if (Test-ReadyLogs -Logs $logs -Commit $commitToVerify -AllowUnknownCommit $cliMessageCommitMatches) {
         break
     }
 
@@ -153,12 +163,12 @@ do {
     }
 } while ((Get-Date) -lt $deadline)
 
-if (-not (Test-ReadyLogs -Logs $logs -Commit $ExpectedCommit -AllowUnknownCommit $cliMessageCommitMatches)) {
+if (-not (Test-ReadyLogs -Logs $logs -Commit $commitToVerify -AllowUnknownCommit $cliMessageCommitMatches)) {
     Write-Host "Last checked logs did not contain the complete ready sequence before timeout."
 }
 
-if ($logs -notmatch "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($ExpectedCommit))" -and -not ($cliMessageCommitMatches -and $logs -match "\[boot\] NitsyClaw bot starting.*commit=unknown")) {
-    throw "Railway logs for $deploymentId do not show the expected boot commit $ExpectedCommit."
+if ($logs -notmatch "\[boot\] NitsyClaw bot starting.*commit=$([regex]::Escape($commitToVerify))" -and -not ($cliMessageCommitMatches -and $logs -match "\[boot\] NitsyClaw bot starting.*commit=unknown")) {
+    throw "Railway logs for $deploymentId do not show the expected boot commit $commitToVerify."
 }
 if ($logs -notmatch "\[wwebjs\] client ready") {
     throw "Railway logs for $deploymentId do not show '[wwebjs] client ready'."
