@@ -110,6 +110,25 @@ if ($latestStatus -eq "SUCCESS") {
     exit 0
 }
 
+if ($latestStatus -eq "SKIPPED") {
+    $priorSuccess = $deployments | Where-Object { [string]$_.status -eq "SUCCESS" } | Select-Object -First 1
+    if (-not $priorSuccess) {
+        throw "Latest Railway deployment $latestId was SKIPPED and no prior SUCCESS deployment was found."
+    }
+
+    $root = Normalize-BaseUrl -Url $BaseUrl
+    $health = Invoke-WebRequest -UseBasicParsing "$root/healthz" -TimeoutSec 20
+    $priorId = [string]$priorSuccess.id
+    if ([string]$health.Content -ne "ok") {
+        throw "Latest Railway deployment $latestId was SKIPPED, but public health is '$($health.Content)'. Check Railway logs before restart."
+    }
+    Write-Host "railway_deploy_watchdog=ok"
+    Write-Host "latest_deployment=$latestId skipped"
+    Write-Host "serving_deployment=$priorId"
+    Write-Host "health=$root/healthz ok"
+    exit 0
+}
+
 $latestCreatedAt = Get-DeploymentCreatedAtUtc -Deployment $latest
 $ageSeconds = [Math]::Floor(((Get-Date).ToUniversalTime() - $latestCreatedAt).TotalSeconds)
 Write-Host "Latest age: ${ageSeconds}s"

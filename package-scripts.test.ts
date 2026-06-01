@@ -296,6 +296,7 @@ describe("package scripts", () => {
     expect(source).toContain("MaxBuildingAgeSeconds");
     expect(source).toContain("BUILDING");
     expect(source).toContain("DEPLOYING");
+    expect(source).toContain("SKIPPED");
     expect(source).toMatch(/previous successful deployment/i);
     expect(source).toContain("/healthz");
     expect(source).toContain("manual Railway upload deploy");
