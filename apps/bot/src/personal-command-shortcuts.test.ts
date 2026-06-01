@@ -402,6 +402,9 @@ describe("personal command shortcuts", () => {
     expect(parseHomeAssistantShortcut("pet care: Milo | feed 7am, walk 6pm | Fri-Sun")?.kind).toBe("pet-care");
     expect(parseHomeAssistantShortcut("account code safety: WhatsApp | email code arrived")?.kind).toBe("account-code-safety");
     expect(parseHomeAssistantShortcut("I got some codes via email from WhatsApp")?.kind).toBe("account-code-safety");
+    expect(parseHomeAssistantShortcut("Someone is asking me for my OTP")?.kind).toBe("account-code-safety");
+    expect(parseHomeAssistantShortcut("I got a suspicious login alert from Google")?.kind).toBe("account-code-safety");
+    expect(parseHomeAssistantShortcut("Could this be a phishing message?")?.kind).toBe("account-code-safety");
     expect(parseHomeAssistantShortcut("password reset plan: Gmail | cannot login")?.kind).toBe("password-reset-plan");
     expect(parseHomeAssistantShortcut("leave home checklist: overnight | heater, back door")?.kind).toBe("leave-home-checklist");
     expect(parseHomeAssistantShortcut("car trip prep: Geelong | Maya | snacks, pram")?.kind).toBe("car-trip-prep");
@@ -419,5 +422,6 @@ describe("personal command shortcuts", () => {
     expect(parseHomeAssistantShortcut("hello")).toBeNull();
     expect(parseHomeAssistantShortcut("what is my weather today")).toBeNull();
     expect(parseHomeAssistantShortcut("pay bill tomorrow")).toBeNull();
+    expect(parseHomeAssistantShortcut("write code for a login page")).toBeNull();
   });
 });

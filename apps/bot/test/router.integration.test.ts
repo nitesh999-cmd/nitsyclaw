@@ -2888,21 +2888,28 @@ describe("Router (integration)", () => {
   });
 
   it("account code safety shortcut protects verification codes", async () => {
-    await router.handle({
-      id: "x-account-code-safety",
-      from: OWNER,
-      body: "I got some codes via email from WhatsApp",
-      timestamp: new Date(),
-      hasMedia: false,
-    });
+    for (const [index, body] of [
+      "I got some codes via email from WhatsApp",
+      "Someone is asking me for my OTP",
+      "I got a suspicious login alert from Google",
+      "Could this be a phishing message?",
+    ].entries()) {
+      wa.sent = [];
+      await router.handle({
+        id: `x-account-code-safety-${index}`,
+        from: OWNER,
+        body,
+        timestamp: new Date(),
+        hasMedia: false,
+      });
 
-    expect(wa.sent[0].body).toContain("Account code safety");
-    expect(wa.sent[0].body).toContain("WhatsApp");
-    expect(wa.sent[0].body).toContain("Do not send verification, recovery, login, or 2FA codes");
-    expect(wa.sent[0].body).toContain("official app or website");
-    expect(wa.sent[0].body).toContain("review linked devices");
-    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
-    expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
+      expect(wa.sent[0].body).toContain("Account code safety");
+      expect(wa.sent[0].body).toContain("Do not send verification, recovery, login, or 2FA codes");
+      expect(wa.sent[0].body).toContain("official app or website");
+      expect(wa.sent[0].body).toContain("review linked devices");
+      expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+      expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
+    }
   });
 
   it("leave home shortcut replies directly without the model loop", async () => {

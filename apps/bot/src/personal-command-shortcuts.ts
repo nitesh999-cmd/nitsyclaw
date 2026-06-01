@@ -1079,14 +1079,6 @@ const HOME_SHORTCUTS: Array<{ kind: HomeAssistantShortcutKind; pattern: RegExp }
 
 export function parseHomeAssistantShortcut(text: string): HomeAssistantShortcut | null {
   const trimmed = text.trim();
-  if (/\b(?:verification|login|security|recovery|2fa|two[-\s]?factor)?\s*codes?\b/i.test(trimmed) &&
-    /\b(?:whatsapp|email|mail|sms|text|account|login)\b/i.test(trimmed)) {
-    return {
-      kind: "account-code-safety",
-      text: trimmed,
-      parts: [trimmed],
-    };
-  }
   for (const shortcut of HOME_SHORTCUTS) {
     const match = trimmed.match(shortcut.pattern);
     const raw = match?.[1]?.replace(/\s+/g, " ").trim();
@@ -1100,5 +1092,33 @@ export function parseHomeAssistantShortcut(text: string): HomeAssistantShortcut 
         .filter(Boolean),
     };
   }
+  if (isAccountCodeSafetyText(trimmed)) {
+    return {
+      kind: "account-code-safety",
+      text: trimmed,
+      parts: [trimmed],
+    };
+  }
   return null;
+}
+
+function isAccountCodeSafetyText(text: string): boolean {
+  const lowered = text.toLowerCase();
+  const explicitCodeSignal =
+    /\b(?:otp|one[-\s]?time password|2fa|two[-\s]?factor|authenticator|verification code|login code|security code|recovery code)\b/i.test(text);
+  if (explicitCodeSignal) return true;
+
+  const codeSignal = /\bcodes\b/i.test(text);
+  const accountSignal = /\b(?:whatsapp|email|mail|sms|text|account|login|password|meta|facebook|instagram|bank|paypal|google|microsoft|apple)\b/i.test(text);
+  if (codeSignal && accountSignal) return true;
+
+  const loginAlertSignal = /\b(?:login alert|new login|someone logged in|sign[-\s]?in alert|unusual login|suspicious login|password reset)\b/i.test(text);
+  if (loginAlertSignal) return true;
+
+  const socialEngineeringSignal =
+    /\b(?:asked|asking|told|telling|wants|want|requested|requesting)\b.+\b(?:code|otp|2fa|password|login)\b/i.test(text) ||
+    /\b(?:code|otp|2fa|password|login)\b.+\b(?:asked|asking|told|telling|wants|want|requested|requesting)\b/i.test(text);
+  if (socialEngineeringSignal) return true;
+
+  return /\b(?:is this|does this look|could this be)\s+(?:a\s+)?(?:scam|phishing)\b/i.test(lowered);
 }
