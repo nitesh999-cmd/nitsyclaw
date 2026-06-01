@@ -8,7 +8,7 @@ import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { confirmations } from "../db/schema.js";
 import { restorePendingConfirmation, setConfirmationStatus } from "../db/repo.js";
-import { privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
+import { assertPublicSaleTenantBoundaries, privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { DB } from "../db/client.js";
 import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
@@ -32,6 +32,7 @@ export async function resolveConfirmation(args: {
   confirmationId?: string;
   userPhone?: string;
 }): Promise<{ id: string; action: string; decision: ConfirmationDecision; payload: Record<string, unknown> } | null> {
+  assertPublicSaleTenantBoundaries();
   const r = args.reply.trim().toLowerCase();
   const yes = /^(y|yes|approve|approved|confirm|confirmed|ok|okay)\b/.test(r);
   const no = /^(n|no|cancel|reject|rejected|abort)\b/.test(r);

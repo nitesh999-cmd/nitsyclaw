@@ -1,6 +1,7 @@
 // Today view — calendar, top reminders, quick stats.
 import { getDb } from "@nitsyclaw/shared/db";
 import { reminders, expenses, briefs, confirmations, messages } from "@nitsyclaw/shared/db";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { eq, gte, desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 const DEFAULT_TODAY_TIMEOUT_MS = 1_200;
 
 async function loadToday() {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const today = new Date();
   today.setHours(0, 0, 0, 0);

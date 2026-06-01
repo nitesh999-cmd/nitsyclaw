@@ -7,6 +7,7 @@ import {
   reminders,
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { desc, eq } from "drizzle-orm";
 import { OperatorCommandClient } from "./operator-command-client";
 import { OPERATOR_MISSIONS } from "./operator-missions";
@@ -16,6 +17,7 @@ import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 export const dynamic = "force-dynamic";
 
 async function loadOperatorState() {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const [
     pendingConfirmations,

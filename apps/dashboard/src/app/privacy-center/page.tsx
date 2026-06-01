@@ -13,6 +13,7 @@ import {
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
 import { createDataInventoryMap } from "@nitsyclaw/shared/features";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { desc } from "drizzle-orm";
 import { count } from "drizzle-orm/sql";
 
@@ -68,6 +69,7 @@ type PrivacyCenterState =
   | { data: null; unavailable: true };
 
 async function loadPrivacyCenter(): Promise<PrivacyCenterData> {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const [
     messageCount,

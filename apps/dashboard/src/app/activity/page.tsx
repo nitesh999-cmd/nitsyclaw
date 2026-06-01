@@ -1,5 +1,6 @@
 import { getDb, auditLog, messages, reminders, confirmations, expenses } from "@nitsyclaw/shared/db";
 import { redactAuditString, sanitizeAuditPayload } from "@nitsyclaw/shared/db";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { relativeTime } from "@nitsyclaw/shared/utils";
 import { desc } from "drizzle-orm";
 import { logDashboardLoadError } from "../../lib/dashboard-runtime";
@@ -7,6 +8,7 @@ import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 export const dynamic = "force-dynamic";
 
 async function loadActivity() {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const [audits, recentMessages, recentReminders, recentConfirmations, recentExpenses] = await Promise.all([
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(30),

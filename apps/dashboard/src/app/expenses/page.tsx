@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, insertExpense, expenses } from "@nitsyclaw/shared/db";
-import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
+import { assertPublicSaleTenantBoundaries, privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { desc } from "drizzle-orm";
 import {
   type ExpenseSearchParams,
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 async function addExpense(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
   const amountRaw = String(formData.get("amount") ?? "").trim();
   const currency = String(formData.get("currency") ?? "AUD").trim().toUpperCase() || "AUD";
   const category = String(formData.get("category") ?? "general").trim() || "general";
@@ -44,6 +45,7 @@ async function addExpense(formData: FormData) {
 }
 
 async function load(filters: ExpenseSearchParams) {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const where = expenseWhere(normalizeExpenseFilters(filters));
 

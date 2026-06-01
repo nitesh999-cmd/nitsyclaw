@@ -1,4 +1,5 @@
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { desc, sql } from "drizzle-orm";
 import { logDashboardError } from "../../lib/dashboard-runtime";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query";
@@ -21,6 +22,7 @@ const TYPE_BADGE: Record<SearchResultType, string> = {
 };
 
 async function searchAll(term: string): Promise<SearchResult[]> {
+  assertPublicSaleTenantBoundaries();
   const q = likePatternForSearchTerm(term);
   const db = getDb();
 

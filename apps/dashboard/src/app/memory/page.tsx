@@ -1,5 +1,6 @@
 import { getDb, memories } from "@nitsyclaw/shared/db";
 import { assessMemoryQuality, formatMemoryQualityLabel } from "@nitsyclaw/shared/agent";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { desc, sql } from "drizzle-orm";
 import { logDashboardLoadError } from "../../lib/dashboard-runtime";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query.js";
@@ -7,6 +8,7 @@ import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-
 export const dynamic = "force-dynamic";
 
 async function load(q?: string) {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const term = normalizeSearchTerm(q);
   if (term) {

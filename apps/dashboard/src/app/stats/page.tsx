@@ -9,6 +9,7 @@ import {
   featureRequests,
   confirmations,
 } from "@nitsyclaw/shared/db";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { logDashboardError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ interface Stats {
 }
 
 async function loadStats(): Promise<Stats> {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
 
   const [

@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { getDb, confirmations, restorePendingConfirmation, setConfirmationStatus } from "@nitsyclaw/shared/db";
 import { createPrivateSpotifyPlaylist } from "@nitsyclaw/shared/integrations/spotify";
-import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
+import { assertPublicSaleTenantBoundaries, privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { desc, eq } from "drizzle-orm";
 import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 
@@ -19,6 +19,7 @@ type ApprovalProfile = {
 
 async function rejectConfirmation(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const { ownerHash } = getOwnerIdentity();
@@ -29,6 +30,7 @@ async function rejectConfirmation(formData: FormData) {
 
 async function approveSpotifyConfirmation(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -67,6 +69,7 @@ async function approveSpotifyConfirmation(formData: FormData) {
 }
 
 async function loadConfirmations() {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   return db.select().from(confirmations).orderBy(desc(confirmations.createdAt)).limit(100);
 }

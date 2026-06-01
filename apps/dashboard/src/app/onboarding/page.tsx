@@ -9,6 +9,7 @@ import {
   listProfileContextForOwner,
   upsertProfileContext,
 } from "@nitsyclaw/shared/db";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
 import { eq } from "drizzle-orm";
 
@@ -96,6 +97,7 @@ type OnboardingSearchParams = {
 };
 
 async function loadChecklist(): Promise<ChecklistItem[]> {
+  assertPublicSaleTenantBoundaries();
   const checks = {
     database: false,
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
@@ -170,6 +172,7 @@ async function loadChecklist(): Promise<ChecklistItem[]> {
 }
 
 async function loadFirstDayProfile(): Promise<FirstDayProfile> {
+  assertPublicSaleTenantBoundaries();
   try {
     const owner = getOwnerIdentity();
     const rows = await listProfileContextForOwner(getDb(), owner.ownerHash, 100);
@@ -193,6 +196,7 @@ async function loadFirstDayProfile(): Promise<FirstDayProfile> {
 
 async function saveFirstDayWizard(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
 
   let redirectTo = "/onboarding?saved=1";
   try {

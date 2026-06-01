@@ -11,6 +11,7 @@ import {
   getSystemHeartbeat,
 } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
+import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
 import { logDashboardError } from "../../lib/dashboard-runtime";
@@ -26,6 +27,7 @@ import { buildOpsAlerts } from "../../lib/ops-alerts";
 export const dynamic = "force-dynamic";
 
 async function loadHealth() {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   const [
     lastMessageRows,

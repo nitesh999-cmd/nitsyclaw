@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb, insertReminder, reminders } from "@nitsyclaw/shared/db";
-import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
+import { assertPublicSaleTenantBoundaries, privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { parseRelativeTime } from "@nitsyclaw/shared/utils";
 import { desc, eq } from "drizzle-orm";
 import { getOwnerIdentity, logDashboardLoadError, publicConfigErrorOrNull } from "../../lib/dashboard-runtime";
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 async function createReminder(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
   const text = String(formData.get("text") ?? "").trim();
   const when = String(formData.get("when") ?? "").trim();
   if (!text || !when) return;
@@ -35,6 +36,7 @@ async function createReminder(formData: FormData) {
 
 async function setReminderStatus(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!id || !["pending", "fired", "cancelled"].includes(status)) return;
@@ -49,6 +51,7 @@ async function setReminderStatus(formData: FormData) {
 
 async function rescheduleReminder(formData: FormData) {
   "use server";
+  assertPublicSaleTenantBoundaries();
   const id = String(formData.get("id") ?? "");
   const value = String(formData.get("fireAt") ?? "");
   const fireAt = new Date(value);
@@ -211,6 +214,7 @@ export default async function RemindersPage({
 }
 
 async function load() {
+  assertPublicSaleTenantBoundaries();
   const db = getDb();
   return db.select().from(reminders).orderBy(desc(reminders.fireAt)).limit(100);
 }
