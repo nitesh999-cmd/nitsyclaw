@@ -80,6 +80,8 @@ jobs:
       NITSYCLAW_RAILWAY_PUBLIC_URL: https://web-production-c98e2.up.railway.app
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -88,14 +90,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Check Railway CI token
         id: railway-token
-        shell: bash
-        run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::warning::Skipping live Railway WhatsApp production smoke because RAILWAY_TOKEN is not configured."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "configured=true" >> "$GITHUB_OUTPUT"
+        run: pnpm exec tsx scripts/ci-railway-token-gate.ts
       - name: Wait for Railway deployment
         if: steps.railway-token.outputs.configured == 'true'
         shell: pwsh

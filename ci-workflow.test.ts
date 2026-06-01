@@ -80,6 +80,8 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("Check Railway deploy watchdog");
     expect(workflow).toContain("./scripts/railway-deploy-watchdog.ps1");
     expect(workflow).toContain("Run WhatsApp production smoke");
+    expect(workflow).toContain("fetch-depth: 2");
+    expect(workflow).toContain("pnpm exec tsx scripts/ci-railway-token-gate.ts");
     expect(workflow.indexOf("./scripts/railway-wait-for-commit.ps1")).toBeLessThan(
       workflow.indexOf("./scripts/railway-deploy-watchdog.ps1"),
     );
