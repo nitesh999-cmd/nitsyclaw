@@ -27,9 +27,13 @@ describe("GitHub Actions CI workflow", () => {
     expect(emptyWithLines).toEqual([]);
   });
 
-  it("uses packageManager from package.json for pnpm setup", () => {
-    expect(workflow).toContain("uses: pnpm/action-setup@v4");
-    expect(workflow).not.toMatch(/uses:\s*pnpm\/action-setup@v4\s*\r?\n\s*with:\s*\r?\n/);
+  it("uses Node 24-compatible action versions and packageManager from package.json for pnpm setup", () => {
+    expect(workflow).toContain("uses: actions/checkout@v6");
+    expect(workflow).toContain("uses: pnpm/action-setup@v6");
+    expect(workflow).toContain("uses: actions/setup-node@v5");
+    expect(workflow).toContain("uses: actions/upload-artifact@v7");
+    expect(workflow).not.toContain("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24");
+    expect(workflow).not.toMatch(/uses:\s*pnpm\/action-setup@v6\s*\r?\n\s*with:\s*\r?\n/);
   });
 
   it("runs the production build before coverage and e2e gates", () => {
@@ -68,7 +72,6 @@ describe("GitHub Actions CI workflow", () => {
   });
 
   it("has a Windows lane for PowerShell and package-script regressions", () => {
-    expect(workflow).toContain("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true");
     expect(workflow).toContain("runs-on: windows-2025-vs2026");
     expect(workflow).toContain("Parse tracked PowerShell scripts");
     expect(workflow).toContain("pnpm test");
