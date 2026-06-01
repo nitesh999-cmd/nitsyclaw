@@ -49,6 +49,7 @@ export interface OutlookStatusShortcut {
 
 export interface DriveStatusShortcut {
   kind: "drive-status";
+  provider: "google_drive" | "onedrive";
 }
 
 export interface PendingFeatureDevelopmentShortcut {
@@ -495,6 +496,19 @@ export function parseOutlookStatusShortcut(text: string): OutlookStatusShortcut 
 export function parseDriveStatusShortcut(text: string): DriveStatusShortcut | null {
   const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "");
   if (
+    trimmed === "onedrive status" ||
+    trimmed === "one drive status" ||
+    trimmed === "onedrive setup" ||
+    trimmed === "one drive setup" ||
+    trimmed === "is onedrive connected" ||
+    trimmed === "can you read onedrive" ||
+    trimmed === "can you search onedrive" ||
+    trimmed === "can you browse onedrive" ||
+    trimmed === "can you browse one drive"
+  ) {
+    return { kind: "drive-status", provider: "onedrive" };
+  }
+  if (
     trimmed === "drive status" ||
     trimmed === "google drive status" ||
     trimmed === "drive setup" ||
@@ -505,7 +519,7 @@ export function parseDriveStatusShortcut(text: string): DriveStatusShortcut | nu
     trimmed === "can you search drive" ||
     trimmed === "can you browse google drive"
   ) {
-    return { kind: "drive-status" };
+    return { kind: "drive-status", provider: "google_drive" };
   }
   return null;
 }

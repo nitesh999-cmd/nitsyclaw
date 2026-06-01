@@ -496,6 +496,40 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers OneDrive status without pretending Google Drive is OneDrive", async () => {
+    const oldClientId = process.env.MS_CLIENT_ID;
+    const oldToken = process.env.MS_TOKEN_JSON;
+    const oldAdapter = process.env.MS_ONEDRIVE_SELECTED_FILE_ADAPTER;
+    delete process.env.MS_CLIENT_ID;
+    delete process.env.MS_TOKEN_JSON;
+    delete process.env.MS_ONEDRIVE_SELECTED_FILE_ADAPTER;
+    try {
+      await router.handle({
+        id: "x-onedrive-status",
+        from: OWNER,
+        body: "onedrive status",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+    } finally {
+      if (oldClientId) process.env.MS_CLIENT_ID = oldClientId;
+      else delete process.env.MS_CLIENT_ID;
+      if (oldToken) process.env.MS_TOKEN_JSON = oldToken;
+      else delete process.env.MS_TOKEN_JSON;
+      if (oldAdapter) process.env.MS_ONEDRIVE_SELECTED_FILE_ADAPTER = oldAdapter;
+      else delete process.env.MS_ONEDRIVE_SELECTED_FILE_ADAPTER;
+    }
+
+    expect(wa.sent[0].body).toContain("OneDrive connector");
+    expect(wa.sent[0].body).toContain("Status: needs setup");
+    expect(wa.sent[0].body).toContain("MS_CLIENT_ID");
+    expect(wa.sent[0].body).toContain("selected-file OneDrive");
+    expect(wa.sent[0].body).toContain("Sharing, deleting, moving, or editing files stays blocked");
+    expect(wa.sent[0].body).not.toContain("Google Drive connector");
+    expect(wa.sent[0].body).not.toContain("OneDrive is connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers can't-do guard requests without the model loop", async () => {
     await router.handle({
       id: "x-cant-do-guard",

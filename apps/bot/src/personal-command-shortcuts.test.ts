@@ -151,9 +151,11 @@ describe("personal command shortcuts", () => {
   });
 
   it("detects Drive connector status requests without queueing setup", () => {
-    expect(parseDriveStatusShortcut("drive status")).toEqual({ kind: "drive-status" });
-    expect(parseDriveStatusShortcut("google drive setup")).toEqual({ kind: "drive-status" });
-    expect(parseDriveStatusShortcut("can you browse Google Drive?")).toEqual({ kind: "drive-status" });
+    expect(parseDriveStatusShortcut("drive status")).toEqual({ kind: "drive-status", provider: "google_drive" });
+    expect(parseDriveStatusShortcut("google drive setup")).toEqual({ kind: "drive-status", provider: "google_drive" });
+    expect(parseDriveStatusShortcut("can you browse Google Drive?")).toEqual({ kind: "drive-status", provider: "google_drive" });
+    expect(parseDriveStatusShortcut("onedrive status")).toEqual({ kind: "drive-status", provider: "onedrive" });
+    expect(parseDriveStatusShortcut("can you browse OneDrive?")).toEqual({ kind: "drive-status", provider: "onedrive" });
     expect(parseDriveStatusShortcut("connect Google Drive")).toBeNull();
   });
 

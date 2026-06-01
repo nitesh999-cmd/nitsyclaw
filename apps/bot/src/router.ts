@@ -5,6 +5,7 @@ import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { formatDriveConnectorStatusForWhatsApp, getDriveConnectorStatus } from "@nitsyclaw/shared/integrations/drive-connector";
 import { formatGmailConnectorStatusForWhatsApp, getGmailConnectorStatus } from "@nitsyclaw/shared/integrations/gmail-connector";
+import { formatOneDriveConnectorStatusForWhatsApp, getOneDriveConnectorStatus } from "@nitsyclaw/shared/integrations/onedrive-connector";
 import { formatOutlookConnectorStatusForWhatsApp, getOutlookConnectorStatus } from "@nitsyclaw/shared/integrations/outlook-connector";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
 import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
@@ -2208,7 +2209,9 @@ export class Router {
 
     const driveStatus = parseDriveStatusShortcut(effectiveText);
     if (driveStatus) {
-      const reply = formatDriveConnectorStatusForWhatsApp(getDriveConnectorStatus(process.env));
+      const reply = driveStatus.provider === "onedrive"
+        ? formatOneDriveConnectorStatusForWhatsApp(getOneDriveConnectorStatus(process.env))
+        : formatDriveConnectorStatusForWhatsApp(getDriveConnectorStatus(process.env));
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
