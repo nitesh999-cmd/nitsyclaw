@@ -4,7 +4,8 @@ param(
     [string]$Service = $(if ($env:RAILWAY_SERVICE) { $env:RAILWAY_SERVICE } else { "web" }),
     [string]$ExpectedCommit = $(git rev-parse --short HEAD),
     [int]$TimeoutSeconds = 900,
-    [int]$PollSeconds = 30
+    [int]$PollSeconds = 30,
+    [switch]$AllowSkipped
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,17 @@ if ($TimeoutSeconds -lt 60) {
 }
 if ($PollSeconds -lt 5) {
     throw "PollSeconds must be at least 5."
+}
+
+function Set-GitHubOutput {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Value
+    )
+
+    if ($env:GITHUB_OUTPUT) {
+        Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "$Name=$Value"
+    }
 }
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -65,7 +77,15 @@ while ((Get-Date) -lt $deadline) {
 
     if ($commitMatches -or $messageMatches) {
         if ($status -eq "SUCCESS") {
+            Set-GitHubOutput -Name "deployed" -Value "true"
+            Set-GitHubOutput -Name "skipped" -Value "false"
             Write-Host "Railway deployment succeeded: $id"
+            exit 0
+        }
+        if ($status -eq "SKIPPED" -and $AllowSkipped) {
+            Set-GitHubOutput -Name "deployed" -Value "false"
+            Set-GitHubOutput -Name "skipped" -Value "true"
+            Write-Host "Railway deployment was skipped for commit $ExpectedCommit; currently serving deployment must be smoked instead."
             exit 0
         }
         if ($status -in @("CRASHED", "FAILED", "REMOVED")) {

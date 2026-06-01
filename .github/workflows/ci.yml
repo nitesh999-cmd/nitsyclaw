@@ -93,17 +93,22 @@ jobs:
         id: railway-token
         run: pnpm exec tsx scripts/ci-railway-token-gate.ts
       - name: Wait for Railway deployment
+        id: railway-deploy
         if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'push'
         shell: pwsh
-        run: ./scripts/railway-wait-for-commit.ps1 -ExpectedCommit "${{ github.sha }}" -TimeoutSeconds 900 -PollSeconds 30
+        run: ./scripts/railway-wait-for-commit.ps1 -ExpectedCommit "${{ github.sha }}" -TimeoutSeconds 900 -PollSeconds 30 -AllowSkipped
       - name: Check Railway deploy watchdog
         if: steps.railway-token.outputs.configured == 'true'
         shell: pwsh
         run: ./scripts/railway-deploy-watchdog.ps1 -MaxBuildingAgeSeconds 900
       - name: Run WhatsApp production smoke for pushed deployment
-        if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'push'
+        if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'push' && steps.railway-deploy.outputs.deployed == 'true'
         shell: pwsh
         run: ./scripts/whatsapp-production-smoke.ps1
+      - name: Run WhatsApp production smoke for skipped Railway deployment
+        if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'push' && steps.railway-deploy.outputs.skipped == 'true'
+        shell: pwsh
+        run: ./scripts/whatsapp-production-smoke.ps1 -AllowServingCommit
       - name: Run WhatsApp production smoke for serving deployment
         if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'workflow_dispatch'
         shell: pwsh
