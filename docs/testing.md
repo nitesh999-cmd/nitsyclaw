@@ -48,6 +48,7 @@ pnpm test:e2e --ui     # Playwright UI mode
 pnpm release:live-smoke # smoke-test production after deploy
 pnpm run audit:doctor   # check local Docker, Vercel CLI, symlink, and live health blockers
 pnpm operator:doctor    # check whether this terminal can safely read the live feature queue
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-secrets-doctor.ps1 # check GitHub CI release secrets without printing values
 ```
 
 `pnpm release:preflight` also blocks local secret drift before release. It fails if OAuth tokens, `.env.local`, SQLite/DB files, or WhatsApp session folders are left inside the repo instead of the external secret root.
@@ -55,6 +56,8 @@ pnpm operator:doctor    # check whether this terminal can safely read the live f
 `pnpm run audit:doctor` is intentionally stricter about machine readiness. It fails if Docker is missing or Windows symlink privilege blocks local Vercel prebuilt packaging.
 
 `pnpm operator:doctor` is read-only. It reports whether `DATABASE_URL` is present for live queue reads and whether provider setup signals exist, without printing secrets.
+
+`scripts/release-secrets-doctor.ps1` is read-only. It checks whether GitHub Actions has `RAILWAY_TOKEN` for live WhatsApp/Railway proof and whether Vercel packaging secrets are present. It never prints secret values. Keep this passing before worker/Railway changes.
 
 ## Production smoke
 
