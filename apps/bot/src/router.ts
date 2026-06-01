@@ -140,6 +140,7 @@ import {
   mentionsFeatureQueueStatus,
   parseHomeAssistantShortcut,
   parseNightlyHealthShortcut,
+  parseNextTwentyPlanShortcut,
   parseOutlookStatusShortcut,
   parseQueuedIntegrationShortcut,
   parseLocalStatusShortcut,
@@ -983,6 +984,41 @@ export class Router {
       "- expense summary",
       "- reminders",
       "- files",
+    ].join("\n");
+  }
+
+  private formatNextTwentyPlanReply(): string {
+    const rows = [
+      "1. Owner demo proof - can yes | should yes | do now | build | 1h | risk: demo drift",
+      "2. 10-contact concierge beta offer - prep yes, send needs approval | should yes | hybrid | 1h | risk: no paid signal",
+      "3. Pilot operating loop - can yes | should yes | do now | build | 1h | risk: manual workload",
+      "4. Real bill/receipt test pack - needs your docs | should yes | setup first | 2-4h | risk: private data",
+      "5. Admin inbox polish - can yes | should yes | do now | build | 2-4h | risk: noisy replies",
+      "6. Weekly digest push/readiness - can yes | should yes | do now | hybrid | 2-4h | risk: weak digest",
+      "7. Bill to reminder rail - can yes | should yes | do now | build | 2-4h | risk: wrong due date",
+      "8. Receipt confidence handling - can yes | should yes | do now | build | 3-6h | risk: OCR errors",
+      "9. Expense search polish - can yes | should yes | do now | build | 1-3h | risk: low",
+      "10. Pilot feedback capture - can yes | should yes | do now | build | 1h | risk: no replies",
+      "11. Synthetic demo mode - can yes | should later | later | build | 3-6h | risk: distraction",
+      "12. First-use onboarding copy - can yes | should later | later | build | 2-4h | risk: low traffic",
+      "13. Bill complaint drafts - can yes | should later | later | build | 2-4h | risk: must stay draft-only",
+      "14. CSV expense import guide - can yes | should later | later | build | 1-2h | risk: CSV variance",
+      "15. Concierge operator view - can yes | should later | later | build | 4-8h | risk: premature ops",
+      "16. AI cost guard - can yes | should later | later | build | 2-4h | risk: premature",
+      "17. Tenant public-sale hardening - can partly | should later | not now | setup | 1-3d | risk: high blast radius",
+      "18. WhatsApp reliability proof gate - can yes | should yes | do now | build | 30-60m | risk: runtime drift",
+      "19. Concierge pricing page - can yes | should later | later | build | 2-4h | risk: offer not proven",
+      "20. AppSumo launch prep - can partly | should no | not now | setup | 2-5d | risk: too early",
+    ];
+
+    return [
+      "Next 20 build map",
+      "Agent assessment: build local proof first, validate paid concierge next, delay public sale/integrations.",
+      "",
+      ...rows,
+      "",
+      "Magic pill: prove one paid life-admin loop - bill/receipt -> expense/reminder -> weekly digest -> user feedback.",
+      "Recommended: do 1 -> 3 -> 5 -> 7 -> 18, then validate with 2.",
     ].join("\n");
   }
 
@@ -2383,6 +2419,14 @@ export class Router {
     const autonomousWork = parseAutonomousWorkShortcut(effectiveText);
     if (autonomousWork) {
       const reply = this.formatAutonomousWorkReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return;
+    }
+
+    const nextTwentyPlan = parseNextTwentyPlanShortcut(effectiveText);
+    if (nextTwentyPlan) {
+      const reply = this.formatNextTwentyPlanReply();
       await this.sendAndPersist(reply);
       await this.completeWhatsAppCommandJob(commandJob, reply);
       return;

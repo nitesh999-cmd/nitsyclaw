@@ -43,6 +43,7 @@
     "whatsapp:release-gate": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-release-gate.ps1",
     "whatsapp:prod-smoke": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-production-smoke.ps1",
     "railway:whatsapp-ready": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1",
+    "whatsapp:command-centre": "vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/whatsapp-capability-registry.test.ts apps/bot/test/router.integration.test.ts",
     "audit:doctor": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/audit-doctor.ps1",
     "security:semgrep": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/semgrep-scan.ps1",
     "security:audit": "pnpm audit --audit-level=moderate",

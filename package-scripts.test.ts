@@ -446,6 +446,15 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/@railway|railway:|\bvercel\b|\bdeploy\b|\brestart\b|\bsend\s*\(/i);
   });
 
+  test("WhatsApp command centre script runs focused local routing checks only", () => {
+    const script = rootPackage.scripts?.["whatsapp:command-centre"] ?? "";
+
+    expect(script).toBe(
+      "vitest run apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/whatsapp-capability-registry.test.ts apps/bot/test/router.integration.test.ts",
+    );
+    expect(script).not.toMatch(/@railway|railway:|\bvercel\b|\bdeploy\b|\brestart\b|\bsend\s*\(/i);
+  });
+
   test("post-deploy proof writes a release report and points to the war room", () => {
     const source = readFileSync("scripts/post-deploy-proof.ps1", "utf8");
 

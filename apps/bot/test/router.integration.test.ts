@@ -405,6 +405,25 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers next 20 planning requests with simple agent-assessed priorities", async () => {
+    await router.handle({
+      id: "x-next-20",
+      from: OWNER,
+      body: "next 20 things",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Next 20 build map");
+    expect(wa.sent[0].body).toContain("Agent assessment");
+    expect(wa.sent[0].body).toContain("Owner demo proof");
+    expect(wa.sent[0].body).toContain("Magic pill");
+    expect(wa.sent[0].body).toContain("Recommended: do 1 -> 3 -> 5 -> 7 -> 18");
+    expect(wa.sent[0].body).toContain("AppSumo launch prep");
+    expect(wa.sent[0].body).not.toContain("Gmail is connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers Gmail status without claiming live mailbox access", async () => {
     const oldGoogleCredentials = process.env.GOOGLE_CREDENTIALS_JSON;
     const oldGoogleToken = process.env.GOOGLE_TOKEN_JSON;

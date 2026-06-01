@@ -16,6 +16,7 @@ import {
   parseGmailStatusShortcut,
   parseHelpShortcut,
   parseLifeAdminCockpitShortcut,
+  parseNextTwentyPlanShortcut,
   parseOutlookStatusShortcut,
   parsePendingFeatureDevelopmentShortcut,
   parseWhatsAppCanaryShortcut,
@@ -353,6 +354,13 @@ describe("personal command shortcuts", () => {
     expect(parseAutonomousWorkShortcut("what needs my involvement?")).toEqual({ kind: "autonomous-work" });
     expect(parseAutonomousWorkShortcut("minimal effort")).toEqual({ kind: "autonomous-work" });
     expect(parseAutonomousWorkShortcut("send email to Maya")).toBeNull();
+  });
+
+  it("detects next 20 planning shortcuts", () => {
+    expect(parseNextTwentyPlanShortcut("next 20")).toEqual({ kind: "next-twenty-plan" });
+    expect(parseNextTwentyPlanShortcut("next twenty things")).toEqual({ kind: "next-twenty-plan" });
+    expect(parseNextTwentyPlanShortcut("what should we build next?")).toEqual({ kind: "next-twenty-plan" });
+    expect(parseNextTwentyPlanShortcut("send email to Maya")).toBeNull();
   });
 
   it("does not parse normal build words as build agent triggers", () => {

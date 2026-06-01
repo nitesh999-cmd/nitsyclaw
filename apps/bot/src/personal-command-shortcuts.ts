@@ -144,6 +144,10 @@ export interface AutonomousWorkShortcut {
   kind: "autonomous-work";
 }
 
+export interface NextTwentyPlanShortcut {
+  kind: "next-twenty-plan";
+}
+
 export interface RepeatLastMessageShortcut {
   preferVoice: boolean;
 }
@@ -1004,6 +1008,23 @@ export function parseAutonomousWorkShortcut(text: string): AutonomousWorkShortcu
     trimmed === "what needs setup from me"
   ) {
     return { kind: "autonomous-work" };
+  }
+  return null;
+}
+
+export function parseNextTwentyPlanShortcut(text: string): NextTwentyPlanShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ");
+  if (
+    trimmed === "next 20" ||
+    trimmed === "next twenty" ||
+    trimmed === "next 20 things" ||
+    trimmed === "next twenty things" ||
+    trimmed === "show next 20" ||
+    trimmed === "what are the next 20" ||
+    trimmed === "what should we build next" ||
+    trimmed === "what should we do next"
+  ) {
+    return { kind: "next-twenty-plan" };
   }
   return null;
 }
