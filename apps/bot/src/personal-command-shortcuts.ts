@@ -1104,6 +1104,8 @@ export function parseHomeAssistantShortcut(text: string): HomeAssistantShortcut 
 
 function isAccountCodeSafetyText(text: string): boolean {
   const lowered = text.toLowerCase();
+  if (/\b(?:scam|phishing|fraud|suspicious|fake)\b/i.test(text)) return true;
+
   const explicitCodeSignal =
     /\b(?:otp|one[-\s]?time password|2fa|two[-\s]?factor|authenticator|verification code|login code|security code|recovery code)\b/i.test(text);
   if (explicitCodeSignal) return true;
@@ -1119,6 +1121,21 @@ function isAccountCodeSafetyText(text: string): boolean {
     /\b(?:asked|asking|told|telling|wants|want|requested|requesting)\b.+\b(?:code|otp|2fa|password|login)\b/i.test(text) ||
     /\b(?:code|otp|2fa|password|login)\b.+\b(?:asked|asking|told|telling|wants|want|requested|requesting)\b/i.test(text);
   if (socialEngineeringSignal) return true;
+
+  const remoteAccessSignal =
+    /\b(?:anydesk|teamviewer|remote access|screen share|screen sharing|install an app|download an app)\b/i.test(text) &&
+    /\b(?:bank|account|support|microsoft|telstra|ato|paypal|refund|verify|fix|hacked)\b/i.test(text);
+  if (remoteAccessSignal) return true;
+
+  const paymentRequestSignal =
+    /\b(?:pay|payment|transfer|bank transfer|osko|payid|gift card|crypto|bitcoin|refund|invoice|overdue|fine|toll|delivery|parcel|postage|customs)\b/i.test(text) &&
+    /\b(?:link|sms|text|whatsapp|email|unknown|new number|urgent|today|now|avoid|suspend|locked|refund|verify|release|fee|charge)\b/i.test(text);
+  if (paymentRequestSignal) return true;
+
+  const impersonationSignal =
+    /\b(?:mum|dad|son|daughter|boss|bank|ato|mygov|telstra|australia post|auspost|courier|paypal|amazon)\b/i.test(text) &&
+    /\b(?:new number|lost phone|pay|transfer|urgent|gift card|code|otp|link|verify)\b/i.test(text);
+  if (impersonationSignal) return true;
 
   return /\b(?:is this|does this look|could this be)\s+(?:a\s+)?(?:scam|phishing)\b/i.test(lowered);
 }

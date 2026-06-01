@@ -1705,9 +1705,12 @@ export class Router {
           "Account code safety",
           `Account/app: ${account}`,
           "Do not send verification, recovery, login, or 2FA codes to anyone in WhatsApp.",
+          "Do not tap payment, parcel, toll, refund, or bank links from unexpected messages.",
+          "Do not install remote-access apps or share your screen for bank/support requests.",
           "Use the code only inside the official app or website that requested it.",
           "If you did not request it: change your password, review linked devices/sessions, and turn on 2FA.",
-          "Next: ignore the code unless you are actively logging in yourself.",
+          "If unsure: open the official app/site yourself, call the provider using a trusted number, and ignore the message.",
+          "Next: do nothing in the message unless you are actively logging in or paying through the official app yourself.",
         ].join("\n");
       }
       case "password-reset-plan": {

@@ -2893,6 +2893,10 @@ describe("Router (integration)", () => {
       "Someone is asking me for my OTP",
       "I got a suspicious login alert from Google",
       "Could this be a phishing message?",
+      "I got a toll SMS with a link to pay today",
+      "Microsoft support asked me to install AnyDesk for my bank refund",
+      "My son says new number and urgently needs a bank transfer",
+      "Australia Post text says pay customs fee to release parcel",
     ].entries()) {
       wa.sent = [];
       await router.handle({
@@ -2905,6 +2909,8 @@ describe("Router (integration)", () => {
 
       expect(wa.sent[0].body).toContain("Account code safety");
       expect(wa.sent[0].body).toContain("Do not send verification, recovery, login, or 2FA codes");
+      expect(wa.sent[0].body).toContain("Do not tap payment, parcel, toll, refund, or bank links");
+      expect(wa.sent[0].body).toContain("Do not install remote-access apps");
       expect(wa.sent[0].body).toContain("official app or website");
       expect(wa.sent[0].body).toContain("review linked devices");
       expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
