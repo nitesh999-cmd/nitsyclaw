@@ -383,7 +383,7 @@ describe("package scripts", () => {
     expect(source).toContain("$PSNativeCommandUseErrorActionPreference = $false");
     expect(source).toContain("pnpm --silent dlx @railway/cli deployment list `");
     expect(source).toContain("@railway/cli deployment list `");
-    expect(source).toContain("--project $ProjectId");
+    expect(source).not.toContain("--project $ProjectId");
     expect(source).toContain("--environment $Environment");
     expect(source).toContain("--service $Service");
     expect(source).toContain("[string]::Join");
