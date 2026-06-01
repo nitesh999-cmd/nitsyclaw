@@ -384,7 +384,7 @@ export class Router {
         localNext ? `- Best local next: ${localNext.shortId}: ${clipForWhatsApp(localNext.description, 90)}` : "- Best local next: none found.",
         setupNext ? `- Needs setup: ${setupNext.shortId}: ${clipForWhatsApp(setupNext.description, 90)}` : "- Needs setup: none found.",
         shipped ? `- Shipped: ${shipped.shortId}: ${clipForWhatsApp(shipped.description, 80)}` : "- Shipped: none found.",
-        "Safety: drafts first. External sending, calling, deleting, booking, paying, or changing data needs confirmation.",
+        "Draft-only/safety: SMS, email, calls, booking, paying, deleting, or external changes need setup and confirmation first.",
       ],
       next: "local status | feature queue | what went wrong | proof test",
     }));

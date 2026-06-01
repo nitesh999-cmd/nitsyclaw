@@ -635,6 +635,7 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Needs setup:");
     expect(wa.sent[0].body).toContain("Read and send emails");
     expect(wa.sent[0].body).toContain("Shipped:");
+    expect(wa.sent[0].body).toContain("Draft-only/safety:");
     expect(wa.sent[0].body).toContain("Next:");
     expect(wa.sent[0].body).not.toContain("Runtime:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
@@ -667,7 +668,7 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Pending: 1 item");
     expect(wa.sent[0].body).toContain("Read and send emails");
     expect(wa.sent[0].body).toContain("Needs setup:");
-    expect(wa.sent[0].body).toContain("Safety:");
+    expect(wa.sent[0].body).toContain("Draft-only/safety:");
     expect(wa.sent[0].body).toContain("Next:");
     expect(wa.sent[0].body.split("\n").length).toBeLessThanOrEqual(18);
     expect(wa.sent[0].body.length).toBeLessThanOrEqual(1600);
