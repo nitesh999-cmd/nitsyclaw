@@ -93,7 +93,7 @@ jobs:
         id: railway-token
         run: pnpm exec tsx scripts/ci-railway-token-gate.ts
       - name: Wait for Railway deployment
-        if: steps.railway-token.outputs.configured == 'true'
+        if: steps.railway-token.outputs.configured == 'true' && github.event_name == 'push'
         shell: pwsh
         run: ./scripts/railway-wait-for-commit.ps1 -ExpectedCommit "${{ github.sha }}" -TimeoutSeconds 900 -PollSeconds 30
       - name: Check Railway deploy watchdog
