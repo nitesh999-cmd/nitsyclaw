@@ -103,7 +103,7 @@ if (Test-WhatsAppReady -Health $initialHealth) {
 } else {
     Write-Host "WhatsApp is not ready. Opening a verified QR recovery window."
     Invoke-Step "Open QR recovery" {
-        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1 `
+        pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-qr-open.ps1 `
             -ProjectId $ProjectId `
             -Environment $Environment `
             -Service $Service `
@@ -124,7 +124,7 @@ if (-not $commit) {
 }
 
 Invoke-Step "Railway WhatsApp ready proof" {
-    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1 `
+    pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1 `
         -ProjectId $ProjectId `
         -Environment $Environment `
         -Service $Service `
@@ -136,7 +136,7 @@ Invoke-Step "Railway WhatsApp ready proof" {
 
 if (-not $SkipSurvival) {
     Invoke-Step "WhatsApp survival proof" {
-        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-survival-proof.ps1 `
+        pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-survival-proof.ps1 `
             -ProjectId $ProjectId `
             -Environment $Environment `
             -Service $Service `

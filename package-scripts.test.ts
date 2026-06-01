@@ -391,6 +391,23 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
+  test("Railway WhatsApp proof scripts use cross-platform PowerShell Core", () => {
+    const smokeSource = readFileSync("scripts/whatsapp-production-smoke.ps1", "utf8");
+    const survivalSource = readFileSync("scripts/railway-whatsapp-survival-proof.ps1", "utf8");
+    const recoverSource = readFileSync("scripts/railway-whatsapp-recover.ps1", "utf8");
+
+    for (const source of [smokeSource, survivalSource, recoverSource]) {
+      expect(source).toContain("pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/");
+      expect(source).not.toMatch(/^\s*powershell\s+-NoProfile\b/m);
+    }
+
+    expect(smokeSource).toContain("scripts/railway-whatsapp-ready.ps1");
+    expect(survivalSource).toContain("scripts/railway-whatsapp-ready.ps1");
+    expect(recoverSource).toContain("scripts/railway-qr-open.ps1");
+    expect(recoverSource).toContain("scripts/railway-whatsapp-ready.ps1");
+    expect(recoverSource).toContain("scripts/railway-whatsapp-survival-proof.ps1");
+  });
+
   test("WhatsApp release gate is local, deterministic, and non-mutating", () => {
     expect(rootPackage.scripts?.["whatsapp:reply-shape-report"]).toBe(
       "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts",

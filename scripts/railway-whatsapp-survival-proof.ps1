@@ -31,7 +31,7 @@ function Invoke-ReadyGate {
     param([Parameter(Mandatory = $true)][string]$Label)
 
     Invoke-Step $Label {
-        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1 `
+        pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1 `
             -ProjectId $ProjectId `
             -Environment $Environment `
             -Service $Service `

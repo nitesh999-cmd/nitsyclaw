@@ -31,7 +31,7 @@ Write-Host "No live WhatsApp sends. No provider OAuth actions. No production dat
 
 if (-not $SkipRailwayReady) {
     Invoke-Step "Railway WhatsApp ready gate" {
-        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1 `
+        pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-ready.ps1 `
             -ProjectId $ProjectId `
             -Environment $Environment `
             -Service $Service `
