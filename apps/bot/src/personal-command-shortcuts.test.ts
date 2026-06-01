@@ -370,7 +370,7 @@ describe("personal command shortcuts", () => {
     expect(parseBugReportShortcut("fix whatsapp loop")).toBeNull();
   });
 
-  it("parses forty home assistant shortcuts", () => {
+  it("parses home assistant shortcuts", () => {
     expect(parseHomeAssistantShortcut("next steps: pay bill. call dentist")?.kind).toBe("sort-actions");
     expect(parseHomeAssistantShortcut("tidy note: remember car rego maybe due")?.kind).toBe("clean-note");
     expect(parseHomeAssistantShortcut("reply draft: Maya | Sunday lunch invite | decline kindly")?.kind).toBe("draft-reply");
@@ -400,6 +400,8 @@ describe("personal command shortcuts", () => {
     expect(parseHomeAssistantShortcut("lost item: passport | last seen in drawer | car, desk, suitcase")?.kind).toBe("lost-item");
     expect(parseHomeAssistantShortcut("school note: Aarav | sick today | 2026-05-06")?.kind).toBe("school-note");
     expect(parseHomeAssistantShortcut("pet care: Milo | feed 7am, walk 6pm | Fri-Sun")?.kind).toBe("pet-care");
+    expect(parseHomeAssistantShortcut("account code safety: WhatsApp | email code arrived")?.kind).toBe("account-code-safety");
+    expect(parseHomeAssistantShortcut("I got some codes via email from WhatsApp")?.kind).toBe("account-code-safety");
     expect(parseHomeAssistantShortcut("password reset plan: Gmail | cannot login")?.kind).toBe("password-reset-plan");
     expect(parseHomeAssistantShortcut("leave home checklist: overnight | heater, back door")?.kind).toBe("leave-home-checklist");
     expect(parseHomeAssistantShortcut("car trip prep: Geelong | Maya | snacks, pram")?.kind).toBe("car-trip-prep");

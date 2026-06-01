@@ -2887,6 +2887,24 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("account code safety shortcut protects verification codes", async () => {
+    await router.handle({
+      id: "x-account-code-safety",
+      from: OWNER,
+      body: "I got some codes via email from WhatsApp",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Account code safety");
+    expect(wa.sent[0].body).toContain("WhatsApp");
+    expect(wa.sent[0].body).toContain("Do not send verification, recovery, login, or 2FA codes");
+    expect(wa.sent[0].body).toContain("official app or website");
+    expect(wa.sent[0].body).toContain("review linked devices");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+    expect(wa.sent.some((m) => m.body === "Saved. Working on it.")).toBe(false);
+  });
+
   it("leave home shortcut replies directly without the model loop", async () => {
     await router.handle({
       id: "x",

@@ -182,6 +182,7 @@ export type HomeAssistantShortcutKind =
   | "lost-item"
   | "school-note"
   | "pet-care"
+  | "account-code-safety"
   | "password-reset-plan"
   | "leave-home-checklist"
   | "car-trip-prep"
@@ -1062,6 +1063,7 @@ const HOME_SHORTCUTS: Array<{ kind: HomeAssistantShortcutKind; pattern: RegExp }
   { kind: "lost-item", pattern: /^(?:lost\s+item|find\s+lost|find\s+my)\s*:\s+(.+)$/is },
   { kind: "school-note", pattern: /^(?:school\s+note|absence\s+note|sick\s+note)\s*:\s+(.+)$/is },
   { kind: "pet-care", pattern: /^(?:pet\s+care|pet\s+plan|animal\s+care)\s*:\s+(.+)$/is },
+  { kind: "account-code-safety", pattern: /^(?:account\s+code\s+safety|verification\s+code\s+help|login\s+code\s+help|security\s+code\s+help)\s*:\s+(.+)$/is },
   { kind: "password-reset-plan", pattern: /^(?:password\s+reset\s+plan|reset\s+password\s+plan|account\s+recovery\s+plan)\s*:\s+(.+)$/is },
   { kind: "leave-home-checklist", pattern: /^(?:leave\s+home\s+checklist|leaving\s+home|house\s+exit\s+check)\s*:\s+(.+)$/is },
   { kind: "car-trip-prep", pattern: /^(?:car\s+trip\s+prep|road\s+trip\s+prep|drive\s+prep)\s*:\s+(.+)$/is },
@@ -1077,6 +1079,14 @@ const HOME_SHORTCUTS: Array<{ kind: HomeAssistantShortcutKind; pattern: RegExp }
 
 export function parseHomeAssistantShortcut(text: string): HomeAssistantShortcut | null {
   const trimmed = text.trim();
+  if (/\b(?:verification|login|security|recovery|2fa|two[-\s]?factor)?\s*codes?\b/i.test(trimmed) &&
+    /\b(?:whatsapp|email|mail|sms|text|account|login)\b/i.test(trimmed)) {
+    return {
+      kind: "account-code-safety",
+      text: trimmed,
+      parts: [trimmed],
+    };
+  }
   for (const shortcut of HOME_SHORTCUTS) {
     const match = trimmed.match(shortcut.pattern);
     const raw = match?.[1]?.replace(/\s+/g, " ").trim();

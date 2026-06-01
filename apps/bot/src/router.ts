@@ -1699,6 +1699,17 @@ export class Router {
         });
         return `${result.title}\n- ${result.checklist.join("\n- ")}`;
       }
+      case "account-code-safety": {
+        const account = first || shortcut.text;
+        return [
+          "Account code safety",
+          `Account/app: ${account}`,
+          "Do not send verification, recovery, login, or 2FA codes to anyone in WhatsApp.",
+          "Use the code only inside the official app or website that requested it.",
+          "If you did not request it: change your password, review linked devices/sessions, and turn on 2FA.",
+          "Next: ignore the code unless you are actively logging in yourself.",
+        ].join("\n");
+      }
       case "password-reset-plan": {
         const result = planPasswordReset({
           account: first || "account",
