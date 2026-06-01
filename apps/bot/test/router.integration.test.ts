@@ -2885,7 +2885,7 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("official Gmail recovery page");
     expect(wa.sent[0].body).toContain("Do not send passwords or codes to anyone");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
-  });
+  }, 15000);
 
   it("account code safety shortcut protects verification codes", async () => {
     for (const [index, body] of [

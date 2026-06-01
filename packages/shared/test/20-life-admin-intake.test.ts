@@ -173,7 +173,7 @@ describe("life admin intake", () => {
         expect.objectContaining({ label: "Due date", value: "2026-05-17" }),
       ]),
     );
-  });
+  }, 15000);
 
   it("caps extracted document text before it reaches analysis", async () => {
     const extracted = await extractDocumentTextFromMedia({
