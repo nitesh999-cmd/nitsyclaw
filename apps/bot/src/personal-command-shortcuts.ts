@@ -926,8 +926,8 @@ export function parseAdminInboxActionShortcut(text: string): AdminInboxActionSho
 
 export function parseExpenseSearchShortcut(text: string): ExpenseSearchShortcut | null {
   const raw = text.trim().replace(/\s+/g, " ").replace(/[.!?]+$/g, "");
-  const match = raw.match(/^(?:find|search|show)\s+(?:my\s+)?(?:expense|expenses|receipt|receipts)\s+(.+)$/i) ??
-    raw.match(/^(?:expense|receipt)\s+search\s+(.+)$/i);
+  const match = raw.match(/^(?:find|search|show)\s+(?:my\s+)?(?:expense|expenses|receipt|receipts|bill|bills|document|documents)\s+(.+)$/i) ??
+    raw.match(/^(?:expense|receipt|bill|document)\s+search\s+(.+)$/i);
   const query = match?.[1]?.trim();
   if (!query || query.length < 2) return null;
   if (/^(summary|status|total|totals|this month)$/i.test(query)) return null;

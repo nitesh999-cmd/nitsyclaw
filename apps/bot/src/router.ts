@@ -778,12 +778,13 @@ export class Router {
     const rows = (await recentExpensesBetween(this.deps.db, this.tenant(), from, now, 500))
       .filter((row) => `${row.merchant ?? ""} ${row.category ?? ""}`.toLowerCase().includes(normalized))
       .slice(0, 5);
-    if (!rows.length) {
+    const documentLines = await this.getMatchingDocumentLines(this.ownerPhone, normalized, 5);
+    if (!rows.length && !documentLines.length) {
       return [
-        `Expense search: ${query}`,
-        "No matching local expenses found.",
-        "Try: expense summary, or search a merchant/category like Chemist, Uber, groceries.",
-        "No bank feed used.",
+        `Local search: ${query}`,
+        "No matching local expenses, receipts, bills, or document filenames found.",
+        "Try: expense summary, or search a merchant/provider like Chemist, Uber, AGL, Telstra.",
+        "No bank feed or cloud drive used.",
       ].join("\n");
     }
     const lines = rows.map((row, index) => {
@@ -791,10 +792,25 @@ export class Router {
       return `${index + 1}. ${merchant} - ${row.currency} ${(row.amount / 100).toFixed(2)} (${this.formatLocalDateTime(row.occurredAt)})`;
     });
     return [
-      `Expense search: ${query}`,
-      ...lines,
-      "Source: local NitsyClaw expenses and receipts only. No bank feed used.",
+      `Local search: ${query}`,
+      ...(lines.length ? ["Expenses/receipts", ...lines] : []),
+      ...(documentLines.length ? ["Bills/documents", ...documentLines] : []),
+      "Source: local NitsyClaw expenses, receipts, and uploaded document metadata only. No bank feed or cloud drive used.",
     ].join("\n");
+  }
+
+  private async getMatchingDocumentLines(userPhone: string, normalizedQuery: string, limit: number): Promise<string[]> {
+    const rows = await recentMessages(this.deps.db, hashPhone(userPhone), 120);
+    return rows
+      .filter((row) => row.mediaType === "document")
+      .map((row) => {
+        const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+        const filename = typeof metadata.filename === "string" ? metadata.filename : "document";
+        return { filename, createdAt: row.createdAt };
+      })
+      .filter((row) => row.filename.toLowerCase().includes(normalizedQuery))
+      .slice(0, limit)
+      .map((row, index) => `${index + 1}. ${row.filename} (${this.formatLocalDateTime(row.createdAt)})`);
   }
 
   private async getRecentDocumentLines(userPhone: string, limit: number): Promise<string> {

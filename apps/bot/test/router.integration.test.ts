@@ -1556,6 +1556,16 @@ describe("Router (integration)", () => {
         createdAt: new Date("2026-04-23T08:00:00Z"),
       },
     );
+    state.messages.push({
+      id: "doc-agl",
+      direction: "in",
+      surface: "whatsapp",
+      fromNumber: hashPhone(OWNER),
+      body: "",
+      mediaType: "document",
+      metadata: { filename: "AGL-May-bill.pdf" },
+      createdAt: new Date("2026-04-22T08:00:00Z"),
+    });
 
     await router.handle({
       id: "x-expense-search",
@@ -1565,12 +1575,26 @@ describe("Router (integration)", () => {
       hasMedia: false,
     });
 
-    expect(wa.sent[0].body).toContain("Expense search");
+    expect(wa.sent[0].body).toContain("Local search");
     expect(wa.sent[0].body).toContain("Chemist Warehouse");
     expect(wa.sent[0].body).toContain("AUD 6.50");
     expect(wa.sent[0].body).not.toContain("Uber Trip");
-    expect(wa.sent[0].body).toContain("No bank feed used");
+    expect(wa.sent[0].body).toContain("No bank feed or cloud drive used");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+
+    wa.sent = [];
+    await router.handle({
+      id: "x-bill-search",
+      from: OWNER,
+      body: "find bill AGL",
+      timestamp: new Date("2026-04-25T08:11:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Local search");
+    expect(wa.sent[0].body).toContain("Bills/documents");
+    expect(wa.sent[0].body).toContain("AGL-May-bill.pdf");
+    expect(wa.sent[0].body).toContain("No bank feed or cloud drive used");
   });
 
   it("sends the manual nightly health report without the model loop", async () => {

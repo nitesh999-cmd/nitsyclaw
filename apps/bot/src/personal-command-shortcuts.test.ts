@@ -343,6 +343,8 @@ describe("personal command shortcuts", () => {
     expect(parseExpenseSearchShortcut("find expense chemist")).toEqual({ query: "chemist" });
     expect(parseExpenseSearchShortcut("search receipts uber")).toEqual({ query: "uber" });
     expect(parseExpenseSearchShortcut("receipt search AGL")).toEqual({ query: "AGL" });
+    expect(parseExpenseSearchShortcut("find bill AGL")).toEqual({ query: "AGL" });
+    expect(parseExpenseSearchShortcut("document search Telstra")).toEqual({ query: "Telstra" });
     expect(parseExpenseSearchShortcut("expense summary")).toBeNull();
   });
 
