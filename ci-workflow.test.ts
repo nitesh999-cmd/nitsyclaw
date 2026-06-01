@@ -75,6 +75,8 @@ describe("GitHub Actions CI workflow", () => {
   });
 
   it("waits for Railway and runs the deploy watchdog before WhatsApp production smoke", () => {
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
     expect(workflow).toContain("Wait for Railway deployment");
     expect(workflow).toContain("./scripts/railway-wait-for-commit.ps1");
     expect(workflow).toContain("Check Railway deploy watchdog");

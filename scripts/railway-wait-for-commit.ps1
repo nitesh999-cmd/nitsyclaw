@@ -33,7 +33,6 @@ Write-Host "Timeout: $TimeoutSeconds seconds"
 
 while ((Get-Date) -lt $deadline) {
     $rawDeploymentList = pnpm --silent dlx @railway/cli deployment list `
-        --project $ProjectId `
         --environment $Environment `
         --service $Service `
         --limit 10 `
