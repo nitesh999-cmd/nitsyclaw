@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowRight, Check, WhatsApp } from "./icons";
-import { whatsAppLink } from "@/lib/site";
+import { whatsAppLink, mailtoLink } from "@/lib/site";
 
 const LEAKS = [
   "Leads not followed up fast enough",
@@ -33,14 +33,14 @@ function tierFor(count: number): Tier {
     return {
       headline: `${count} leak${count > 1 ? "s" : ""} — quick wins on the table`,
       body: "A couple of small leaks. The 90-minute audit or the 7-day follow-up fix is your fastest, lowest-cost path to plugging them.",
-      tone: "from-emerald-600 to-teal-700",
+      tone: "from-emerald-700 to-teal-800",
     };
   }
   if (count <= 4) {
     return {
       headline: `${count} leaks — money is slipping weekly`,
       body: "Several leaks compounding. This is exactly where a focused fix pays for itself fast — start with the audit so we rank them by impact.",
-      tone: "from-amber-600 to-orange-700",
+      tone: "from-amber-700 to-orange-800",
     };
   }
   return {
@@ -67,24 +67,26 @@ export default function LeakScorecard() {
   const count = selected.size;
   const tier = useMemo(() => tierFor(count), [count]);
 
-  const waHref = useMemo(() => {
+  const { waHref, emailHref } = useMemo(() => {
     const picked = LEAKS.filter((_, i) => selected.has(i));
     const lines = picked.length
       ? ["The leaks I ticked:", ...picked.map((l) => `• ${l}`)]
       : ["I'm not sure where we're leaking yet — can you help me find out?"];
-    return whatsAppLink(
-      [
-        "Hi Nitesh, I just ran the leak scan on your site.",
-        "",
-        ...lines,
-        "",
-        "Can you tell me what to fix first?",
-      ].join("\n"),
-    );
+    const message = [
+      "Hi Nitesh, I just ran the leak scan on your site.",
+      "",
+      ...lines,
+      "",
+      "Can you tell me what to fix first?",
+    ].join("\n");
+    return {
+      waHref: whatsAppLink(message),
+      emailHref: mailtoLink("My leak scan results", message),
+    };
   }, [selected]);
 
   return (
-    <section id="scorecard" className="reveal bg-white py-20 sm:py-24">
+    <section id="scorecard" className="reveal bg-slate-50 py-20 sm:py-24">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
           <span className="eyebrow">2-minute leak scan</span>
@@ -109,21 +111,21 @@ export default function LeakScorecard() {
                 return (
                   <label
                     key={leak}
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-sm font-medium transition ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border bg-white px-4 py-3.5 text-sm font-medium transition ${
                       on
                         ? "border-accent-strong bg-accent-strong/[0.06] text-ink"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        : "border-slate-200 text-slate-700 hover:border-slate-300"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      className="sr-only"
+                      className="peer sr-only"
                       checked={on}
                       onChange={() => toggle(i)}
                     />
                     <span
                       aria-hidden="true"
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition peer-focus-visible:ring-2 peer-focus-visible:ring-accent-strong peer-focus-visible:ring-offset-2 ${
                         on
                           ? "border-accent-strong bg-accent-strong text-white"
                           : "border-slate-300 bg-white"
@@ -139,21 +141,19 @@ export default function LeakScorecard() {
           </fieldset>
 
           {/* result */}
-          <div
-            aria-live="polite"
-            className="mt-8 overflow-hidden rounded-2xl border border-slate-200 shadow-card"
-          >
+          <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 shadow-card">
             <div className={`bg-gradient-to-r ${tier.tone} px-6 py-6 text-white`}>
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold backdrop-blur">
                   {count}
                   <span className="text-sm font-medium opacity-70">/8</span>
                 </div>
-                <div>
+                {/* only the dynamic text is a live region, and CTAs sit outside it */}
+                <div aria-live="polite" aria-atomic="true">
                   <p className="text-lg font-bold leading-tight">
                     {tier.headline}
                   </p>
-                  <p className="mt-1 text-sm leading-relaxed text-white/85">
+                  <p className="mt-1 text-sm leading-relaxed text-white">
                     {tier.body}
                   </p>
                 </div>
@@ -164,10 +164,10 @@ export default function LeakScorecard() {
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn h-12 flex-1 bg-[#25D366] text-white shadow-card hover:brightness-95"
+                className="btn h-12 flex-1 bg-[#25D366] text-ink shadow-card hover:brightness-95"
               >
                 <WhatsApp className="h-4 w-4" />
-                Send my scan &amp; get my fix-first answer
+                Send my scan on WhatsApp
               </a>
               <a href="#offers" className="btn-secondary h-12 flex-1">
                 See ways to start
@@ -175,9 +175,13 @@ export default function LeakScorecard() {
               </a>
             </div>
           </div>
-          <p className="mt-3 text-center text-xs text-slate-400">
-            This is a self-check, not a diagnosis — the call is where we confirm
-            what&apos;s really going on.
+          <p className="mt-3 text-center text-xs text-slate-500">
+            Prefer email?{" "}
+            <a href={emailHref} className="font-medium text-accent-strong underline">
+              Send your scan by email
+            </a>
+            . This is a self-check, not a diagnosis — the call is where we
+            confirm what&apos;s really going on.
           </p>
         </div>
       </div>

@@ -24,7 +24,7 @@ const OFFERS: Offer[] = [
       "Top 5 fixes ranked by impact",
     ],
     cta: "Start With an Audit",
-    note: "If I don't show you at least 3 concrete fixes worth more than the fee, you don't pay for it.",
+    note: "You walk away with at least 3 specific, ranked fixes. If I can't give you that, the audit's free — your call.",
   },
   {
     tag: "Recommended start",

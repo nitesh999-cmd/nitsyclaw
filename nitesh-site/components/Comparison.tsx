@@ -4,7 +4,7 @@ const ROWS = [
   {
     label: "Cost to get moving",
     nothing: "$0 now — but lost deals add up every week",
-    hire: "$120k–$180k salary + super, before they ramp",
+    hire: "A full salary plus super and on-costs, before they ramp",
     fixer: "Fixed-scope sprints — you know the price up front",
   },
   {
@@ -35,14 +35,14 @@ const COLS = [
 
 export default function Comparison() {
   return (
-    <section className="reveal bg-slate-50 py-20 sm:py-24">
+    <section className="reveal bg-ink py-20 text-white sm:py-24">
       <div className="container-page">
         <div className="max-w-3xl">
-          <span className="eyebrow">Your options</span>
-          <h2 className="section-title mt-4">
+          <span className="eyebrow-dark">Your options</span>
+          <h2 className="section-title-light mt-4">
             Doing nothing has a price too.
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-slate-600">
+          <p className="mt-5 text-lg leading-relaxed text-slate-300">
             You don&apos;t have to choose between leaving leaks to bleed and
             committing to an expensive full-time hire. Here&apos;s the honest
             comparison.
@@ -50,28 +50,27 @@ export default function Comparison() {
         </div>
 
         {/* desktop table */}
-        <div className="mt-10 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card md:block">
+        <div className="mt-10 hidden overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:block">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200">
-                <th className="w-1/4 px-5 py-4 font-semibold text-slate-500">
-                  &nbsp;
-                </th>
+              <tr className="border-b border-white/10">
+                <td className="w-1/4 px-5 py-4" />
                 {COLS.map((c) => (
                   <th
                     key={c.key}
+                    scope="col"
                     className={`px-5 py-4 align-top ${
-                      c.highlight ? "bg-accent-strong/[0.06]" : ""
+                      c.highlight ? "bg-accent-strong/15" : ""
                     }`}
                   >
                     <span
                       className={`block text-base font-bold ${
-                        c.highlight ? "text-accent-strong" : "text-ink"
+                        c.highlight ? "text-accent-soft" : "text-white"
                       }`}
                     >
                       {c.title}
                     </span>
-                    <span className="text-xs font-medium text-slate-500">
+                    <span className="text-xs font-medium text-slate-400">
                       {c.sub}
                     </span>
                   </th>
@@ -80,17 +79,20 @@ export default function Comparison() {
             </thead>
             <tbody>
               {ROWS.map((row) => (
-                <tr key={row.label} className="border-b border-slate-100 last:border-0">
-                  <th className="px-5 py-4 text-left align-top font-semibold text-ink">
+                <tr key={row.label} className="border-b border-white/5 last:border-0">
+                  <th
+                    scope="row"
+                    className="px-5 py-4 text-left align-top font-semibold text-white"
+                  >
                     {row.label}
                   </th>
-                  <td className="px-5 py-4 align-top text-slate-600">
+                  <td className="px-5 py-4 align-top text-slate-300">
                     {row.nothing}
                   </td>
-                  <td className="px-5 py-4 align-top text-slate-600">{row.hire}</td>
-                  <td className="bg-accent-strong/[0.06] px-5 py-4 align-top font-medium text-ink">
+                  <td className="px-5 py-4 align-top text-slate-300">{row.hire}</td>
+                  <td className="bg-accent-strong/15 px-5 py-4 align-top font-medium text-white">
                     <span className="inline-flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" />
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-soft" />
                       {row.fixer}
                     </span>
                   </td>
@@ -107,27 +109,27 @@ export default function Comparison() {
               key={c.key}
               className={`rounded-2xl border p-5 ${
                 c.highlight
-                  ? "border-accent-strong bg-white shadow-card"
-                  : "border-slate-200 bg-white"
+                  ? "border-accent-strong bg-accent-strong/10"
+                  : "border-white/10 bg-white/[0.03]"
               }`}
             >
               <p
                 className={`text-base font-bold ${
-                  c.highlight ? "text-accent-strong" : "text-ink"
+                  c.highlight ? "text-accent-soft" : "text-white"
                 }`}
               >
                 {c.title}
               </p>
-              <p className="text-xs font-medium text-slate-500">{c.sub}</p>
+              <p className="text-xs font-medium text-slate-400">{c.sub}</p>
               <ul className="mt-4 space-y-3">
                 {ROWS.map((row) => (
                   <li key={row.label} className="text-sm">
-                    <span className="block font-semibold text-ink">
+                    <span className="block font-semibold text-white">
                       {row.label}
                     </span>
-                    <span className="flex items-start gap-2 text-slate-600">
+                    <span className="flex items-start gap-2 text-slate-300">
                       {c.highlight && (
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" />
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-soft" />
                       )}
                       {row[c.key]}
                     </span>

@@ -11,7 +11,7 @@ const STEPS = [
   {
     n: 2,
     title: "I give you a straight read",
-    body: "Usually same day: where you're likely leaking and what to fix first.",
+    body: "Usually same day — a first read on where you're likely leaking, or a time to talk it through.",
   },
   {
     n: 3,
@@ -58,7 +58,7 @@ export default function Contact() {
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn h-12 flex-1 bg-[#25D366] text-white shadow-card hover:brightness-95"
+                className="btn h-12 flex-1 bg-[#25D366] text-ink shadow-card hover:brightness-95"
               >
                 <WhatsApp className="h-4 w-4" />
                 WhatsApp Nitesh

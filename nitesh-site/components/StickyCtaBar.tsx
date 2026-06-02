@@ -20,7 +20,7 @@ export default function StickyCtaBar() {
           href={whatsappHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn h-12 flex-1 bg-[#25D366] text-white shadow-card hover:brightness-95"
+          className="btn h-12 flex-1 bg-[#25D366] text-ink shadow-card hover:brightness-95"
           aria-label="Message Nitesh on WhatsApp"
         >
           <WhatsApp className="h-4 w-4" />

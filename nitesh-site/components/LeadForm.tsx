@@ -35,13 +35,13 @@ export default function LeadForm() {
   );
 
   return (
-    <form onSubmit={onWhatsApp} className="card p-6 sm:p-7">
+    <form onSubmit={onWhatsApp} className="card border-t-4 border-t-accent-strong p-6 sm:p-7">
       <p className="text-base font-semibold text-ink">
         Tell me what&apos;s slowing you down
       </p>
       <p className="mt-1 text-sm text-slate-500">
-        Three quick fields. Sends straight to my WhatsApp — or email if you
-        prefer.
+        Three quick fields. Tap send and WhatsApp opens with your message ready
+        — just hit send. Prefer email? Use the button on the right.
       </p>
 
       <div className="mt-5 space-y-3">
@@ -68,7 +68,7 @@ export default function LeadForm() {
             placeholder="Mobile or email"
             value={contact}
             onChange={(e) => setContact(e.target.value)}
-            autoComplete="tel"
+            autoComplete="off"
           />
         </div>
         <div>
@@ -88,7 +88,7 @@ export default function LeadForm() {
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
-          className="btn h-12 flex-1 bg-[#25D366] text-white shadow-card hover:brightness-95"
+          className="btn h-12 flex-1 bg-[#25D366] text-ink shadow-card hover:brightness-95"
         >
           <WhatsApp className="h-4 w-4" />
           Send on WhatsApp
@@ -98,7 +98,7 @@ export default function LeadForm() {
           Send by email
         </a>
       </div>
-      <p className="mt-3 text-xs text-slate-400">
+      <p className="mt-3 text-xs text-slate-500">
         No spam, no list. Goes straight to me, and I usually reply the same day.
       </p>
     </form>

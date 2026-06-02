@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "What if the audit isn't worth it?",
-    a: "The first paid step is a fixed-fee audit. If I don't show you at least three concrete fixes worth more than the fee, you don't pay for it — I'd rather lose the fee than your trust.",
+    a: "The first paid step is a fixed-fee audit, and you walk away with at least three specific, ranked fixes. If I can't give you that, the audit's free — I'd rather lose the fee than your trust.",
   },
   {
     q: "Are you going to lock me into a long retainer?",
@@ -25,7 +25,7 @@ const FAQS = [
   },
   {
     q: "Is my customer and business data safe with you?",
-    a: "I only access what's needed to do the job, I don't share it with anyone, and I can work inside your own tools so your data stays in your accounts, not mine.",
+    a: "I only access what's needed to do the job, I don't share it with anyone, and where possible I work inside your own tools so your data stays in your accounts.",
   },
   {
     q: "You're building your client list — why should I trust you?",
@@ -64,7 +64,7 @@ export default function Faq() {
           </p>
         </div>
 
-        <div className="mx-auto mt-10 max-w-3xl divide-y divide-slate-200 border-y border-slate-200">
+        <div className="mx-auto mt-10 max-w-3xl divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white px-6 shadow-card sm:px-8">
           {FAQS.map((item) => (
             <details key={item.q} name="faq" className="faq-item group py-1">
               <summary className="flex items-center justify-between gap-4 py-4 text-base font-semibold text-ink">

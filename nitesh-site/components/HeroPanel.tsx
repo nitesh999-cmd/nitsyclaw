@@ -60,7 +60,7 @@ export default function HeroPanel() {
         <div className="mt-5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-slate-300">Operating rhythm</span>
-            <span className="font-semibold text-emerald-300">On track</span>
+            <span className="font-semibold text-emerald-300">Nothing slipping</span>
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
             <div
@@ -77,7 +77,7 @@ export default function HeroPanel() {
           <Check className="h-4 w-4" />
         </span>
         <span className="text-xs font-semibold text-white">
-          No lead left to go cold
+          Built so leads don&apos;t go cold
         </span>
       </div>
     </div>
