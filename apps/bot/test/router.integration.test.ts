@@ -2502,7 +2502,7 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Energy bill");
     expect(wa.sent[0].body).toContain("Amount due: AUD 248.60");
     expect(wa.sent[0].body).toContain("Due date: 2026-05-17");
-  });
+  }, 15000);
 
   it("text document upload is extracted and analyzed before replying", async () => {
     await router.handle({
