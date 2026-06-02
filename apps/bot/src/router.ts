@@ -215,6 +215,8 @@ type PendingBillReminderContext = {
 };
 
 const BILL_REMINDER_CONTEXT_TTL_MS = 10 * 60 * 1000;
+const BILL_REMINDER_CONTEXT_OPEN = "[bill-reminder-context:v1]";
+const BILL_REMINDER_CONTEXT_CLOSE = "[/bill-reminder-context:v1]";
 const pendingBillRemindersByOwner = new Map<string, PendingBillReminderContext>();
 
 export class Router {
@@ -1098,6 +1100,24 @@ export class Router {
     return context;
   }
 
+  private formatCommandResultWithPendingBillReminderContext(reply: string): string {
+    const pending = pendingBillRemindersByOwner.get(hashPhone(this.ownerPhone));
+    if (!pending || pending.expiresAt <= this.deps.now()) return reply;
+    return `${reply}\n\n${serializeBillReminderContext(pending)}`;
+  }
+
+  private async findRecentBillReminderContext(ownerHash: string): Promise<PendingBillReminderContext | null> {
+    const jobs = await listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 20 });
+    for (const job of jobs) {
+      if (job.ownerHash !== ownerHash || job.status !== "done" || !job.resultText) continue;
+      const context = parseBillReminderContext(job.resultText);
+      if (!context || context.ownerHash !== ownerHash || context.expiresAt <= this.deps.now()) continue;
+      pendingBillRemindersByOwner.set(ownerHash, context);
+      return context;
+    }
+    return null;
+  }
+
   private buildBillReminderFireAt(dueDateIso: string): Date {
     const [year, month, day] = dueDateIso.split("-").map((part) => Number(part));
     if (!year || !month || !day) return this.deps.now();
@@ -1115,7 +1135,7 @@ export class Router {
     if (!/^(?:set|save|create)\s+(?:the\s+)?(?:bill\s+)?reminder$/i.test(effectiveText.trim())) return false;
 
     const ownerHash = hashPhone(this.ownerPhone);
-    const pending = pendingBillRemindersByOwner.get(ownerHash);
+    const pending = pendingBillRemindersByOwner.get(ownerHash) ?? await this.findRecentBillReminderContext(ownerHash);
     if (!pending || pending.ownerHash !== ownerHash || pending.expiresAt <= this.deps.now()) {
       pendingBillRemindersByOwner.delete(ownerHash);
       const reply = "No recent bill reminder to set. Send a bill summary first, then reply: set reminder.";
@@ -2192,7 +2212,11 @@ export class Router {
       try {
         const reply = this.formatHomeAssistantReply(homeShortcut);
         await this.sendAndPersist(reply);
-        await this.completeWhatsAppCommandJob(commandJob, reply);
+        const resultText =
+          homeShortcut.kind === "bill-summary"
+            ? this.formatCommandResultWithPendingBillReminderContext(reply)
+            : reply;
+        await this.completeWhatsAppCommandJob(commandJob, resultText);
       } catch (homeShortcutError) {
         await this.failWhatsAppCommandJob(commandJob, homeShortcutError);
         await this.sendPublicFailure("home helper shortcut", "Could not run that home helper. Try the same request in plain words.", homeShortcutError);
@@ -2982,6 +3006,59 @@ function buildWhatsAppCommandSummary(msg: InboundMessage, text: string): string 
   if (msg.mediaType === "image") return "[WhatsApp image]";
   if (msg.mediaType === "document") return "[WhatsApp document]";
   return "[WhatsApp message]";
+}
+
+function serializeBillReminderContext(context: PendingBillReminderContext): string {
+  const payload = {
+    ownerHash: context.ownerHash,
+    provider: context.provider,
+    amount: context.amount,
+    dueDate: context.dueDate,
+    reference: context.reference,
+    reminderText: context.reminderText,
+    fireAt: context.fireAt.toISOString(),
+    expiresAt: context.expiresAt.toISOString(),
+  };
+  return `${BILL_REMINDER_CONTEXT_OPEN}${JSON.stringify(payload)}${BILL_REMINDER_CONTEXT_CLOSE}`;
+}
+
+function parseBillReminderContext(text: string): PendingBillReminderContext | null {
+  const start = text.lastIndexOf(BILL_REMINDER_CONTEXT_OPEN);
+  if (start < 0) return null;
+  const valueStart = start + BILL_REMINDER_CONTEXT_OPEN.length;
+  const end = text.indexOf(BILL_REMINDER_CONTEXT_CLOSE, valueStart);
+  if (end < 0) return null;
+
+  try {
+    const payload = JSON.parse(text.slice(valueStart, end)) as Record<string, unknown>;
+    if (!isPlainString(payload.ownerHash) ||
+      !isPlainString(payload.provider) ||
+      !isPlainString(payload.dueDate) ||
+      !isPlainString(payload.reminderText) ||
+      !isPlainString(payload.fireAt) ||
+      !isPlainString(payload.expiresAt)) {
+      return null;
+    }
+    const fireAt = new Date(payload.fireAt);
+    const expiresAt = new Date(payload.expiresAt);
+    if (Number.isNaN(fireAt.getTime()) || Number.isNaN(expiresAt.getTime())) return null;
+    return {
+      ownerHash: payload.ownerHash,
+      provider: payload.provider,
+      amount: isPlainString(payload.amount) ? payload.amount : undefined,
+      dueDate: payload.dueDate,
+      reference: isPlainString(payload.reference) ? payload.reference : undefined,
+      reminderText: payload.reminderText,
+      fireAt,
+      expiresAt,
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isPlainString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function isCsvUpload(filename?: string, mimetype?: string): boolean {

@@ -2,7 +2,7 @@
 // Exercises the full path: WhatsApp inbound -> router -> agent loop -> tool -> WhatsApp outbound.
 // All deps are fakes; no network.
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { Router } from "../src/router.js";
 import {
   getFakeDbState,
@@ -2904,6 +2904,37 @@ describe("Router (integration)", () => {
     const state = getFakeDbState(deps.db);
     expect(state.reminders).toHaveLength(0);
     expect(wa.sent[0].body).toBe("No recent bill reminder to set. Send a bill summary first, then reply: set reminder.");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("sets a bill reminder after a router restart using durable command history", async () => {
+    await router.handle({
+      id: "x-bill-summary-before-restart",
+      from: OWNER,
+      body: "bill summary: AGL electricity bill $240.50 due 18 May 2026. Ref 123456789",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    wa.sent = [];
+    vi.resetModules();
+    const { Router: RestartedRouter } = await import("../src/router.js");
+    const restartedRouter = new RestartedRouter(deps, OWNER);
+    await restartedRouter.handle({
+      id: "x-bill-reminder-after-restart",
+      from: OWNER,
+      body: "set reminder",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.reminders).toHaveLength(1);
+    expect(state.reminders[0]?.text).toBe("pay AGL electricity bill");
+    expect(state.reminders[0]?.fireAt).toBeInstanceOf(Date);
+    expect((state.reminders[0]?.fireAt as Date).toISOString()).toBe("2026-05-17T03:30:00.000Z");
+    expect(wa.sent[0].body).toContain("Reminder set: pay AGL electricity bill");
+    expect(wa.sent[0].body).toContain("No payment was made.");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
