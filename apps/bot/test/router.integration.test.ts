@@ -2857,8 +2857,53 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("$240.50");
     expect(wa.sent[0].body).toContain("2026-05-18");
     expect(wa.sent[0].body).toContain("Reference: 123456789");
-    expect(wa.sent[0].body).toContain("Reminder command: remind me to pay AGL electricity bill on 2026-05-17");
-    expect(wa.sent[0].body).toContain("Reply with that reminder command if the date is correct.");
+    expect(wa.sent[0].body).toContain("Suggested reminder: pay AGL electricity bill");
+    expect(wa.sent[0].body).toContain("Reply: set reminder");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("sets a local bill reminder from a short follow-up reply", async () => {
+    await router.handle({
+      id: "x-bill-summary",
+      from: OWNER,
+      body: "bill summary: AGL electricity bill $240.50 due 18 May 2026. Ref 123456789",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    wa.sent = [];
+    await router.handle({
+      id: "x-bill-reminder",
+      from: OWNER,
+      body: "set reminder",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.reminders).toHaveLength(1);
+    expect(state.reminders[0]?.text).toBe("pay AGL electricity bill");
+    expect(state.reminders[0]?.fireAt).toBeInstanceOf(Date);
+    expect((state.reminders[0]?.fireAt as Date).toISOString()).toBe("2026-05-17T03:30:00.000Z");
+    expect(wa.sent[0].body).toContain("Reminder set: pay AGL electricity bill");
+    expect(wa.sent[0].body).toContain("Amount: $240.50");
+    expect(wa.sent[0].body).toContain("Due: 2026-05-18");
+    expect(wa.sent[0].body).toContain("No payment was made.");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("refuses set reminder when no recent bill summary exists", async () => {
+    await router.handle({
+      id: "x-set-reminder-no-bill",
+      from: OWNER,
+      body: "set reminder",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.reminders).toHaveLength(0);
+    expect(wa.sent[0].body).toBe("No recent bill reminder to set. Send a bill summary first, then reply: set reminder.");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 

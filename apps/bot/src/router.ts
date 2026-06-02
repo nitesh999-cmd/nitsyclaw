@@ -203,6 +203,20 @@ type LifeAdminPriorityItem =
       next: string;
     };
 
+type PendingBillReminderContext = {
+  ownerHash: string;
+  provider: string;
+  amount?: string;
+  dueDate: string;
+  reference?: string;
+  reminderText: string;
+  fireAt: Date;
+  expiresAt: Date;
+};
+
+const BILL_REMINDER_CONTEXT_TTL_MS = 10 * 60 * 1000;
+const pendingBillRemindersByOwner = new Map<string, PendingBillReminderContext>();
+
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
   private readonly seenExternalMessageIds = new Set<string>();
@@ -1065,6 +1079,75 @@ export class Router {
     return true;
   }
 
+  private rememberPendingBillReminder(result: ReturnType<typeof extractBillSummary>): PendingBillReminderContext | null {
+    if (!result.dueDate) return null;
+
+    const ownerHash = hashPhone(this.ownerPhone);
+    const fireAt = this.buildBillReminderFireAt(result.dueDate);
+    const context: PendingBillReminderContext = {
+      ownerHash,
+      provider: result.provider,
+      amount: result.amount,
+      dueDate: result.dueDate,
+      reference: result.reference,
+      reminderText: `pay ${result.provider}`,
+      fireAt,
+      expiresAt: new Date(this.deps.now().getTime() + BILL_REMINDER_CONTEXT_TTL_MS),
+    };
+    pendingBillRemindersByOwner.set(ownerHash, context);
+    return context;
+  }
+
+  private buildBillReminderFireAt(dueDateIso: string): Date {
+    const [year, month, day] = dueDateIso.split("-").map((part) => Number(part));
+    if (!year || !month || !day) return this.deps.now();
+    const reminderDate = new Date(Date.UTC(year, month - 1, day));
+    reminderDate.setUTCDate(reminderDate.getUTCDate() - 1);
+    const localIso = [
+      reminderDate.getUTCFullYear(),
+      String(reminderDate.getUTCMonth() + 1).padStart(2, "0"),
+      String(reminderDate.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+    return dateInTimezoneToUtc(localIso, 9, this.deps.timezone);
+  }
+
+  private async handleBillReminderFollowUp(effectiveText: string, commandJob: CommandJob): Promise<boolean> {
+    if (!/^(?:set|save|create)\s+(?:the\s+)?(?:bill\s+)?reminder$/i.test(effectiveText.trim())) return false;
+
+    const ownerHash = hashPhone(this.ownerPhone);
+    const pending = pendingBillRemindersByOwner.get(ownerHash);
+    if (!pending || pending.ownerHash !== ownerHash || pending.expiresAt <= this.deps.now()) {
+      pendingBillRemindersByOwner.delete(ownerHash);
+      const reply = "No recent bill reminder to set. Send a bill summary first, then reply: set reminder.";
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return true;
+    }
+
+    const reminder = await insertReminder(this.deps.db, this.tenant(), {
+      text: pending.reminderText,
+      fireAt: pending.fireAt,
+      rrule: null,
+    });
+    pendingBillRemindersByOwner.delete(ownerHash);
+
+    const billDetails = [
+      pending.amount ? `Amount: ${pending.amount}` : undefined,
+      `Due: ${pending.dueDate}`,
+      pending.reference ? `Reference: ${pending.reference}` : undefined,
+    ].filter((line): line is string => Boolean(line));
+    const reply = [
+      `Reminder set: ${reminder.text}`,
+      `When: ${this.formatLocalDateTime(reminder.fireAt)}`,
+      ...billDetails,
+      "Saved: NitsyClaw reminders. Delivery: WhatsApp self-chat.",
+      "No payment was made.",
+    ].join("\n");
+    await this.sendAndPersist(reply);
+    await this.completeWhatsAppCommandJob(commandJob, reply);
+    return true;
+  }
+
   private async handleTextReminderShortcut(effectiveText: string, commandJob: CommandJob): Promise<boolean> {
     const planned = planReminder({
       text: effectiveText,
@@ -1563,14 +1646,15 @@ export class Router {
       }
       case "bill-summary": {
         const result = extractBillSummary({ text: shortcut.text });
+        const pendingReminder = this.rememberPendingBillReminder(result);
         return [
           "Bill summary",
           `Provider: ${result.provider}`,
           result.amount ? `Amount: ${result.amount}` : undefined,
           result.dueDate ? `Due: ${result.dueDate}` : undefined,
           result.reference ? `Reference: ${result.reference}` : undefined,
-          result.suggestedReminder ? `Reminder command: ${result.suggestedReminder}` : undefined,
-          result.suggestedReminder ? "Reply with that reminder command if the date is correct." : undefined,
+          pendingReminder ? `Suggested reminder: ${pendingReminder.reminderText} on ${this.formatLocalDateTime(pendingReminder.fireAt)}` : undefined,
+          pendingReminder ? "Reply: set reminder" : undefined,
           `Next: ${result.nextAction}`,
         ].filter((line): line is string => Boolean(line)).join("\n");
       }
@@ -2092,6 +2176,14 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, integrationError);
         await this.sendPublicFailure("queued integration", "Couldn't queue that integration request. I logged it; try again shortly.", integrationError);
       }
+      return;
+    }
+
+    try {
+      if (await this.handleBillReminderFollowUp(effectiveText, commandJob)) return;
+    } catch (billReminderError) {
+      await this.failWhatsAppCommandJob(commandJob, billReminderError);
+      await this.sendPublicFailure("bill reminder", "Couldn't set that bill reminder. I logged the error; try again shortly.", billReminderError);
       return;
     }
 
@@ -2791,6 +2883,34 @@ export class Router {
     return `People memory\n${lines.join("\n")}\nSafety: I will draft before contacting anyone.`;
   }
 
+}
+
+function dateInTimezoneToUtc(localDateIso: string, hour: number, timezone: string): Date {
+  const [yearRaw, monthRaw, dayRaw] = localDateIso.split("-").map((part) => Number(part));
+  const year = yearRaw ?? 1970;
+  const month = monthRaw ?? 1;
+  const day = dayRaw ?? 1;
+  const utcGuess = Date.UTC(year, month - 1, day, hour, 0, 0, 0);
+  const zonedParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcGuess));
+  const part = (type: string) => Number(zonedParts.find((item) => item.type === type)?.value);
+  const zonedAsUtc = Date.UTC(
+    part("year"),
+    part("month") - 1,
+    part("day"),
+    part("hour"),
+    part("minute"),
+    part("second"),
+  );
+  return new Date(utcGuess - (zonedAsUtc - utcGuess));
 }
 
 function parseConfirmationId(text: string): string | undefined {
