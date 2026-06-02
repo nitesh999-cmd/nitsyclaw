@@ -988,37 +988,22 @@ export class Router {
   }
 
   private formatNextTwentyPlanReply(): string {
-    const rows = [
-      "1. Owner demo proof - can yes | should yes | do now | build | 1h | risk: demo drift",
-      "2. 10-contact concierge beta offer - prep yes, send needs approval | should yes | hybrid | 1h | risk: no paid signal",
-      "3. Pilot operating loop - can yes | should yes | do now | build | 1h | risk: manual workload",
-      "4. Real bill/receipt test pack - needs your docs | should yes | setup first | 2-4h | risk: private data",
-      "5. Admin inbox polish - can yes | should yes | do now | build | 2-4h | risk: noisy replies",
-      "6. Weekly digest push/readiness - can yes | should yes | do now | hybrid | 2-4h | risk: weak digest",
-      "7. Bill to reminder rail - can yes | should yes | do now | build | 2-4h | risk: wrong due date",
-      "8. Receipt confidence handling - can yes | should yes | do now | build | 3-6h | risk: OCR errors",
-      "9. Expense search polish - can yes | should yes | do now | build | 1-3h | risk: low",
-      "10. Pilot feedback capture - can yes | should yes | do now | build | 1h | risk: no replies",
-      "11. Synthetic demo mode - can yes | should later | later | build | 3-6h | risk: distraction",
-      "12. First-use onboarding copy - can yes | should later | later | build | 2-4h | risk: low traffic",
-      "13. Bill complaint drafts - can yes | should later | later | build | 2-4h | risk: must stay draft-only",
-      "14. CSV expense import guide - can yes | should later | later | build | 1-2h | risk: CSV variance",
-      "15. Concierge operator view - can yes | should later | later | build | 4-8h | risk: premature ops",
-      "16. AI cost guard - can yes | should later | later | build | 2-4h | risk: premature",
-      "17. Tenant public-sale hardening - can partly | should later | not now | setup | 1-3d | risk: high blast radius",
-      "18. WhatsApp reliability proof gate - can yes | should yes | do now | build | 30-60m | risk: runtime drift",
-      "19. Concierge pricing page - can yes | should later | later | build | 2-4h | risk: offer not proven",
-      "20. AppSumo launch prep - can partly | should no | not now | setup | 2-5d | risk: too early",
-    ];
-
     return [
       "Next 20 build map",
       "Agent assessment: build local proof first, validate paid concierge next, delay public sale/integrations.",
       "",
-      ...rows,
+      "Do now:",
+      "1. Owner demo proof - 1h - prove the WhatsApp loop.",
+      "2. Pilot operating loop - 1h - decide how a concierge beta runs.",
+      "3. Admin inbox polish - 2-4h - make pending life-admin work clearer.",
+      "4. Bill to reminder rail - 2-4h - turn bills into safe reminder commands.",
+      "5. WhatsApp reliability proof gate - 30-60m - stop runtime drift.",
       "",
-      "Magic pill: prove one paid life-admin loop - bill/receipt -> expense/reminder -> weekly digest -> user feedback.",
-      "Recommended: do 1 -> 3 -> 5 -> 7 -> 18, then validate with 2.",
+      "Validate next: 10-contact concierge beta offer. Prep is safe; sending needs approval.",
+      "Later/blocked: real bill/receipt test pack needs your docs. Public sale, AppSumo, and live integrations wait until tenant/provider setup is safe.",
+      "",
+      "Magic pill: bill/receipt -> expense/reminder -> weekly digest -> user feedback.",
+      "Recommended: 1 -> 2 -> 3 -> 4 -> 5, then validate with the beta offer.",
     ].join("\n");
   }
 
@@ -1584,7 +1569,8 @@ export class Router {
           result.amount ? `Amount: ${result.amount}` : undefined,
           result.dueDate ? `Due: ${result.dueDate}` : undefined,
           result.reference ? `Reference: ${result.reference}` : undefined,
-          result.suggestedReminder ? `Suggested reminder: ${result.suggestedReminder}` : undefined,
+          result.suggestedReminder ? `Reminder command: ${result.suggestedReminder}` : undefined,
+          result.suggestedReminder ? "Reply with that reminder command if the date is correct." : undefined,
           `Next: ${result.nextAction}`,
         ].filter((line): line is string => Boolean(line)).join("\n");
       }

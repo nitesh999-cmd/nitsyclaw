@@ -417,9 +417,11 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Next 20 build map");
     expect(wa.sent[0].body).toContain("Agent assessment");
     expect(wa.sent[0].body).toContain("Owner demo proof");
+    expect(wa.sent[0].body).toContain("Bill to reminder rail");
     expect(wa.sent[0].body).toContain("Magic pill");
-    expect(wa.sent[0].body).toContain("Recommended: do 1 -> 3 -> 5 -> 7 -> 18");
-    expect(wa.sent[0].body).toContain("AppSumo launch prep");
+    expect(wa.sent[0].body).toContain("Recommended: 1 -> 2 -> 3 -> 4 -> 5");
+    expect(wa.sent[0].body).toContain("AppSumo");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(900);
     expect(wa.sent[0].body).not.toContain("Gmail is connected");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
@@ -2855,7 +2857,8 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("$240.50");
     expect(wa.sent[0].body).toContain("2026-05-18");
     expect(wa.sent[0].body).toContain("Reference: 123456789");
-    expect(wa.sent[0].body).toContain("Suggested reminder: remind me to pay AGL electricity bill on 2026-05-17");
+    expect(wa.sent[0].body).toContain("Reminder command: remind me to pay AGL electricity bill on 2026-05-17");
+    expect(wa.sent[0].body).toContain("Reply with that reminder command if the date is correct.");
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
