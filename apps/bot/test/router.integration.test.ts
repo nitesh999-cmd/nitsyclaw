@@ -2938,6 +2938,164 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("sets a bill reminder from a recent plain bill summary command without a marker", async () => {
+    const otherOwner = "+919876543211";
+    const otherRouter = new Router(deps, otherOwner);
+    const state = getFakeDbState(deps.db);
+    for (let index = 0; index < 25; index += 1) {
+      state.command_jobs.push({
+        id: `other-owner-noise-${index}`,
+        source: "whatsapp",
+        ownerHash: hashPhone(`+9190000000${index}`),
+        sourceMessageId: `msg-other-owner-noise-${index}`,
+        sourceExternalId: `external-other-owner-noise-${index}`,
+        dedupeKey: `whatsapp:external-other-owner-noise-${index}`,
+        command: `Noise bill $${index + 1}.00 due 20 May 2026`,
+        status: "done",
+        riskLevel: "safe",
+        receiptText: null,
+        resultText: `Bill summary extracted - Provider: Noise - Amount: AUD $${index + 1}.00 - Due date: 20 May 2026`,
+        errorText: null,
+        attempts: 1,
+        maxAttempts: 3,
+        nextRunAt: null,
+        completedAt: new Date(deps.now().getTime() + index * 1000),
+        createdAt: new Date(deps.now().getTime() + index * 1000),
+        updatedAt: new Date(deps.now().getTime() + index * 1000),
+      });
+    }
+    state.command_jobs.push({
+      id: "bill-plain-history",
+      source: "whatsapp",
+      ownerHash: hashPhone(otherOwner),
+      sourceMessageId: "msg-bill-plain-history",
+      sourceExternalId: "external-bill-plain-history",
+      dedupeKey: "whatsapp:external-bill-plain-history",
+      command: "AGL electricity bill $240.50 due 18 May 2026. Ref 123456789",
+      status: "done",
+      riskLevel: "safe",
+      receiptText: null,
+      resultText: "Bill summary extracted - Provider: AGL Electricity - Amount: AUD $240.50 - Due date: 18 May 2026 - Reference: 123456789",
+      errorText: null,
+      attempts: 1,
+      maxAttempts: 3,
+      nextRunAt: null,
+      completedAt: deps.now(),
+      createdAt: deps.now(),
+      updatedAt: deps.now(),
+    });
+
+    await otherRouter.handle({
+      id: "x-bill-reminder-from-plain-history",
+      from: otherOwner,
+      body: "set reminder",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(state.reminders).toHaveLength(1);
+    expect(state.reminders[0]?.text).toBe("pay AGL electricity bill");
+    expect((state.reminders[0]?.fireAt as Date).toISOString()).toBe("2026-05-17T03:30:00.000Z");
+    expect(wa.sent[0].body).toContain("Reminder set: pay AGL electricity bill");
+    expect(wa.sent[0].body).toContain("Amount: $240.50");
+    expect(wa.sent[0].body).toContain("No payment was made.");
+  });
+
+  it("uses a newer plain bill summary instead of a stale in-memory bill reminder", async () => {
+    await router.handle({
+      id: "x-old-bill-summary-memory",
+      from: OWNER,
+      body: "bill summary: AGL electricity bill $240.50 due 18 May 2026. Ref 123456789",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    const newerThanOldBill = new Date(Math.max(...state.command_jobs.map((job) => job.createdAt.getTime())) + 60_000);
+    state.command_jobs.push({
+      id: "bill-newer-plain-history",
+      source: "whatsapp",
+      ownerHash: hashPhone(OWNER),
+      sourceMessageId: "msg-bill-newer-plain-history",
+      sourceExternalId: "external-bill-newer-plain-history",
+      dedupeKey: "whatsapp:external-bill-newer-plain-history",
+      command: "Origin gas bill $88.20 due 20 May 2026. Ref GAS42",
+      status: "done",
+      riskLevel: "safe",
+      receiptText: null,
+      resultText: "Bill summary extracted - Provider: Origin Gas - Amount: AUD $88.20 - Due date: 20 May 2026 - Reference: GAS42",
+      errorText: null,
+      attempts: 1,
+      maxAttempts: 3,
+      nextRunAt: null,
+      completedAt: newerThanOldBill,
+      createdAt: newerThanOldBill,
+      updatedAt: newerThanOldBill,
+    });
+
+    wa.sent = [];
+    await router.handle({
+      id: "x-bill-reminder-prefers-newer-history",
+      from: OWNER,
+      body: "set reminder",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(state.reminders).toHaveLength(1);
+    expect(state.reminders[0]?.text).toBe("pay Origin gas bill");
+    expect(wa.sent[0].body).toContain("Reminder set: pay Origin gas bill");
+    expect(wa.sent[0].body).toContain("Amount: $88.20");
+    expect(wa.sent[0].body).toContain("Reference: GAS42");
+    expect(wa.sent[0].body).not.toContain("AGL");
+  });
+
+  it("sets an immediate follow-up when a recent bill summary due date is already past", async () => {
+    const otherOwner = "+919876543212";
+    wa = new MockWhatsAppClient();
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      now: () => new Date("2026-06-03T01:00:00Z"),
+      timezone: "Australia/Melbourne",
+    });
+    const otherRouter = new Router(deps, otherOwner);
+    const state = getFakeDbState(deps.db);
+    state.command_jobs.push({
+      id: "bill-overdue-plain-history",
+      source: "whatsapp",
+      ownerHash: hashPhone(otherOwner),
+      sourceMessageId: "msg-bill-overdue-plain-history",
+      sourceExternalId: "external-bill-overdue-plain-history",
+      dedupeKey: "whatsapp:external-bill-overdue-plain-history",
+      command: "AGL electricity bill $240.50 due 18 May 2026. Ref 123456789",
+      status: "done",
+      riskLevel: "safe",
+      receiptText: null,
+      resultText: "Bill summary extracted - Provider: AGL Electricity - Amount: AUD $240.50 - Due date: 18 May 2026 - Reference: 123456789",
+      errorText: null,
+      attempts: 1,
+      maxAttempts: 3,
+      nextRunAt: null,
+      completedAt: deps.now(),
+      createdAt: deps.now(),
+      updatedAt: deps.now(),
+    });
+
+    await otherRouter.handle({
+      id: "x-bill-reminder-from-overdue-history",
+      from: otherOwner,
+      body: "set reminder",
+      timestamp: deps.now(),
+      hasMedia: false,
+    });
+
+    expect(state.reminders).toHaveLength(1);
+    expect(state.reminders[0]?.text).toBe("pay AGL electricity bill");
+    expect((state.reminders[0]?.fireAt as Date).toISOString()).toBe("2026-06-03T01:05:00.000Z");
+    expect(wa.sent[0].body).toContain("Reminder set: pay AGL electricity bill");
+    expect(wa.sent[0].body).toContain("No payment was made.");
+  });
+
   it("emergency card shortcut masks phone numbers before replying", async () => {
     await router.handle({
       id: "x",

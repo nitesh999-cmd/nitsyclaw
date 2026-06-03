@@ -481,23 +481,24 @@ export async function listRecentCommandJobs(
   db: DB,
   args: {
     source?: "whatsapp" | "dashboard";
+    ownerHash?: string;
     limit?: number;
   } = {},
 ): Promise<CommandJob[]> {
   const limit = Math.max(1, Math.min(args.limit ?? 8, 20));
+  const filters = [
+    args.source ? eq(commandJobs.source, args.source) : undefined,
+    args.ownerHash ? eq(commandJobs.ownerHash, args.ownerHash) : undefined,
+  ].filter((filter): filter is NonNullable<typeof filter> => Boolean(filter));
+
   const query = db
     .select()
     .from(commandJobs)
+    .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(desc(commandJobs.createdAt))
     .limit(limit);
 
-  if (!args.source) return query;
-  return db
-    .select()
-    .from(commandJobs)
-    .where(eq(commandJobs.source, args.source))
-    .orderBy(desc(commandJobs.createdAt))
-    .limit(limit);
+  return query;
 }
 
 export async function claimSystemNotification(

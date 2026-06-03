@@ -1107,15 +1107,49 @@ export class Router {
   }
 
   private async findRecentBillReminderContext(ownerHash: string): Promise<PendingBillReminderContext | null> {
-    const jobs = await listRecentCommandJobs(this.deps.db, { source: "whatsapp", limit: 20 });
+    const jobs = await listRecentCommandJobs(this.deps.db, { source: "whatsapp", ownerHash, limit: 20 });
+    let latest: { context: PendingBillReminderContext; createdAt: Date } | null = null;
     for (const job of jobs) {
-      if (job.ownerHash !== ownerHash || job.status !== "done" || !job.resultText) continue;
+      if (job.status !== "done" || !job.resultText) continue;
       const context = parseBillReminderContext(job.resultText);
-      if (!context || context.ownerHash !== ownerHash || context.expiresAt <= this.deps.now()) continue;
-      pendingBillRemindersByOwner.set(ownerHash, context);
-      return context;
+      if (context?.ownerHash === ownerHash && context.expiresAt > this.deps.now()) {
+        const createdAt = job.completedAt ?? job.updatedAt ?? job.createdAt;
+        if (!latest || createdAt > latest.createdAt) latest = { context, createdAt };
+        continue;
+      }
+
+      const derivedContext = this.deriveBillReminderContextFromRecentJob(job, ownerHash);
+      if (derivedContext) {
+        const createdAt = job.completedAt ?? job.updatedAt ?? job.createdAt;
+        if (!latest || createdAt > latest.createdAt) latest = { context: derivedContext, createdAt };
+      }
     }
-    return null;
+    if (!latest) return null;
+    pendingBillRemindersByOwner.set(ownerHash, latest.context);
+    return latest.context;
+  }
+
+  private deriveBillReminderContextFromRecentJob(job: CommandJob, ownerHash: string): PendingBillReminderContext | null {
+    const completedAt = job.completedAt ?? job.updatedAt ?? job.createdAt;
+    const expiresAt = new Date(completedAt.getTime() + BILL_REMINDER_CONTEXT_TTL_MS);
+    if (expiresAt <= this.deps.now()) return null;
+
+    const command = job.command.trim();
+    const resultText = job.resultText?.trim() ?? "";
+    if (!looksLikeBillSummaryContext(command, resultText)) return null;
+
+    const result = extractBillSummary({ text: command });
+    if (!result.dueDate) return null;
+    return {
+      ownerHash,
+      provider: result.provider,
+      amount: result.amount,
+      dueDate: result.dueDate,
+      reference: result.reference,
+      reminderText: `pay ${result.provider}`,
+      fireAt: this.buildBillReminderFireAt(result.dueDate),
+      expiresAt,
+    };
   }
 
   private buildBillReminderFireAt(dueDateIso: string): Date {
@@ -1128,14 +1162,16 @@ export class Router {
       String(reminderDate.getUTCMonth() + 1).padStart(2, "0"),
       String(reminderDate.getUTCDate()).padStart(2, "0"),
     ].join("-");
-    return dateInTimezoneToUtc(localIso, 9, this.deps.timezone);
+    const plannedAt = dateInTimezoneToUtc(localIso, 9, this.deps.timezone);
+    if (plannedAt > this.deps.now()) return plannedAt;
+    return new Date(this.deps.now().getTime() + 5 * 60 * 1000);
   }
 
   private async handleBillReminderFollowUp(effectiveText: string, commandJob: CommandJob): Promise<boolean> {
     if (!/^(?:set|save|create)\s+(?:the\s+)?(?:bill\s+)?reminder$/i.test(effectiveText.trim())) return false;
 
     const ownerHash = hashPhone(this.ownerPhone);
-    const pending = pendingBillRemindersByOwner.get(ownerHash) ?? await this.findRecentBillReminderContext(ownerHash);
+    const pending = await this.findRecentBillReminderContext(ownerHash) ?? pendingBillRemindersByOwner.get(ownerHash);
     if (!pending || pending.ownerHash !== ownerHash || pending.expiresAt <= this.deps.now()) {
       pendingBillRemindersByOwner.delete(ownerHash);
       const reply = "No recent bill reminder to set. Send a bill summary first, then reply: set reminder.";
@@ -3059,6 +3095,15 @@ function parseBillReminderContext(text: string): PendingBillReminderContext | nu
 
 function isPlainString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function looksLikeBillSummaryContext(command: string, resultText: string): boolean {
+  const joined = `${command}\n${resultText}`.toLowerCase();
+  const hasBillSignal = /\b(bill|invoice|electricity|gas|water|telstra|agl|origin|energy|bpay)\b/.test(joined);
+  const hasSummarySignal = /\b(bill summary|bill summary extracted|provider|due date|reference|ref|amount)\b/.test(joined);
+  const hasAmount = /(?:aud\s*)?\$\s?\d+(?:\.\d{2})?/i.test(joined);
+  const hasDue = /\b(?:due|due date)\b/i.test(joined);
+  return hasBillSignal && hasSummarySignal && hasAmount && hasDue;
 }
 
 function isCsvUpload(filename?: string, mimetype?: string): boolean {
