@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isHealthyWhatsAppState,
+  isReadyWhatsAppRuntimeEvent,
   isUnhealthyWhatsAppState,
   publicWhatsAppRuntimeMetadata,
   shouldRestartWhatsAppClient,
@@ -35,6 +36,14 @@ describe("WhatsApp health helpers", () => {
     expect(statusForWhatsAppRuntimeEvent({ status: "auth_failure" })).toBe("needs_attention");
     expect(statusForWhatsAppRuntimeEvent({ status: "disconnected" })).toBe("needs_attention");
     expect(statusForWhatsAppRuntimeEvent({ status: "stopped" })).toBe("stopped");
+  });
+
+  it("does not report QR-required or disconnected states as runtime-ready", () => {
+    expect(isReadyWhatsAppRuntimeEvent({ status: "ready" })).toBe(true);
+    expect(isReadyWhatsAppRuntimeEvent({ status: "health_ok", state: "CONNECTED" })).toBe(true);
+    expect(isReadyWhatsAppRuntimeEvent({ status: "qr_required", qrAvailable: true })).toBe(false);
+    expect(isReadyWhatsAppRuntimeEvent({ status: "disconnected" })).toBe(false);
+    expect(isReadyWhatsAppRuntimeEvent({ status: "auth_failure" })).toBe(false);
   });
 
   it("stores safe runtime metadata without QR payloads", () => {

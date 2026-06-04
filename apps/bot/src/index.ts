@@ -13,8 +13,10 @@ import {
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { WwebjsClient } from "./wwebjs-client.js";
 import {
+  isReadyWhatsAppRuntimeEvent,
   publicWhatsAppRuntimeMetadata,
   statusForWhatsAppRuntimeEvent,
+  type WhatsAppRuntimeEvent,
 } from "./whatsapp-health.js";
 import { WhatsAppLoopBreaker } from "./whatsapp-loop-breaker.js";
 import { WhatsAppSendMonitor } from "./whatsapp-send-monitor.js";
@@ -45,6 +47,10 @@ async function main() {
 
   const qrRecovery = new QrRecoveryController(process.env);
   const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env);
+  let latestWhatsAppRuntimeEvent: WhatsAppRuntimeEvent = {
+    status: "initializing",
+    reason: "startup",
+  };
 
   const rawWhatsapp = new WwebjsClient({
     sessionDir: whatsappSessionDir(env.WHATSAPP_SESSION_DIR),
@@ -54,6 +60,7 @@ async function main() {
     onQr: (payload) => qrRecovery.setQr(payload),
     onQrCleared: () => qrRecovery.clearQr(),
     onStatus: (event) => {
+      latestWhatsAppRuntimeEvent = event;
       void upsertSystemHeartbeat(db, {
         source: "whatsapp-client",
         status: statusForWhatsAppRuntimeEvent(event),
@@ -149,12 +156,14 @@ async function main() {
   console.log("[boot] WhatsApp ready");
   qrRecoveryServer?.setHealthProvider(() => {
     const loopBreaker = whatsapp.status();
+    const whatsappReady = isReadyWhatsAppRuntimeEvent(latestWhatsAppRuntimeEvent);
     return {
       service: "nitsyclaw-bot",
-      status: loopBreaker.paused ? "degraded" : "ok",
+      status: loopBreaker.paused || !whatsappReady ? "degraded" : "ok",
       whatsapp: {
-        ready: true,
+        ready: whatsappReady,
         loopBreaker,
+        runtime: publicWhatsAppRuntimeMetadata(latestWhatsAppRuntimeEvent),
       },
       runtime: runtimeMetadata,
       at: new Date().toISOString(),

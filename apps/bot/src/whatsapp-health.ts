@@ -56,6 +56,10 @@ export function statusForWhatsAppRuntimeEvent(
   return "needs_attention";
 }
 
+export function isReadyWhatsAppRuntimeEvent(event: WhatsAppRuntimeEvent): boolean {
+  return event.status === "ready" || event.status === "health_ok";
+}
+
 export function publicWhatsAppRuntimeMetadata(
   event: WhatsAppRuntimeEvent,
 ): Record<string, unknown> {
