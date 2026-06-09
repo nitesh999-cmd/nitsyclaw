@@ -223,7 +223,7 @@ export default async function WhatsAppRecoveryPage() {
           <CheckRow
             label="WhatsApp client"
             ok={Boolean(clientFresh)}
-            detail={whatsappClientRecoveryDetail(state?.whatsappClient)}
+            detail={whatsappClientRecoveryDetail(state?.whatsappClient ?? null)}
           />
           <CheckRow
             label="Reply delivery"

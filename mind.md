@@ -1407,6 +1407,79 @@ For twenty-four consecutive days the CCR network allowlist has not been updated.
 
 ---
 
+## 39. Session 2026-06-09 -- Daily build agent run (BLOCKED day 25; P0 TS fix shipped)
+
+**Date:** 2026-06-09
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 feature_requests processed -- blocked by network policy (twenty-fifth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | FAILED (exit 1) |
+| ntfy.sh | 443 (HTTPS) | 403 host_not_allowed (Anthropic MITM proxy) |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 host_not_allowed (Anthropic MITM proxy) |
+
+The Anthropic MITM proxy (issuer: O=Anthropic; CN=Egress Gateway SDS Issuing CA (production)) completes TLS but returns 403 for both ntfy.sh and nitsyclaw.vercel.app. TCP to Supabase on port 6543 fails immediately (exit 1). None of the three feature_request query paths are usable.
+
+### Context
+
+Git state: container started with HEAD detached at e2cedb6. After git checkout main && git merge --ff-only origin/main, fast-forwarded 5 commits to e2cedb6. New commits from other Claude sessions: "fix: keep whatsapp recovery alive on heartbeat failure" (and 4 prior mind.md doc sessions).
+
+### P0 Fix shipped: TypeScript error in whatsapp-recovery page
+
+The latest code commit (e2cedb6 "fix: keep whatsapp recovery alive on heartbeat failure") introduced a TypeScript error in `apps/dashboard/src/app/whatsapp-recovery/page.tsx:226`:
+
+```
+error TS2345: Argument of type 'SystemHeartbeat | null | undefined' is not assignable to
+parameter of type 'SystemHeartbeat | null'.
+  Type 'undefined' is not assignable to type 'SystemHeartbeat | null'.
+```
+
+**Root cause:** `whatsappClientRecoveryDetail(state?.whatsappClient)` -- when `state` is `undefined`, the optional chaining produces `undefined`, but the function signature only accepted `Heartbeat = SystemHeartbeat | null`.
+
+**Fix:** Added `?? null` coercion at the call site: `whatsappClientRecoveryDetail(state?.whatsappClient ?? null)`. One character change; no logic impact since the function body already handles `null` and falsy values at line 70.
+
+This error would have blocked the Vercel deploy.
+
+### Verification
+
+- pnpm install --frozen-lockfile -- OK
+- npx tsc --noEmit -p apps/dashboard/tsconfig.json -- PASS (clean, no errors)
+- pnpm test -- PASS (193 test files / 880 tests, all green -- 1 more test file and 2 more tests than session 38 due to new bot-startup-heartbeat test)
+
+### L39 still unresolved (day 25)
+
+For twenty-five consecutive days the CCR network allowlist has not been updated. Until nitsyclaw.vercel.app and ntfy.sh are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add nitsyclaw.vercel.app and ntfy.sh to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim feature_requests rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 5 commits to e2cedb6 (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | FAILED -- P0 error found in whatsapp-recovery/page.tsx:226 |
+| P0 fix: add ?? null coercion at call site | DONE |
+| TypeScript typecheck (dashboard) re-run | PASS (clean) |
+| Test suite (193 files / 880 tests) | PASS -- all green |
+| TCP 6543 to Supabase | FAILED -- blocked |
+| ntfy.sh HTTPS | FAILED -- 403 host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented from DB queue | 0 |
+| Proactive code shipped | YES (1 P0 TS fix) |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
+
+---
+
 ## 31. Session 2026-06-01 -- Daily build agent run (BLOCKED day 17)
 
 **Date:** 2026-06-01
