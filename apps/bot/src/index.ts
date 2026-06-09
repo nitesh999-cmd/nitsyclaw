@@ -43,7 +43,7 @@ async function main() {
     source: "bot-runtime",
     status: "starting",
     metadata: runtimeMetadata,
-  });
+  }).catch((e) => logBotError("[boot] startup heartbeat failed; continuing", e));
 
   const qrRecovery = new QrRecoveryController(process.env);
   const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env);
@@ -137,7 +137,7 @@ async function main() {
     source: "bot-runtime",
     status: "ok",
     metadata: runtimeMetadata,
-  });
+  }).catch((e) => logBotError("[boot] ready heartbeat failed; continuing", e));
   const writeLoopGuardHeartbeat = () => {
     const loopBreaker = whatsapp.status();
     return upsertSystemHeartbeat(db, {

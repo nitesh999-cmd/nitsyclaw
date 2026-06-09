@@ -793,6 +793,43 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("explains QR-required WhatsApp incidents in plain recovery language", async () => {
+    const state = getFakeDbState(deps.db);
+    state.system_heartbeats.push(
+      {
+        source: "whatsapp-client",
+        status: "needs_attention",
+        lastSeenAt: new Date("2026-04-25T07:59:30Z"),
+        metadata: { status: "qr_required", qrAvailable: true, qr: "must-not-leak" },
+      },
+      {
+        source: "whatsapp-send",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:40Z"),
+        metadata: {},
+      },
+      {
+        source: "whatsapp-loop-guard",
+        status: "ok",
+        lastSeenAt: new Date("2026-04-25T07:59:40Z"),
+        metadata: {},
+      },
+    );
+
+    await router.handle({
+      id: "x-incident-qr-required",
+      from: OWNER,
+      body: "what went wrong",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Incident check: action may be needed");
+    expect(wa.sent[0].body).toContain("QR required");
+    expect(wa.sent[0].body).toContain("Open WhatsApp recovery, scan, then proof test.");
+    expect(wa.sent[0].body).not.toContain("must-not-leak");
+  });
+
   it("answers WhatsApp control plane with runtime queue and recovery state", async () => {
     const state = getFakeDbState(deps.db);
     state.system_heartbeats.push(

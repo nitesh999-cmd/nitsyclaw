@@ -66,6 +66,31 @@ function statusTone(ok: boolean): string {
   return ok ? "text-emerald-300" : "text-amber-300";
 }
 
+function whatsappClientRecoveryDetail(heartbeat: Heartbeat): string {
+  if (!heartbeat) return "No WhatsApp client heartbeat. Railway may not have started the bot worker.";
+  const runtimeStatus = metadataText(heartbeat, "status");
+  const qrAvailable = heartbeat.metadata?.qrAvailable === true;
+  const reason = metadataText(heartbeat, "reason");
+  const state = metadataText(heartbeat, "state");
+
+  if (runtimeStatus === "qr_required") {
+    return qrAvailable
+      ? "WhatsApp is logged out and a QR is ready. Open QR recovery, paste the short-lived token, then scan from WhatsApp > Linked devices."
+      : "WhatsApp is logged out but no fresh QR is available yet. Open QR recovery to create a recovery window and restart the bot.";
+  }
+  if (runtimeStatus === "auth_failure") {
+    return `WhatsApp authentication failed${reason ? `: ${reason}` : ""}. Open QR recovery and relink the phone.`;
+  }
+  if (runtimeStatus === "disconnected") {
+    return `WhatsApp disconnected${reason ? `: ${reason}` : ""}. Restart/relink through QR recovery, then run the ready proof.`;
+  }
+  if (runtimeStatus === "restarting" || heartbeat.status === "restarting") {
+    return "WhatsApp is restarting. Wait briefly, then refresh recovery state or run the ready proof.";
+  }
+  if (state) return `Status: ${heartbeat.status}. Runtime: ${runtimeStatus ?? "unknown"}. Phone state: ${state}.`;
+  return `Status: ${heartbeat.status}. Runtime: ${runtimeStatus ?? "unknown"}.`;
+}
+
 function CheckRow({
   label,
   ok,
@@ -198,7 +223,7 @@ export default async function WhatsAppRecoveryPage() {
           <CheckRow
             label="WhatsApp client"
             ok={Boolean(clientFresh)}
-            detail={state?.whatsappClient ? `Status: ${state.whatsappClient.status}` : "No WhatsApp client heartbeat."}
+            detail={whatsappClientRecoveryDetail(state?.whatsappClient)}
           />
           <CheckRow
             label="Reply delivery"
@@ -243,6 +268,7 @@ export default async function WhatsAppRecoveryPage() {
           <div className="nc-eyebrow">What each failure means</div>
           <div className="mt-4 space-y-3 text-sm text-slate-300">
             <p><span className="font-medium text-slate-100">No reply:</span> Railway bot is down, stale, disconnected, or not authenticated to WhatsApp.</p>
+            <p><span className="font-medium text-slate-100">QR required:</span> WhatsApp is logged out. Use <span className="font-mono text-slate-100">pnpm run railway:qr-open</span>, scan the protected QR, then run the ready proof before testing messages.</p>
             <p><span className="font-medium text-slate-100">Loop guard warning:</span> send <span className="font-mono text-slate-100">resume whatsapp</span>, wait for the resumed reply, then repeat the proof.</p>
             <p><span className="font-medium text-slate-100">Send failure:</span> WhatsApp client is not ready or the session needs repair.</p>
             <p><span className="font-medium text-slate-100">Version mismatch:</span> Vercel deployed but Railway did not redeploy the bot worker.</p>

@@ -25,6 +25,9 @@ describe("WhatsApp recovery page", () => {
     expect(source).toContain("voice: what is the weather tomorrow?");
     expect(source).toContain("Risk confirmation");
     expect(source).toContain("What each failure means");
+    expect(source).toContain("whatsappClientRecoveryDetail");
+    expect(source).toContain("WhatsApp is logged out and a QR is ready");
+    expect(source).toContain("pnpm run railway:qr-open");
     expect(source).toContain("hi");
     expect(source).toContain("pending items");
     expect(source).toContain("hear it");

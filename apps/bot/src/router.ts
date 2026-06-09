@@ -1272,9 +1272,10 @@ export class Router {
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
+    const whatsappClientIssue = whatsappClientRecoveryHint(whatsappClient);
 
     const botRuntimeLine = heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000);
-    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000, whatsappClientIssue ?? undefined);
     const whatsappSendLine = heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined);
     const loopGuardLine = heartbeatLine(
       "Loop guard",
@@ -1285,7 +1286,7 @@ export class Router {
     );
     const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
       classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
-      Boolean(sendError || loopReason);
+      Boolean(sendError || loopReason || whatsappClientIssue);
 
     return formatWhatsAppReplyShape({
       answer: needsAttention ? "Self test: needs attention" : "Self test: ready",
@@ -1296,7 +1297,7 @@ export class Router {
         whatsappSendLine,
         loopGuardLine,
       ],
-      next: needsAttention ? "what went wrong | resume whatsapp" : "status | proof test | proof details",
+      next: whatsappClientIssue ? "Open WhatsApp recovery, scan, then proof test." : needsAttention ? "what went wrong | resume whatsapp" : "status | proof test | proof details",
     });
   }
 
@@ -1340,12 +1341,13 @@ export class Router {
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
+    const whatsappClientIssue = whatsappClientRecoveryHint(whatsappClient);
     const persistenceLine = persistence.ok
       ? `Database marker: passed (${persistence.id?.slice(0, 8) ?? "recorded"})`
       : `Database marker: failed (${clipForWhatsApp(persistence.error ?? "not found after write", 120)})`;
 
     const botRuntimeLine = heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000);
-    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const whatsappClientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000, whatsappClientIssue ?? undefined);
     const whatsappSendLine = heartbeatLine(
       "WhatsApp send",
       whatsappSend,
@@ -1363,7 +1365,7 @@ export class Router {
     const needsAttention = !persistence.ok ||
       classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
       classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
-      Boolean(sendError || loopReason);
+      Boolean(sendError || loopReason || whatsappClientIssue);
 
     if (!detail) {
       return formatWhatsAppReplyShape({
@@ -1378,7 +1380,7 @@ export class Router {
           loopGuardLine,
           "Provider setup: not tested here.",
         ],
-        next: needsAttention ? "what went wrong | proof details" : "proof details for full diagnostics",
+        next: whatsappClientIssue ? "Open WhatsApp recovery, scan, then proof test." : needsAttention ? "what went wrong | proof details" : "proof details for full diagnostics",
       });
     }
 
@@ -1488,8 +1490,9 @@ export class Router {
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
+    const whatsappClientIssue = whatsappClientRecoveryHint(whatsappClient);
 
-    const clientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000);
+    const clientLine = heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000, whatsappClientIssue ?? undefined);
     const sendLine = heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined);
     const loopLine = heartbeatLine(
       "Loop guard",
@@ -1507,7 +1510,7 @@ export class Router {
       : ["Waiting on you: none found."];
 
     return formatWhatsAppReplyShape({
-      answer: loopReason || sendError ? "Incident check: action may be needed" : "Incident check: no active failure signal",
+      answer: loopReason || sendError || whatsappClientIssue ? "Incident check: action may be needed" : "Incident check: no active failure signal",
       state: "State: checked WhatsApp health, recent failures, and commands waiting on you.",
       details: [
         clientLine,
@@ -1516,7 +1519,9 @@ export class Router {
         ...failureLines,
         ...blockedLines,
       ],
-      next: loopReason || sendError
+      next: whatsappClientIssue
+        ? "Open WhatsApp recovery, scan, then proof test."
+        : loopReason || sendError
         ? "self test | resume whatsapp | proof details"
         : "bug: <what happened>, if a reply still feels wrong",
     });
@@ -1551,20 +1556,21 @@ export class Router {
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
+    const whatsappClientIssue = whatsappClientRecoveryHint(whatsappClient);
     const recentFailures = recentJobs.filter((job) => job.status === "failed" || job.status === "retrying");
     const waitingJobs = recentJobs.filter((job) => job.status === "needs_approval" || job.status === "needs_clarification");
     const queueSummary = summarizeFeatureQueueStatus({ pending: pendingQueue, limit: 3 });
     const nextQueue = queueSummary.recommendedNext ?? queueSummary.quickWins[0] ?? queueSummary.topPending[0];
     const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
       classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
-      Boolean(loopReason || sendError || recentFailures.length);
+      Boolean(loopReason || sendError || whatsappClientIssue || recentFailures.length);
 
     return formatWhatsAppReplyShape({
       answer: needsAttention ? "Control plane: needs attention" : "Control plane: ready",
       state: `State: commit ${deployedCommit}, ${runtime.platform}, ${now.toISOString().slice(0, 16).replace("T", " ")}.`,
       details: [
         heartbeatLine("Bot runtime", botRuntime, now, 30 * 24 * 60 * 60 * 1000),
-        heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000),
+        heartbeatLine("WhatsApp client", whatsappClient, now, 2 * 60 * 1000, whatsappClientIssue ?? undefined),
         heartbeatLine("WhatsApp send", whatsappSend, now, 10 * 60 * 1000, sendError ? `last error: ${sendError}` : undefined),
         heartbeatLine(
           "Loop guard",
@@ -1579,7 +1585,7 @@ export class Router {
         `Queue: ${queueSummary.pendingCount} pending; next ${nextQueue ? `${nextQueue.shortId} ${clipForWhatsApp(nextQueue.description, 72)}` : "none"}.`,
         "Dashboard: /command for work queue, /whatsapp-recovery for recovery signals.",
       ],
-      next: needsAttention ? "what went wrong | proof details | resume whatsapp" : "proof test | feature queue | local status",
+      next: whatsappClientIssue ? "Open WhatsApp recovery, scan, then proof test." : needsAttention ? "what went wrong | proof details | resume whatsapp" : "proof test | feature queue | local status",
     });
   }
 
@@ -2989,6 +2995,20 @@ function heartbeatLine(
   const ageSeconds = Math.max(0, Math.round((now.getTime() - heartbeat.lastSeenAt.getTime()) / 1000));
   const suffix = detail ? ` - ${detail}` : "";
   return `${label}: ${heartbeat.status} (${freshness}, ${ageSeconds}s ago)${suffix}`;
+}
+
+function whatsappClientRecoveryHint(heartbeat: SystemHeartbeat | null): string | null {
+  const runtimeStatus = heartbeatMetadataText(heartbeat, "status");
+  if (runtimeStatus === "qr_required") {
+    return "QR required: open WhatsApp recovery, scan Linked devices, then proof test";
+  }
+  if (runtimeStatus === "auth_failure") {
+    return "auth failed: relink through WhatsApp recovery";
+  }
+  if (runtimeStatus === "disconnected") {
+    return "disconnected: restart or relink through WhatsApp recovery";
+  }
+  return null;
 }
 
 function heartbeatMetadataText(heartbeat: SystemHeartbeat | null, key: string): string | null {
