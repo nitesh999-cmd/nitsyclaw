@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   formatNonSelfChatDropNotice,
   prepareOutboundBodyForWhatsApp,
+  pruneChromiumCacheDirs,
   shouldSendNonSelfChatDropNotice,
 } from "./wwebjs-client.js";
 
@@ -70,5 +74,35 @@ describe("non-self chat drop diagnostics", () => {
     expect(notice).toContain("outside your Message Yourself chat");
     expect(notice).toContain("I did not reply in that other chat");
     expect(notice).not.toContain("Mukesh");
+  });
+});
+
+describe("WhatsApp Chromium profile cleanup", () => {
+  it("prunes cache folders without deleting auth-critical browser storage", () => {
+    const root = mkdtempSync(join(tmpdir(), "nitsyclaw-wa-cache-"));
+    try {
+      const defaultProfile = join(root, "session", "Default");
+      const cache = join(defaultProfile, "Cache");
+      const codeCache = join(defaultProfile, "Code Cache");
+      const localStorage = join(defaultProfile, "Local Storage");
+      const indexedDb = join(defaultProfile, "IndexedDB");
+      mkdirSync(cache, { recursive: true });
+      mkdirSync(codeCache, { recursive: true });
+      mkdirSync(localStorage, { recursive: true });
+      mkdirSync(indexedDb, { recursive: true });
+      writeFileSync(join(cache, "cache.bin"), "x");
+      writeFileSync(join(codeCache, "code.bin"), "x");
+      writeFileSync(join(localStorage, "leveldb"), "keep");
+      writeFileSync(join(indexedDb, "db"), "keep");
+
+      expect(pruneChromiumCacheDirs(root)).toBe(2);
+
+      expect(existsSync(cache)).toBe(false);
+      expect(existsSync(codeCache)).toBe(false);
+      expect(existsSync(localStorage)).toBe(true);
+      expect(existsSync(indexedDb)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

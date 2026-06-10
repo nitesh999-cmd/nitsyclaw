@@ -308,13 +308,20 @@ describe("package scripts", () => {
     expect(executableRailwayMutationLines).toEqual([]);
   });
 
-  test("local WhatsApp proof runs web smoke and WhatsApp tests without Railway credentials", () => {
+  test("local WhatsApp proof runs deterministic WhatsApp tests without live smoke", () => {
     expect(rootPackage.scripts?.["whatsapp:proof-local"]).toBe(
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
     );
+    expect(rootPackage.scripts?.["whatsapp:proof-live"]).toBe(
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-live.ps1",
+    );
 
     const source = readFileSync("scripts/whatsapp-proof-local.ps1", "utf8");
-    expect(source).toContain("release:live-smoke");
+    const liveSource = readFileSync("scripts/whatsapp-proof-live.ps1", "utf8");
+    expect(source).toContain("No Vercel smoke");
+    expect(source).not.toContain("release:live-smoke");
+    expect(liveSource).toContain("release:live-smoke");
+    expect(liveSource).toContain("whatsapp:proof-local");
     expect(source).toContain("apps/bot/src/whatsapp-loop-breaker.test.ts");
     expect(source).toContain("apps/bot/test/router.integration.test.ts");
     expect(source).toContain("whatsapp-recovery-action-route.test.ts");

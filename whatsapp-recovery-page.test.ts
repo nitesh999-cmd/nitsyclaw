@@ -13,8 +13,10 @@ describe("WhatsApp recovery page", () => {
     expect(source).toContain("Phone proof script");
     expect(source).toContain("Recovery action log");
     expect(source).toContain("operatorCommands");
-    expect(source).toContain("Local proof, no Railway");
+    expect(source).toContain("Local proof, no network");
+    expect(source).toContain("Live dashboard smoke");
     expect(source).toContain("pnpm run whatsapp:proof-local");
+    expect(source).toContain("pnpm run release:live-smoke");
     expect(source).toContain("pnpm run railway:preflight");
     expect(source).toContain("/api/whatsapp-recovery/log-action");
     expect(source).toContain("railway_auth_checked");

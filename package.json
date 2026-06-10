@@ -36,6 +36,7 @@
     "railway:whatsapp-recover": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-recover.ps1",
     "railway:whatsapp-survival": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-whatsapp-survival-proof.ps1",
     "whatsapp:proof-local": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-local.ps1",
+    "whatsapp:proof-live": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-proof-live.ps1",
     "whatsapp:receipt-guard": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-receipt-guard.ps1",
     "whatsapp:reply-shape": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-reply-shape.ps1",
     "whatsapp:reply-shape-report": "pnpm exec tsx scripts/whatsapp-reply-shape-report.ts",

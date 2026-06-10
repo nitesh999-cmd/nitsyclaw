@@ -126,7 +126,8 @@ const phoneProofSteps = [
 ] as const;
 
 const operatorCommands = [
-  ["Local proof, no Railway", "pnpm run whatsapp:proof-local"],
+  ["Local proof, no network", "pnpm run whatsapp:proof-local"],
+  ["Live dashboard smoke", "pnpm run release:live-smoke"],
   ["Railway access check", "pnpm run railway:preflight"],
   ["Loop guard reset", "resume whatsapp"],
 ] as const;

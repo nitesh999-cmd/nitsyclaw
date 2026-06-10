@@ -14,7 +14,7 @@ type WwebChatWithContact = Awaited<ReturnType<Message["getChat"]>> & {
   getContact?: () => Promise<{ isMe?: boolean }>;
 };
 
-import { readdirSync, rmSync } from "node:fs";
+import { readdirSync, rmSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type {
@@ -44,6 +44,16 @@ const PUPPETEER_ARGS = process.platform === "win32"
 const WHATSAPP_HANDLER_FAILURE_REPLY =
   "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
 const CHROMIUM_SINGLETON_LOCK_FILES = new Set(["SingletonLock", "SingletonSocket", "SingletonCookie"]);
+const CHROMIUM_CACHE_DIRS = new Set([
+  "blob_storage",
+  "Cache",
+  "Code Cache",
+  "Crashpad",
+  "DawnCache",
+  "GPUCache",
+  "GrShaderCache",
+  "ShaderCache",
+]);
 const NON_SELF_CHAT_NOTICE_COOLDOWN_MS = 10 * 60 * 1000;
 const COMMAND_LIKE_NON_SELF_CHAT_PATTERNS = [
   /\bnitsyclaw\b/i,
@@ -82,6 +92,44 @@ function clearChromiumSingletonLocks(root: string, depth = 0): number {
       }
     }
     return cleared;
+  } catch {
+    return 0;
+  }
+}
+
+export function pruneChromiumCacheDirs(root: string, depth = 0): number {
+  if (depth > 6) return 0;
+  try {
+    let pruned = 0;
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const path = join(root, entry.name);
+      if (CHROMIUM_CACHE_DIRS.has(entry.name)) {
+        rmSync(path, { recursive: true, force: true });
+        pruned += 1;
+      } else {
+        pruned += pruneChromiumCacheDirs(path, depth + 1);
+      }
+    }
+    return pruned;
+  } catch {
+    return 0;
+  }
+}
+
+function directorySizeBytes(root: string, depth = 0): number {
+  if (depth > 8) return 0;
+  try {
+    let size = 0;
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      const path = join(root, entry.name);
+      if (entry.isDirectory()) {
+        size += directorySizeBytes(path, depth + 1);
+      } else if (entry.isFile()) {
+        size += statSync(path).size;
+      }
+    }
+    return size;
   } catch {
     return 0;
   }
@@ -213,6 +261,13 @@ export class WwebjsClient implements WhatsAppClient {
     const clearedLocks = clearChromiumSingletonLocks(this.opts.sessionDir);
     if (clearedLocks > 0) {
       console.log(`[wwebjs] cleared stale Chromium profile lock(s): count=${clearedLocks}`);
+    }
+    const beforePruneBytes = directorySizeBytes(this.opts.sessionDir);
+    const prunedCacheDirs = pruneChromiumCacheDirs(this.opts.sessionDir);
+    if (prunedCacheDirs > 0) {
+      const afterPruneBytes = directorySizeBytes(this.opts.sessionDir);
+      const freedMb = Math.max(0, (beforePruneBytes - afterPruneBytes) / (1024 * 1024));
+      console.log(`[wwebjs] pruned Chromium cache dir(s): count=${prunedCacheDirs}, freedMb=${freedMb.toFixed(1)}`);
     }
 
     return new Client({

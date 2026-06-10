@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "== NitsyClaw local WhatsApp proof =="
-Write-Host "Scope: web smoke + WhatsApp/recovery automated tests. Railway worker control is intentionally excluded."
+Write-Host "Scope: deterministic local WhatsApp/recovery tests only."
+Write-Host "No Vercel smoke. No Railway control. No live WhatsApp session. No live WhatsApp sends."
 
 function Invoke-Step {
     param(
@@ -19,10 +20,6 @@ function Invoke-Step {
     }
 }
 
-Invoke-Step "Live smoke" {
-    pnpm run release:live-smoke
-}
-
 Invoke-Step "WhatsApp recovery tests" {
     pnpm exec vitest run `
         apps/bot/src/whatsapp-loop-breaker.test.ts `
@@ -37,4 +34,5 @@ Invoke-Step "WhatsApp recovery tests" {
 
 Write-Host ""
 Write-Host "Local WhatsApp proof passed."
-Write-Host "Railway is parked. Use the Railway preflight separately when credentials are available."
+Write-Host "For deployed dashboard smoke, use the explicit live proof script."
+Write-Host "For Railway WhatsApp readiness, run: pnpm run railway:whatsapp-ready"
