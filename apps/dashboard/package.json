@@ -14,7 +14,7 @@
     "autoprefixer": "^10.4.0",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.6",
-    "postcss": "^8.4.0",
+    "postcss": "^8.5.15",
     "postgres": "^3.4.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
