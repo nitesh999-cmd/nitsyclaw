@@ -1539,6 +1539,65 @@ For twenty-six consecutive days the CCR network allowlist has not been updated. 
 
 ---
 
+## 42. Session 2026-06-12 -- Daily build agent run (BLOCKED day 28)
+
+**Date:** 2026-06-12
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 feature_requests processed -- blocked by network policy (twenty-eighth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT (exit 124) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+The Anthropic MITM proxy completes TLS for ntfy.sh and nitsyclaw.vercel.app (real server certs as observed in L43) but returns 403 with x-deny-reason: host_not_allowed. TCP to Supabase on port 6543 times out. None of the three feature_request query paths are usable.
+
+### Context
+
+Git state: container started with HEAD detached at 4b0b8a9 (stale -- 9 commits behind origin/main). After git fetch origin main && git checkout main && git merge --ff-only origin/main, fast-forwarded 9 commits to 9e4f6a0. New commits: sessions 38-41 mind.md doc updates, feat(bot): add wwebjs-client robustness improvements and liveness tests, fix: keep whatsapp recovery alive on heartbeat failure, fix(dashboard): null-coerce whatsappClient arg to fix TS2345 error (session 39 P0 fix), fix: split whatsapp proof gates, scripts/whatsapp-proof-live.ps1 added.
+
+### Verification
+
+- pnpm install --frozen-lockfile -- OK
+- npx tsc --noEmit -p apps/dashboard/tsconfig.json -- PASS (no TypeScript errors)
+- pnpm test -- PASS (193 test files / 881 tests, all green -- same count as sessions 40 and 41)
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-41 confirmed no new P0/P1 issues. Session 42 confirms the same: no new P0/P1 issues visible from code. The 9 new commits (wwebjs robustness, whatsapp-recovery page, proof scripts) landed cleanly with no regressions.
+
+### L39 still unresolved (day 28)
+
+For twenty-eight consecutive days the CCR network allowlist has not been updated. Until nitsyclaw.vercel.app and ntfy.sh are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add nitsyclaw.vercel.app and ntfy.sh to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim feature_requests rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 9 commits to 9e4f6a0 (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (193 files / 881 tests) | PASS -- all green |
+| TCP 6543 to Supabase | FAILED -- TIMEOUT |
+| ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented from DB queue | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
+
+---
+
 ## 41. Session 2026-06-11 -- Daily build agent run (BLOCKED day 27)
 
 **Date:** 2026-06-11
