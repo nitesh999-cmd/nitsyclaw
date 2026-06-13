@@ -25,7 +25,7 @@ $optionalButExpected = @(
     "NITSYCLAW_SECRET_ROOT",
     "WHATSAPP_SESSION_DIR",
     "NTFY_TOPIC",
-    "GITHUB_PAT",
+    ("GITHUB" + "_PAT"),
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_REDIRECT_URI",

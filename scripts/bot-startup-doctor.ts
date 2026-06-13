@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   console.log(`bot doctor secretRoot=${maskPath(root)}`);
   console.log(`bot doctor whatsappSessionDir=${maskPath(sessionDir)}`);
 
-  const dbUrl = env.DATABASE_URL_DIRECT ?? env.DATABASE_URL;
+  const dbUrl = env.DATABASE_URL ?? env.DATABASE_URL_DIRECT;
   const sql = postgres(dbUrl, {
     max: 1,
     idle_timeout: 5,
