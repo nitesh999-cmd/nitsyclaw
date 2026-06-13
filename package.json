@@ -17,6 +17,7 @@
     "release:vercel-build": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
     "release:live-smoke": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/live-smoke.ps1",
     "release:post-deploy-proof": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
+    "local:env-doctor": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/local-env-doctor.ps1",
     "release:wait-railway": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-wait-for-commit.ps1",
     "release:whatsapp-full": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
     "ci:powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
@@ -81,7 +82,7 @@
     "@typescript-eslint/parser": "8.59.3",
     "@vitest/coverage-v8": "4.1.0",
     "eslint": "^9.12.0",
-    "tsx": "4.21.0",
+    "tsx": "4.22.4",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.59.1",
     "vitest": "4.1.0",
@@ -94,7 +95,7 @@
   "pnpm": {
     "overrides": {
       "drizzle-orm@<0.45.2": ">=0.45.2",
-      "esbuild@<=0.24.2": "0.25.0",
+      "esbuild@<0.28.1": "0.28.1",
       "postcss@<8.5.10": ">=8.5.10",
       "vite@<=6.4.1": "6.4.2",
       "ip-address": "10.1.1",

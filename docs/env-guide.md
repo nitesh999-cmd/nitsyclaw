@@ -2,6 +2,15 @@
 
 Copy `.env.local.example` to `.env.local` for local work. Do not commit `.env.local`.
 
+Run this before restarting the local bot:
+
+```powershell
+pnpm run local:env-doctor
+```
+
+The doctor prints only key names and counts, never secret values. It fails if
+restart-critical local keys are missing.
+
 ## Required for local dashboard and bot
 
 - `DATABASE_URL`
