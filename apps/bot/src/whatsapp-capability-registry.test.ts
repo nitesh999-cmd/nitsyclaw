@@ -8,6 +8,7 @@ import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCantDoGuard,
   formatWhatsAppCapabilityMatrix,
+  formatWhatsAppFullPaConnectionPlan,
   formatWhatsAppHelpReply,
   formatWhatsAppPendingFeatureDevelopmentPlan,
 } from "./whatsapp-capabilities.js";
@@ -68,6 +69,22 @@ describe("WhatsApp capability registry", () => {
     expect(plan).toContain("Phone/SMS");
     expect(plan).toContain("Bank feeds");
     expect(plan.length).toBeLessThanOrEqual(900);
+    expect(plan).not.toContain("Gmail is connected");
+    expect(plan).not.toContain("Bank feeds: connected");
+  });
+
+  it("renders a full PA connection plan without pretending accounts are connected", () => {
+    const plan = formatWhatsAppFullPaConnectionPlan();
+
+    expect(plan).toContain("Full PA connection plan");
+    expect(plan).toContain("I cannot connect private accounts without your OAuth/provider approval");
+    expect(plan).toContain("Needs account setup:");
+    expect(plan).toContain("Best order:");
+    expect(plan).toContain("Email + calendar");
+    expect(plan).toContain("Phone/SMS");
+    expect(plan).toContain("Bank feeds");
+    expect(plan).toContain("Needs you:");
+    expect(plan.length).toBeLessThanOrEqual(1100);
     expect(plan).not.toContain("Gmail is connected");
     expect(plan).not.toContain("Bank feeds: connected");
   });

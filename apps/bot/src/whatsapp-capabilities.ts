@@ -235,6 +235,44 @@ export function formatWhatsAppPendingFeatureDevelopmentPlan(
   ].join("\n");
 }
 
+export function formatWhatsAppFullPaConnectionPlan(
+  providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
+): string {
+  const items = PROVIDER_STATUS_ORDER.map((key) => providerReadiness[key]).filter(Boolean);
+  const readyOrPartial = items
+    .filter((item) => item.status === "ready" || item.status === "partial")
+    .map((item) => item.label);
+  const needsAccount = items
+    .filter((item) => item.status === "needs_account" || item.status === "needs_setup")
+    .map((item) => item.label);
+  const needsAdapter = items
+    .filter((item) => item.status === "needs_adapter")
+    .map((item) => item.label);
+  const approvalOrBlocked = items
+    .filter((item) => item.status === "approval_required" || item.status === "blocked")
+    .map((item) => item.label);
+
+  return [
+    "Full PA connection plan",
+    "Truth: I can prepare and test the rails, but I cannot connect private accounts without your OAuth/provider approval.",
+    "",
+    `Ready/partly ready: ${compactList(readyOrPartial)}.`,
+    `Needs account setup: ${compactList(needsAccount)}.`,
+    `Needs adapter build: ${compactList(needsAdapter)}.`,
+    `Approval/blocked: ${compactList(approvalOrBlocked)}.`,
+    "",
+    "Best order:",
+    "1. Email + calendar: highest daily PA value.",
+    "2. Spotify: quick personal demo with low risk.",
+    "3. Drive/Photos: selected-file/media access only.",
+    "4. Phone/SMS: drafts first, real send only after exact-contact confirmation.",
+    "5. Bank feeds: CSV/manual first; live feeds need compliant consent.",
+    "",
+    "I can do now: improve setup screens, WhatsApp status, safety gates, tests, and local tools.",
+    "Needs you: OAuth login, API keys, provider choice, and approval before any real send/call/pay/delete.",
+  ].join("\n");
+}
+
 export function formatWhatsAppCapabilityMatrix(
   providerReadiness: Record<WhatsAppProviderReadinessKey, WhatsAppProviderReadiness> = getWhatsAppProviderReadiness(),
 ): string {

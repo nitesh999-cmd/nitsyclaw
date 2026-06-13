@@ -405,6 +405,26 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("answers full PA connection requests with a truthful setup-aware plan", async () => {
+    await router.handle({
+      id: "x-full-pa-connection",
+      from: OWNER,
+      body: "connect everything",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Full PA connection plan");
+    expect(wa.sent[0].body).toContain("I cannot connect private accounts without your OAuth/provider approval");
+    expect(wa.sent[0].body).toContain("Best order:");
+    expect(wa.sent[0].body).toContain("Email + calendar");
+    expect(wa.sent[0].body).toContain("Needs you:");
+    expect(wa.sent[0].body.length).toBeLessThanOrEqual(1100);
+    expect(wa.sent[0].body).not.toContain("Gmail is connected");
+    expect(wa.sent[0].body).not.toContain("Bank feeds: connected");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers next 20 planning requests with simple agent-assessed priorities", async () => {
     await router.handle({
       id: "x-next-20",

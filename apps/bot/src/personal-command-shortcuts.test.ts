@@ -13,6 +13,7 @@ import {
   parseDemoStartShortcut,
   parseDriveStatusShortcut,
   parseFeatureQueueShortcut,
+  parseFullPaConnectionShortcut,
   parseGmailStatusShortcut,
   parseHelpShortcut,
   parseLifeAdminCockpitShortcut,
@@ -172,6 +173,14 @@ describe("personal command shortcuts", () => {
     });
     expect(parsePendingFeatureDevelopmentShortcut("pending items")).toBeNull();
     expect(parsePendingFeatureDevelopmentShortcut("what is pending")).toBeNull();
+  });
+
+  it("detects full PA connection planning requests without queueing vague setup", () => {
+    expect(parseFullPaConnectionShortcut("connect everything")).toEqual({ kind: "full-pa-connection" });
+    expect(parseFullPaConnectionShortcut("connect all my accounts")).toEqual({ kind: "full-pa-connection" });
+    expect(parseFullPaConnectionShortcut("make NitsyClaw my full PA")).toEqual({ kind: "full-pa-connection" });
+    expect(parseFullPaConnectionShortcut("pa setup plan")).toEqual({ kind: "full-pa-connection" });
+    expect(parseFullPaConnectionShortcut("connect Gmail")).toBeNull();
   });
 
   it("detects queued integration setup requests", () => {

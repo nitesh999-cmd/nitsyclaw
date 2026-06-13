@@ -128,6 +128,7 @@ import {
   parseDriveStatusShortcut,
   parseExpenseSearchShortcut,
   parseFeatureQueueShortcut,
+  parseFullPaConnectionShortcut,
   parseGmailStatusShortcut,
   parseHelpShortcut,
   parseLifeAdminCockpitShortcut,
@@ -158,6 +159,7 @@ import {
   formatReadyCapabilitiesOneLine,
   formatWhatsAppCantDoGuard,
   formatWhatsAppCommandContractReply,
+  formatWhatsAppFullPaConnectionPlan,
   formatWhatsAppHelpReply,
   formatWhatsAppPendingFeatureDevelopmentPlan,
   formatWhatsAppProviderSetupSnapshot,
@@ -2437,6 +2439,20 @@ export class Router {
       } catch (planError) {
         await this.failWhatsAppCommandJob(commandJob, planError);
         await this.sendPublicFailure("pending feature plan", "Couldn't build the pending-feature plan. I logged it; try again shortly.", planError);
+      }
+      return;
+    }
+
+    const fullPaConnection = parseFullPaConnectionShortcut(effectiveText);
+    if (fullPaConnection) {
+      try {
+        const providerReadiness = await this.getProviderReadiness();
+        const reply = formatWhatsAppFullPaConnectionPlan(providerReadiness);
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (planError) {
+        await this.failWhatsAppCommandJob(commandJob, planError);
+        await this.sendPublicFailure("full PA connection plan", "Couldn't load the connection plan. I logged it; try again shortly.", planError);
       }
       return;
     }

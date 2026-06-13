@@ -56,6 +56,10 @@ export interface PendingFeatureDevelopmentShortcut {
   kind: "pending-feature-development";
 }
 
+export interface FullPaConnectionShortcut {
+  kind: "full-pa-connection";
+}
+
 export interface CommandContractShortcut {
   kind: "command-contract";
 }
@@ -537,6 +541,26 @@ export function parsePendingFeatureDevelopmentShortcut(text: string): PendingFea
     /\b(?:all\s+)?(?:pending|queued|remaining)\s+(?:features?|items?)\s+(?:now|today|tonight)\b/.test(trimmed)
   ) {
     return { kind: "pending-feature-development" };
+  }
+  return null;
+}
+
+export function parseFullPaConnectionShortcut(text: string): FullPaConnectionShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ");
+  if (
+    trimmed === "connect my pa" ||
+    trimmed === "connect everything" ||
+    trimmed === "connect all things" ||
+    trimmed === "connect all the things" ||
+    trimmed === "connect all apps" ||
+    trimmed === "connect all my apps" ||
+    trimmed === "connect all my accounts" ||
+    trimmed === "make it my full pa" ||
+    trimmed === "make nitsyclaw my full pa" ||
+    trimmed === "full pa setup" ||
+    trimmed === "pa setup plan"
+  ) {
+    return { kind: "full-pa-connection" };
   }
   return null;
 }
