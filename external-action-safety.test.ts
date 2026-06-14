@@ -37,4 +37,17 @@ describe("external action safety guardrails", () => {
     expect(notifyAll).toContain("catch");
     expect(notifyAll).toContain("never blocks a bot reply");
   });
+
+  it("keeps provider read-only proof free of private content fields", () => {
+    const proof = source("scripts/provider-readonly-proof.ts");
+
+    expect(proof).toContain("No subjects, senders, snippets, event titles, message bodies, tokens, or secret values are printed.");
+    expect(proof).toContain('fields: "messages/id,resultSizeEstimate"');
+    expect(proof).toContain('fields: "items/id,nextPageToken"');
+    expect(proof).toContain("$select=id");
+    expect(proof).not.toContain("bodyPreview");
+    expect(proof).not.toContain("metadataHeaders");
+    expect(proof).not.toContain("Subject");
+    expect(proof).not.toContain("From");
+  });
 });
