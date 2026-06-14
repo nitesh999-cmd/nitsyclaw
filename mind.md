@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-06-11 (daily build agent run — network blocked day 27)
+> Updated: 2026-06-14 (daily build agent run -- network blocked day 30)
 
 ---
 
@@ -1769,6 +1769,65 @@ For seventeen consecutive days the CCR network allowlist has not been updated. U
 | Query pending feature_requests | FAILED -- all paths blocked |
 | ntfy start notification | FAILED -- host not in allowlist |
 | Features implemented | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
+
+---
+
+## 44. Session 2026-06-14 -- Daily build agent run (BLOCKED day 30)
+
+**Date:** 2026-06-14
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 feature_requests processed -- blocked by network policy (thirtieth consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT (exit 124) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+The Anthropic CCR proxy (Egress Gateway SDS Issuing CA) completes TLS for ntfy.sh and nitsyclaw.vercel.app but returns 403 with x-deny-reason: host_not_allowed. TCP to Supabase on port 6543 times out. None of the three feature_request query paths are usable.
+
+### Context
+
+Git state: container started with HEAD at 4b0b8a9 (stale -- 13 commits behind origin/main). After git fetch origin main && git checkout main && git merge --ff-only origin/main, fast-forwarded 13 commits to 726f9b0. New commits from other Claude sessions with DB/network access: sessions 38-43 mind.md doc updates, feat(bot): add wwebjs-client robustness improvements and liveness tests, fix: keep whatsapp recovery alive on heartbeat failure, fix(dashboard): null-coerce whatsappClient arg to fix TS2345 error (session 39 P0 fix), fix: split whatsapp proof gates, scripts/local-env-doctor.ps1 added, scripts/whatsapp-proof-live.ps1 added, bot-startup-heartbeat test, router integration test, docs/env-guide.md update.
+
+### Verification
+
+- pnpm install --frozen-lockfile -- OK
+- npx tsc --noEmit -p apps/dashboard/tsconfig.json -- PASS (no TypeScript errors; npm version notice only)
+- pnpm test -- PASS (193 test files / 881 tests, all green -- same count as sessions 40/41/42/43)
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-43 confirmed no new P0/P1 issues. Session 44 confirms the same: no new P0/P1 issues visible from code. The 13 new commits (wwebjs robustness, proof scripts, env-guide) landed cleanly with no regressions.
+
+### L39 still unresolved (day 30)
+
+For thirty consecutive days the CCR network allowlist has not been updated. Until nitsyclaw.vercel.app and ntfy.sh are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add nitsyclaw.vercel.app and ntfy.sh to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim feature_requests rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 13 commits to 726f9b0 (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (193 files / 881 tests) | PASS -- all green |
+| TCP 6543 to Supabase | FAILED -- TIMEOUT |
+| ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented from DB queue | 0 |
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
