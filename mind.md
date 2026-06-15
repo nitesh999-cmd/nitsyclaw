@@ -1831,3 +1831,62 @@ For thirty consecutive days the CCR network allowlist has not been updated. Unti
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 45. Session 2026-06-15 -- Daily build agent run (BLOCKED day 31)
+
+**Date:** 2026-06-15
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 feature_requests processed -- blocked by network policy (thirty-first consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT (exit 124) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+The CCR proxy returns "Host not in allowlist" for ntfy.sh and nitsyclaw.vercel.app. TCP to Supabase on port 6543 times out (exit 124). None of the three feature_request query paths are usable.
+
+### Context
+
+Git state: container started with HEAD at 4b0b8a9 (stale -- 14 commits behind origin/main). After git fetch origin main && git merge --ff-only origin/main, fast-forwarded 14 commits to 9e193a6. New commits: sessions 41-44 mind.md doc updates, fix: align bot doctor db url preference, chore: harden local env and audit deps.
+
+### Verification
+
+- pnpm install --frozen-lockfile -- OK
+- npx tsc --noEmit -p apps/dashboard/tsconfig.json -- PASS (no TypeScript errors; npm version notice only)
+- pnpm test -- PASS (193 test files / 881 tests, all green -- same count as sessions 40-44)
+
+### No proactive code shipped
+
+Sessions 15-17 shipped all available P0/P1 proactive fixes visible from the repo alone. Sessions 18-44 confirmed no new P0/P1 issues. Session 45 confirms the same: no new P0/P1 issues visible from code. The 14 new commits landed cleanly with no regressions.
+
+### L39 still unresolved (day 31)
+
+For thirty-one consecutive days the CCR network allowlist has not been updated. Until nitsyclaw.vercel.app and ntfy.sh are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add nitsyclaw.vercel.app and ntfy.sh to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim feature_requests rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 14 commits to 9e193a6 (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| Test suite (193 files / 881 tests) | PASS -- all green |
+| TCP 6543 to Supabase | FAILED -- TIMEOUT (exit 124) |
+| ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented from DB queue | 0 |
+| Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
