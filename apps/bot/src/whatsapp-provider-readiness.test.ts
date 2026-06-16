@@ -43,7 +43,7 @@ describe("WhatsApp provider readiness", () => {
   it("uses runtime signals for stored Spotify account state without claiming auto-send", () => {
     const readiness = getWhatsAppProviderReadiness({}, {
       spotifyConnected: true,
-      spotifyExpiresAt: new Date("2026-06-16T10:00:00Z"),
+      spotifyExpiresAt: new Date("2099-12-31T23:59:00Z"),
     });
 
     expect(readiness.spotify.status).toBe("partial");

@@ -613,7 +613,7 @@ describe("Router (integration)", () => {
       accountLabel: "default",
       accessToken: "encrypted-token",
       scope: "playlist-read-private",
-      expiresAt: new Date("2026-06-16T10:00:00Z"),
+      expiresAt: new Date("2099-12-31T23:59:00Z"),
       metadata: {},
       createdAt: new Date("2026-05-10T00:00:00Z"),
       updatedAt: new Date("2026-05-10T00:00:00Z"),

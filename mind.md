@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-06-14 (daily build agent run -- network blocked day 30)
+> Updated: 2026-06-16 (daily build agent run -- network blocked day 32; P0 test-date fix shipped)
 
 ---
 
@@ -1888,5 +1888,78 @@ For thirty-one consecutive days the CCR network allowlist has not been updated. 
 | ntfy start notification | FAILED -- host not in allowlist |
 | Features implemented from DB queue | 0 |
 | Proactive code shipped | 0 |
+| mind.md updated | YES (this entry) |
+| Committed + pushed | YES |
+
+---
+
+## 46. Session 2026-06-16 -- Daily build agent run (BLOCKED day 32; P0 test-date fix shipped)
+
+**Date:** 2026-06-16
+**Agent:** Daily build agent (NWP-Constitution-v1.2, R36)
+**Result:** 0 feature_requests processed -- blocked by network policy (thirty-second consecutive day)
+
+### What happened
+
+CCR network policy unchanged from all prior sessions. All three DB/notification access paths remain blocked:
+
+| Target | Port/Protocol | Result |
+|---|---|---|
+| aws-1-ap-northeast-1.pooler.supabase.com | 6543 (TCP) | TIMEOUT (exit 124) |
+| ntfy.sh | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app | 443 (HTTPS) | 403 x-deny-reason: host_not_allowed |
+
+The CCR proxy returns 403 with x-deny-reason: host_not_allowed for ntfy.sh and nitsyclaw.vercel.app. TCP to Supabase on port 6543 times out. None of the three feature_request query paths are usable.
+
+### Context
+
+Git state: container started with local main 15 commits behind origin/main. After git fetch origin main && git checkout main && git merge --ff-only origin/main, fast-forwarded 15 commits to 5ca41e3. New commits include sessions 44/45 mind.md doc updates, fix: align bot doctor db url preference, chore: harden local env and audit deps.
+
+### P0 Fix shipped: Hardcoded test dates expired today
+
+Two tests that were green in all prior sessions started failing in this session:
+
+1. `apps/bot/src/whatsapp-provider-readiness.test.ts` -- test at line 44 passed `spotifyExpiresAt: new Date("2026-06-16T10:00:00Z")`. The test expected `status = 'partial'` but got `'needs_account'` because `tokenFreshness()` returned `'expired'` (it is now past 10:00 UTC on 2026-06-16), which triggered `spotifyTokenProblem = true`.
+
+2. `apps/bot/test/router.integration.test.ts` -- test at line 616 pushed a Spotify connected account with `expiresAt: new Date("2026-06-16T10:00:00Z")`. Same expiry logic: the account was classified as `needs_account` not `partial`, so `"Ready/partly ready: Spotify"` did not appear in the status output.
+
+**Root cause:** Tests were written with a hardcoded date (`2026-06-16T10:00:00Z`) that was in the future at time of writing but has now elapsed. The `spotifyTokenProblem` logic in `getProviderSetupReadiness` correctly treats an expired token with no refresh token as `needs_account`.
+
+**Fix:** Changed both hardcoded dates to `new Date("2099-12-31T23:59:00Z")` -- far enough in the future that the test will remain valid for the product lifetime. No logic changes.
+
+### Lesson L44 -- Never use a near-term hardcoded date in a time-sensitive test assertion
+
+Tests that compute behavior based on `Date.now()` vs a hardcoded timestamp must use dates either (a) far in the future (>5 years out), or (b) relative to `Date.now()`. Near-term hardcoded dates become time bombs that fire on the exact day the date passes.
+
+### Verification
+
+- pnpm install --frozen-lockfile -- OK
+- npx tsc --noEmit -p apps/dashboard/tsconfig.json -- PASS (no TypeScript errors)
+- pnpm test -- PASS (193 test files / 881 tests, all green -- previously 2 failing tests now fixed)
+
+### L39 still unresolved (day 32)
+
+For thirty-two consecutive days the CCR network allowlist has not been updated. Until nitsyclaw.vercel.app and ntfy.sh are added, the daily build agent cannot process any feature_requests.
+
+**To fix (Nitesh action required):** Go to claude.ai/code/routines, open the environment settings for this repo, and add nitsyclaw.vercel.app and ntfy.sh to the HTTPS allowlist. Once done, the Option A routes (built in session 16, 2026-05-17) will allow the build agent to query and claim feature_requests rows over HTTPS without needing TCP to Supabase.
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Boot sequence | Completed |
+| Git: fast-forwarded 15 commits to 5ca41e3 (L40) | YES |
+| pnpm install | OK |
+| TypeScript typecheck (dashboard) | PASS |
+| TCP 6543 to Supabase | FAILED -- TIMEOUT (exit 124) |
+| ntfy.sh HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| nitsyclaw.vercel.app HTTPS | FAILED -- 403 x-deny-reason: host_not_allowed |
+| Test suite initial run (193 files / 881 tests) | FAILED (2 tests: expired Spotify date) |
+| P0 fix: update hardcoded Spotify expiry dates to 2099 | DONE (2 files) |
+| Test suite re-run (193 files / 881 tests) | PASS -- all green |
+| Query pending feature_requests | FAILED -- all paths blocked |
+| ntfy start notification | FAILED -- host not in allowlist |
+| Features implemented from DB queue | 0 |
+| Proactive code shipped | YES (P0 test-date fix, 2 files) |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
