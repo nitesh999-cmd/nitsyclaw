@@ -1,4 +1,5 @@
 import { ArrowRight, Check } from "./icons";
+import { whatsAppLink } from "@/lib/site";
 
 type Offer = {
   name: string;
@@ -134,7 +135,11 @@ export default function Offers() {
               )}
 
               <a
-                href="#contact"
+                href={whatsAppLink(
+                  `Hi Nitesh, I'm interested in the ${offer.name}. Can you tell me how it works and what it costs?`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`mt-7 ${offer.featured ? "btn-primary" : "btn-secondary"}`}
               >
                 {offer.cta}

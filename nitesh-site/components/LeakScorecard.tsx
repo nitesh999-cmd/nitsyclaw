@@ -19,6 +19,7 @@ type Tier = {
   headline: string;
   body: string;
   tone: string;
+  rec: string;
 };
 
 function tierFor(count: number): Tier {
@@ -27,6 +28,7 @@ function tierFor(count: number): Tier {
       headline: "Tighter than most — worth a quick sense-check",
       body: "Nothing ticked is rare. Either you're running a clean ship, or a couple of leaks are hiding. A 20-minute call will confirm which.",
       tone: "from-slate-700 to-slate-900",
+      rec: "See ways to start",
     };
   }
   if (count <= 2) {
@@ -34,6 +36,7 @@ function tierFor(count: number): Tier {
       headline: `${count} leak${count > 1 ? "s" : ""} — quick wins on the table`,
       body: "A couple of small leaks. The 90-minute audit or the 7-day follow-up fix is your fastest, lowest-cost path to plugging them.",
       tone: "from-emerald-700 to-teal-800",
+      rec: "See the 90-minute audit",
     };
   }
   if (count <= 4) {
@@ -41,12 +44,14 @@ function tierFor(count: number): Tier {
       headline: `${count} leaks — money is slipping weekly`,
       body: "Several leaks compounding. This is exactly where a focused fix pays for itself fast — start with the audit so we rank them by impact.",
       tone: "from-amber-700 to-orange-800",
+      rec: "See the audit & 7-day fix",
     };
   }
   return {
     headline: `${count} leaks — stacking up every week`,
     body: "Multiple leaks compounding across the business. Worth starting now — the 30-day Sales-to-Delivery Operating System is built for exactly this.",
     tone: "from-rose-600 to-red-700",
+    rec: "See the 30-day system",
   };
 }
 
@@ -170,7 +175,7 @@ export default function LeakScorecard() {
                 Send my scan on WhatsApp
               </a>
               <a href="#offers" className="btn-secondary h-12 flex-1">
-                See ways to start
+                {tier.rec}
                 <ArrowRight className="h-4 w-4" />
               </a>
             </div>
