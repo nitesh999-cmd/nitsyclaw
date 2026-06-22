@@ -2022,3 +2022,53 @@ For thirty-three consecutive days the CCR network allowlist has not been updated
 | Proactive code shipped | 0 |
 | mind.md updated | YES (this entry) |
 | Committed + pushed | YES |
+
+---
+
+## 48. Session 2026-06-23 -- Local push + build agent disabled (NOT a CCR run)
+
+**Date:** 2026-06-23 (Sydney 00:12)
+**Driver:** Nitesh on laptop (Claude Code interactive). Not the daily build agent.
+**Result:** 3 stranded PA commits pushed to origin; daily build agent routine disabled; 888 tests green.
+
+### What happened
+
+Local main was 3 commits ahead of origin since 2026-06-14 (PA work never pushed). Rebased onto origin (which had 4 newer doc/test-date commits from CCR sessions 44-47, including L44 expired-Spotify-test-dates fix `5b7dfa6`) and pushed cleanly.
+
+User also pointed out the daily build agent had been firing useless "blocked day N" doc updates for 33 consecutive days (L39 unresolved). Disabled via `RemoteTrigger update enabled: false` on `trig_01XiN9ZowcHufrXkcNzMkJbe`. Routine dormant; no more daily noise until network allowlist is fixed AND routine re-enabled.
+
+### Commits pushed (after rebase, new hashes)
+
+| New hash | Subject |
+|---|---|
+| `0698ef6` | feat: add full PA connection plan |
+| `3137774` | test: harden full PA provider gates |
+| `47f09fc` | feat: add provider read-only proof gate |
+
+origin/main HEAD = `47f09fc`.
+
+### Verification
+
+- `pnpm test` -- 194 test files / 888 tests, all green (exit 0)
+- Bot heartbeat fresh (broom tick 00:10 Sydney)
+- Vercel `/login` 200, ntfy 200
+- `.env.local` has 6 keys (operational minimum): `ANTHROPIC_API_KEY`, `DATABASE_URL`, `ENCRYPTION_KEY`, `OPENAI_API_KEY`, `TIMEZONE`, `WHATSAPP_OWNER_NUMBER`. Missing keys are non-critical feature toggles (Google/MS tokens, NEXTAUTH, SERPER, SPOTIFY, GITHUB_PAT, etc.). Bot runs degraded but functional.
+
+### Honest read on "PA" work
+
+The recent `whatsapp-capabilities.ts` additions (capabilities matrix, full-PA connection plan formatter, can't-do guard, command contract) are a **self-aware capability layer**, not the actual Path A WhatsApp Cloud API integration. The product describes what it can/can't do via WhatsApp text replies. Real Cloud API send/receive (Meta Business verification + template approval + webhooks) is still ahead. Naming drift: "PA" in code now reads as "provider awareness" not "Path A".
+
+### Next leap (proposed, not started)
+
+Single highest-leverage move: **one provider end-to-end** (recommend Gmail). Draft -> user approval -> bot ACTUALLY sends. Replaces "drafts only" mode with one real action. Single OAuth, single wire. ~3-4 hours focused scope. Compounds because every other provider follows the same pattern (Outlook, Drive, Spotify, SMS).
+
+### Session log
+
+| Step | Result |
+|---|---|
+| Recon: git, env, bot health, live HTTP | DONE |
+| Push 3 stranded PA commits (rebase on origin) | DONE -- 47f09fc |
+| Full test suite | PASS -- 888/888 |
+| Daily build agent routine disabled | DONE -- `trig_01XiN9ZowcHufrXkcNzMkJbe` enabled=false |
+| mind.md session 48 entry | YES (this) |
+| Committed + pushed docs | PENDING next commit |
