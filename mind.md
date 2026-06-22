@@ -2071,4 +2071,35 @@ Single highest-leverage move: **one provider end-to-end** (recommend Gmail). Dra
 | Full test suite | PASS -- 888/888 |
 | Daily build agent routine disabled | DONE -- `trig_01XiN9ZowcHufrXkcNzMkJbe` enabled=false |
 | mind.md session 48 entry | YES (this) |
-| Committed + pushed docs | PENDING next commit |
+| Committed + pushed docs | DONE -- 46f6777 |
+
+### Session 48 addendum -- Provider re-auth + live proof
+
+After Codex audit surfaced `provider:proof-readonly` failing due to expired OAuth tokens, ran in-session re-auth:
+
+- Google personal (`nitesh999@gmail.com`): OAuth consent via browser, code exchanged via PowerShell + Google token endpoint, saved to `~/.nitsyclaw/secrets/google-token-personal.json` with refresh_token. All 4 scopes granted (gmail.readonly, gmail.modify, calendar, calendar.events).
+- Google solarharbour (`nitesh@solarharbour.com.au`): same flow, saved to `google-token-solarharbour.json`. All 4 scopes granted.
+- Microsoft 365 (Wattage, `Nitesh@thewattage.com.au`): device-code flow via `pnpm --filter @nitsyclaw/bot ms:auth`, auto-polled to completion, saved to `ms-token.json`. All 7 scopes granted (Mail.Read, Mail.ReadWrite, Mail.Send, Calendars.Read, Calendars.ReadWrite, User.Read, offline_access).
+
+`pnpm provider:proof-readonly` result: **6/6 PASS**
+
+- Gmail (personal) read: PASS
+- Google Calendar (personal) read: PASS
+- Gmail (solarharbour) read: PASS
+- Google Calendar (solarharbour) read: PASS
+- Outlook mail read: PASS
+- Outlook calendar read: PASS
+
+No subjects/senders/snippets/event-titles/tokens leaked (proof script is structurally read-safe per design).
+
+### State after session 48
+
+Project crossed from "owner-use / controlled-demo" to **demo-grade with live provider proof**. The Codex-flagged blocker is gone. Bot can now actually read Gmail/Cal/Outlook in real time from WhatsApp -- self-aware capability layer (PA work) now backed by live data.
+
+### Compounding next moves
+
+1. `status` command on WhatsApp should now report ready+live-proven for Gmail/Cal/Outlook (no code change required -- provider readiness reads token freshness).
+2. Morning brief (Feature 4, 7am Melbourne cron) now hits live data from all 3 accounts.
+3. **Real 100x leap from here:** wire one write path. Best candidate: `draft email + confirmation rail + Gmail send` (Mail.Send scope already granted on M365 too). ~1-2 hr scope. Stops "drafts only" mode.
+
+
