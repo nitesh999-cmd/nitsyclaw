@@ -2102,4 +2102,62 @@ Project crossed from "owner-use / controlled-demo" to **demo-grade with live pro
 2. Morning brief (Feature 4, 7am Melbourne cron) now hits live data from all 3 accounts.
 3. **Real 100x leap from here:** wire one write path. Best candidate: `draft email + confirmation rail + Gmail send` (Mail.Send scope already granted on M365 too). ~1-2 hr scope. Stops "drafts only" mode.
 
+---
+
+## 49. Session 2026-06-23 (continued) -- Bot recovery + Feature 24 (real email send) shipped
+
+**Date:** 2026-06-23 (Sydney 00:45 -- 01:40)
+**Driver:** Nitesh on laptop. "WhatsApp not working" -> diagnosed + fixed + extended scope to first write-path feature.
+
+### Bot recovery
+
+Bot had been blocked for 38 days. Root cause: a safety gate added on 2026-05-15 (commit pre-rebase) refuses to start local WhatsApp unless `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1` or `.allow-local-whatsapp` flag file exists. Broom watchdog kept calling `launch-bot.ps1` every 2 min; launcher honoured the gate and exited cleanly without spawning. No one had set the opt-in.
+
+Two-layer gate discovered:
+1. `launch-bot.ps1` checks env OR flag file -- if neither, logs "blocked because local WhatsApp is disabled" and exits 0.
+2. The Node runtime `apps/bot/src/index.ts` does its OWN `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1` env check -- so the file flag satisfies the launcher but the child process still fatals.
+
+Fix:
+- Created `.allow-local-whatsapp` (gitignored; local-only switch) -- satisfies the launcher.
+- Appended `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1` to the secret-root `.env.local` (`~/.nitsyclaw/secrets/.env.local`) which the bot loads via `loadBotDotenv()` -- satisfies the runtime.
+- Bot booted. wa-session expired after 5+ weeks idle -- needed re-link.
+- QR is hidden behind a recovery window (security). Generated a 24-byte token, opened a 30-min recovery window via `NITSYCLAW_QR_RECOVERY_TOKEN` + `NITSYCLAW_QR_RECOVERY_UNTIL` envs, set `PORT=3010`, restarted bot, opened `http://localhost:3010/recovery/whatsapp-qr` in browser, Nitesh scanned QR with phone, `[wwebjs] client ready` logged. Self-chat filter correctly dropping newsletters/broadcasts again.
+
+### Feature 24 shipped: real email send (Gmail + Outlook)
+
+User asked "build next 10 things". Item #1 = real email send. Item #2 = Outlook send. Both shipped in commit `540edbb` (single `emailSender` adapter handles both).
+
+Pattern (copied from Feature 18 email drafts):
+- New tool `queue_email_send` (file `packages/shared/src/features/24-email-send.ts`) inserts a confirmation row with action `email_send`, 10-min window (tighter than drafts' 15 min since real send is irreversible).
+- Action `email_send` added to both `EXPLICIT_ID_REQUIRED_ACTIONS` and `SIDE_EFFECT_ACTIONS` in `09-confirmation-rail.ts` -- so user cannot resolve with bare "yes"; must reply `yes <confirmationId>`.
+- `resolve_confirmation` extended with `email_send` branch that calls `ctx.deps.emailSender.sendEmail(...)`. If sender is unset (e.g. dashboard surface), returns `{ resolved: true, decision: "pending_adapter", sent: false }` and restores the row to pending.
+- New `EmailSender` interface on `AgentDeps` (`packages/shared/src/agent/deps.ts`).
+- `realEmailSender` wired in `apps/bot/src/adapters.ts`:
+  - Gmail: `google.gmail().users.messages.send({raw})` with RFC 5322 base64url payload built locally (`buildGmailRawMessage` -- sanitises newlines in headers; supports To/Cc/Bcc/In-Reply-To/References).
+  - Outlook: new `sendMailRich` in `microsoft-graph.ts` -- POST `/me/sendMail` with full toRecipients/ccRecipients/bccRecipients (extends existing `sendMail` without breaking it).
+- 5 new routing tests in `09-confirmation-rail.test.ts` (gmail success, outlook success, missing-adapter pending, bare-yes rejection, expired). All pass.
+- Full suite: **893/893 PASS** (888 + 5).
+- Live bot restarted to pick up Feature 24.
+
+### Roadmap for next-10
+
+| # | Status | Notes |
+|---|---|---|
+| 1 | DONE (`540edbb`) | Gmail send |
+| 2 | DONE (`540edbb`) | Outlook send (same adapter, free) |
+| 3 | PENDING | Calendar event create + invite (R38 from session 5m partly built; ~30 min wire-up) |
+| 4 | PENDING | Morning brief 7am Sydney verify + ntfy push |
+| 5 | PENDING | Receipt -> expense (verify after token re-auth) |
+| 6 | PENDING | Bills inbox sweep |
+| 7 | PENDING | ntfy push on every bot reply |
+| 8 | PENDING | Weekly Sunday digest |
+| 9 | PENDING | Dashboard landing page redesign |
+| 10 | PENDING | Tenant isolation MIGRATION (not just plan) |
+
+### Side effects
+
+- 2 empty rogue files at project root (`a.start.getTime()`, `h.name`) created by an earlier shell-quoting bug -- removed.
+- `.allow-local-whatsapp` flag file at project root -- gitignored, kept; required by launcher gate.
+- Secret-root `.env.local` now has 3 new keys: `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1`, `NITSYCLAW_QR_RECOVERY_TOKEN=...`, `NITSYCLAW_QR_RECOVERY_UNTIL=...`, `PORT=3010`. QR window expires 30 min from creation -- no further action needed.
+
 
