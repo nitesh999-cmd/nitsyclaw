@@ -5,18 +5,75 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
-import { createMsEvent } from "./microsoft-graph.js";
+import { createMsEvent, sendMailRich } from "./microsoft-graph.js";
 import { logBotError } from "./safe-log.js";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
   CalendarClient,
   Embedder,
+  EmailSender,
   ImageAnalyzer,
   LlmClient,
   Transcriber,
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
+
+/**
+ * RFC 5322 plain-text email → base64url for Gmail API users.messages.send.
+ * Header sanitisation: collapse newlines in addresses/subjects to spaces.
+ */
+function buildGmailRawMessage(args: {
+  from?: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  body: string;
+  replyToMessageId?: string;
+}): string {
+  const sanitize = (value: string): string => value.replace(/[\r\n]+/g, " ").trim();
+  const headerLines: string[] = [];
+  if (args.from) headerLines.push(`From: ${sanitize(args.from)}`);
+  headerLines.push(`To: ${args.to.map(sanitize).join(", ")}`);
+  if (args.cc && args.cc.length) headerLines.push(`Cc: ${args.cc.map(sanitize).join(", ")}`);
+  if (args.bcc && args.bcc.length) headerLines.push(`Bcc: ${args.bcc.map(sanitize).join(", ")}`);
+  headerLines.push(`Subject: ${sanitize(args.subject)}`);
+  if (args.replyToMessageId) {
+    headerLines.push(`In-Reply-To: <${sanitize(args.replyToMessageId)}>`);
+    headerLines.push(`References: <${sanitize(args.replyToMessageId)}>`);
+  }
+  headerLines.push("MIME-Version: 1.0");
+  headerLines.push('Content-Type: text/plain; charset="UTF-8"');
+  headerLines.push("Content-Transfer-Encoding: 7bit");
+  const raw = headerLines.join("\r\n") + "\r\n\r\n" + args.body;
+  return Buffer.from(raw, "utf-8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+export const realEmailSender: EmailSender = {
+  async sendEmail({ provider, accountLabel, to, cc, bcc, subject, body, replyToMessageId }) {
+    if (provider === "gmail") {
+      const label = accountLabel ?? "personal";
+      if (!hasGoogleToken(label)) {
+        throw new Error(`Gmail account label "${label}" not connected. Run pnpm google:auth ${label === "personal" ? "" : label}.`);
+      }
+      const auth = loadOAuthClient(label);
+      const gmail = google.gmail({ version: "v1", auth });
+      const raw = buildGmailRawMessage({ to, cc, bcc, subject, body, replyToMessageId });
+      const resp = await gmail.users.messages.send({
+        userId: "me",
+        requestBody: { raw },
+      });
+      return {
+        messageId: resp.data.id ?? `gmail-sent-${Date.now()}`,
+        threadId: resp.data.threadId ?? undefined,
+      };
+    }
+    // Outlook
+    const result = await sendMailRich({ to, cc, bcc, subject, body, replyToInternetMessageId: replyToMessageId });
+    return { messageId: result.messageId, webLink: result.webLink };
+  },
+};
 
 export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
   const client = new Anthropic({ apiKey });
@@ -295,6 +352,7 @@ export function buildAgentDeps(args: {
       fetchAllUnreadEmails,
       searchAllGmail,
     },
+    emailSender: realEmailSender,
     imageAnalyzer,
     embedder,
     now: args.now ?? (() => new Date()),

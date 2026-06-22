@@ -280,3 +280,107 @@ describe("resolve_confirmation tool — email draft routing", () => {
     expect(out).toMatchObject({ resolved: true, decision: "expired", action: "email_create_draft" });
   });
 });
+
+describe("resolve_confirmation tool — email send routing (Feature 24)", () => {
+  function setup(opts: {
+    withAdapter?: boolean;
+    expiresAt?: Date;
+    status?: "pending" | "rejected";
+    provider?: "gmail" | "outlook";
+  }) {
+    const { db, state } = makeFakeDb();
+    state.confirmations.push({
+      id: "c1",
+      action: "email_send",
+      payload: {
+        provider: opts.provider ?? "gmail",
+        to: ["nitesh@example.com"],
+        subject: "Hi",
+        body: "Real send body",
+      },
+      status: opts.status ?? "pending",
+      expiresAt: opts.expiresAt ?? new Date("2026-04-25T10:00:00Z"),
+      createdAt: NOW,
+    });
+    const sendEmail = vi.fn(async () => ({
+      messageId: "msg-1",
+      threadId: "thr-1",
+      webLink: "https://mail/sent/msg-1",
+    }));
+    const deps = makeAgentDeps({
+      db,
+      ...(opts.withAdapter ? { emailSender: { sendEmail } } : {}),
+    });
+    const registry = new ToolRegistry();
+    registerConfirmationRail(registry);
+    const tool = registry.get("resolve_confirmation")!;
+    const ctx: ToolContext = {
+      deps,
+      now: NOW,
+      userPhone: "+61000",
+      timezone: "Australia/Melbourne",
+    };
+    return { tool, ctx, sendEmail };
+  }
+
+  it("sends a real email through the configured adapter after approval", async () => {
+    const { tool, ctx, sendEmail } = setup({ withAdapter: true });
+
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx) as ToolOutput;
+
+    expect(sendEmail).toHaveBeenCalledOnce();
+    expect(out).toMatchObject({
+      resolved: true,
+      decision: "approved",
+      action: "email_send",
+      sent: true,
+      messageId: "msg-1",
+      threadId: "thr-1",
+    });
+  });
+
+  it("returns pending_adapter and keeps the row pending when sender is missing", async () => {
+    const { tool, ctx } = setup({});
+
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx) as ToolOutput;
+
+    expect(out).toMatchObject({
+      resolved: true,
+      decision: "pending_adapter",
+      action: "email_send",
+      sent: false,
+    });
+    expect(out.unavailable).toMatch(/not configured/i);
+    expect(getFakeDbState(ctx.deps.db).confirmations[0].status).toBe("pending");
+  });
+
+  it("rejects bare 'yes' (without confirmationId) for side-effect email_send", async () => {
+    const { tool, ctx, sendEmail } = setup({ withAdapter: true });
+
+    const out = await tool.handler({ reply: "yes" }, ctx) as ToolOutput;
+
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ resolved: false });
+  });
+
+  it("does not send an expired email_send confirmation", async () => {
+    const { tool, ctx, sendEmail } = setup({
+      withAdapter: true,
+      expiresAt: new Date("2026-04-25T07:00:00Z"),
+    });
+
+    const out = await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx) as ToolOutput;
+
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ resolved: true, decision: "expired", action: "email_send" });
+  });
+
+  it("routes outlook provider to the same sendEmail adapter (provider is in payload)", async () => {
+    const { tool, ctx, sendEmail } = setup({ withAdapter: true, provider: "outlook" });
+
+    await tool.handler({ reply: "yes", confirmationId: "c1" }, ctx);
+
+    expect(sendEmail).toHaveBeenCalledOnce();
+    expect(sendEmail.mock.calls[0][0]).toMatchObject({ provider: "outlook" });
+  });
+});

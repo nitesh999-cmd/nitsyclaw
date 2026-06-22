@@ -118,6 +118,65 @@ export interface SendMailArgs {
   body: string;
 }
 
+export interface SendMailRichArgs {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  /** Plain-text body. Sent as HTML with newlines converted to <br>. */
+  body: string;
+  replyToInternetMessageId?: string;
+}
+
+export interface SendMailRichResult {
+  /** Microsoft Graph /me/sendMail returns 202 with no body. id may be undefined. */
+  messageId: string;
+  webLink?: string;
+}
+
+/**
+ * Rich Outlook send via /me/sendMail. Supports cc/bcc + multiple recipients.
+ * Requires Mail.Send scope (granted in session 48 re-auth).
+ */
+export async function sendMailRich(args: SendMailRichArgs): Promise<SendMailRichResult> {
+  if (!hasMsToken()) {
+    throw new Error("Outlook not authenticated. Run 'pnpm ms:auth' to connect.");
+  }
+  const htmlBody = args.body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  const toRecipients = args.to.map((address) => ({ emailAddress: { address } }));
+  const ccRecipients = (args.cc ?? []).map((address) => ({ emailAddress: { address } }));
+  const bccRecipients = (args.bcc ?? []).map((address) => ({ emailAddress: { address } }));
+  const payload: Record<string, unknown> = {
+    message: {
+      subject: args.subject,
+      body: { contentType: "HTML", content: htmlBody },
+      toRecipients,
+      ccRecipients,
+      bccRecipients,
+    },
+    saveToSentItems: true,
+  };
+  const token = await getMsAccessToken();
+  const resp = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    throw new Error(`Graph POST /me/sendMail failed: ${resp.status}`);
+  }
+  // Graph returns 202 Accepted with no body for sendMail; surface a synthetic id
+  // so the caller has something stable. Web link not available pre-send.
+  return { messageId: `outlook-sent-${Date.now()}` };
+}
+
 /**
  * Send an email via Microsoft Graph /me/sendMail.
  * Requires Mail.Send scope — re-run `pnpm ms:auth` after adding the scope.

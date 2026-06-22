@@ -14,11 +14,12 @@ import type { DB } from "../db/client.js";
 import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
 
 export type ConfirmationDecision = "approved" | "rejected" | "expired";
-const EXPLICIT_ID_REQUIRED_ACTIONS = new Set(["email_create_draft"]);
+const EXPLICIT_ID_REQUIRED_ACTIONS = new Set(["email_create_draft", "email_send"]);
 const SIDE_EFFECT_ACTIONS = new Set([
   "create_calendar_event",
   "spotify_create_playlist",
   "email_create_draft",
+  "email_send",
 ]);
 
 /**
@@ -149,6 +150,41 @@ export function registerConfirmationRail(registry: ToolRegistry): void {
           decision: out.decision,
           action: out.action,
           playlist,
+        };
+      }
+      if (out.decision === "approved" && out.action === "email_send") {
+        const p = out.payload as {
+          provider: "gmail" | "outlook";
+          accountLabel?: string;
+          to: string[];
+          cc?: string[];
+          bcc?: string[];
+          subject: string;
+          body: string;
+          replyToMessageId?: string;
+        };
+        if (!ctx.deps.emailSender) {
+          await restorePendingConfirmation(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), out.id);
+          return {
+            resolved: true,
+            decision: "pending_adapter",
+            action: out.action,
+            provider: p.provider,
+            sent: false,
+            unavailable:
+              "Email send adapter is not configured on this surface. The confirmation is still pending; approve again after the adapter is available.",
+          };
+        }
+        const result = await ctx.deps.emailSender.sendEmail(p);
+        return {
+          resolved: true,
+          decision: out.decision,
+          action: out.action,
+          provider: p.provider,
+          sent: true,
+          messageId: result.messageId,
+          threadId: result.threadId,
+          webLink: result.webLink,
         };
       }
       if (out.decision === "approved" && out.action === "email_create_draft") {

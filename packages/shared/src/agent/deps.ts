@@ -14,6 +14,7 @@ export interface AgentDeps {
   calendar: CalendarClient;
   aggregator?: AggregatorClient;
   emailDraft?: EmailDraftClient;
+  emailSender?: EmailSender;
   imageAnalyzer: ImageAnalyzer;
   embedder: Embedder;
   /** for deterministic tests */
@@ -99,6 +100,24 @@ export interface EmailDraftClient {
     body: string;
     replyToMessageId?: string;
   }): Promise<{ draftId: string; messageId?: string; webLink?: string }>;
+}
+
+/**
+ * Real email send. Distinct from EmailDraftClient because send is a side-effect
+ * action gated by the confirmation rail with explicit-id requirement.
+ * Only wired on surfaces that have provider OAuth tokens reachable (bot, not Vercel).
+ */
+export interface EmailSender {
+  sendEmail(args: {
+    provider: "gmail" | "outlook";
+    accountLabel?: string;
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    body: string;
+    replyToMessageId?: string;
+  }): Promise<{ messageId: string; threadId?: string; webLink?: string }>;
 }
 
 export interface ImageAnalyzer {

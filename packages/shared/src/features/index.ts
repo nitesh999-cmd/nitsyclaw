@@ -27,6 +27,7 @@ import { registerLifeAdminIntake } from "./20-life-admin-intake.js";
 import { registerHomeAssistants } from "./21-home-assistants.js";
 import { registerPersonalOs } from "./22-personal-os.js";
 import { registerMemoryOps } from "./23-memory-ops.js";
+import { registerEmailSend } from "./24-email-send.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -52,6 +53,7 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerPersonalLists(r);
   registerEmailSearch(r);
   registerEmailDrafts(r);
+  registerEmailSend(r);
   registerSpotify(r);
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
@@ -86,4 +88,5 @@ export * from "./20-life-admin-intake.js";
 export * from "./21-home-assistants.js";
 export * from "./22-personal-os.js";
 export * from "./23-memory-ops.js";
+export * from "./24-email-send.js";
 export * from "./feature-queue-status.js";
