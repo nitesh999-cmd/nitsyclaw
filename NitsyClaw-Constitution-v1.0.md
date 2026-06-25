@@ -210,6 +210,19 @@ WhatsApp's self-chat notifications are unreliable (often silent, especially afte
 - *Source:* Session 5f — Nitesh missed bot replies because WhatsApp notifications didn't fire / he'd switched apps before the agent finished
 - *Added:* 2026-04-28
 
+### R41 — Material info and opinion asks trigger Council + Agents + Best Skill (never solo)
+When Nitesh brings **material information** (real decision, tradeoff, strategy shift, pivot, new data with stakes) OR asks for **thoughts / opinion / "what do you think"**, the response MUST run all three:
+1. **LLM Council** — 5-advisor pass: independent analyses → anonymous peer review → synthesised verdict. Use the `llm-council` skill where present.
+2. **Agents** — relevant independent agents spawned in parallel (review/research/security per the task) for second opinions. No grinding solo when the council pattern applies.
+3. **Best available skill across the AI universe** — route to the strongest matching installed skill (`nitesh-skill-stack`) AND actively hunt external via `ai-skills-radar` / `marketplace-audit` for a better skill/MCP/tool before acting. Respect each project's install-safety rules.
+
+For routine, mechanical, asked-and-told tasks (bug fix with one obvious fix, doc cadence updates, restart-a-process, paste-a-file), proceed normally without the council overhead — these are not material decisions. For opinion asks the council ALWAYS fires regardless of perceived stakes.
+
+Skipping the council on a qualifying trigger is a rule violation. If in doubt, ask "material call — run council?" once and proceed per the answer.
+
+- *Source:* Session 2026-06-23 — explicit user instruction after observing repeated solo takes. Codified at three layers (auto-memory feedback file, this rule, global CLAUDE.md Deep-Work Rule) so it cannot quietly drift.
+- *Added:* 2026-06-23
+
 ### R40 — Every audio feature must have a user-gesture entry-point (browser autoplay policy)
 Browser audio APIs (`speechSynthesis`, `<audio>`, Web Audio) require a recent user gesture to actually play. Chrome (desktop + Android) and iOS Safari "expire" the gesture lock during async waits — a primer fired at click-time (R-NA, but per session 5l pattern) does NOT guarantee subsequent async `speak()` calls succeed. They can be silently dropped. Therefore: any feature that wants automatic audio (e.g. streaming TTS reading replies aloud) MUST also expose a manual user-gesture entry-point that re-fires the audio with guaranteed success. Concrete impl: `/chat` shows a 🔊 button next to every assistant message bubble; click → `speechSynthesis.cancel(); speak(content)`. The streaming auto-speak path stays in place for users where it works (no regression); the button is the always-works fallback. The principle generalises: never ship an "automatic audio" feature without a "manually trigger audio" companion.
 - *Source:* Session 5o — voice picker preview (sync click→speak) worked; streaming auto-TTS (async after fetch) silently failed on the same browser
@@ -374,6 +387,7 @@ Global login-failure counters may be used for alerting, suspicious traffic signa
 | 2026-04-28 | Bot replies invisible — WhatsApp self-chat notifications silent / user moved on | R37 | Every outbound also POSTs to ntfy.sh; phone + PC + browser all push-notified |
 | 2026-04-29 | `schedule_call` only wrote to Google; Wattage M365 had read but no write path | R38 | `calendar` enum on tool input, persisted to confirmation payload; `resolve_confirmation` routes per provider; dashboard falls back to Google when outlook is unreachable from Vercel |
 | 2026-04-29 | `/chat` Send produced user bubble + no reply text on user's two Chrome browsers; server endpoints healthy | R39 | Defensive streaming reader (reverse-search assistant, HTTP-status check, per-event console logs), automatic fallback to non-streaming `/api/chat` when streaming yields nothing |
+| 2026-06-23 | Solo takes on material decisions / opinion asks burned trust over multiple sessions | R41 | Council + agents + best skill mandatory on material info and opinion triggers; codified at three layers (memory, R41, global CLAUDE.md) so it cannot drift |
 | 2026-05-01 | Public Vercel dashboard exposed private memories, briefs, reminders, conversations, and settings without auth | R41 | Added dashboard middleware with Basic auth, production fail-closed when password env is missing, and static-asset-only bypass |
 | 2026-05-01 | WhatsApp bot ready but owner self-chat messages still dropped | R42 | Added shared owner-ID normalization and safe `fromMe=true` self-chat acceptance; added regression tests |
 | 2026-05-01 | WhatsApp output awkward on mobile and `Yes` could resolve to `No pending confirmations` without context | R43 | Let orphan yes/no fall through to agent context; banned WhatsApp markdown tables in prompt; cleaned mojibake from morning brief and plate output |
