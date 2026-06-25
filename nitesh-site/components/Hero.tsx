@@ -15,7 +15,7 @@ export default function Hero() {
     <section id="top" className="relative overflow-hidden bg-ink text-white">
       {/* layered aurora + grid backdrop */}
       <div
-        className="pointer-events-none absolute inset-0 bg-grid-faint [background-size:48px_48px] opacity-40"
+        className="pointer-events-none absolute inset-0 bg-grid-faint opacity-40 [background-size:48px_48px]"
         aria-hidden="true"
       />
       <div
@@ -27,7 +27,7 @@ export default function Hero() {
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute right-[-12%] bottom-[-25%] h-[30rem] w-[30rem] animate-aurora rounded-full bg-sky-500/15 blur-3xl [animation-delay:-3s]"
+        className="pointer-events-none absolute bottom-[-25%] right-[-12%] h-[30rem] w-[30rem] animate-aurora rounded-full bg-sky-500/15 blur-3xl [animation-delay:-3s]"
         aria-hidden="true"
       />
       {/* top + bottom vignette for depth */}

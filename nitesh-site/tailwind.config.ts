@@ -26,7 +26,8 @@ const config: Config = {
       },
       boxShadow: {
         card: "0 1px 2px rgba(16,24,40,0.06), 0 8px 24px -8px rgba(16,24,40,0.12)",
-        "card-lg": "0 1px 2px rgba(16,24,40,0.06), 0 24px 48px -16px rgba(16,24,40,0.22)",
+        "card-lg":
+          "0 1px 2px rgba(16,24,40,0.06), 0 24px 48px -16px rgba(16,24,40,0.22)",
       },
       backgroundImage: {
         "grid-faint":
@@ -38,8 +39,14 @@ const config: Config = {
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         aurora: {
-          "0%, 100%": { transform: "translate3d(0,0,0) scale(1)", opacity: "0.55" },
-          "50%": { transform: "translate3d(24px,-28px,0) scale(1.18)", opacity: "0.85" },
+          "0%, 100%": {
+            transform: "translate3d(0,0,0) scale(1)",
+            opacity: "0.55",
+          },
+          "50%": {
+            transform: "translate3d(24px,-28px,0) scale(1.18)",
+            opacity: "0.85",
+          },
         },
         float: {
           "0%, 100%": { transform: "translateY(0)" },

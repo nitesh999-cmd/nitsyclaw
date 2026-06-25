@@ -20,7 +20,7 @@ export default function HeroPanel() {
         aria-hidden="true"
       />
 
-      <div className="relative animate-float-slow rounded-2xl border border-white/12 bg-white/[0.06] p-5 shadow-card-lg backdrop-blur-xl">
+      <div className="border-white/12 relative animate-float-slow rounded-2xl border bg-white/[0.06] p-5 shadow-card-lg backdrop-blur-xl">
         {/* window chrome */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
@@ -60,7 +60,9 @@ export default function HeroPanel() {
         <div className="mt-5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-slate-300">Operating rhythm</span>
-            <span className="font-semibold text-emerald-300">Nothing slipping</span>
+            <span className="font-semibold text-emerald-300">
+              Nothing slipping
+            </span>
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
             <div
@@ -72,7 +74,7 @@ export default function HeroPanel() {
       </div>
 
       {/* floating accent chip */}
-      <div className="absolute -bottom-5 -left-3 hidden animate-float items-center gap-2 rounded-xl border border-white/12 bg-ink/80 px-3.5 py-2.5 shadow-card-lg backdrop-blur-xl sm:flex">
+      <div className="border-white/12 absolute -bottom-5 -left-3 hidden animate-float items-center gap-2 rounded-xl border bg-ink/80 px-3.5 py-2.5 shadow-card-lg backdrop-blur-xl sm:flex">
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-strong text-white">
           <Check className="h-4 w-4" />
         </span>

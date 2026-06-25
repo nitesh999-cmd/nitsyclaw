@@ -35,7 +35,10 @@ export default function LeadForm() {
   );
 
   return (
-    <form onSubmit={onWhatsApp} className="card border-t-4 border-t-accent-strong p-6 sm:p-7">
+    <form
+      onSubmit={onWhatsApp}
+      className="card border-t-4 border-t-accent-strong p-6 sm:p-7"
+    >
       <p className="text-base font-semibold text-ink">
         Tell me what&apos;s slowing you down
       </p>

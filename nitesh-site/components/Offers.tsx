@@ -117,10 +117,16 @@ export default function Offers() {
                   <li key={item} className="flex items-start gap-2.5 text-sm">
                     <Check
                       className={`mt-0.5 h-4 w-4 shrink-0 ${
-                        offer.featured ? "text-accent-soft" : "text-accent-strong"
+                        offer.featured
+                          ? "text-accent-soft"
+                          : "text-accent-strong"
                       }`}
                     />
-                    <span className={offer.featured ? "text-slate-200" : "text-slate-600"}>
+                    <span
+                      className={
+                        offer.featured ? "text-slate-200" : "text-slate-600"
+                      }
+                    >
                       {item}
                     </span>
                   </li>

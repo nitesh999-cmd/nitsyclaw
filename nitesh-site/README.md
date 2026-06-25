@@ -26,14 +26,14 @@ one question: **"Why should a busy owner contact Nitesh?"**
 
 ## Tech stack
 
-| Layer      | Choice                                   |
-| ---------- | ---------------------------------------- |
-| Framework  | Next.js 15 (App Router, React 19)        |
-| Language   | TypeScript (strict)                      |
-| Styling    | Tailwind CSS 3.4                          |
-| Fonts      | Inter via `next/font` (self-hosted)      |
-| SEO        | Metadata API, JSON-LD, sitemap, robots   |
-| Hosting    | Vercel (recommended) / any Node host     |
+| Layer     | Choice                                 |
+| --------- | -------------------------------------- |
+| Framework | Next.js 15 (App Router, React 19)      |
+| Language  | TypeScript (strict)                    |
+| Styling   | Tailwind CSS 3.4                       |
+| Fonts     | Inter via `next/font` (self-hosted)    |
+| SEO       | Metadata API, JSON-LD, sitemap, robots |
+| Hosting   | Vercel (recommended) / any Node host   |
 
 ---
 
@@ -87,12 +87,12 @@ Open <http://localhost:3000>.
 
 ### Available scripts
 
-| Command          | What it does                          |
-| ---------------- | ------------------------------------- |
-| `npm run dev`    | Start the dev server                  |
-| `npm run build`  | Production build                      |
-| `npm run start`  | Serve the production build            |
-| `npm run lint`   | Run ESLint (next/core-web-vitals)     |
+| Command         | What it does                      |
+| --------------- | --------------------------------- |
+| `npm run dev`   | Start the dev server              |
+| `npm run build` | Production build                  |
+| `npm run start` | Serve the production build        |
+| `npm run lint`  | Run ESLint (next/core-web-vitals) |
 
 ---
 

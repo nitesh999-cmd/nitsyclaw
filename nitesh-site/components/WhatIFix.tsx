@@ -39,10 +39,7 @@ export default function WhatIFix() {
 
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {SERVICES.map((s) => (
-            <article
-              key={s.n}
-              className="card card-hover flex flex-col"
-            >
+            <article key={s.n} className="card card-hover flex flex-col">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-ink text-sm font-bold text-white">
                 {s.n}
               </span>

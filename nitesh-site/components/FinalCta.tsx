@@ -7,7 +7,7 @@ export default function FinalCta() {
       <div className="container-page">
         <div className="relative overflow-hidden rounded-3xl bg-ink px-6 py-14 text-center text-white sm:px-12 sm:py-16">
           <div
-            className="pointer-events-none absolute inset-0 bg-grid-faint [background-size:40px_40px] opacity-30"
+            className="pointer-events-none absolute inset-0 bg-grid-faint opacity-30 [background-size:40px_40px]"
             aria-hidden="true"
           />
           <div

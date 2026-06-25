@@ -28,9 +28,24 @@ const ROWS = [
 ];
 
 const COLS = [
-  { key: "nothing", title: "Do nothing", sub: "Keep carrying it", highlight: false },
-  { key: "hire", title: "Hire full-time ops", sub: "Big, slow commitment", highlight: false },
-  { key: "fixer", title: "Work with Nitesh", sub: "Fractional fixer", highlight: true },
+  {
+    key: "nothing",
+    title: "Do nothing",
+    sub: "Keep carrying it",
+    highlight: false,
+  },
+  {
+    key: "hire",
+    title: "Hire full-time ops",
+    sub: "Big, slow commitment",
+    highlight: false,
+  },
+  {
+    key: "fixer",
+    title: "Work with Nitesh",
+    sub: "Fractional fixer",
+    highlight: true,
+  },
 ] as const;
 
 export default function Comparison() {
@@ -79,7 +94,10 @@ export default function Comparison() {
             </thead>
             <tbody>
               {ROWS.map((row) => (
-                <tr key={row.label} className="border-b border-white/5 last:border-0">
+                <tr
+                  key={row.label}
+                  className="border-b border-white/5 last:border-0"
+                >
                   <th
                     scope="row"
                     className="px-5 py-4 text-left align-top font-semibold text-white"
@@ -89,7 +107,9 @@ export default function Comparison() {
                   <td className="px-5 py-4 align-top text-slate-300">
                     {row.nothing}
                   </td>
-                  <td className="px-5 py-4 align-top text-slate-300">{row.hire}</td>
+                  <td className="px-5 py-4 align-top text-slate-300">
+                    {row.hire}
+                  </td>
                   <td className="bg-accent-strong/15 px-5 py-4 align-top font-medium text-white">
                     <span className="inline-flex items-start gap-2">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-soft" />

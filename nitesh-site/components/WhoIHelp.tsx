@@ -63,7 +63,10 @@ export default function WhoIHelp() {
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
             {NOT_FOR.map((n) => (
-              <li key={n} className="flex items-start gap-3 text-sm text-slate-600">
+              <li
+                key={n}
+                className="flex items-start gap-3 text-sm text-slate-600"
+              >
                 <XIcon />
                 {n}
               </li>

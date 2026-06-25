@@ -97,9 +97,7 @@ export default function Header() {
           type="button"
           onClick={() => setOpen((v) => !v)}
           className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors lg:hidden ${
-            solid
-              ? "border-slate-200 text-ink"
-              : "border-white/30 text-white"
+            solid ? "border-slate-200 text-ink" : "border-white/30 text-white"
           }`}
           aria-expanded={open}
           aria-controls="mobile-menu"
@@ -115,13 +113,20 @@ export default function Header() {
             strokeLinecap="round"
             aria-hidden="true"
           >
-            {open ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            {open ? (
+              <path d="M6 6l12 12M18 6 6 18" />
+            ) : (
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            )}
           </svg>
         </button>
       </nav>
 
       {open && (
-        <div id="mobile-menu" className="border-t border-slate-200 bg-white lg:hidden">
+        <div
+          id="mobile-menu"
+          className="border-t border-slate-200 bg-white lg:hidden"
+        >
           <div className="container-page flex flex-col gap-1 py-4">
             {NAV_LINKS.map((link) => (
               <a
@@ -134,10 +139,18 @@ export default function Header() {
               </a>
             ))}
             <div className="mt-2 flex flex-col gap-2">
-              <a href="#contact" onClick={() => setOpen(false)} className="btn-primary w-full">
+              <a
+                href="#contact"
+                onClick={() => setOpen(false)}
+                className="btn-primary w-full"
+              >
                 Book a Growth Fix Call
               </a>
-              <a href={mailtoHref} onClick={() => setOpen(false)} className="btn-secondary w-full">
+              <a
+                href={mailtoHref}
+                onClick={() => setOpen(false)}
+                className="btn-secondary w-full"
+              >
                 Send Me the Problem
               </a>
             </div>

@@ -147,7 +147,9 @@ export default function LeakScorecard() {
 
           {/* result */}
           <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 shadow-card">
-            <div className={`bg-gradient-to-r ${tier.tone} px-6 py-6 text-white`}>
+            <div
+              className={`bg-gradient-to-r ${tier.tone} px-6 py-6 text-white`}
+            >
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl font-bold backdrop-blur">
                   {count}
@@ -182,7 +184,10 @@ export default function LeakScorecard() {
           </div>
           <p className="mt-3 text-center text-xs text-slate-500">
             Prefer email?{" "}
-            <a href={emailHref} className="font-medium text-accent-strong underline">
+            <a
+              href={emailHref}
+              className="font-medium text-accent-strong underline"
+            >
               Send your scan by email
             </a>
             . This is a self-check, not a diagnosis — the call is where we
