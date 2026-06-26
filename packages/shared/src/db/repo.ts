@@ -693,6 +693,108 @@ export async function getDailyFocus(
   return row ?? null;
 }
 
+// ===== Cross-table "last time" recall (Feature 27) =====
+
+export interface RecallHit {
+  kind: "message" | "memory" | "expense" | "reminder";
+  id: string;
+  at: Date;
+  preview: string;
+  /** secondary detail when useful (e.g. merchant for expense, source for message) */
+  context?: string;
+}
+
+/**
+ * Plain ILIKE search across the four "personal history" surfaces, merged
+ * into one chronological list. Single-owner mode: filters by owner_hash
+ * for owned tables (memories/expenses/reminders) and by fromNumber for
+ * messages. No embeddings yet — pure text match.
+ */
+export async function recallAcrossSurfaces(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; ownerPhoneHash: string; query: string; limit?: number },
+): Promise<RecallHit[]> {
+  guardUnscopedCustomerDataAccess(tenant);
+  const limit = Math.min(Math.max(args.limit ?? 10, 1), 50);
+  const pattern = `%${args.query.trim().replace(/[%_]/g, " ")}%`;
+
+  const [msgRows, memRows, expRows, remRows] = await Promise.all([
+    db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.fromNumber, args.ownerPhoneHash),
+          sql`(${messages.body} ILIKE ${pattern} OR ${messages.transcript} ILIKE ${pattern})`,
+        ),
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(limit),
+    db
+      .select()
+      .from(memories)
+      .where(sql`${memories.content} ILIKE ${pattern}`)
+      .orderBy(desc(memories.createdAt))
+      .limit(limit),
+    db
+      .select()
+      .from(expenses)
+      .where(
+        sql`(${expenses.merchant} ILIKE ${pattern} OR ${expenses.notes} ILIKE ${pattern} OR ${expenses.category} ILIKE ${pattern})`,
+      )
+      .orderBy(desc(expenses.occurredAt))
+      .limit(limit),
+    db
+      .select()
+      .from(reminders)
+      .where(sql`${reminders.text} ILIKE ${pattern}`)
+      .orderBy(desc(reminders.createdAt))
+      .limit(limit),
+  ]);
+
+  const previewOf = (text: string | null | undefined, max = 140): string => {
+    if (!text) return "";
+    const clean = text.replace(/\s+/g, " ").trim();
+    return clean.length > max ? clean.slice(0, max - 1) + "…" : clean;
+  };
+
+  const hits: RecallHit[] = [];
+  for (const m of msgRows) {
+    hits.push({
+      kind: "message",
+      id: m.id,
+      at: m.createdAt,
+      preview: previewOf(m.transcript || m.body),
+      context: m.direction === "in" ? "from you" : "from NitsyClaw",
+    });
+  }
+  for (const m of memRows) {
+    hits.push({ kind: "memory", id: m.id, at: m.createdAt, preview: previewOf(m.content), context: m.kind });
+  }
+  for (const e of expRows) {
+    const amount = (e.amount / 100).toFixed(2);
+    hits.push({
+      kind: "expense",
+      id: e.id,
+      at: e.occurredAt,
+      preview: `${e.merchant ?? e.category} ${amount} ${e.currency}`,
+      context: e.category,
+    });
+  }
+  for (const r of remRows) {
+    hits.push({
+      kind: "reminder",
+      id: r.id,
+      at: r.createdAt,
+      preview: previewOf(r.text),
+      context: r.status,
+    });
+  }
+  hits.sort((a, b) => b.at.getTime() - a.at.getTime());
+  return hits.slice(0, limit);
+}
+
 // ===== Snooze-and-resurface (Feature 26) =====
 
 export async function insertSnooze(
