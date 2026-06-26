@@ -2160,4 +2160,61 @@ Pattern (copied from Feature 18 email drafts):
 - `.allow-local-whatsapp` flag file at project root -- gitignored, kept; required by launcher gate.
 - Secret-root `.env.local` now has 3 new keys: `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1`, `NITSYCLAW_QR_RECOVERY_TOKEN=...`, `NITSYCLAW_QR_RECOVERY_UNTIL=...`, `PORT=3010`. QR window expires 30 min from creation -- no further action needed.
 
+---
+
+## 50. Session 2026-06-26 -- Feature 25 (Daily Focus Theme) shipped + R41 codified
+
+**Date:** 2026-06-26
+**Driver:** Nitesh on laptop. "Go" -> execute Phase A of 10-item roadmap. Started with Feature 25 (Daily Focus Theme).
+
+### What shipped
+
+**Feature 25: Daily Focus Theme** (commit `3ee541f`). Pick ONE thing per day. Roadmap item #4 (and the smallest-scope Phase A entry). 4 new tools:
+
+- `propose_daily_focus({ candidates: [str, ...] })` -- 2-5 candidates, idempotent re-propose.
+- `pick_daily_focus({ chosenText })` -- records the choice; overwrites prior.
+- `mark_daily_focus_done()` -- closes the day's focus.
+- `get_today_focus()` -- read for other features (evening close, drift detect).
+
+**Schema:** new `daily_focus` table with composite unique index on (owner_hash, for_date). Live in Supabase via direct DDL (Drizzle auto-generated migration tried to re-add existing columns on other tables and crashed). 0009 migration file replaced with minimal version matching what was applied.
+
+**Tests:** 6 new tests in `25-daily-focus.test.ts` cover fresh state, propose idempotency, pick after propose, pick without prior propose, mark done, mark-without-row guard. Full suite **899/899 PASS**.
+
+**Helpers extension:** `daily_focus` array added to `FakeDbState` shape so other features can test against it.
+
+**Repo pattern note:** initial `.onConflictDoUpdate().returning()` chain fails against the fake DB. Refactored to manual select-then-insert-or-update; same Postgres semantics, full fake-DB coverage.
+
+### Rule codification (R41)
+
+In the same session, codified the user's explicit rule:
+
+> Every time Nitesh brings new material info OR asks for thoughts/opinion -> Council + Agents + Best Skill. Never solo take.
+
+Recorded at three layers (commit `d164b36`):
+- Constitution **R41** (project-immutable).
+- Per-project auto-memory feedback file (`feedback_deep_work_protocol.md`).
+- Global `~/.claude/CLAUDE.md` Deep-Work Rule (tightened wording, marked MANDATORY).
+
+Tested in the same session by running a 5-lens steelman council on "steelman this whole project" and a 5-lens feature-candidate council on "what other features should we add". Council pattern delivered.
+
+### Roadmap status update
+
+| # | Status | Commit |
+|---|---|---|
+| 1 | DONE | `540edbb` Gmail send |
+| 2 | DONE | `540edbb` Outlook send (same adapter, free) |
+| 3 | NEXT | Calendar invite send |
+| 4 | DONE | `3ee541f` Daily Focus Theme (this session) |
+| 5-10 | PENDING | Receipt expense, bills sweep, ntfy push, weekly digest, dashboard landing, tenant migration |
+
+Plus 10 net-new features from the council pass (entity extraction substrate, pre-meeting briefing T-10, snooze-and-resurface, contact timeline, voice memo routing, orphan radar, self-serve OAuth onboarding, Stripe billing, trust trio) added to backlog. Phase A continues with #3 (Calendar invite) or one of the new candidates.
+
+### Bot state
+
+- Restarted to pick up Feature 25 wiring.
+- `[boot] WhatsApp ready`, `[boot] scheduler started`.
+- Heartbeat fresh (broom tick 19:52).
+- Provider:proof-readonly remains 6/6 PASS (token re-auth from session 48 still valid).
+
+
 
