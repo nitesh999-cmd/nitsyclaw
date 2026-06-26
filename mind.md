@@ -2263,5 +2263,54 @@ Council-backlog #3. S-complexity, big delight. Mirrors reminder pattern: per-min
 - `[boot] WhatsApp ready`, `[boot] scheduler started`.
 - Snooze scheduler tick live (next per-minute fire will sweep `snoozes` table).
 
+---
+
+## 52. Session 2026-06-26 (continued, third push) -- Feature 27 ("last time" recall) shipped
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go" -> ship council backlog #5 (last-time recall / contact-timeline foundation).
+
+### Feature 27: "Last time" recall (commit `5c4a880`)
+
+Council backlog #5. Pure read-side cross-table search across user's personal history surfaces. No new substrate / no new table -- uses existing tables.
+
+**Repo:** `recallAcrossSurfaces(db, tenant, { ownerHash, ownerPhoneHash, query, limit })` -- parallel ILIKE search across:
+- `messages` (filter by fromNumber == ownerPhoneHash; match body OR transcript)
+- `memories` (match content)
+- `expenses` (match merchant OR notes OR category)
+- `reminders` (match text)
+
+Returns chronological list (newest first) with normalised hit shape `{ kind, id, at, preview, context }`. Pure text match; embeddings layer in later with no tool surface change.
+
+**Feature 27 tool:** `last_time_recall({ query, limit? })`. Single tool, returns hits across all 4 surfaces.
+
+**Tests:** 5 in `27-last-time-recall.test.ts` cover empty state, cross-surface aggregation, chronological ordering, expense preview shape, message direction context, limit enforcement. **Caveat:** fake DB doesn't implement ILIKE (treats raw sql where-clauses as no-op), so tests verify tool wiring + result shape; real ILIKE matching is exercised live. Full suite **912/912 PASS** (+5 from 907).
+
+### Compounding
+
+This unlocks council backlog #5 (Contact Timeline) almost for free -- add a name filter to the same query and group by contact, no schema change needed. Foundation for "ask my life" tool once embedding pipeline lands.
+
+### Roadmap status (cumulative)
+
+| # | Status | Commit |
+|---|---|---|
+| Original #1 | DONE | `540edbb` Gmail send |
+| Original #2 | DONE | `540edbb` Outlook send |
+| Original #3 | DONE (session 5m R38) | Pre-existing calendar invite |
+| Original #4 | DONE | `3ee541f` Daily Focus Theme |
+| Original #5-10 | PENDING | Receipt expense, bills sweep, ntfy push, weekly digest, dashboard landing, tenant migration |
+| Council #3 | DONE | `9245454` Snooze-and-resurface |
+| Council #5 | DONE (foundation) | `5c4a880` last_time_recall (this push) |
+
+### Cumulative session count this run
+
+- 4 features shipped (24 Gmail/Outlook send, 25 Daily Focus, 26 Snooze, 27 last-time recall)
+- 27 tools registered (+ 8 new this session: 3 snooze + 4 daily focus + 1 last-time)
+- 2 new DB tables (`daily_focus`, `snoozes`) live in Supabase
+- Tests: 893 -> **912** (+19 across all features)
+- 1 new Constitution rule (R41 Council protocol)
+- Bot recovered from 38-day downtime
+- 3 OAuth tokens re-auth'd, 6/6 provider:proof-readonly PASS
+
 
 
