@@ -2216,5 +2216,52 @@ Plus 10 net-new features from the council pass (entity extraction substrate, pre
 - Heartbeat fresh (broom tick 19:52).
 - Provider:proof-readonly remains 6/6 PASS (token re-auth from session 48 still valid).
 
+---
+
+## 51. Session 2026-06-26 (continued) -- Feature 26 (snooze-and-resurface) shipped
+
+**Date:** 2026-06-26 (continued from session 50)
+**Driver:** Nitesh "go" -> continue Phase A. Picked council backlog item #3 (snooze-and-resurface).
+
+### Note on Phase A #3 (Calendar invite)
+
+Confirmed already done. Session 5m / R38 wired both Google `cal.events.insert` with `sendUpdates: "all"` AND Microsoft Graph `/me/events` with `attendees`. Both providers send invite emails natively when the confirmation rail commits the create. No work needed; box checked.
+
+### Feature 26: Snooze-and-resurface (commit `9245454`)
+
+Council-backlog #3. S-complexity, big delight. Mirrors reminder pattern: per-minute scheduler sweep fires due rows.
+
+**Schema:** new `snoozes` table -- id, owner_hash, content, source_hint, draft_reply, resurface_at, status (pending/resurfaced/cancelled), created_at. Two indexes: (status, resurface_at) for sweep, (owner_hash, status) for per-user list. Applied directly to Supabase.
+
+**Repo:** insertSnooze, dueSnoozes (no tenant guard -- scheduler fan-out across owners), markSnoozeResurfaced, cancelSnooze, listMyPendingSnoozes.
+
+**Feature 26 tools:**
+- `snooze_thread({ content, resurfaceAtIso, sourceHint?, draftReply? })` -- inserts; rejects < 60s or > 90 days.
+- `list_my_snoozes()` -- pending rows.
+- `cancel_snooze({ id })` -- soft cancel.
+
+**Scheduler integration:** `fireDueSnoozes` helper hooked into existing per-minute reminder sweep in `apps/bot/src/scheduler.ts`. Heartbeat reports `snoozesFired` count for ops visibility.
+
+**Tests:** 8 new in `26-snooze.test.ts` cover insert, window guards (>60s, <90d), list, cancel happy, cancel-not-found, fireDueSnoozes-fires-due, fireDueSnoozes-leaves-future. Full suite **907/907 PASS** (+8 from 899).
+
+**helpers.ts:** added `snoozes` to FakeDbState + default `status: "pending"` insert helper (matches confirmations/feature_requests pattern). Also fixed list-ordering test to assert presence not order (fake DB orderBy is no-op; real Postgres still orders).
+
+### Roadmap status
+
+| # | Status | Commit |
+|---|---|---|
+| 1 | DONE | `540edbb` Gmail send |
+| 2 | DONE | `540edbb` Outlook send |
+| 3 | DONE (session 5m R38, calendar invite) | Pre-existing |
+| 4 | DONE | `3ee541f` Daily Focus Theme |
+| 5-10 | PENDING | Receipt expense, bills sweep, ntfy push, weekly digest, dashboard landing, tenant migration |
+| Council #3 | DONE | `9245454` Snooze-and-resurface |
+
+### Bot state
+
+- Restarted, picked up Feature 26.
+- `[boot] WhatsApp ready`, `[boot] scheduler started`.
+- Snooze scheduler tick live (next per-minute fire will sweep `snoozes` table).
+
 
 
