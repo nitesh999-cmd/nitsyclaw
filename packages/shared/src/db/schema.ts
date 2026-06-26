@@ -106,6 +106,28 @@ export const briefs = pgTable("briefs", {
 });
 
 /**
+ * Daily Focus Theme (Feature 25). One ONE-thing per owner per day.
+ * Morning brief proposes candidates; user picks; drift-detector + evening
+ * close read this row to nudge / report. Unique on (owner_hash, for_date).
+ */
+export const dailyFocus = pgTable(
+  "daily_focus",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    forDate: text("for_date").notNull(), // 'YYYY-MM-DD' in owner timezone
+    candidates: jsonb("candidates").$type<string[]>().default([]).notNull(),
+    chosenText: text("chosen_text"), // null until user picks
+    chosenAt: timestamp("chosen_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerDateUniqueIdx: uniqueIndex("daily_focus_owner_date_unique_idx").on(t.ownerHash, t.forDate),
+  }),
+);
+
+/**
  * Pending confirmations — destructive actions wait here for y/n.
  */
 export const confirmations = pgTable("confirmations", {
@@ -312,3 +334,5 @@ export type NewSystemHeartbeat = typeof systemHeartbeats.$inferInsert;
 export type DashboardAuthAttempt = typeof dashboardAuthAttempts.$inferSelect;
 export type CommandJob = typeof commandJobs.$inferSelect;
 export type NewCommandJob = typeof commandJobs.$inferInsert;
+export type DailyFocus = typeof dailyFocus.$inferSelect;
+export type NewDailyFocus = typeof dailyFocus.$inferInsert;

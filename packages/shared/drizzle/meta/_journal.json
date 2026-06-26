@@ -64,6 +64,13 @@
       "when": 1778100900000,
       "tag": "0008_unique_command_job_dedupe",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782467417474,
+      "tag": "0009_wealthy_grandmaster",
+      "breakpoints": true
     }
   ]
 }

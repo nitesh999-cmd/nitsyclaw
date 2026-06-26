@@ -20,6 +20,7 @@ import {
   connectedAccounts,
   systemHeartbeats,
   commandJobs,
+  dailyFocus,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -610,4 +611,83 @@ function sanitizeAuditValue(value: unknown): unknown {
     return out;
   }
   return "[redacted]";
+}
+
+// ===== Daily Focus (Feature 25) =====
+
+export async function proposeDailyFocus(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; forDate: string; candidates: string[] },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const trimmed = args.candidates.map((c) => c.trim()).filter(Boolean).slice(0, 5);
+  const existing = await getDailyFocus(db, tenant, args);
+  if (existing) {
+    await db
+      .update(dailyFocus)
+      .set({ candidates: trimmed })
+      .where(and(eq(dailyFocus.ownerHash, args.ownerHash), eq(dailyFocus.forDate, args.forDate)));
+  } else {
+    await db
+      .insert(dailyFocus)
+      .values({ ownerHash: args.ownerHash, forDate: args.forDate, candidates: trimmed });
+  }
+  const row = await getDailyFocus(db, tenant, args);
+  return row!;
+}
+
+export async function pickDailyFocus(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; forDate: string; chosenText: string; now: Date },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const chosen = args.chosenText.trim().slice(0, 200);
+  if (!chosen) throw new Error("chosenText is required");
+  const existing = await getDailyFocus(db, tenant, args);
+  if (existing) {
+    await db
+      .update(dailyFocus)
+      .set({ chosenText: chosen, chosenAt: args.now })
+      .where(and(eq(dailyFocus.ownerHash, args.ownerHash), eq(dailyFocus.forDate, args.forDate)));
+  } else {
+    await db.insert(dailyFocus).values({
+      ownerHash: args.ownerHash,
+      forDate: args.forDate,
+      candidates: [],
+      chosenText: chosen,
+      chosenAt: args.now,
+    });
+  }
+  const row = await getDailyFocus(db, tenant, args);
+  return row!;
+}
+
+export async function markDailyFocusDone(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; forDate: string; now: Date },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .update(dailyFocus)
+    .set({ completedAt: args.now })
+    .where(and(eq(dailyFocus.ownerHash, args.ownerHash), eq(dailyFocus.forDate, args.forDate)))
+    .returning();
+  return row ?? null;
+}
+
+export async function getDailyFocus(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; forDate: string },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .select()
+    .from(dailyFocus)
+    .where(and(eq(dailyFocus.ownerHash, args.ownerHash), eq(dailyFocus.forDate, args.forDate)))
+    .limit(1);
+  return row ?? null;
 }
