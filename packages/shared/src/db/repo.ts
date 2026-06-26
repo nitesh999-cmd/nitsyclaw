@@ -21,6 +21,7 @@ import {
   systemHeartbeats,
   commandJobs,
   dailyFocus,
+  snoozes,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -690,4 +691,65 @@ export async function getDailyFocus(
     .where(and(eq(dailyFocus.ownerHash, args.ownerHash), eq(dailyFocus.forDate, args.forDate)))
     .limit(1);
   return row ?? null;
+}
+
+// ===== Snooze-and-resurface (Feature 26) =====
+
+export async function insertSnooze(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; content: string; sourceHint?: string; draftReply?: string; resurfaceAt: Date },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .insert(snoozes)
+    .values({
+      ownerHash: args.ownerHash,
+      content: args.content,
+      sourceHint: args.sourceHint,
+      draftReply: args.draftReply,
+      resurfaceAt: args.resurfaceAt,
+    })
+    .returning();
+  return row!;
+}
+
+export async function dueSnoozes(db: DB, now: Date, limit = 20) {
+  // No tenant guard: scheduler-side fan-out reads across all owners.
+  const rows = await db
+    .select()
+    .from(snoozes)
+    .where(and(eq(snoozes.status, "pending"), lte(snoozes.resurfaceAt, now)))
+    .limit(limit);
+  return rows;
+}
+
+export async function markSnoozeResurfaced(db: DB, tenant: TenantContext, id: string) {
+  guardUnscopedCustomerDataAccess(tenant);
+  await db.update(snoozes).set({ status: "resurfaced" }).where(eq(snoozes.id, id));
+}
+
+export async function cancelSnooze(db: DB, tenant: TenantContext, args: { id: string; ownerHash: string }) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const updated = await db
+    .update(snoozes)
+    .set({ status: "cancelled" })
+    .where(and(eq(snoozes.id, args.id), eq(snoozes.ownerHash, args.ownerHash)))
+    .returning();
+  return updated[0] ?? null;
+}
+
+export async function listMyPendingSnoozes(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; limit?: number },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+  return await db
+    .select()
+    .from(snoozes)
+    .where(and(eq(snoozes.ownerHash, args.ownerHash), eq(snoozes.status, "pending")))
+    .orderBy(asc(snoozes.resurfaceAt))
+    .limit(limit);
 }

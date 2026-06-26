@@ -29,6 +29,7 @@ import { registerPersonalOs } from "./22-personal-os.js";
 import { registerMemoryOps } from "./23-memory-ops.js";
 import { registerEmailSend } from "./24-email-send.js";
 import { registerDailyFocus } from "./25-daily-focus.js";
+import { registerSnooze } from "./26-snooze.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -56,6 +57,7 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerEmailDrafts(r);
   registerEmailSend(r);
   registerDailyFocus(r);
+  registerSnooze(r);
   registerSpotify(r);
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
@@ -92,4 +94,5 @@ export * from "./22-personal-os.js";
 export * from "./23-memory-ops.js";
 export * from "./24-email-send.js";
 export * from "./25-daily-focus.js";
+export * from "./26-snooze.js";
 export * from "./feature-queue-status.js";

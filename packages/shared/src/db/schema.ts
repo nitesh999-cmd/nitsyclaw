@@ -106,6 +106,30 @@ export const briefs = pgTable("briefs", {
 });
 
 /**
+ * Snooze-and-resurface (Feature 26). Save any text + a resurface time; bot
+ * pings the user at that time with the content and an optional pre-drafted
+ * reply. Pattern mirrors reminders but body is free-form and optionally
+ * includes the original thread context for one-tap action.
+ */
+export const snoozes = pgTable(
+  "snoozes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    content: text("content").notNull(), // original message / email / note
+    sourceHint: text("source_hint"), // e.g. "Sarah - Q3 numbers thread"
+    draftReply: text("draft_reply"), // pre-written reply for one-tap send
+    resurfaceAt: timestamp("resurface_at", { withTimezone: true }).notNull(),
+    status: text("status", { enum: ["pending", "resurfaced", "cancelled"] }).notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    statusResurfaceIdx: index("snoozes_status_resurface_idx").on(t.status, t.resurfaceAt),
+    ownerStatusIdx: index("snoozes_owner_status_idx").on(t.ownerHash, t.status),
+  }),
+);
+
+/**
  * Daily Focus Theme (Feature 25). One ONE-thing per owner per day.
  * Morning brief proposes candidates; user picks; drift-detector + evening
  * close read this row to nudge / report. Unique on (owner_hash, for_date).
@@ -336,3 +360,5 @@ export type CommandJob = typeof commandJobs.$inferSelect;
 export type NewCommandJob = typeof commandJobs.$inferInsert;
 export type DailyFocus = typeof dailyFocus.$inferSelect;
 export type NewDailyFocus = typeof dailyFocus.$inferInsert;
+export type Snooze = typeof snoozes.$inferSelect;
+export type NewSnooze = typeof snoozes.$inferInsert;

@@ -3,7 +3,7 @@
 
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
-import { fireDueReminders, runMorningBrief } from "@nitsyclaw/shared/features";
+import { fireDueReminders, fireDueSnoozes, runMorningBrief } from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
@@ -61,7 +61,16 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
     cron.schedule("* * * * *", async () => {
       try {
         await fireDueReminders(opts.deps.db, opts.deps.whatsapp, opts.ownerPhone, opts.deps.now());
-        await writeHeartbeat("reminder-sweep", { lastReminderSweep: opts.deps.now().toISOString() });
+        const snoozeResult = await fireDueSnoozes(
+          opts.deps.db,
+          opts.deps.whatsapp,
+          opts.ownerPhone,
+          opts.deps.now(),
+        ).catch(() => ({ fired: 0 }));
+        await writeHeartbeat("reminder-sweep", {
+          lastReminderSweep: opts.deps.now().toISOString(),
+          snoozesFired: snoozeResult.fired,
+        });
       } catch (e) {
         await writeHeartbeat(
           "reminder-sweep",

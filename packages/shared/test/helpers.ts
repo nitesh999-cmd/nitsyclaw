@@ -34,6 +34,7 @@ export interface FakeDbState {
   system_heartbeats: FakeDbRow[];
   command_jobs: FakeDbRow[];
   daily_focus: FakeDbRow[];
+  snoozes: FakeDbRow[];
 }
 
 export type FakeDbWithState = DB & { __state: FakeDbState };
@@ -72,6 +73,7 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
     system_heartbeats: [],
     command_jobs: [],
     daily_focus: [],
+    snoozes: [],
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
   const insert = (table: keyof FakeDbState) => ({
@@ -82,6 +84,7 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
         createdAt: new Date(),
         ...(table === "confirmations" ? { status: "pending" } : {}),
         ...(table === "feature_requests" ? { status: "pending", type: "feature" } : {}),
+        ...(table === "snoozes" ? { status: "pending" } : {}),
         ...(table === "profile_context" ? { updatedAt: new Date() } : {}),
         ...r,
       }));
