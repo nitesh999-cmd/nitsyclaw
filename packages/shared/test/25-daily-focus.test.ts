@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ToolRegistry } from "../src/agent/tools.js";
-import { registerDailyFocus } from "../src/features/25-daily-focus.js";
+import { registerDailyFocus, runFocusEveningCloseOut } from "../src/features/25-daily-focus.js";
+import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 import { makeAgentDeps, makeFakeDb, getFakeDbState } from "./helpers.js";
 import type { ToolContext } from "../src/agent/tools.js";
 
@@ -130,5 +131,79 @@ describe("Feature 25 — Daily Focus Theme", () => {
     };
     expect(out.marked).toBe(false);
     expect(out.reason).toMatch(/no focus/i);
+  });
+});
+
+describe("Feature 25 — Evening close-out", () => {
+  function setupCloseOut() {
+    const wa = new MockWhatsAppClient();
+    const { db, state } = makeFakeDb();
+    const deps = makeAgentDeps({
+      db,
+      whatsapp: wa,
+      now: () => NOW,
+      timezone: "Australia/Melbourne",
+    });
+    const registry = new ToolRegistry();
+    registerDailyFocus(registry);
+    const ctx: ToolContext = {
+      userPhone: PHONE,
+      now: NOW,
+      timezone: "Australia/Melbourne",
+      deps,
+    };
+    return {
+      pick: registry.get("pick_daily_focus")!,
+      markDone: registry.get("mark_daily_focus_done")!,
+      tool: registry.get("focus_evening_close_out")!,
+      ctx,
+      state,
+      wa,
+      db,
+    };
+  }
+
+  it("returns state=no_focus_set and sends 'no ONE was set' when nothing picked", async () => {
+    const { tool, ctx, wa } = setupCloseOut();
+    const out = await tool.handler({} as Record<string, never>, ctx) as {
+      state: string;
+      delivered: boolean;
+    };
+    expect(out.state).toBe("no_focus_set");
+    expect(out.delivered).toBe(true);
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0]?.body).toMatch(/no ONE was set/i);
+  });
+
+  it("returns state=focus_open and sends 'Did you ship it?' when picked but not done", async () => {
+    const { tool, pick, ctx, wa } = setupCloseOut();
+    await pick.handler({ chosenText: "Ship Feature 28" }, ctx);
+    const out = await tool.handler({} as Record<string, never>, ctx) as {
+      state: string;
+      chosenText: string | null;
+    };
+    expect(out.state).toBe("focus_open");
+    expect(out.chosenText).toBe("Ship Feature 28");
+    expect(wa.sent.at(-1)?.body).toMatch(/Did you ship it\?/);
+    expect(wa.sent.at(-1)?.body).toContain("Ship Feature 28");
+  });
+
+  it("returns state=focus_completed and sends affirmation when picked and done", async () => {
+    const { tool, pick, markDone, ctx, wa } = setupCloseOut();
+    await pick.handler({ chosenText: "Ship Feature 28" }, ctx);
+    await markDone.handler({} as Record<string, never>, ctx);
+    const out = await tool.handler({} as Record<string, never>, ctx) as { state: string };
+    expect(out.state).toBe("focus_completed");
+    expect(wa.sent.at(-1)?.body).toMatch(/Marked done/i);
+    expect(wa.sent.at(-1)?.body).toContain("Ship Feature 28");
+  });
+
+  it("runFocusEveningCloseOut helper works directly with db + whatsapp args", async () => {
+    const { pick, ctx, wa, db } = setupCloseOut();
+    await pick.handler({ chosenText: "Direct helper test" }, ctx);
+    const out = await runFocusEveningCloseOut(db, wa, PHONE, NOW, "Australia/Melbourne");
+    expect(out.state).toBe("focus_open");
+    expect(out.delivered).toBe(true);
+    expect(out.chosenText).toBe("Direct helper test");
   });
 });

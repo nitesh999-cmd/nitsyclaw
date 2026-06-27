@@ -3,7 +3,12 @@
 
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
-import { fireDueReminders, fireDueSnoozes, runMorningBrief } from "@nitsyclaw/shared/features";
+import {
+  fireDueReminders,
+  fireDueSnoozes,
+  runFocusEveningCloseOut,
+  runMorningBrief,
+} from "@nitsyclaw/shared/features";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
@@ -16,6 +21,7 @@ import { formatSafeLogError, logBotError } from "./safe-log.js";
 const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
 const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
 const WHATSAPP_HEALTH_REPORT_CRON = process.env.WHATSAPP_HEALTH_REPORT_CRON ?? "0 21 * * *";
+const FOCUS_CLOSEOUT_CRON = process.env.FOCUS_CLOSEOUT_CRON ?? "30 20 * * *";
 const MEMORY_PRUNER_CRON = process.env.MEMORY_PRUNER_CRON ?? "0 3 * * *";
 const PRUNE_MESSAGES_DAYS = Number(process.env.PRUNE_MESSAGES_DAYS ?? 90);
 
@@ -140,6 +146,31 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
           logBotError("[cron:heartbeat] nightly health error status failed", heartbeatError);
         });
         logBotError("[cron:nightly-health] error", e);
+      }
+    }, { timezone: opts.deps.timezone }),
+  );
+
+  // 20:30 user-tz daily - evening close-out for Daily Focus Theme (Feature 25).
+  tasks.push(
+    cron.schedule(FOCUS_CLOSEOUT_CRON, async () => {
+      try {
+        const now = opts.deps.now();
+        if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+        const result = await runFocusEveningCloseOut(
+          opts.deps.db,
+          opts.deps.whatsapp,
+          opts.ownerPhone,
+          now,
+          opts.deps.timezone,
+        );
+        await writeHeartbeat("focus-closeout", {
+          lastRun: now.toISOString(),
+          state: result.state,
+          delivered: result.delivered,
+        });
+      } catch (e) {
+        await writeHeartbeat("focus-closeout", { error: formatSafeLogError(e) }, "error").catch(() => {});
+        logBotError("[cron:focus-closeout] error", e);
       }
     }, { timezone: opts.deps.timezone }),
   );

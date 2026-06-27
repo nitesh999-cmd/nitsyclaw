@@ -20,7 +20,9 @@ import {
   proposeDailyFocus,
 } from "../db/repo.js";
 import { privateOwnerTenantForPhone } from "../tenancy.js";
+import type { DB } from "../db/client.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
+import type { WhatsAppClient } from "../whatsapp/client.js";
 
 function todayKey(now: Date, timezone: string): string {
   return formatBriefDate(now, timezone);
@@ -102,6 +104,27 @@ export function registerDailyFocus(registry: ToolRegistry): void {
   });
 
   registry.register({
+    name: "focus_evening_close_out",
+    description:
+      "Send the user a one-line evening close-out for today's focus. Three states: " +
+      "(a) focus picked AND completed -> affirmation, " +
+      "(b) focus picked AND not completed -> 'did you ship X?' nudge, " +
+      "(c) no focus picked -> 'no ONE set today; restart tomorrow'. " +
+      "Used by the bot scheduler around 20:30 user time, or callable on demand.",
+    inputSchema: z.object({}).strict(),
+    handler: async (_input: Record<string, never>, ctx: ToolContext) => {
+      const closed = await runFocusEveningCloseOut(
+        ctx.deps.db,
+        ctx.deps.whatsapp,
+        ctx.userPhone,
+        ctx.now,
+        ctx.timezone,
+      );
+      return closed;
+    },
+  });
+
+  registry.register({
     name: "get_today_focus",
     description:
       "Read today's focus row. Returns chosen text, completion status, and candidate list. " +
@@ -128,4 +151,63 @@ export function registerDailyFocus(registry: ToolRegistry): void {
       };
     },
   });
+}
+
+export type FocusCloseOutState =
+  | "no_focus_set"
+  | "focus_completed"
+  | "focus_open";
+
+export interface FocusCloseOutResult {
+  state: FocusCloseOutState;
+  delivered: boolean;
+  forDate: string;
+  chosenText: string | null;
+}
+
+/**
+ * Scheduler-side helper. Sends a one-line evening close-out message to the
+ * user about today's focus theme. Called from the bot scheduler around
+ * 20:30 user time, or on demand via the `focus_evening_close_out` tool.
+ */
+export async function runFocusEveningCloseOut(
+  db: DB,
+  whatsapp: WhatsAppClient,
+  ownerPhone: string,
+  now: Date,
+  timezone: string,
+): Promise<FocusCloseOutResult> {
+  const ownerHash = hashPhone(ownerPhone);
+  const forDate = todayKey(now, timezone);
+  const row = await getDailyFocus(db, privateOwnerTenantForPhone(ownerPhone), {
+    ownerHash,
+    forDate,
+  });
+
+  let body: string;
+  let state: FocusCloseOutState;
+
+  if (!row || !row.chosenText) {
+    state = "no_focus_set";
+    body =
+      `Evening check — no ONE was set for ${forDate}.\n` +
+      `That's OK. Pick one tomorrow morning when the brief arrives.`;
+  } else if (row.completedAt) {
+    state = "focus_completed";
+    body =
+      `Evening check — today's ONE: ${row.chosenText}\n` +
+      `Marked done. Good day.`;
+  } else {
+    state = "focus_open";
+    body =
+      `Evening check — today's ONE: ${row.chosenText}\n` +
+      `Did you ship it? Reply "yes" to mark done or "no" to roll it to tomorrow.`;
+  }
+
+  try {
+    await whatsapp.send({ to: ownerPhone, body });
+    return { state, delivered: true, forDate, chosenText: row?.chosenText ?? null };
+  } catch {
+    return { state, delivered: false, forDate, chosenText: row?.chosenText ?? null };
+  }
 }
