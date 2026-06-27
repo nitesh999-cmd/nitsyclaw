@@ -32,6 +32,7 @@ import { registerDailyFocus } from "./25-daily-focus.js";
 import { registerSnooze } from "./26-snooze.js";
 import { registerLastTimeRecall } from "./27-last-time-recall.js";
 import { registerEntityGraph } from "./28-entity-graph.js";
+import { registerContactTimeline } from "./29-contact-timeline.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -62,6 +63,7 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerSnooze(r);
   registerLastTimeRecall(r);
   registerEntityGraph(r);
+  registerContactTimeline(r);
   registerSpotify(r);
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
@@ -101,4 +103,5 @@ export * from "./25-daily-focus.js";
 export * from "./26-snooze.js";
 export * from "./27-last-time-recall.js";
 export * from "./28-entity-graph.js";
+export * from "./29-contact-timeline.js";
 export * from "./feature-queue-status.js";

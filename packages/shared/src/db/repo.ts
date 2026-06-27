@@ -780,6 +780,147 @@ export async function recentEntitiesByKind(
     .limit(limit);
 }
 
+// ===== Contact Timeline (Feature 29 — joins entity graph back to sources) =====
+
+export interface ContactTimelineHit {
+  /** the table the source row lives in */
+  sourceTable: string;
+  sourceId: string;
+  /** when the source occurred (createdAt or occurredAt depending on table) */
+  at: Date;
+  /** short human preview */
+  preview: string;
+  /** original contact entity that anchored the hit */
+  contactValue: string;
+}
+
+/**
+ * Find all source rows tied to a given contact name (or substring).
+ * Resolution path:
+ *   1. find_entities where kind='person' and normalized_value ILIKE query
+ *   2. for each matching entity row, look up the source row in its
+ *      origin table (messages, memories, expenses, reminders) and merge
+ *      chronologically.
+ * Pure read-side. No new data needed beyond what's already in the entities
+ * table + the four history surfaces.
+ */
+export async function contactTimeline(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; contactQuery: string; limit?: number },
+): Promise<ContactTimelineHit[]> {
+  guardUnscopedCustomerDataAccess(tenant);
+  const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+  const pattern = `%${args.contactQuery.replace(/\s+/g, " ").trim().toLowerCase()}%`;
+
+  // Step 1: get matching person entities (broad over-fetch so we find sources).
+  const matchedEntities = await db
+    .select()
+    .from(entities)
+    .where(
+      and(
+        eq(entities.ownerHash, args.ownerHash),
+        eq(entities.kind, "person"),
+        sql`${entities.normalizedValue} ILIKE ${pattern}`,
+      ),
+    )
+    .orderBy(desc(entities.createdAt))
+    .limit(limit * 3);
+
+  if (!matchedEntities.length) return [];
+
+  // Group by source row to avoid dupes; pick best contact value to display.
+  const sourceMap = new Map<string, { contactValue: string }>();
+  for (const e of matchedEntities) {
+    if (!e.sourceTable || !e.sourceId) continue;
+    const key = `${e.sourceTable}:${e.sourceId}`;
+    if (!sourceMap.has(key)) {
+      sourceMap.set(key, { contactValue: e.value });
+    }
+  }
+
+  // Step 2: hydrate source rows in parallel by table.
+  const byTable = new Map<string, Array<{ id: string; contactValue: string }>>();
+  for (const [key, { contactValue }] of sourceMap) {
+    const [table, id] = key.split(":");
+    if (!table || !id) continue;
+    if (!byTable.has(table)) byTable.set(table, []);
+    byTable.get(table)!.push({ id, contactValue });
+  }
+
+  const previewOf = (text: string | null | undefined, max = 140): string => {
+    if (!text) return "";
+    const clean = text.replace(/\s+/g, " ").trim();
+    return clean.length > max ? clean.slice(0, max - 1) + "…" : clean;
+  };
+
+  const hits: ContactTimelineHit[] = [];
+
+  const messageIds = byTable.get("messages")?.map((r) => r.id) ?? [];
+  if (messageIds.length) {
+    const rows = await db.select().from(messages).where(sql`${messages.id} = ANY(${messageIds})`);
+    for (const m of rows) {
+      const meta = byTable.get("messages")!.find((r) => r.id === m.id)!;
+      hits.push({
+        sourceTable: "messages",
+        sourceId: m.id,
+        at: m.createdAt,
+        preview: previewOf(m.transcript || m.body),
+        contactValue: meta.contactValue,
+      });
+    }
+  }
+
+  const memIds = byTable.get("memories")?.map((r) => r.id) ?? [];
+  if (memIds.length) {
+    const rows = await db.select().from(memories).where(sql`${memories.id} = ANY(${memIds})`);
+    for (const m of rows) {
+      const meta = byTable.get("memories")!.find((r) => r.id === m.id)!;
+      hits.push({
+        sourceTable: "memories",
+        sourceId: m.id,
+        at: m.createdAt,
+        preview: previewOf(m.content),
+        contactValue: meta.contactValue,
+      });
+    }
+  }
+
+  const expIds = byTable.get("expenses")?.map((r) => r.id) ?? [];
+  if (expIds.length) {
+    const rows = await db.select().from(expenses).where(sql`${expenses.id} = ANY(${expIds})`);
+    for (const e of rows) {
+      const meta = byTable.get("expenses")!.find((r) => r.id === e.id)!;
+      const amount = (e.amount / 100).toFixed(2);
+      hits.push({
+        sourceTable: "expenses",
+        sourceId: e.id,
+        at: e.occurredAt,
+        preview: `${e.merchant ?? e.category} ${amount} ${e.currency}`,
+        contactValue: meta.contactValue,
+      });
+    }
+  }
+
+  const remIds = byTable.get("reminders")?.map((r) => r.id) ?? [];
+  if (remIds.length) {
+    const rows = await db.select().from(reminders).where(sql`${reminders.id} = ANY(${remIds})`);
+    for (const r of rows) {
+      const meta = byTable.get("reminders")!.find((row) => row.id === r.id)!;
+      hits.push({
+        sourceTable: "reminders",
+        sourceId: r.id,
+        at: r.createdAt,
+        preview: previewOf(r.text),
+        contactValue: meta.contactValue,
+      });
+    }
+  }
+
+  hits.sort((a, b) => b.at.getTime() - a.at.getTime());
+  return hits.slice(0, limit);
+}
+
 // ===== Cross-table "last time" recall (Feature 27) =====
 
 export interface RecallHit {
