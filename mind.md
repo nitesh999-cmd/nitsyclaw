@@ -2361,5 +2361,67 @@ Evening close-out for Daily Focus Theme (Feature 25 follow-up). Closes the daily
 - Bot recovered, OAuth re-auth'd, daily build agent disabled
 - Doc cadence sustained through 6 session entries (48, 49, 50, 51, 52, 53)
 
+---
+
+## 54. Session 2026-06-26 (continued, fifth push) -- Feature 28 (entity graph substrate) shipped
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go" -> ship the substrate the council ranked #1.
+
+### Feature 28 -- Entity graph substrate (commit `80c9e65`)
+
+**The multiplier.** Foundation for contact timeline (council #5 real version), pre-meeting briefing T-10 (council #2), orphan radar (council #7), "ask my life" recall, and every future feature that needs a typed knowledge graph of the user's history.
+
+**Schema:** new `entities` table with 8 cols + 3 indexes. Live in Supabase via direct DDL.
+
+```
+entities
+  id uuid PK
+  owner_hash text
+  kind text                -- enum: person | place | money | date | topic | org | url
+  value text               -- raw human form
+  normalized_value text    -- lowercased + collapsed whitespace + 200-clamp for ILIKE
+  source_table text        -- e.g. 'messages', 'memories', 'expenses'
+  source_id text           -- origin row id for citation back
+  source_at timestamptz    -- when the source occurred
+  created_at timestamptz
+```
+
+Indexes: `(owner_hash, kind)`, `(normalized_value)`, `(source_table, source_id)`.
+
+**Repo:**
+- `insertEntities(rows[])` -- batch insert, applies normalize.
+- `findEntities({ ownerHash, query, kind?, limit? })` -- ILIKE on normalized_value, optional kind filter.
+- `entitiesForSource({ sourceTable, sourceId })` -- back-resolve all entities tied to one row.
+- `recentEntitiesByKind({ ownerHash, kind, limit? })` -- "who have I been talking about", "what topics have come up".
+
+**Feature 28 tools (3):**
+- `record_entities({ items: [{ kind, value, sourceTable?, sourceId?, sourceAtIso? }, ...] })` -- batch insert, up to 50/call. Tool description tells LLM to call **proactively** when a message mentions a typed entity.
+- `find_entities({ query, kind?, limit? })` -- search the graph.
+- `recent_entities_by_kind({ kind, limit? })` -- list by kind.
+
+**Tests:** 6 new in `28-entity-graph.test.ts` cover batch insert, normalize, all 7 kinds, find shape, recent-by-kind, value clamp. Full suite **922/922 PASS** (+6 from 916).
+
+**Type plumbing fix:** `EntityKind` was being exported twice (once in schema.ts via `$inferInsert`, once redeclared in repo.ts). Moved single source of truth to schema; repo + feature 28 import from there.
+
+**Helpers extension:** `entities` array added to `FakeDbState`.
+
+### What's deferred to next session
+
+- **Auto-hook on insertMessage**: LLM extraction worker that fires on every new message, writes entities back. Currently the LLM must call `record_entities` manually as part of its agent loop -- the tool description nudges this strongly. Next session: write a background worker that doesn't require LLM round-trip.
+- **Embeddings column** (drop-in: `embedding vector(1536)`). Already pgvector-enabled DB. Add at the same time as the email/calendar ingestion pipeline.
+- **Contact Timeline real version** (council #5 follow-up): filter `entities` where `kind='person' AND normalized_value = ?`, then join `entitiesForSource` -> back to the source rows -> chronological. ~30 min when ready.
+
+### Cumulative run summary (now)
+
+- 6 features shipped end-to-end (24, 25 + close-out, 26, 27, 28)
+- 31 tools registered (+ 12 net new this run)
+- 3 new DB tables (`daily_focus`, `snoozes`, `entities`)
+- Tests: 893 -> **922** (+29)
+- 1 new Constitution rule (R41)
+- 7 scheduler cron ticks live
+- Bot recovered, OAuth re-auth'd, daily build agent disabled
+- Doc cadence: 7 entries (48-54)
+
 
 
