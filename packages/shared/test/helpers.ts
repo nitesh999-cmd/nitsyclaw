@@ -35,6 +35,7 @@ export interface FakeDbState {
   command_jobs: FakeDbRow[];
   daily_focus: FakeDbRow[];
   snoozes: FakeDbRow[];
+  entities: FakeDbRow[];
 }
 
 export type FakeDbWithState = DB & { __state: FakeDbState };
@@ -74,6 +75,7 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
     command_jobs: [],
     daily_focus: [],
     snoozes: [],
+    entities: [],
   };
   // Reuses Drizzle's chain shape. Only what features actually call.
   const insert = (table: keyof FakeDbState) => ({

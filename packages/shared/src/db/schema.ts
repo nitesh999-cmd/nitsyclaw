@@ -106,6 +106,36 @@ export const briefs = pgTable("briefs", {
 });
 
 /**
+ * Entity graph (Feature 28 substrate). Typed entities extracted from
+ * user history -- people, places, money mentions, dates, topics, orgs,
+ * URLs. Normalised_value is lowercased + trimmed for ILIKE-friendly
+ * lookups. source_table + source_id let a hit cite back to its origin
+ * row (message, memory, expense, reminder, email, etc.).
+ *
+ * Embeddings + automatic extraction from insertMessage are next-session
+ * work; this table is the foundation both layer on top of.
+ */
+export const entities = pgTable(
+  "entities",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    kind: text("kind", { enum: ["person", "place", "money", "date", "topic", "org", "url"] }).notNull(),
+    value: text("value").notNull(),
+    normalizedValue: text("normalized_value").notNull(),
+    sourceTable: text("source_table"),
+    sourceId: text("source_id"),
+    sourceAt: timestamp("source_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerKindIdx: index("entities_owner_kind_idx").on(t.ownerHash, t.kind),
+    normalizedIdx: index("entities_normalized_idx").on(t.normalizedValue),
+    sourceIdx: index("entities_source_idx").on(t.sourceTable, t.sourceId),
+  }),
+);
+
+/**
  * Snooze-and-resurface (Feature 26). Save any text + a resurface time; bot
  * pings the user at that time with the content and an optional pre-drafted
  * reply. Pattern mirrors reminders but body is free-form and optionally
@@ -362,3 +392,6 @@ export type DailyFocus = typeof dailyFocus.$inferSelect;
 export type NewDailyFocus = typeof dailyFocus.$inferInsert;
 export type Snooze = typeof snoozes.$inferSelect;
 export type NewSnooze = typeof snoozes.$inferInsert;
+export type Entity = typeof entities.$inferSelect;
+export type NewEntity = typeof entities.$inferInsert;
+export type EntityKind = NewEntity["kind"];

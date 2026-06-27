@@ -22,6 +22,7 @@ import {
   commandJobs,
   dailyFocus,
   snoozes,
+  entities,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -36,6 +37,7 @@ import {
   type NewConnectedAccount,
   type SystemHeartbeat,
   type CommandJob,
+  type EntityKind,
 } from "./schema.js";
 
 function guardUnscopedCustomerDataAccess(tenant: TenantContext) {
@@ -691,6 +693,91 @@ export async function getDailyFocus(
     .where(and(eq(dailyFocus.ownerHash, args.ownerHash), eq(dailyFocus.forDate, args.forDate)))
     .limit(1);
   return row ?? null;
+}
+
+// ===== Entity graph substrate (Feature 28) =====
+
+export interface EntityRecordInput {
+  ownerHash: string;
+  kind: EntityKind;
+  value: string;
+  sourceTable?: string;
+  sourceId?: string;
+  sourceAt?: Date;
+}
+
+function normalizeEntityValue(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 200);
+}
+
+export async function insertEntities(
+  db: DB,
+  tenant: TenantContext,
+  rows: EntityRecordInput[],
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  if (!rows.length) return [];
+  const inserted = await db
+    .insert(entities)
+    .values(
+      rows.map((r) => ({
+        ownerHash: r.ownerHash,
+        kind: r.kind,
+        value: r.value.trim().slice(0, 500),
+        normalizedValue: normalizeEntityValue(r.value),
+        sourceTable: r.sourceTable,
+        sourceId: r.sourceId,
+        sourceAt: r.sourceAt,
+      })),
+    )
+    .returning();
+  return inserted;
+}
+
+export async function findEntities(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; query: string; kind?: EntityKind; limit?: number },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+  const normalized = normalizeEntityValue(args.query);
+  const pattern = `%${normalized}%`;
+  const conds = [eq(entities.ownerHash, args.ownerHash), sql`${entities.normalizedValue} ILIKE ${pattern}`];
+  if (args.kind) conds.push(eq(entities.kind, args.kind));
+  return await db
+    .select()
+    .from(entities)
+    .where(and(...conds))
+    .orderBy(desc(entities.createdAt))
+    .limit(limit);
+}
+
+export async function entitiesForSource(
+  db: DB,
+  tenant: TenantContext,
+  args: { sourceTable: string; sourceId: string },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  return await db
+    .select()
+    .from(entities)
+    .where(and(eq(entities.sourceTable, args.sourceTable), eq(entities.sourceId, args.sourceId)));
+}
+
+export async function recentEntitiesByKind(
+  db: DB,
+  tenant: TenantContext,
+  args: { ownerHash: string; kind: EntityKind; limit?: number },
+) {
+  guardUnscopedCustomerDataAccess(tenant);
+  const limit = Math.min(Math.max(args.limit ?? 30, 1), 200);
+  return await db
+    .select()
+    .from(entities)
+    .where(and(eq(entities.ownerHash, args.ownerHash), eq(entities.kind, args.kind)))
+    .orderBy(desc(entities.createdAt))
+    .limit(limit);
 }
 
 // ===== Cross-table "last time" recall (Feature 27) =====
