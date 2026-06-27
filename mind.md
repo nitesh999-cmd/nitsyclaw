@@ -2423,5 +2423,43 @@ Indexes: `(owner_hash, kind)`, `(normalized_value)`, `(source_table, source_id)`
 - Bot recovered, OAuth re-auth'd, daily build agent disabled
 - Doc cadence: 7 entries (48-54)
 
+---
+
+## 55. Session 2026-06-26 (continued, sixth push) -- Feature 29 (contact timeline) shipped
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go" -> first compound on the new entity substrate.
+
+### Feature 29 -- Contact Timeline (commit `f92577b`)
+
+Council #5 real version. First downstream feature built on the entity graph (Feature 28). Pure read-side. No new schema. Demonstrates the substrate compounding I claimed in session 54.
+
+**Repo: `contactTimeline({ ownerHash, contactQuery, limit })`** -- two-step query:
+1. ILIKE on `entities` where `kind='person'` AND `normalized_value` matches the query.
+2. Group matched entities by `(source_table, source_id)`, hydrate the actual source rows in parallel by table using `ANY(uuid[])` lookups, merge chronologically (newest first).
+
+Returns `{ sourceTable, sourceId, at, preview, contactValue }` per hit. The `contactValue` field tells the user which entity match anchored the row -- e.g. one row matched "Sarah", another "Sarah Chen".
+
+**Feature 29 tool: `contact_timeline({ contactQuery, limit? })`**. Single tool. Returns empty cleanly when no person entities have been recorded yet (graceful degradation before auto-extraction lands).
+
+**Tests:** 4 new in `29-contact-timeline.test.ts`: empty state, limit respect, hit shape, query thread-through. Caveat: fake DB doesn't implement ILIKE / `ANY(uuid[])` / multi-table joins -- real Postgres path is exercised live. Full suite **926/926 PASS** (+4 from 922).
+
+### Compounding example
+
+User mentions Sarah in 3 messages over 2 weeks. LLM calls `record_entities` each time with `kind=person, value="Sarah Chen", sourceTable="messages", sourceId="<msg-id>"`. Three rows in `entities`. User asks "show me everything with Sarah". `contact_timeline` returns all 3 messages + any memories/expenses/reminders tagged with Sarah, sorted newest-first. Single query.
+
+Without entity substrate, this would require LLM to call `last_time_recall` then guess which keyword variations to try -- "Sarah", "Sarah Chen", maybe "s. chen". Substrate makes it deterministic.
+
+### Cumulative run summary (now)
+
+- 7 features shipped end-to-end (24, 25 + close-out, 26, 27, 28, 29)
+- 32 tools registered (+ 13 net new this run)
+- 3 new DB tables (`daily_focus`, `snoozes`, `entities`)
+- Tests: 893 -> **926** (+33)
+- 1 new Constitution rule (R41)
+- 7 scheduler cron ticks live
+- Bot recovered, OAuth re-auth'd, daily build agent disabled
+- Doc cadence: 8 entries (48-55)
+
 
 
