@@ -2312,5 +2312,54 @@ This unlocks council backlog #5 (Contact Timeline) almost for free -- add a name
 - Bot recovered from 38-day downtime
 - 3 OAuth tokens re-auth'd, 6/6 provider:proof-readonly PASS
 
+---
+
+## 53. Session 2026-06-26 (continued, fourth push) -- Daily Focus evening close-out shipped
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go" -> close the Daily Focus retention loop.
+
+### What shipped (commit `552fc6e`)
+
+Evening close-out for Daily Focus Theme (Feature 25 follow-up). Closes the daily ritual loop -- morning brief proposes candidates, user picks, **evening close-out reports**.
+
+**Helper `runFocusEveningCloseOut(db, whatsapp, ownerPhone, now, timezone)`:**
+- Reads today's row via `getDailyFocus`.
+- Branches on state:
+  - `no_focus_set` -> "no ONE was set for `<date>`; pick one tomorrow morning"
+  - `focus_open` (picked but not done) -> "today's ONE: X -- Did you ship it? yes/no"
+  - `focus_completed` (picked and done) -> "today's ONE: X -- Marked done. Good day."
+- Sends via WhatsApp. Returns `{ state, delivered, forDate, chosenText }`.
+
+**Scheduler integration (apps/bot/src/scheduler.ts):**
+- New cron entry, `FOCUS_CLOSEOUT_CRON` env default `30 20 * * *` (20:30 user TZ).
+- Honours quiet hours per existing pattern.
+- Heartbeat reports `state` + `delivered` for ops.
+
+**Tool: `focus_evening_close_out`** (empty input). Callable on demand from WhatsApp ("close out my focus") in addition to the cron.
+
+**Tests:** 4 new in `25-daily-focus.test.ts` -> no-pick path, picked-not-done, picked-and-done, direct helper call. Full suite **916/916 PASS** (+4 from 912).
+
+### Retention loop now hard-wired
+
+| Stage | Source | When |
+|---|---|---|
+| Propose ONE candidates | `propose_daily_focus` tool, called inside morning brief | 7:00 user TZ |
+| User picks | `pick_daily_focus` reply on WhatsApp | Any time |
+| Drift nudge | (not yet built — needs system-prompt mention) | -- |
+| Self-mark done | `mark_daily_focus_done` | Any time |
+| Evening report | `runFocusEveningCloseOut` cron tick | 20:30 user TZ |
+
+### Cumulative session count (now end-of-run)
+
+- 5 features shipped (24, 25 + close-out, 26, 27)
+- 28 tools registered (+ 9 net new this run)
+- 2 new DB tables
+- Tests: 893 -> **916** (+23 across the run)
+- 1 new Constitution rule (R41)
+- 5 scheduler cron ticks live (was 5: heartbeat, reminders, brief, build-agent, health, pruner -- now +2: snooze sweep folded into reminder tick; new focus close-out)
+- Bot recovered, OAuth re-auth'd, daily build agent disabled
+- Doc cadence sustained through 6 session entries (48, 49, 50, 51, 52, 53)
+
 
 
