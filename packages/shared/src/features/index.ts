@@ -36,6 +36,7 @@ import { registerContactTimeline } from "./29-contact-timeline.js";
 import { registerAutoExtract } from "./30-auto-extract.js";
 import { registerPreMeetingBrief } from "./31-pre-meeting-brief.js";
 import { registerOrphanRadar } from "./32-orphan-radar.js";
+import { registerVoiceMemoRouter } from "./33-voice-memo-router.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -70,6 +71,7 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerAutoExtract(r);
   registerPreMeetingBrief(r);
   registerOrphanRadar(r);
+  registerVoiceMemoRouter(r);
   registerSpotify(r);
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
@@ -113,4 +115,5 @@ export * from "./29-contact-timeline.js";
 export * from "./30-auto-extract.js";
 export * from "./31-pre-meeting-brief.js";
 export * from "./32-orphan-radar.js";
+export * from "./33-voice-memo-router.js";
 export * from "./feature-queue-status.js";
