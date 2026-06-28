@@ -2461,5 +2461,83 @@ Without entity substrate, this would require LLM to call `last_time_recall` then
 - Bot recovered, OAuth re-auth'd, daily build agent disabled
 - Doc cadence: 8 entries (48-55)
 
+---
+
+## 56. Session 2026-06-26 (seventh push) -- Features 30/31/32 shipped together
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go all 3" -> ship auto-extract + pre-meeting brief + orphan radar in one push.
+
+### Feature 30 -- Auto entity extraction worker (commit `a191232`)
+
+The reliability gap is closed. Entity graph no longer depends on the agent LLM remembering to call `record_entities`. Background sweep does it deterministically.
+
+**Key pieces:**
+- `parseEntityJson(text)`: tolerant parser (code-fence aware, allowlists 7 kinds, caps at 10 items, 500-char value clamp).
+- `extractEntitiesFromText(llm, text)`: dedicated lightweight Anthropic call. Strict system prompt asks for JSON array only, no prose, no markdown.
+- `runAutoEntityExtraction(db, llm, ownerPhone, { lookbackMs?, perTickLimit? })`: scheduler-side sweep. Reads recent owner messages without entity rows (new repo helper `recentMessagesWithoutEntities`), extracts via LLM, batch-inserts. Writes a sentinel `__none__<msgId>` entity for empty results so the same message isn't re-scanned.
+- Scheduler hook: `ENTITY_EXTRACT_CRON` (default `*/5 * * * *`). Heartbeat reports `scanned/extracted/written` per tick.
+- Tool: `run_entity_extraction_sweep` for manual trigger.
+
+### Feature 31 -- Pre-meeting briefing
+
+Real entity-graph payoff. Tool-only this push; cron T-10 auto-fire is next.
+
+- `brief_me_about_meeting({ personName?, topic?, historyLimit? })`: composes one-shot WhatsApp briefing using `contact_timeline` (Feature 29) + `find_entities` (Feature 28).
+- Graceful empty path ("No prior history found with X") when graph is still warming up.
+- Returns `{ personName, topic, body }` ready for direct WhatsApp send.
+
+### Feature 32 -- Orphan radar
+
+Surfaces "things slipping" in one read. Tool now; cron tail (daily morning brief / evening close-out) is one-line work next push.
+
+- `find_orphans({ windowHours?, staleContactDays?, limit? })`:
+  - Pending **reminders** due in window (default 48h)
+  - Pending **snoozes** due in window
+  - **Stale contacts**: person entities last mentioned older than `staleContactDays` (default 7), excluding `__none__` sentinels
+- Returns chronological item list.
+
+### Tests
+
+20 new across 30/31/32 test files. Full suite **946/946 PASS** (+20 from 926).
+
+### Scheduler ticks now
+
+| When | What |
+|---|---|
+| every minute | heartbeat, reminders, snooze sweep |
+| every 5 minutes | **entity-extract (NEW)** |
+| 07:00 user-tz | morning brief |
+| 12:00 UTC | local build agent |
+| 20:30 user-tz | focus close-out |
+| 21:00 user-tz | WhatsApp health report |
+| 03:00 daily | memory pruner |
+
+**8 cron entries live** (was 7 before this push).
+
+### Cumulative run summary (8 pushes, 2026-06-23 -> 2026-06-26)
+
+- **10 features shipped end-to-end** (24, 25 + close-out, 26, 27, 28, 29, 30, 31, 32)
+- 36 tools registered (+ 17 net new this run)
+- 3 new DB tables
+- Tests: 893 -> **946** (+53)
+- 1 new Constitution rule (R41)
+- 8 scheduler cron ticks live
+- Doc cadence: 9 entries (48-56)
+
+### What's left in the council backlog
+
+- #4 Daily Focus -- DONE (sessions 50 + 53)
+- #5 Last-time recall -- DONE (session 52)
+- #5 Contact timeline -- DONE (session 55)
+- #1 Entity substrate -- DONE (session 54)
+- #2 Pre-meeting briefing -- TOOL DONE (this); cron T-10 auto-fire pending
+- #3 Snooze-and-resurface -- DONE (session 51)
+- #6 Voice memo routing -- not started
+- #7 Orphan radar -- TOOL DONE (this); cron tail pending
+- #8-#10 Self-serve OAuth onboarding / Stripe billing / Trust trio -- not started (public-sale unlock phase)
+
+7 of 10 council items shipped end-to-end. Public-sale unlock (#8-#10) is the next phase.
+
 
 
