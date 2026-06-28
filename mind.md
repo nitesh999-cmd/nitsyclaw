@@ -2539,5 +2539,67 @@ Surfaces "things slipping" in one read. Tool now; cron tail (daily morning brief
 
 7 of 10 council items shipped end-to-end. Public-sale unlock (#8-#10) is the next phase.
 
+---
+
+## 57. Session 2026-06-26 (ninth push) -- Pre-meeting cron T-10 + orphan tail wired
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go" -> compound polish on top of the 10-feature substrate.
+
+### What shipped (commit `c7997ff`)
+
+Two wires that turn the substrate into automatic ambient value:
+
+**1. Pre-meeting briefing CRON (Feature 31 was tool-only before)**
+- `runPreMeetingBriefTick(db, whatsapp, aggregator, ownerPhone, now, timezone)`: finds calendar events starting in `[now+8min, now+15min)` window, composes per-event briefing via `composeAutoBrief` (which calls `contact_timeline` + `find_entities` on the guessed primary attendee), sends WhatsApp message once per event.
+- `guessPersonFromTitle(title)`: best-effort attendee extraction. Drops join words (call/meeting/sync/coffee/zoom), picks longest run of capitalised words.
+- Per-process `briefedEventKeys` Set (bounded 500) dedupes across consecutive minute ticks.
+- `__resetPreMeetingCacheForTests` for clean test isolation.
+- Scheduler hook: `PRE_MEETING_BRIEF_CRON` (default `* * * * *`). Honours quiet hours. Heartbeat only emitted on activity.
+
+**2. Morning-brief orphan tail**
+- `findOrphansForOwner(db, args)` extracted as exported helper from Feature 32. Tool handler now thin wrapper.
+- `BriefInputs.orphans` field added; `buildBrief` renders top-5 under `Slipping (N):` heading.
+- Both the morning-brief tool handler AND the 7am cron now pull orphans alongside events/emails/reminders.
+
+### Tests
+
++4 new on Feature 31 cron tick (aggregator-undefined, window filter, dedupe, error fallback). Full suite **950/950 PASS** (+4 from 946).
+
+### Scheduler ticks (9 entries now)
+
+| When | What |
+|---|---|
+| every minute | heartbeat, reminders + snooze sweep, **pre-meeting brief (NEW)** |
+| every 5 min | entity-extract |
+| 07:00 user-tz | morning brief (now with **orphan tail**) |
+| 12:00 UTC | local build agent |
+| 20:30 user-tz | focus close-out |
+| 21:00 user-tz | WhatsApp health report |
+| 03:00 daily | memory pruner |
+
+### Cumulative run summary (9 pushes, 2026-06-23 -> 2026-06-26)
+
+- **10 features shipped end-to-end** + compound polish wired
+- 36 tools registered (+ 17 net new this run)
+- 3 new DB tables
+- Tests: 893 -> **950** (+57)
+- 1 new Constitution rule (R41)
+- 9 scheduler cron ticks live
+- Doc cadence: 10 entries (48-57)
+
+### What the user gets automatically now (no touching the bot)
+
+| Time | Surface | What |
+|---|---|---|
+| 07:00 | WhatsApp | Morning brief: events + emails + reminders + queue + **slipping tail** |
+| every 5 min | (silent) | Entity graph auto-populates from recent messages |
+| T-10 before meeting | WhatsApp | Per-event briefing with contact history |
+| 20:30 | WhatsApp | Focus close-out: "did you ship today's ONE?" |
+| 21:00 | WhatsApp | Nightly health report |
+| any time | WhatsApp | All 36 tools available on demand |
+
+The daily ritual now runs end-to-end without the user touching anything. Owner-grade product is **live and ambient**.
+
 
 
