@@ -2601,5 +2601,55 @@ Two wires that turn the substrate into automatic ambient value:
 
 The daily ritual now runs end-to-end without the user touching anything. Owner-grade product is **live and ambient**.
 
+---
+
+## 58. Session 2026-06-26 (tenth push) -- Feature 33 (voice memo router) shipped — Phase B complete
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "1" -> ship voice memo routing, last item of council Phase B.
+
+### Feature 33 -- Voice memo router (commit `ad19ac6`)
+
+Closes the personal-use phase. Voice notes used to be transcribed only; now they get triaged into typed action slots automatically.
+
+**Tool: `route_voice_memo({ transcript, sourceMessageId? })`**
+
+- Single dedicated LLM call. Strict JSON-only system prompt with explicit shape: `{ reminders, notes, people, topics }`. Caps 5/5/8/8 per memo.
+- `parseRouteJson(text)`: tolerant parser. Code-fence aware. Validates fireAtIso as a real timestamp. Drops bad shapes. Returns empty arrays on non-JSON.
+- Routes each slot:
+  - **reminders** -> `insertReminder` direct (no confirmation rail — voice came from owner, reminders are reversible via existing tools).
+  - **notes** -> `insertMemory(kind="note", tags=["voice-memo"], sourceMessageId)`.
+  - **people / topics** -> `insertEntities`, tagged `sourceTable="messages"` + `sourceId` so they land in the same entity graph that auto-extract (Feature 30), contact_timeline (Feature 29), and orphan radar (Feature 32) all read from.
+- Returns `{ remindersCreated[], noteIds[], entitiesCreated, summary }`. Summary is the one-line "Routed: 1 reminder, 2 notes, 3 persons" the bot echoes back.
+
+**Tests:** 10 new -- 6 on parseRouteJson edge cases, 4 on tool end-to-end (insert all slots, empty path, sourceMessageId tagging, voice-memo tag). Full suite **960/960 PASS** (+10 from 950).
+
+### Council backlog status (after this push)
+
+- ✅ #1 Entity substrate (session 54)
+- ✅ #2 Pre-meeting briefing tool + cron T-10 (sessions 56, 57)
+- ✅ #3 Snooze-and-resurface (session 51)
+- ✅ #4 Daily Focus Theme + evening close-out (sessions 50, 53)
+- ✅ #5 Last-time recall + Contact Timeline (sessions 52, 55)
+- ✅ #6 **Voice memo routing (this session)**
+- ✅ #7 Orphan radar (session 56) + morning brief tail (session 57)
+- ❌ #8-#10 Public-sale unlock (Path A WhatsApp Cloud API + Stripe + ToS + per-tenant OAuth) -- multi-session, requires Meta business verification
+
+**8 of 10 personal-use items done.** Phase B is complete. Only Phase C (public-sale unlock) remains.
+
+### Cumulative run summary (10 pushes, 2026-06-23 -> 2026-06-26)
+
+- **11 features shipped end-to-end** + compound polish
+- 37 tools registered (+ 18 net new this run)
+- 3 new DB tables
+- Tests: 893 -> **960** (+67)
+- 1 new Constitution rule (R41)
+- 9 scheduler cron ticks live
+- Doc cadence: 11 entries (48-58)
+
+### Phase B is done. Next chapter
+
+This is the natural pause point. The owner-grade product is feature-complete for personal use. Dogfooding for 1-2 weeks before opening Phase C is the right move — surfaces what the council didn't predict.
+
 
 
