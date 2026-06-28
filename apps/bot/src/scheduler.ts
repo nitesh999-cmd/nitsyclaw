@@ -6,6 +6,7 @@ import type { ScheduledTask } from "node-cron";
 import {
   fireDueReminders,
   fireDueSnoozes,
+  runAutoEntityExtraction,
   runFocusEveningCloseOut,
   runMorningBrief,
 } from "@nitsyclaw/shared/features";
@@ -22,6 +23,7 @@ const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
 const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
 const WHATSAPP_HEALTH_REPORT_CRON = process.env.WHATSAPP_HEALTH_REPORT_CRON ?? "0 21 * * *";
 const FOCUS_CLOSEOUT_CRON = process.env.FOCUS_CLOSEOUT_CRON ?? "30 20 * * *";
+const ENTITY_EXTRACT_CRON = process.env.ENTITY_EXTRACT_CRON ?? "*/5 * * * *";
 const MEMORY_PRUNER_CRON = process.env.MEMORY_PRUNER_CRON ?? "0 3 * * *";
 const PRUNE_MESSAGES_DAYS = Number(process.env.PRUNE_MESSAGES_DAYS ?? 90);
 
@@ -148,6 +150,27 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
         logBotError("[cron:nightly-health] error", e);
       }
     }, { timezone: opts.deps.timezone }),
+  );
+
+  // Every 5 min - auto entity extraction (Feature 30) over recent owner messages.
+  tasks.push(
+    cron.schedule(ENTITY_EXTRACT_CRON, async () => {
+      try {
+        const result = await runAutoEntityExtraction(
+          opts.deps.db,
+          opts.deps.llm,
+          opts.ownerPhone,
+          { lookbackMs: 15 * 60 * 1000, perTickLimit: 10 },
+        );
+        await writeHeartbeat("entity-extract", {
+          lastRun: opts.deps.now().toISOString(),
+          ...result,
+        });
+      } catch (e) {
+        await writeHeartbeat("entity-extract", { error: formatSafeLogError(e) }, "error").catch(() => {});
+        logBotError("[cron:entity-extract] error", e);
+      }
+    }),
   );
 
   // 20:30 user-tz daily - evening close-out for Daily Focus Theme (Feature 25).

@@ -697,6 +697,33 @@ export async function getDailyFocus(
 
 // ===== Entity graph substrate (Feature 28) =====
 
+/** Helper for auto-extract worker: messages with no entity rows pointing at them. */
+export async function recentMessagesWithoutEntities(
+  db: DB,
+  args: { ownerPhoneHash: string; sinceMs: number; limit?: number },
+) {
+  // No tenant guard: scheduler reads its own owner via ownerPhoneHash.
+  const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+  const since = new Date(Date.now() - args.sinceMs);
+  const rows = await db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.fromNumber, args.ownerPhoneHash), gte(messages.createdAt, since)))
+    .orderBy(desc(messages.createdAt))
+    .limit(limit);
+  // Filter out ones that already have entities (single-query approach for fake-DB friendliness).
+  const out: typeof rows = [];
+  for (const m of rows) {
+    const existing = await db
+      .select()
+      .from(entities)
+      .where(and(eq(entities.sourceTable, "messages"), eq(entities.sourceId, m.id)))
+      .limit(1);
+    if (existing.length === 0) out.push(m);
+  }
+  return out;
+}
+
 export interface EntityRecordInput {
   ownerHash: string;
   kind: EntityKind;

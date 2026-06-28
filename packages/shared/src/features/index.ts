@@ -33,6 +33,9 @@ import { registerSnooze } from "./26-snooze.js";
 import { registerLastTimeRecall } from "./27-last-time-recall.js";
 import { registerEntityGraph } from "./28-entity-graph.js";
 import { registerContactTimeline } from "./29-contact-timeline.js";
+import { registerAutoExtract } from "./30-auto-extract.js";
+import { registerPreMeetingBrief } from "./31-pre-meeting-brief.js";
+import { registerOrphanRadar } from "./32-orphan-radar.js";
 
 export interface RegisterOpts {
   surface: Surface;
@@ -64,6 +67,9 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerLastTimeRecall(r);
   registerEntityGraph(r);
   registerContactTimeline(r);
+  registerAutoExtract(r);
+  registerPreMeetingBrief(r);
+  registerOrphanRadar(r);
   registerSpotify(r);
   registerPersonalContext(r);
   registerIntegrationCapabilities(r);
@@ -104,4 +110,7 @@ export * from "./26-snooze.js";
 export * from "./27-last-time-recall.js";
 export * from "./28-entity-graph.js";
 export * from "./29-contact-timeline.js";
+export * from "./30-auto-extract.js";
+export * from "./31-pre-meeting-brief.js";
+export * from "./32-orphan-radar.js";
 export * from "./feature-queue-status.js";
