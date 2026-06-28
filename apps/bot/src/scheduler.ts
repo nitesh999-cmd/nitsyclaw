@@ -4,12 +4,15 @@
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
 import {
+  findOrphansForOwner,
   fireDueReminders,
   fireDueSnoozes,
   runAutoEntityExtraction,
   runFocusEveningCloseOut,
   runMorningBrief,
+  runPreMeetingBriefTick,
 } from "@nitsyclaw/shared/features";
+import { hashPhone } from "@nitsyclaw/shared/utils";
 import { isInQuietHours } from "@nitsyclaw/shared/utils";
 import { upsertSystemHeartbeat, pruneOldMessages, pruneExpiredConfirmations } from "@nitsyclaw/shared/db";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
@@ -24,6 +27,7 @@ const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
 const WHATSAPP_HEALTH_REPORT_CRON = process.env.WHATSAPP_HEALTH_REPORT_CRON ?? "0 21 * * *";
 const FOCUS_CLOSEOUT_CRON = process.env.FOCUS_CLOSEOUT_CRON ?? "30 20 * * *";
 const ENTITY_EXTRACT_CRON = process.env.ENTITY_EXTRACT_CRON ?? "*/5 * * * *";
+const PRE_MEETING_BRIEF_CRON = process.env.PRE_MEETING_BRIEF_CRON ?? "* * * * *";
 const MEMORY_PRUNER_CRON = process.env.MEMORY_PRUNER_CRON ?? "0 3 * * *";
 const PRUNE_MESSAGES_DAYS = Number(process.env.PRUNE_MESSAGES_DAYS ?? 90);
 
@@ -101,6 +105,13 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
 
         const events = await fetchAllEventsToday(opts.deps.timezone).catch(() => []);
         const unreadEmails = await fetchAllUnreadEmails(3).catch(() => []);
+        const orphanResult = await findOrphansForOwner(opts.deps.db, {
+          ownerHash: hashPhone(opts.ownerPhone),
+          now,
+          windowHours: 48,
+          staleContactDays: 7,
+          limit: 5,
+        }).catch(() => ({ items: [] as Array<{ kind: "reminder" | "snooze" | "stale_contact"; preview: string; due?: string }> }));
 
         await runMorningBrief({
           now,
@@ -110,6 +121,7 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
             events: events.map((e) => ({ title: e.title, start: e.start, source: e.source })),
             reminders: [],
             unreadEmails: unreadEmails.map((m) => ({ source: m.source, from: m.from, subject: m.subject })),
+            orphans: orphanResult.items.map((i) => ({ kind: i.kind, preview: i.preview, due: i.due })),
           },
         });
       } catch (e) {
@@ -169,6 +181,34 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       } catch (e) {
         await writeHeartbeat("entity-extract", { error: formatSafeLogError(e) }, "error").catch(() => {});
         logBotError("[cron:entity-extract] error", e);
+      }
+    }),
+  );
+
+  // Every minute - pre-meeting briefing tick (Feature 31). Fires once per
+  // calendar event in the [now+8min, now+15min] window. Per-process dedupe.
+  tasks.push(
+    cron.schedule(PRE_MEETING_BRIEF_CRON, async () => {
+      try {
+        const now = opts.deps.now();
+        if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+        const result = await runPreMeetingBriefTick(
+          opts.deps.db,
+          opts.deps.whatsapp,
+          opts.deps.aggregator,
+          opts.ownerPhone,
+          now,
+          opts.deps.timezone,
+        );
+        if (result.briefed > 0 || result.scanned > 0) {
+          await writeHeartbeat("pre-meeting-brief", {
+            lastRun: now.toISOString(),
+            ...result,
+          });
+        }
+      } catch (e) {
+        await writeHeartbeat("pre-meeting-brief", { error: formatSafeLogError(e) }, "error").catch(() => {});
+        logBotError("[cron:pre-meeting] error", e);
       }
     }),
   );

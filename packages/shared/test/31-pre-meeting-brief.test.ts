@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ToolRegistry } from "../src/agent/tools.js";
-import { registerPreMeetingBrief } from "../src/features/31-pre-meeting-brief.js";
+import {
+  __resetPreMeetingCacheForTests,
+  registerPreMeetingBrief,
+  runPreMeetingBriefTick,
+} from "../src/features/31-pre-meeting-brief.js";
+import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 import { makeAgentDeps, makeFakeDb } from "./helpers.js";
+import type { AggregatorClient } from "../src/agent/deps.js";
 import type { ToolContext } from "../src/agent/tools.js";
 
 const NOW = new Date("2026-06-26T08:00:00.000Z");
@@ -66,5 +72,69 @@ describe("Feature 31 — Pre-meeting briefing", () => {
     expect(out).toHaveProperty("body");
     expect(out.personName).toBeNull();
     expect(out.topic).toBe("Q3 numbers");
+  });
+});
+
+describe("Feature 31 — runPreMeetingBriefTick (scheduler cron)", () => {
+  function setupTick() {
+    __resetPreMeetingCacheForTests();
+    const wa = new MockWhatsAppClient();
+    const { db } = makeFakeDb();
+    return { wa, db };
+  }
+
+  function makeAggregator(events: Array<{ source: string; title: string; start: Date }>): AggregatorClient {
+    return {
+      async fetchAllEventsToday() { return events; },
+      async fetchAllUnreadEmails() { return []; },
+    };
+  }
+
+  it("returns zero counters when aggregator undefined", async () => {
+    const { wa, db } = setupTick();
+    const out = await runPreMeetingBriefTick(db, wa, undefined, PHONE, NOW, "Australia/Melbourne");
+    expect(out).toEqual({ scanned: 0, briefed: 0, skippedAlreadyBriefed: 0 });
+    expect(wa.sent).toHaveLength(0);
+  });
+
+  it("briefs events starting in the [+8min, +15min) window", async () => {
+    const { wa, db } = setupTick();
+    const inWindow = new Date(NOW.getTime() + 10 * 60 * 1000);
+    const tooSoon = new Date(NOW.getTime() + 5 * 60 * 1000);
+    const tooFar = new Date(NOW.getTime() + 30 * 60 * 1000);
+    const aggregator = makeAggregator([
+      { source: "google", title: "Coffee with Raj", start: inWindow },
+      { source: "google", title: "Standup", start: tooSoon },
+      { source: "outlook", title: "Strategy review with Sarah", start: tooFar },
+    ]);
+    const out = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    expect(out.scanned).toBe(1);
+    expect(out.briefed).toBe(1);
+    expect(wa.sent).toHaveLength(1);
+    expect(wa.sent[0]?.body).toContain("Coffee with Raj");
+  });
+
+  it("dedupes the same event across consecutive ticks", async () => {
+    const { wa, db } = setupTick();
+    const inWindow = new Date(NOW.getTime() + 10 * 60 * 1000);
+    const aggregator = makeAggregator([
+      { source: "google", title: "Catch up with Mum", start: inWindow },
+    ]);
+    const first = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    expect(first.briefed).toBe(1);
+    const second = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    expect(second.briefed).toBe(0);
+    expect(second.skippedAlreadyBriefed).toBe(1);
+    expect(wa.sent).toHaveLength(1);
+  });
+
+  it("falls back gracefully on aggregator error", async () => {
+    const { wa, db } = setupTick();
+    const aggregator: AggregatorClient = {
+      async fetchAllEventsToday() { throw new Error("api down"); },
+      async fetchAllUnreadEmails() { return []; },
+    };
+    const out = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    expect(out).toEqual({ scanned: 0, briefed: 0, skippedAlreadyBriefed: 0 });
   });
 });

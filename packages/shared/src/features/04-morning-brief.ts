@@ -9,6 +9,8 @@ import {
   upsertBrief,
 } from "../db/repo.js";
 import { formatBriefDate } from "../utils/time.js";
+import { hashPhone } from "../utils/crypto.js";
+import { findOrphansForOwner } from "./32-orphan-radar.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { AgentDeps } from "../agent/deps.js";
 import { privateOwnerTenantForPhone } from "../tenancy.js";
@@ -27,6 +29,8 @@ export interface BriefInputs {
   topPriority?: string;
   weatherSummary?: string;
   locationUsed?: string;
+  /** Orphan radar tail: slipping items from Feature 32. */
+  orphans?: Array<{ kind: "reminder" | "snooze" | "stale_contact"; preview: string; due?: string }>;
 }
 
 interface AggregatedEvent {
@@ -106,6 +110,14 @@ export function buildBrief(args: { now: Date; timezone: string; inputs: BriefInp
     }
   }
 
+  if (args.inputs.orphans?.length) {
+    lines.push(`\nSlipping (${args.inputs.orphans.length}):`);
+    for (const o of args.inputs.orphans.slice(0, 5)) {
+      const tag = o.kind === "stale_contact" ? "person" : o.kind;
+      lines.push(`- [${tag}] ${summarizeLine(o.preview, 100)}`);
+    }
+  }
+
   return { date, body: lines.join("\n") };
 }
 
@@ -149,7 +161,7 @@ export function registerMorningBrief(registry: ToolRegistry): void {
       topPriority: z.string().optional(),
     }),
     handler: async (input: { topPriority?: string }, ctx: ToolContext) => {
-      const [events, unreadEmails, reminders, queueItems, whatsappFollowUps, weather] = await Promise.all([
+      const [events, unreadEmails, reminders, queueItems, whatsappFollowUps, weather, orphans] = await Promise.all([
         ctx.deps.aggregator?.fetchAllEventsToday(ctx.timezone).catch(() => []) ?? [],
         ctx.deps.aggregator?.fetchAllUnreadEmails(3).catch(() => []) ?? [],
         listPendingReminders(ctx.deps.db, privateOwnerTenantForPhone(ctx.userPhone), ctx.now, 6).catch(() => []),
@@ -163,6 +175,15 @@ export function registerMorningBrief(registry: ToolRegistry): void {
           )
           .catch(() => []),
         resolveWeatherSummary(ctx.deps).catch(() => null),
+        findOrphansForOwner(ctx.deps.db, {
+          ownerHash: hashPhone(ctx.userPhone),
+          now: ctx.now,
+          windowHours: 48,
+          staleContactDays: 7,
+          limit: 5,
+        })
+          .then((r) => r.items.map((i) => ({ kind: i.kind, preview: i.preview, due: i.due })))
+          .catch(() => []),
       ]);
 
       return runMorningBrief({
@@ -187,6 +208,7 @@ export function registerMorningBrief(registry: ToolRegistry): void {
           topPriority: input.topPriority,
           weatherSummary: weather?.summary,
           locationUsed: weather?.location,
+          orphans,
         },
       });
     },
