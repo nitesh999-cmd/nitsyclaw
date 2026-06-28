@@ -1,5 +1,5 @@
 import { OAuth2Client } from "google-auth-library";
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync } from "node:fs";
 import * as readline from "node:readline";
 import {
   firstExistingSecretPath,
@@ -140,6 +140,55 @@ export async function runFirstTimeAuth(label?: string): Promise<void> {
   console.log(`\nToken saved to ${path}`);
   console.log(`This account is now labeled: "${accountLabel}"`);
   console.log(`\nList all linked Google accounts: pnpm google:list\n`);
+}
+
+/**
+ * Provider-side revoke (Phase C trust trio). Calls Google's revocation
+ * endpoint with the refresh_token (preferred) or access_token, then clears
+ * the local token file regardless of revoke outcome so the user is always
+ * disconnected locally. Returns structured result; never throws.
+ *
+ * https://developers.google.com/identity/protocols/oauth2/web-server#tokenrevoke
+ */
+export async function revokeGoogleToken(
+  label = "personal",
+): Promise<{ revoked: boolean; cleared: boolean; reason?: string }> {
+  const token = loadTokenFor(label);
+  if (!token) return { revoked: false, cleared: false, reason: "no token for label" };
+  const tokenToRevoke =
+    (token.refresh_token as string | undefined) ??
+    (token.access_token as string | undefined);
+  let revoked = false;
+  let reason: string | undefined;
+  if (tokenToRevoke) {
+    try {
+      const resp = await fetch(
+        `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(tokenToRevoke)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        },
+      );
+      if (resp.ok) revoked = true;
+      else reason = `revoke endpoint returned ${resp.status}`;
+    } catch (e) {
+      reason = e instanceof Error ? e.message : String(e);
+    }
+  } else {
+    reason = "no access or refresh token to revoke";
+  }
+  const path = tokenPathFor(label);
+  let cleared = false;
+  try {
+    if (existsSync(path)) {
+      unlinkSync(path);
+      cleared = true;
+    }
+  } catch {
+    // best-effort; cleared stays false
+  }
+  cachedClients.delete(label);
+  return { revoked, cleared, reason };
 }
 
 if (process.argv[1]?.endsWith("google-auth.ts") || process.argv[1]?.endsWith("google-auth.js")) {

@@ -7,7 +7,7 @@
 //
 // Stores tokens at google-style path: ms-token.json (or env MS_TOKEN_JSON for cloud)
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import {
   firstExistingSecretPath,
   loadBotDotenv,
@@ -155,6 +155,38 @@ export async function runDeviceCodeAuth(): Promise<void> {
   }
   console.error("Device code expired. Run again.");
   process.exit(1);
+}
+
+/**
+ * Provider-side disconnect for Microsoft Graph (Phase C trust trio).
+ * Microsoft Graph has no first-party revoke endpoint — users must revoke
+ * app consent via the Microsoft account portal:
+ *   https://account.live.com/consent/Manage
+ *
+ * This helper clears the local token file so the bot can no longer use
+ * the previous grant, and returns the portal URL so the caller (tool /
+ * UI) can surface it for the user to complete the revoke. Never throws.
+ */
+export function clearMicrosoftToken(): {
+  cleared: boolean;
+  portalUrl: string;
+  reason?: string;
+} {
+  const portalUrl = "https://account.live.com/consent/Manage";
+  const path = writableSecretPath(TOKEN_FILE);
+  if (!existsSync(path)) {
+    return { cleared: false, portalUrl, reason: "no local token to clear" };
+  }
+  try {
+    unlinkSync(path);
+    return { cleared: true, portalUrl };
+  } catch (e) {
+    return {
+      cleared: false,
+      portalUrl,
+      reason: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 if (process.argv[1]?.endsWith("microsoft-auth.ts") || process.argv[1]?.endsWith("microsoft-auth.js")) {
