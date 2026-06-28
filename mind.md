@@ -2651,5 +2651,69 @@ Closes the personal-use phase. Voice notes used to be transcribed only; now they
 
 This is the natural pause point. The owner-grade product is feature-complete for personal use. Dogfooding for 1-2 weeks before opening Phase C is the right move — surfaces what the council didn't predict.
 
+---
+
+## 59. Session 2026-06-26 (eleventh push) -- Phase C kickoff: provider disconnect helpers
+
+**Date:** 2026-06-26 (continued)
+**Driver:** Nitesh "go" -> kick off Phase C despite the dogfood recommendation.
+
+### Phase C discovery (what's actually already shipped)
+
+Before building, surveyed existing Phase C surface:
+- `apps/dashboard/src/app/privacy/page.tsx` (38 lines) -- shipped
+- `apps/dashboard/src/app/terms/page.tsx` (35 lines) -- shipped
+- `apps/dashboard/src/app/api/data/export/route.ts` (146 lines) -- shipped
+- `apps/dashboard/src/app/api/data/delete/route.ts` (165 lines) -- shipped
+- `apps/dashboard/src/app/activity/page.tsx` -- shipped (likely audit log viewer)
+- `apps/dashboard/src/lib/sale-readiness.ts` (160 lines) -- canonical public-sale checklist with 4 env-flag gates: `NITSYCLAW_AUTH_MODEL=multi-user`, `NITSYCLAW_TENANT_ISOLATION=verified`, `NITSYCLAW_PROVIDER_DELETE=verified`, `NITSYCLAW_LEGAL_COPY=verified`.
+- `packages/shared/src/tenancy.ts` (133+ lines, multi-export module).
+
+Trust trio is largely scaffolded. The gating ENV flags flip when the underlying impl is real.
+
+### What shipped this push (commit `d2418ff`)
+
+Substrate for `NITSYCLAW_PROVIDER_DELETE` gate. Google + Microsoft were missing the revoke surface (Spotify already had `disconnectSpotify`).
+
+**`apps/bot/src/google-auth.ts -> revokeGoogleToken(label = 'personal')`**
+- POSTs token to `https://oauth2.googleapis.com/revoke` (prefers refresh_token over access_token).
+- Clears local token file regardless of revoke outcome -- local disconnect guaranteed even if Google's endpoint errors.
+- Drops `cachedClients[label]` so subsequent calls re-resolve from disk (now empty).
+- Returns `{ revoked, cleared, reason? }`. Never throws.
+
+**`apps/bot/src/microsoft-auth.ts -> clearMicrosoftToken()`**
+- Microsoft Graph has NO first-party app-revoke endpoint. Users must revoke at `https://account.live.com/consent/Manage` in their Microsoft account portal.
+- Helper clears the local token file and returns the portal URL so a calling tool/UI can surface it for the user to complete the revoke flow.
+- Returns `{ cleared, portalUrl, reason? }`. Never throws.
+
+### What's deferred (next push)
+
+- Confirmation-rail-gated tool `provider_disconnect({ provider: 'google' | 'outlook' | 'spotify', label? })` that calls the appropriate helper.
+- Smoke test against a real (test) account to flip `NITSYCLAW_PROVIDER_DELETE=verified` with confidence.
+- Same shape for `provider_reconnect` for one-tap re-auth.
+
+### Full suite: 960/960 still green (no test changes this push)
+
+Helpers depend on real OAuth tokens + fetch; integration test belongs alongside the wired tool next push.
+
+### Phase C status (sale-readiness gates)
+
+| Gate | State | Blocker |
+|---|---|---|
+| `NITSYCLAW_AUTH_MODEL=multi-user` | ❌ | Per-user signup + session-bound identity not built |
+| `NITSYCLAW_TENANT_ISOLATION=verified` | ❌ | Owner_hash scoping is rich; full multi-owner runtime not exercised |
+| `NITSYCLAW_PROVIDER_DELETE=verified` | ⏳ | **Substrate landed this push; tool + smoke test next** |
+| `NITSYCLAW_LEGAL_COPY=verified` | ❌ | Privacy/ToS shipped; need formal review pass |
+
+### Cumulative run summary (11 pushes, 2026-06-23 -> 2026-06-26)
+
+- **11 features end-to-end + Phase B compound polish + Phase C substrate**
+- 37 tools registered
+- 3 new DB tables
+- Tests: 893 -> **960** (+67)
+- 1 new Constitution rule (R41)
+- 9 scheduler cron ticks live
+- Doc cadence: 12 entries (48-59)
+
 
 
