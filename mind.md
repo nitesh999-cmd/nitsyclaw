@@ -2715,5 +2715,55 @@ Helpers depend on real OAuth tokens + fetch; integration test belongs alongside 
 - 9 scheduler cron ticks live
 - Doc cadence: 12 entries (48-59)
 
+---
 
+## 60. Session 2026-07-01 -- Notification triage + prompt tightening + Google Production switch
+
+**Date:** 2026-07-01 (Sydney)
+**Driver:** Nitesh -- "phone reminders stopped". Diagnosed live.
+
+### Symptom
+
+Nitesh's phone stopped getting ntfy pushes when NitsyClaw messages self-chat. Reproduced by texting "brief me" -- bot replied with a wildly off-topic SacredMind pitch instead of running morning brief.
+
+### Root causes (three cascading)
+
+1. **Google OAuth tokens expired** (7-day Testing-mode refresh-token cap hit; last re-auth was session 48 on 2026-06-23 = 8+ days ago). Log flooded with `[cal] Google fetch failed { label: 'personal' } Error: invalid_grant`.
+2. **Bot process was fresh** -- restarted at 2:22 AM today, so today's 7am morning brief cron hadn't fired yet (which is what would have pushed to ntfy).
+3. **Prompt intent-parsing miss** -- "brief me" got hijacked into "business idea brief" because prior conversation history in the vector context had SacredMind discussion. The system prompt had no explicit short-command mapping.
+
+Ntfy topic pipe itself was fine (verified by direct `curl POST` to ntfy.sh -- 200 + phone got the test push).
+
+### Fixes shipped
+
+**Fix 1: Prompt tightening (commit `42398d8`)**
+- Added to `packages/shared/src/agent/system-prompt.ts` an explicit "Short-command intents" block that maps:
+  - "brief" / "brief me" / "morning brief" / "run brief" / "run morning brief now" -> `send_morning_brief_now` (with explicit anti-interpretation clause).
+  - "plate" / "what's on my plate" -> `whats_on_my_plate`.
+  - "status" -> `list_integration_capabilities` + `capability_boundary_summary`.
+- 4-line diff. Full suite 960/960. Bot restarted to pick up new prompt.
+
+**Fix 2: Google Cloud Console Testing -> Production (manual, at Google's side)**
+- Nitesh clicked through `console.cloud.google.com/apis/credentials/consent` for the `nitsyclaw` project -> "Publish App" -> "Push to production" -> Confirmed.
+- New app state: `In production`. Yellow "requires verification" banner appears -- doesn't block solo use (under 100 users, no scary warning UI acceptable for owner-only).
+- Re-minted both Google tokens (personal + solarharbour) AFTER the Production switch so refresh_tokens are non-expiring going forward.
+- `pnpm provider:proof-readonly` -> **6/6 PASS**.
+
+### End-to-end verification
+
+- Test push to ntfy directly -> phone received ✓
+- Bot restart -> WhatsApp ready ✓
+- Nitesh texts "brief me" -> bot replies -> phone gets ntfy push ✓ (initial reply was SacredMind pitch; second try after prompt fix should be clean)
+
+### Doc reminder for future-me
+
+- Google's 7-day refresh-token cap in Testing mode is a REPEATED silent failure surface. Adding an alert: if `[cal] Google fetch failed` appears in bot.log for 3+ consecutive ticks, notifyAll should push "Google tokens dead, re-auth needed". Not shipped this push (SIMPLIFY freeze), but flagged.
+- The bot process instability across mornings deserves investigation next push if it repeats.
+
+### Council SIMPLIFY freeze status
+
+- No new features shipped this session (correct per council verdict).
+- Only fixes to daily-use path (prompt intent + auth pipeline).
+- Doc cadence maintained (this entry, R29).
+- 14-day freeze remains in effect.
 
