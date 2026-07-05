@@ -2822,6 +2822,7 @@ Every notify failure (ntfy, Windows toast, MS mail) was caught and logged with n
 - `pnpm -r typecheck` -- clean across all 3 workspaces.
 - `pnpm test` (root `vitest run`) -- **960/960 passing** (1 test needed updating for the new auth gate, see above).
 - Bot process restarted (`launch-bot.ps1`) -- confirmed clean boot: `[boot] WhatsApp ready`, `[boot] scheduler started`.
+- Pushed (`12569cc`, `34ee8b5`), Vercel auto-deployed. `scripts/live-smoke.ps1` run against production `https://nitsyclaw.vercel.app` post-deploy: previously-open `/api/chat/history` and `/api/data/delete` now correctly return **401** unauthenticated (direct behavioral proof the R62 fix is live, not just committed); all protected pages 307-redirect to `/login`. Authenticated round-trip (real login -> cookie -> hit gated routes) was skipped -- `NITSYCLAW_DASHBOARD_PASSWORD` lives in Vercel env only, not `.env.local`. Lockout risk judged low: `/api/auth/login` and `verifyDashboardSessionToken` were not touched by this fix, and the suite already covers the valid-session success path (e.g. `data/delete/route.test.ts` now builds a real token via `createDashboardSessionToken`). One real login on an actual device/browser would close this out fully -- cheap for Nitesh to confirm next time he opens the dashboard.
 
 ### Known remaining gaps (explicitly deferred, not silently dropped)
 
