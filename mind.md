@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-06-17 (daily build agent run -- network blocked day 33)
+> Updated: 2026-07-05 (full-codebase bug hunt + fix batch -- P0 dashboard auth, Outlook timezone corruption, session 61)
 
 ---
 
@@ -2766,4 +2766,66 @@ Ntfy topic pipe itself was fine (verified by direct `curl POST` to ntfy.sh -- 20
 - Only fixes to daily-use path (prompt intent + auth pipeline).
 - Doc cadence maintained (this entry, R29).
 - 14-day freeze remains in effect.
+
+---
+
+## 61. Session 2026-07-05 -- Full-codebase bug hunt + fix batch (P0 dashboard auth, Outlook timezone corruption, snooze/notify reliability)
+
+**Date:** 2026-07-05
+**Driver:** Nitesh -- "Read this whole codebase and find real bugs, broken edge cases, and anything that falls over in front of a user. List everything by severity and do not fix anything until I say go." Then: "go".
+
+### Audit methodology
+
+4 parallel background subagents (dashboard/auth surface, WhatsApp router, shared features/DB, bot core) + manual Read/Grep investigation. 2 of the 4 subagents (bot core, shared features+DB) hit the account session limit before returning findings -- closed via direct manual investigation instead of re-spawning into the same limit. Full 3192-line `router.ts`, confirmation-rail race conditions, and encryption mixed-plaintext edge cases were flagged as remaining unreviewed surface rather than silently presented as fully covered.
+
+### P0 -- Dashboard has no real session verification (R62)
+
+`verifyDashboardSessionToken` (the HMAC-signed session cookie verifier) was implemented and wired into the login/logout routes only -- grep-traced every call site and found **zero** data-bearing API routes ever verified the session cookie they set. Every private-data route relied solely on `requireSameOrigin`, a CSRF check (Origin/Referer header match) that says nothing about whether the caller is logged in. An anonymous visitor who loaded the public `/login` page and ran `fetch('/api/search?q=x')` from DevTools passed with zero credentials.
+
+**Fix:** new `apps/dashboard/src/lib/require-dashboard-session.ts` (`requireDashboardSession(request)` -- verifies the cookie's HMAC signature + expiry, 401s if invalid, production fails closed when auth isn't configured, no-ops in dev when unconfigured). Wired directly into 13 routes: `search`, `stats`, `chat`, `chat/history`, `chat/stream`, `data/export`, `data/delete`, `memory/review`, `expenses/export`, `operator/jobs`, `queue/update`, `integrations/health`, `integrations/spotify/status`. `integrations/spotify/connect` got session-only (deliberately no `requireSameOrigin` -- top-level OAuth navigation doesn't send Origin headers). `data/delete`'s "everything" scope already had password reauth; "memories"/"conversations" scopes had none -- now gated the same as every other route. Codified as **R62** (extends R41, which documented this invariant back in 2026-05-01 without the code ever actually enforcing it).
+
+**Regression from the fix:** `data/delete/route.test.ts`'s first case stubs a real `NITSYCLAW_DASHBOARD_PASSWORD`, which now makes the new session gate active -- it needed a real session cookie (`createDashboardSessionToken`) added to reach the code path under test. Fixed; full suite green.
+
+### P0/P1 -- Outlook calendar timezone corruption (R63)
+
+Microsoft Graph's `dateTimeTimeZone` type returns/expects wall-clock strings with no "Z"/offset, defaulting to UTC. `createMsEvent` wrote `args.start.toISOString().replace("Z", "")` (reinterprets a UTC instant as wall-clock-in-tz -- corrupts by the zone offset) and `fetchMsEventsToday` read `new Date(e.start?.dateTime)` (JS parses a no-timezone ISO string as **server-local** time per ECMA-262, not the declared Graph zone). Confirmed against `date-fns-tz` v3 source (`toZonedTime` uses local Date setters internally, so its local getters give correct wall-clock-in-zone regardless of system TZ) before fixing. New shared `formatZonedNaiveIso(date, timezone)` in `packages/shared/src/utils/time.ts` fixes the write path; new `parseGraphUtcDateTime` in `microsoft-graph.ts` fixes the read path. Same root cause also affected `31-pre-meeting-brief.ts`'s `toLocaleTimeString` call (missing `timeZone` -- threaded through).
+
+### P1 -- Snooze/reminder fixes
+
+- `cancelSnooze` matched full UUID only; the resurface message told the user to reply with an 8-char prefix that never matched -- rewrote to accept either, scoped to `status='pending'` + `ownerHash` (previously missing scope).
+- `dueSnoozes` had no owner filtering at all -- added optional `ownerHash` param, wired from `fireDueSnoozes`.
+- `fireDueSnoozes` swallowed mark-resurfaced failures inside the same try/catch as the send -- split into two catches so a mark failure (row re-sends next tick, not silently lost) surfaces via a new `markFailed` counter instead of vanishing; wired into the scheduler heartbeat + error log.
+- `findEntities`/`recentEntitiesByKind` could return the `__none__<messageId>` sentinel value (written by the auto-extract worker to mark "already scanned, nothing found") as if it were a real entity -- filtered at the repo layer via a shared `NOT_SENTINEL_ENTITY` condition.
+
+### P1 -- Google/Outlook OAuth token persistence
+
+- `google-auth.ts`: refreshed tokens were only written back to disk if the *original* token file already existed at the canonical labeled path -- if it was loaded from a legacy path, refreshes were silently dropped. Removed the guard so refreshes always persist.
+- `microsoft-auth.ts`: `loadMsTokens()` always checked `process.env.MS_TOKEN_JSON` first, even after `saveMsTokens()` had written a freshly-refreshed token to disk -- in any deploy with `MS_TOKEN_JSON` set as a static env var, every call re-read the same stale (always-expired-looking) env token and re-refreshed on every single Graph call, until the embedded refresh_token eventually got rejected by Microsoft entirely. Added an in-memory `refreshedTokensCache` that `saveMsTokens()` populates and `loadMsTokens()` checks first, so a refresh within the running process is immediately sticky without needing the env var itself to change.
+- `microsoft-auth.ts` refresh failures now parse the Graph error body and append a re-auth hint ("run `pnpm ms:auth`") when the status looks like an auth failure (400/401).
+
+### P2 fixes (all shipped, per "go" = fix everything found)
+
+- `adapters.ts`/`buildGmailRawMessage`: Subject header now RFC-2047-encoded and body base64-encoded with a matching `Content-Transfer-Encoding: base64` header (was falsely declaring `7bit` for UTF-8 content).
+- `adapters.ts`/`realCalendar.suggestSlots`: rewrote to check free/busy across both Google accounts (personal + solarharbour), filter invalid busy blocks, clamp scan start to `now`, and return an honest empty array on a fully-booked window instead of falsely suggesting a known-busy slot.
+- `25-daily-focus.ts`: evening close-out message no longer promises a working yes/no confirmation exchange that doesn't exist -- now says "tell me and I'll mark it done, or let it carry into tomorrow."
+- `notify/index.ts`: ntfy Title/Tags/Click headers are now sanitized (strip CR/LF, strip non-ASCII) before being placed in `fetch()` headers -- an unsanitized header (e.g. an emoji in a subject line) threw synchronously and silently dropped the whole push.
+- `adapters.ts`/`extractReceipt`: when the model's JSON response omitted its own `rawText` field, the code fell back to the *entire raw JSON string* as `rawText` -- which then got displayed verbatim to the user ("log expense ({"amount":12.99,...})"). Now only falls back to raw text when `JSON.parse` actually failed (i.e. `text` is genuinely non-JSON).
+- `router.ts` voice transcription: a missing `OPENAI_API_KEY` now gets an honest "not configured yet" message instead of "try again shortly" (which falsely implied every future retry might succeed).
+- `system-prompt.ts`: corrected a false claim that "there is no send_email tool" -- now correctly distinguishes `queue_email_draft_creation` (draft) from `queue_email_send` (real send).
+
+### P1 (deferred, minimal fix shipped) -- Notify-channel death was invisible (R64)
+
+Every notify failure (ntfy, Windows toast, MS mail) was caught and logged with no counter, health flag, or alert -- a fully-dead pipeline (e.g. `NTFY_TOPIC` typo) could run silently for weeks. `pushNotify`/`sendMsEmailNotify` now return per-channel `"sent"|"failed"|"skipped"`; `notifyAll` tracks a consecutive-all-channel-failure counter and writes a `notify-channels` system heartbeat. Nightly WhatsApp health report surfaces it as an FYI line without affecting the report's own ready/needs-attention status (the report itself arrives over WhatsApp regardless).
+
+### Verification
+
+- `pnpm -r typecheck` -- clean across all 3 workspaces.
+- `pnpm test` (root `vitest run`) -- **960/960 passing** (1 test needed updating for the new auth gate, see above).
+- Bot process restarted (`launch-bot.ps1`) -- confirmed clean boot: `[boot] WhatsApp ready`, `[boot] scheduler started`.
+
+### Known remaining gaps (explicitly deferred, not silently dropped)
+
+- Outlook/Microsoft Graph conflict-checking was not added to `suggestSlots` (Google-only) -- would need the Graph `getSchedule` API.
+- Full `router.ts` (3192 lines), confirmation-rail race conditions, and encrypted-column mixed-plaintext edge cases were not exhaustively reviewed this session (2 of 4 bug-hunt subagents hit the session limit before returning).
+- Recurring reminders beyond simple weekday patterns remain unimplemented (pre-existing, not new this session).
 

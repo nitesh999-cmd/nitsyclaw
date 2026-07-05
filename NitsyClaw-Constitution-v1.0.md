@@ -351,6 +351,24 @@ Global login-failure counters may be used for alerting, suspicious traffic signa
 - *Source:* Session 43 — post-deploy review of dashboard login lockout
 - *Added:* 2026-05-05
 
+### R62 — Every private-data dashboard API route must call requireDashboardSession directly (extends R41)
+Documenting an auth invariant in the Constitution (R41) is not the same as enforcing it in code. A full-codebase bug hunt found that `verifyDashboardSessionToken` was implemented and used only by the login/logout routes — no data-bearing API route ever called it. Fourteen routes (`search`, `stats`, `chat`, `chat/history`, `chat/stream`, `data/export`, `data/delete`, `memory/review`, `expenses/export`, `operator/jobs`, `queue/update`, `integrations/health`, `integrations/spotify/status`, `integrations/spotify/connect`) relied solely on `requireSameOrigin`, which is a CSRF check (does the Origin/Referer header match?) and says nothing about whether the caller is logged in — an anonymous visitor on the public `/login` page could `fetch()` any of them from the browser console. Every dashboard API route that reads or mutates private data MUST call `requireDashboardSession(request)` from `apps/dashboard/src/lib/require-dashboard-session.ts` directly inside its own handler (not rely on middleware alone) and short-circuit on its non-null `Response`. `integrations/spotify/callback` is exempt (transitively protected by gating `/connect`, and the callback itself must accept the unauthenticated OAuth redirect). Any new dashboard API route touching private data must add this call before it ships; R55's route-discovery red-team test should be extended to check for it the same way it already checks for `requireSameOrigin`.
+- *Source:* Full-codebase bug hunt, session 2026-07-05 — user asked to "find real bugs ... and anything that falls over in front of a user"; grep-traced every call site of `verifyDashboardSessionToken` and found zero data routes called it
+- *Added:* 2026-07-05
+- *Extends:* R41 (states the invariant), R46 (same-origin is a separate, complementary check — CSRF ≠ authentication)
+
+### R63 — Microsoft Graph calendar/mail timestamps require explicit wall-clock encoding, never string-surgery on ISO
+Microsoft Graph's `dateTimeTimeZone` type (used by calendar event `start`/`end`) returns and expects a wall-clock string with NO "Z" suffix and NO UTC offset — it defaults to UTC unless the caller sends a `Prefer: outlook.timezone` header (this codebase does not). `new Date(str)` on a no-timezone ISO string is parsed by the JS engine as **server-local time** per ECMA-262, not UTC and not the declared Graph timezone. `apps/bot/src/microsoft-graph.ts` previously wrote events with `args.start.toISOString().replace("Z", "")` (silently reinterprets a UTC instant as if it were wall-clock-in-`tz`, corrupting the time by the zone offset) and read events with bare `new Date(e.start?.dateTime)` (silently reinterprets Graph's UTC-default wall-clock string as server-local time). Both directions must instead go through `formatZonedNaiveIso(date, timezone)` (write path, in `packages/shared/src/utils/time.ts`, built on `date-fns-tz`'s `toZonedTime`) and `parseGraphUtcDateTime(dateTime, fallback)` (read path, in `microsoft-graph.ts`) respectively. Any future Graph datetime field must be checked against Graph's own type (`dateTimeTimeZone` vs `dateTimeOffset`) before assuming `new Date()` is safe — `dateTimeOffset` fields (e.g. mail `receivedDateTime`) always include a real offset/Z and are safe to parse directly.
+- *Source:* Full-codebase bug hunt, session 2026-07-05 — confirmed against `date-fns-tz` v3 source and Microsoft Graph datetime-type docs before fixing
+- *Added:* 2026-07-05
+- *Extends:* R38 (calendar provider wiring)
+
+### R64 — Notify-channel failures must be counted and surfaced, never silently swallowed forever (extends R37)
+R37 makes `pushNotify`/`notifyAll` best-effort so a broken push channel never blocks a WhatsApp reply — but "best-effort" had drifted into "invisible": every channel failure (ntfy non-2xx, Windows toast spawn error, MS mail send error) was caught and `console.error`'d with no counter, health flag, or alert, so a fully-dead notify pipeline (e.g. an `NTFY_TOPIC` typo) could run silently for weeks. `pushNotify`/`sendMsEmailNotify` now return a per-channel `"sent" | "failed" | "skipped"` result; `notifyAll` tracks an in-memory consecutive-all-channel-failure counter and writes it to the `notify-channels` system heartbeat (`upsertSystemHeartbeat`) on every call when a `DB` is passed. The nightly WhatsApp health report reads that heartbeat and surfaces it as an FYI line — it deliberately does not flip the report's own `ready`/`needs_attention` status, since the report itself already arrives over WhatsApp (the most reliable channel) regardless of whether the side-channel notify pipeline is dead.
+- *Source:* Full-codebase bug hunt, session 2026-07-05
+- *Added:* 2026-07-05
+- *Extends:* R37 (push notification on every reply)
+
 ---
 
 ## Fixes log
@@ -410,6 +428,9 @@ Global login-failure counters may be used for alerting, suspicious traffic signa
 | 2026-05-05 | Delete-everything controls could partially delete data without backup proof | R60 | Added transaction, audit row, password re-auth, and recent export snapshot guard |
 | 2026-05-05 | Export snapshot guard was timestamp-only and audit rows could survive delete-everything | R60 | Added signed session-bound export proof, export truncation detection, and all-audit purge before tombstone |
 | 2026-05-05 | Global auth lockout could let anyone lock out the owner | R61 | Correct credentials now bypass/clear the global failure bucket; global lockout only affects bad attempts |
+| 2026-07-05 | R41 documented dashboard auth but 14 private-data API routes never called the session verifier — CSRF check only | R62 | `requireDashboardSession` added directly to every affected route; new `require-dashboard-session.ts` lib |
+| 2026-07-05 | Outlook calendar write/read paths corrupted event times by the local timezone offset | R63 | `formatZonedNaiveIso` (write) + `parseGraphUtcDateTime` (read) replace unsafe ISO string surgery |
+| 2026-07-05 | Dead ntfy/toast/mail notify pipeline could fail silently indefinitely with no counter or alert | R64 | Per-channel result tracking + `notify-channels` heartbeat surfaced in nightly WhatsApp health report |
 
 ---
 
