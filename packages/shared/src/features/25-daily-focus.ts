@@ -198,10 +198,15 @@ export async function runFocusEveningCloseOut(
       `Evening check — today's ONE: ${row.chosenText}\n` +
       `Marked done. Good day.`;
   } else {
+    // NOTE: this is NOT a confirmation-rail y/n exchange — there is no pending
+    // confirmation row backing it, and there is no "roll to tomorrow" tool.
+    // A bare "yes"/"no" reply here previously went nowhere. Tell the user to
+    // say what happened in plain language instead; the agent routes that to
+    // mark_daily_focus_done like any other message.
     state = "focus_open";
     body =
       `Evening check — today's ONE: ${row.chosenText}\n` +
-      `Did you ship it? Reply "yes" to mark done or "no" to roll it to tomorrow.`;
+      `Did you ship it? Tell me and I'll mark it done — or just let it carry into tomorrow.`;
   }
 
   try {

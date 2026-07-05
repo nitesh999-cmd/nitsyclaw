@@ -78,10 +78,17 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
           opts.deps.whatsapp,
           opts.ownerPhone,
           opts.deps.now(),
-        ).catch(() => ({ fired: 0 }));
+        ).catch(() => ({ fired: 0, markFailed: 0 }));
+        if (snoozeResult.markFailed > 0) {
+          logBotError(
+            "[cron:snooze] mark-resurfaced failed after successful send — row(s) will re-send next tick",
+            new Error(`markFailed=${snoozeResult.markFailed}`),
+          );
+        }
         await writeHeartbeat("reminder-sweep", {
           lastReminderSweep: opts.deps.now().toISOString(),
           snoozesFired: snoozeResult.fired,
+          snoozesMarkFailed: snoozeResult.markFailed,
         });
       } catch (e) {
         await writeHeartbeat(

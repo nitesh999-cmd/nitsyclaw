@@ -98,8 +98,16 @@ export function loadOAuthClient(label = "personal"): OAuth2Client {
     client.setCredentials(token);
     client.on("tokens", (newTokens) => {
       const merged = { ...token, ...newTokens };
+      // Always persist to the canonical labeled path, even if the token was
+      // originally loaded from a legacy unlabeled file (google-token.json) or
+      // a legacy repo path. Previously this only wrote `if (existsSync(path))`,
+      // which is false for legacy-loaded tokens — every refresh was silently
+      // dropped, so rotated refresh tokens were lost and the bot died with a
+      // stale-token invalid_grant after Google rotated the token server-side.
+      // Writing here migrates the token to the canonical location on first
+      // successful refresh; loadTokenFor already prefers that path.
       const path = tokenPathFor(label);
-      if (existsSync(path)) writeFileSync(path, JSON.stringify(merged, null, 2));
+      writeFileSync(path, JSON.stringify(merged, null, 2));
     });
   }
   cachedClients.set(label, client);

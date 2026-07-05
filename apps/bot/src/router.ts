@@ -273,7 +273,7 @@ export class Router {
     } catch (e) {
       logBotError("[router] failed to persist outbound", e);
     }
-    notifyAll(body, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
+    notifyAll(body, { title: "NitsyClaw replied", priority: "default" }, this.deps.db).catch(() => {});
   }
 
   private async sendWithoutPersistence(body: string): Promise<void> {
@@ -2085,7 +2085,16 @@ export class Router {
         }
       } catch (e) {
         await this.failWhatsAppCommandJob(commandJob, e);
-        await this.sendPublicFailure("voice transcription", "Couldn't transcribe that voice note. I logged it; try again shortly.", e);
+        // "OPENAI_API_KEY not set" is a permanent config error (adapters.ts
+        // buildAgentDeps throws this from the transcriber stub), not a
+        // transient one — "try again shortly" falsely tells the user
+        // retrying will help when every voice note will fail identically
+        // until the key is configured.
+        const isMissingKey = e instanceof Error && e.message.includes("OPENAI_API_KEY not set");
+        const userMessage = isMissingKey
+          ? "Voice transcription isn't configured yet (missing OpenAI API key) — text works fine in the meantime."
+          : "Couldn't transcribe that voice note. I logged it; try again shortly.";
+        await this.sendPublicFailure("voice transcription", userMessage, e);
         return;
       }
     }
@@ -2856,7 +2865,7 @@ export class Router {
           } catch (e) {
             logBotError("[router] failed to persist reply_to_user outbound", e);
           }
-          notifyAll(text, { title: "NitsyClaw replied", priority: "default" }).catch(() => {});
+          notifyAll(text, { title: "NitsyClaw replied", priority: "default" }, this.deps.db).catch(() => {});
         }
       } else if (result.finalText.trim()) {
         deliveredText = result.finalText;

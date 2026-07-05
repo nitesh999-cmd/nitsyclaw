@@ -103,7 +103,7 @@ export function registerPreMeetingBrief(registry: ToolRegistry): void {
 async function composeAutoBrief(
   db: DB,
   ownerPhone: string,
-  args: { eventTitle: string; eventStart: Date; eventSource?: string },
+  args: { eventTitle: string; eventStart: Date; eventSource?: string; timezone: string },
 ): Promise<string> {
   const ownerHash = hashPhone(ownerPhone);
   const tenant = privateOwnerTenantForPhone(ownerPhone);
@@ -113,6 +113,7 @@ async function composeAutoBrief(
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: args.timezone,
   });
   lines.push(`Heads up: ${args.eventTitle} at ${localTime}${args.eventSource ? ` [${args.eventSource}]` : ""}.`);
 
@@ -224,6 +225,7 @@ export async function runPreMeetingBriefTick(
         eventTitle: ev.title,
         eventStart: ev.start,
         eventSource: ev.source,
+        timezone,
       });
       await whatsapp.send({ to: ownerPhone, body });
       rememberBriefed(key);

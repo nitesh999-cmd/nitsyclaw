@@ -17,13 +17,19 @@ export async function buildNightlyWhatsAppHealthReport(
   deps: Pick<AgentDeps, "db" | "now" | "timezone">,
 ): Promise<NightlyHealthReportResult> {
   const now = deps.now();
-  const [botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard, scheduler] = await Promise.all([
+  const [botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard, scheduler, notifyChannels] = await Promise.all([
     getSystemHeartbeat(deps.db, "bot-runtime"),
     getSystemHeartbeat(deps.db, "whatsapp-client"),
     getSystemHeartbeat(deps.db, "whatsapp-send"),
     getSystemHeartbeat(deps.db, "whatsapp-loop-guard"),
     getSystemHeartbeat(deps.db, "bot-scheduler"),
+    getSystemHeartbeat(deps.db, "notify-channels"),
   ]);
+  const notifyFailures = heartbeatMetadataText(notifyChannels, "consecutiveAllChannelFailures");
+  const notifyDetail =
+    notifyChannels?.status === "error" && notifyFailures
+      ? `${notifyFailures} consecutive all-channel failures`
+      : undefined;
 
   const runtime = buildBotRuntimeMetadata(process.env, now);
   const commit = heartbeatMetadataText(botRuntime, "commitShort")
@@ -67,6 +73,10 @@ export async function buildNightlyWhatsAppHealthReport(
       LOOP_STALE_MS,
       loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
     ),
+    // FYI only — doesn't affect `status` above. This report already arrives
+    // via WhatsApp (the most reliable channel), so a dead ntfy/toast/mail
+    // side-channel is worth a note but not itself a WhatsApp-readiness issue.
+    heartbeatLine("Notify channels", notifyChannels, now, 24 * 60 * 60 * 1000, notifyDetail),
   ];
 
   return {

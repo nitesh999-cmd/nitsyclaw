@@ -3,6 +3,7 @@ import { getDb, setFeatureRequestStatus } from "@nitsyclaw/shared/db";
 import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ function cleanText(value: FormDataEntryValue | null): string | undefined {
 export async function POST(request: Request): Promise<never | Response> {
   const originError = requireSameOrigin(request);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(request);
+  if (sessionError) return sessionError;
 
   const rateLimit = checkDashboardRateLimit(request, { scope: "queue-update", limit: 60, windowMs: 60_000 });
   if (!rateLimit.allowed) {

@@ -761,6 +761,15 @@ export async function insertEntities(
   return inserted;
 }
 
+/**
+ * Auto-extract (Feature 30) writes a `__none__<messageId>` sentinel entity
+ * when an LLM pass found nothing, so the same message isn't re-scanned every
+ * tick. That sentinel must never surface to a user-facing read — filter it
+ * out here at the source so every caller (find_entities, recent_entities_by_kind,
+ * and any future reader) gets it for free instead of each having to remember.
+ */
+const NOT_SENTINEL_ENTITY = sql`${entities.normalizedValue} NOT LIKE '\\_\\_none\\_\\_%' ESCAPE '\\'`;
+
 export async function findEntities(
   db: DB,
   tenant: TenantContext,
@@ -770,7 +779,11 @@ export async function findEntities(
   const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
   const normalized = normalizeEntityValue(args.query);
   const pattern = `%${normalized}%`;
-  const conds = [eq(entities.ownerHash, args.ownerHash), sql`${entities.normalizedValue} ILIKE ${pattern}`];
+  const conds = [
+    eq(entities.ownerHash, args.ownerHash),
+    sql`${entities.normalizedValue} ILIKE ${pattern}`,
+    NOT_SENTINEL_ENTITY,
+  ];
   if (args.kind) conds.push(eq(entities.kind, args.kind));
   return await db
     .select()
@@ -802,7 +815,7 @@ export async function recentEntitiesByKind(
   return await db
     .select()
     .from(entities)
-    .where(and(eq(entities.ownerHash, args.ownerHash), eq(entities.kind, args.kind)))
+    .where(and(eq(entities.ownerHash, args.ownerHash), eq(entities.kind, args.kind), NOT_SENTINEL_ENTITY))
     .orderBy(desc(entities.createdAt))
     .limit(limit);
 }
@@ -1071,12 +1084,20 @@ export async function insertSnooze(
   return row!;
 }
 
-export async function dueSnoozes(db: DB, now: Date, limit = 20) {
-  // No tenant guard: scheduler-side fan-out reads across all owners.
+export async function dueSnoozes(db: DB, now: Date, limit = 20, ownerHash?: string) {
+  // No tenant guard: scheduler-side fan-out. `ownerHash` is optional today
+  // because the system is single-owner (Constitution R2) — the one caller
+  // (fireDueSnoozes) always passes it, scoping the read so a future
+  // multi-owner deployment can't have one owner's snooze delivered to
+  // another owner's WhatsApp (the caller sends every returned row to a
+  // single `ownerPhone` argument, so an unscoped read here would silently
+  // cross tenant boundaries the moment there is more than one owner).
+  const conds = [eq(snoozes.status, "pending"), lte(snoozes.resurfaceAt, now)];
+  if (ownerHash) conds.push(eq(snoozes.ownerHash, ownerHash));
   const rows = await db
     .select()
     .from(snoozes)
-    .where(and(eq(snoozes.status, "pending"), lte(snoozes.resurfaceAt, now)))
+    .where(and(...conds))
     .limit(limit);
   return rows;
 }
@@ -1086,12 +1107,23 @@ export async function markSnoozeResurfaced(db: DB, tenant: TenantContext, id: st
   await db.update(snoozes).set({ status: "resurfaced" }).where(eq(snoozes.id, id));
 }
 
+/**
+ * Matches by full UUID OR by the 8-char prefix the resurface message
+ * actually tells the user to reply with (`cancel snooze <id.slice(0,8)>`).
+ * Previously this only did full-UUID equality, so the exact command the bot
+ * instructed the user to type could never match. Scoped to this owner's
+ * pending snoozes, so a short prefix collision is not a cross-user risk.
+ */
 export async function cancelSnooze(db: DB, tenant: TenantContext, args: { id: string; ownerHash: string }) {
   guardUnscopedCustomerDataAccess(tenant);
+  const idMatch =
+    args.id.length >= 8 && args.id.length < 36
+      ? sql`${snoozes.id}::text LIKE ${args.id.toLowerCase() + "%"}`
+      : eq(snoozes.id, args.id);
   const updated = await db
     .update(snoozes)
     .set({ status: "cancelled" })
-    .where(and(eq(snoozes.id, args.id), eq(snoozes.ownerHash, args.ownerHash)))
+    .where(and(idMatch, eq(snoozes.ownerHash, args.ownerHash), eq(snoozes.status, "pending")))
     .returning();
   return updated[0] ?? null;
 }

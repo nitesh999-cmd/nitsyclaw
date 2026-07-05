@@ -3,6 +3,7 @@ import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
 import { getDb } from "@nitsyclaw/shared/db";
 import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function POST(req: Request): Promise<Response> {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
 
   try {
     const { ownerHash } = getOwnerIdentity();

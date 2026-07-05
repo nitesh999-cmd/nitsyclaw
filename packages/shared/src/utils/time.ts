@@ -77,6 +77,23 @@ export function formatBriefDate(d: Date, timezone: string): string {
   return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, "0")}-${String(z.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Format an instant as a naive (no Z, no offset) wall-clock ISO string in the
+ * given IANA timezone, e.g. "2026-07-05T14:00:00". Pair with a payload field
+ * that separately declares the timezone (as Microsoft Graph event bodies do)
+ * so the receiving API interprets the wall-clock numbers in the SAME zone
+ * they were generated for — never mix a UTC-derived string with a named
+ * non-UTC timeZone field, or the event lands at the wrong wall-clock time.
+ */
+export function formatZonedNaiveIso(date: Date, timezone: string): string {
+  const z = toZonedTime(date, timezone);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${z.getFullYear()}-${pad(z.getMonth() + 1)}-${pad(z.getDate())}` +
+    `T${pad(z.getHours())}:${pad(z.getMinutes())}:${pad(z.getSeconds())}`
+  );
+}
+
 export function isInQuietHours(now: Date, timezone: string, startHHMM: string, endHHMM: string): boolean {
   const z = toZonedTime(now, timezone);
   const minutes = z.getHours() * 60 + z.getMinutes();

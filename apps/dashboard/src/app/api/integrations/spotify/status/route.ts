@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, getConnectedAccount } from "@nitsyclaw/shared/db";
 import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../../lib/dashboard-runtime";
 import { requireSameOrigin } from "../../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ function configured() {
 export async function GET(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
   if (!configured()) {
     return NextResponse.json({
       provider: "spotify",

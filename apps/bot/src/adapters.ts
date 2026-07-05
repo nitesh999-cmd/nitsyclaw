@@ -19,9 +19,28 @@ import type {
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
 
+/** RFC 2047 encoded-word for header values containing non-ASCII (e.g. "Café invoice"). */
+function encodeHeaderValue(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(value)) return value; // pure ASCII — no encoding needed
+  return `=?UTF-8?B?${Buffer.from(value, "utf-8").toString("base64")}?=`;
+}
+
+/** Wrap a base64 string at 76 chars per line, as RFC 2045 requires for base64 body content. */
+function wrapBase64(value: string): string {
+  return value.replace(/(.{76})/g, "$1\r\n");
+}
+
 /**
- * RFC 5322 plain-text email → base64url for Gmail API users.messages.send.
- * Header sanitisation: collapse newlines in addresses/subjects to spaces.
+ * RFC 5322 email → base64url for Gmail API users.messages.send.
+ * Header sanitisation: collapse newlines in addresses/subjects to spaces, then
+ * RFC-2047-encode any header value with non-ASCII characters (subjects with
+ * accents/emoji previously went out as raw UTF-8 bytes in a plain header,
+ * which is invalid per RFC 5322 and renders as mojibake in strict clients).
+ * Body is base64-encoded with a matching Content-Transfer-Encoding — the
+ * previous "7bit" declaration was a lie for any UTF-8 body containing 8-bit
+ * bytes (café, emoji, non-English names), which some mail transfer agents
+ * reject or corrupt outright.
  */
 function buildGmailRawMessage(args: {
   from?: string;
@@ -38,15 +57,16 @@ function buildGmailRawMessage(args: {
   headerLines.push(`To: ${args.to.map(sanitize).join(", ")}`);
   if (args.cc && args.cc.length) headerLines.push(`Cc: ${args.cc.map(sanitize).join(", ")}`);
   if (args.bcc && args.bcc.length) headerLines.push(`Bcc: ${args.bcc.map(sanitize).join(", ")}`);
-  headerLines.push(`Subject: ${sanitize(args.subject)}`);
+  headerLines.push(`Subject: ${encodeHeaderValue(sanitize(args.subject))}`);
   if (args.replyToMessageId) {
     headerLines.push(`In-Reply-To: <${sanitize(args.replyToMessageId)}>`);
     headerLines.push(`References: <${sanitize(args.replyToMessageId)}>`);
   }
   headerLines.push("MIME-Version: 1.0");
   headerLines.push('Content-Type: text/plain; charset="UTF-8"');
-  headerLines.push("Content-Transfer-Encoding: 7bit");
-  const raw = headerLines.join("\r\n") + "\r\n\r\n" + args.body;
+  headerLines.push("Content-Transfer-Encoding: base64");
+  const encodedBody = wrapBase64(Buffer.from(args.body, "utf-8").toString("base64"));
+  const raw = headerLines.join("\r\n") + "\r\n\r\n" + encodedBody;
   return Buffer.from(raw, "utf-8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
@@ -193,9 +213,16 @@ export function makeAnthropicImageAnalyzer(apiKey: string, model: string): Image
           currency: json.currency ?? undefined,
           merchant: json.merchant ?? undefined,
           date: json.date ? new Date(json.date) : undefined,
-          rawText: json.rawText ?? text,
+          // Only the model's own "rawText" field belongs here. Falling back
+          // to `text` (the raw JSON string itself) when that field is absent
+          // used to leak the entire {"amount":...} blob verbatim into
+          // user-facing replies — this branch means JSON.parse succeeded,
+          // so `text` is JSON syntax, never natural-language OCR text.
+          rawText: json.rawText ?? undefined,
         };
       } catch {
+        // JSON.parse failed, so `text` is genuinely non-JSON (natural
+        // language / OCR-ish output) — safe to surface as rawText.
         return { rawText: text };
       }
     },
@@ -218,28 +245,60 @@ export const stubWebSearch: WebSearcher = {
 export const realCalendar: CalendarClient = {
   async suggestSlots({ durationMin, window }) {
     if (!hasGoogleToken()) return [window.start];
-    const auth = loadOAuthClient();
-    const cal = google.calendar({ version: "v3", auth });
-    const fb = await cal.freebusy.query({
-      requestBody: {
-        timeMin: window.start.toISOString(),
-        timeMax: window.end.toISOString(),
-        items: [{ id: "primary" }],
-      },
-    });
-    const busy = (fb.data.calendars?.primary?.busy ?? []).map((b) => ({
-      start: new Date(b.start ?? ""),
-      end: new Date(b.end ?? ""),
-    }));
+
+    // Query busy blocks from every connected Google account we know how to
+    // reach (previously only the default "personal" account was checked —
+    // a slot could collide with something on the solarharbour account and
+    // still get suggested). Outlook/Graph free-busy is a separate API
+    // (getSchedule) not wired here yet — that gap remains, tracked, not fixed
+    // in this pass.
+    const accountLabels = ["personal", ...(hasGoogleToken("solarharbour") ? ["solarharbour"] : [])];
+    const busyByAccount = await Promise.all(
+      accountLabels.map(async (label) => {
+        try {
+          const auth = loadOAuthClient(label);
+          const cal = google.calendar({ version: "v3", auth });
+          const fb = await cal.freebusy.query({
+            requestBody: {
+              timeMin: window.start.toISOString(),
+              timeMax: window.end.toISOString(),
+              items: [{ id: "primary" }],
+            },
+          });
+          return (fb.data.calendars?.primary?.busy ?? [])
+            .map((b) => ({ start: new Date(b.start ?? ""), end: new Date(b.end ?? "") }))
+            // A busy block with a missing/unparseable start or end becomes an
+            // Invalid Date (NaN internally) — treating that as "free" would be
+            // wrong, but treating a comparison against NaN as a match is also
+            // wrong (NaN comparisons are always false) so `conflicts` would
+            // silently skip it either way. Drop it explicitly instead of
+            // relying on that accidental behaviour.
+            .filter((b) => !Number.isNaN(b.start.getTime()) && !Number.isNaN(b.end.getTime()));
+        } catch (err) {
+          logBotError(`[cal] freebusy fetch failed for account "${label}"`, err);
+          return [];
+        }
+      }),
+    );
+    const busy = busyByAccount.flat();
+
     const slots: Date[] = [];
     const step = 30 * 60 * 1000;
     const dur = durationMin * 60 * 1000;
-    for (let t = window.start.getTime(); t + dur <= window.end.getTime() && slots.length < 3; t += step) {
+    // Never scan into the past — a window that starts before "now" (e.g. the
+    // user asked for "today" mid-afternoon but window.start is midnight)
+    // could otherwise surface an already-elapsed time as a "suggestion".
+    const scanStart = Math.max(window.start.getTime(), Date.now());
+    for (let t = scanStart; t + dur <= window.end.getTime() && slots.length < 3; t += step) {
       const slotEnd = t + dur;
       const conflicts = busy.some((b) => t < b.end.getTime() && slotEnd > b.start.getTime());
       if (!conflicts) slots.push(new Date(t));
     }
-    return slots.length ? slots : [window.start];
+    // Honest empty result on a fully-booked window — the caller
+    // (07-schedule-call.ts) already throws a clear "no slots found" error on
+    // an empty array. The previous `: [window.start]` fallback silently
+    // returned a slot that was, by definition, already known to be busy.
+    return slots;
   },
 
   async createEvent({ title, start, durationMin, participants, description }) {

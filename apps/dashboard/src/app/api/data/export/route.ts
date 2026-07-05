@@ -23,6 +23,7 @@ import {
 import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
 
   const saleModeBlock = blockPublicSaleCustomerDataAccess();
   if (saleModeBlock) return saleModeBlock;

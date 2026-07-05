@@ -4,6 +4,8 @@ import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
 import { logDashboardError } from "../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../lib/public-sale-data-guard";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../../lib/search-query";
+import { requireSameOrigin } from "../../../lib/request-origin";
+import { requireDashboardSession } from "../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +21,11 @@ interface SearchResult {
 }
 
 export async function GET(req: Request): Promise<Response> {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
+
   const { searchParams } = new URL(req.url);
   const term = normalizeSearchTerm(searchParams.get("q"));
 

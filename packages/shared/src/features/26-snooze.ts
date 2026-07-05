@@ -115,9 +115,11 @@ export async function fireDueSnoozes(
   whatsapp: WhatsAppClient,
   ownerPhone: string,
   now: Date,
-): Promise<{ fired: number }> {
-  const rows = await dueSnoozes(db, now, 20);
+): Promise<{ fired: number; markFailed: number }> {
+  const ownerHash = hashPhone(ownerPhone);
+  const rows = await dueSnoozes(db, now, 20, ownerHash);
   let fired = 0;
+  let markFailed = 0;
   const tenant = privateOwnerTenantForPhone(ownerPhone);
   for (const row of rows) {
     const lines: string[] = [];
@@ -134,11 +136,24 @@ export async function fireDueSnoozes(
     lines.push(`Reply 'cancel snooze ${row.id.slice(0, 8)}' to dismiss, or take action above.`);
     try {
       await whatsapp.send({ to: ownerPhone, body: lines.join("\n") });
-      await markSnoozeResurfaced(db, tenant, row.id);
-      fired++;
     } catch {
-      // leave row pending for retry next minute
+      // Send failed — row stays pending, retried next tick. No duplicate
+      // risk since nothing went out.
+      continue;
+    }
+    fired++;
+    try {
+      await markSnoozeResurfaced(db, tenant, row.id);
+    } catch {
+      // Send succeeded but marking resurfaced failed (e.g. transient DB
+      // blip) — the row stays "pending" and WILL be re-sent next tick.
+      // That's the deliberate tradeoff: better to occasionally double-notify
+      // than to flip the order and risk silently losing a reminder forever
+      // if send fails after a mark succeeds. Surfaced via markFailed so the
+      // caller (bot scheduler, which can log/heartbeat) sees it rather than
+      // this being invisible.
+      markFailed++;
     }
   }
-  return { fired };
+  return { fired, markFailed };
 }

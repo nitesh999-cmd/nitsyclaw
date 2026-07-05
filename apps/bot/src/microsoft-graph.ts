@@ -1,5 +1,6 @@
 import { getMsAccessToken, hasMsToken } from "./microsoft-auth.js";
 import { logBotError } from "./safe-log.js";
+import { formatZonedNaiveIso } from "@nitsyclaw/shared/utils";
 
 export interface MsEvent {
   title: string;
@@ -77,11 +78,14 @@ export async function createMsEvent(args: CreateMsEventArgs): Promise<CreateMsEv
   }
   const end = new Date(args.start.getTime() + args.durationMin * 60 * 1000);
   const tz = args.timezone ?? "UTC";
+  // Graph interprets `dateTime` as wall-clock time IN the declared `timeZone` —
+  // it must be the wall-clock string for that zone, not a UTC-derived one, or
+  // the event is created at the wrong local time (off by the zone's UTC offset).
   const body = {
     subject: args.title,
     body: args.description ? { contentType: "Text", content: args.description } : undefined,
-    start: { dateTime: args.start.toISOString().replace("Z", ""), timeZone: tz },
-    end: { dateTime: end.toISOString().replace("Z", ""), timeZone: tz },
+    start: { dateTime: formatZonedNaiveIso(args.start, tz), timeZone: tz },
+    end: { dateTime: formatZonedNaiveIso(end, tz), timeZone: tz },
     attendees: args.participants.map((email) => ({
       emailAddress: { address: email },
       type: "required",
@@ -89,6 +93,21 @@ export async function createMsEvent(args: CreateMsEventArgs): Promise<CreateMsEv
   };
   const data = (await graphPost("/me/events", body)) as { id?: string; webLink?: string };
   return { id: data.id ?? "", webLink: data.webLink ?? undefined };
+}
+
+/**
+ * Graph's calendarView returns `dateTime` strings with NO "Z" suffix. By
+ * default (no `Prefer: outlook.timezone` request header, which we don't
+ * send) those values are UTC wall-clock — NOT the caller's local time.
+ * `new Date(str)` treats a no-timezone ISO string as local-to-the-SERVER
+ * time, which silently corrupts every event time whenever the bot runs on
+ * a machine whose system timezone isn't UTC (it runs on Nitesh's own
+ * Melbourne-timezone laptop). Force UTC interpretation explicitly.
+ */
+function parseGraphUtcDateTime(dateTime: string | undefined, fallback: Date): Date {
+  if (!dateTime) return fallback;
+  const hasZone = /[Zz]$|[+-]\d{2}:\d{2}$/.test(dateTime);
+  return new Date(hasZone ? dateTime : `${dateTime}Z`);
 }
 
 export async function fetchMsEventsToday(_timezone: string): Promise<MsEvent[]> {
@@ -99,10 +118,11 @@ export async function fetchMsEventsToday(_timezone: string): Promise<MsEvent[]> 
   const path = `/me/calendarview?startDateTime=${start.toISOString()}&endDateTime=${end.toISOString()}&$orderby=start/dateTime&$top=20`;
   try {
     const data = (await graphGet(path)) as { value?: GraphEvent[] };
+    const nowFallback = new Date();
     return (data.value ?? []).map((e) => ({
       title: e.subject ?? "(no title)",
-      start: new Date(e.start?.dateTime ?? Date.now()),
-      end: new Date(e.end?.dateTime ?? Date.now()),
+      start: parseGraphUtcDateTime(e.start?.dateTime, nowFallback),
+      end: parseGraphUtcDateTime(e.end?.dateTime, nowFallback),
       location: e.location?.displayName ?? undefined,
     }));
   } catch (err) {

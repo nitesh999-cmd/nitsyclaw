@@ -46,6 +46,7 @@ import {
 } from "../../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
 import type {
   AgentDeps,
   CalendarClient,
@@ -198,6 +199,8 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
 
   const rateLimit = checkDashboardRateLimit(req, { scope: "dashboard-chat-stream", limit: 30, windowMs: 60_000 });
   if (!rateLimit.allowed) {

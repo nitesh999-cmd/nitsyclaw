@@ -19,6 +19,7 @@ import { sessionTokenFromRequest, verifyExportProof } from "../../../../lib/data
 import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ function parseScope(value: FormDataEntryValue | null): DeleteScope | null {
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
 
   const saleModeBlock = blockPublicSaleCustomerDataAccess();
   if (saleModeBlock) return saleModeBlock;

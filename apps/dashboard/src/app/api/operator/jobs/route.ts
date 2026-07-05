@@ -20,6 +20,7 @@ import {
 import { getOwnerIdentity, logDashboardError, publicConfigErrorOrNull } from "../../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../../lib/request-origin";
+import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,8 @@ interface QueueResult {
 export async function POST(request: Request): Promise<Response> {
   const originError = requireSameOrigin(request);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(request);
+  if (sessionError) return sessionError;
 
   const rateLimit = checkDashboardRateLimit(request, { scope: "operator-jobs", limit: 10, windowMs: 60_000 });
   if (!rateLimit.allowed) {

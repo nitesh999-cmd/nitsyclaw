@@ -39,7 +39,17 @@ export function hasMsToken(): boolean {
   return Boolean(process.env.MS_TOKEN_JSON) || Boolean(firstExistingSecretPath(TOKEN_FILE));
 }
 
+// In-memory cache populated after the first successful refresh. Cloud
+// deploys configure MS_TOKEN_JSON as a static env var — loadMsTokens()
+// previously always preferred that env var over the file, so a refreshed
+// token was faithfully written to disk by saveMsTokens() but NEVER read
+// back: every subsequent call re-read the same stale env token, saw it was
+// expired, and refreshed again on every single Graph call. Once refreshed
+// once in this process, prefer the in-memory copy over the static env var.
+let refreshedTokensCache: MsTokens | null = null;
+
 function loadMsTokens(): MsTokens | null {
+  if (refreshedTokensCache) return refreshedTokensCache;
   if (process.env.MS_TOKEN_JSON) return JSON.parse(process.env.MS_TOKEN_JSON);
   const tokenPath = firstExistingSecretPath(TOKEN_FILE);
   if (tokenPath) return JSON.parse(readFileSync(tokenPath, "utf-8"));
@@ -47,6 +57,7 @@ function loadMsTokens(): MsTokens | null {
 }
 
 function saveMsTokens(tokens: MsTokens): void {
+  refreshedTokensCache = tokens;
   writeFileSync(writableSecretPath(TOKEN_FILE), JSON.stringify(tokens, null, 2));
 }
 
@@ -70,7 +81,20 @@ async function refreshAccessToken(): Promise<string> {
       scope: SCOPES.join(" "),
     }),
   });
-  if (!resp.ok) throw new Error(`MS refresh failed: ${resp.status}`);
+  if (!resp.ok) {
+    let detail = "";
+    try {
+      const body = (await resp.json()) as { error?: string; error_description?: string };
+      detail = body.error_description ?? body.error ?? "";
+    } catch {
+      // response body wasn't JSON; fall through with empty detail
+    }
+    const looksLikeAuthExpiry = resp.status === 400 || resp.status === 401;
+    const hint = looksLikeAuthExpiry
+      ? " Outlook connection has expired or been revoked — run 'pnpm ms:auth' to reconnect."
+      : "";
+    throw new Error(`MS refresh failed: ${resp.status}${detail ? ` (${detail})` : ""}.${hint}`);
+  }
   const data = await resp.json();
   const updated: MsTokens = {
     access_token: data.access_token,

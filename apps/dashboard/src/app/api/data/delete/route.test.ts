@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import { createDashboardSessionToken, DASHBOARD_SESSION_COOKIE } from "../../../../lib/dashboard-session";
 
 describe("data delete route", () => {
   afterEach(() => {
@@ -17,9 +18,16 @@ describe("data delete route", () => {
     form.set("exportSnapshotId", "export_20260508160000");
     form.set("exportProof", "payload.signature");
 
+    // Dashboard auth is configured (password stubbed above), so a valid
+    // session cookie is required to reach the route body under test.
+    const sessionToken = await createDashboardSessionToken("nitesh", "test-password");
+
     const response = await POST(new Request("https://nitsyclaw.vercel.app/api/data/delete", {
       method: "POST",
-      headers: { origin: "https://nitsyclaw.vercel.app" },
+      headers: {
+        origin: "https://nitsyclaw.vercel.app",
+        cookie: `${DASHBOARD_SESSION_COOKIE}=${sessionToken}`,
+      },
       body: form,
     }));
 

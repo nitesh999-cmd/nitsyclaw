@@ -27,8 +27,17 @@ export interface NotifyOpts {
   click?: string;
 }
 
-export async function pushNotify(text: string, opts: NotifyOpts = {}): Promise<void> {
-  await Promise.all([sendNtfy(text, opts), sendWindowsToast(text, opts)]);
+/** Per-channel outcome: "sent" delivered, "failed" attempted and errored, "skipped" not configured for this env. */
+export type NotifyChannelResult = "sent" | "failed" | "skipped";
+
+export interface PushNotifyResult {
+  ntfy: NotifyChannelResult;
+  toast: NotifyChannelResult;
+}
+
+export async function pushNotify(text: string, opts: NotifyOpts = {}): Promise<PushNotifyResult> {
+  const [ntfy, toast] = await Promise.all([sendNtfy(text, opts), sendWindowsToast(text, opts)]);
+  return { ntfy, toast };
 }
 
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
@@ -44,16 +53,30 @@ export function formatNotifyFailure(channel: "ntfy" | "toast", error: unknown): 
   return `[notify/${channel}] failed ${redacted.slice(0, 160)}`.trim();
 }
 
-async function sendNtfy(text: string, opts: NotifyOpts): Promise<void> {
+// fetch()'s Headers implementation throws a TypeError on CR/LF or non-Latin1
+// codepoints in a header value (ntfy Title/Tags are user/LLM-composed text,
+// e.g. an email subject with an emoji or embedded newline) — that throw
+// happens synchronously inside sendNtfy's try block before the request is
+// ever sent, so an unsanitized header silently drops the whole push with no
+// visible error beyond the caught+logged exception. Strip CR/LF and encode
+// non-ASCII so the header is always a valid HTTP field-value.
+function sanitizeHeaderValue(value: string): string {
+  const stripped = value.replace(/[\r\n]+/g, " ").trim();
+  // eslint-disable-next-line no-control-regex
+  const asciiOnly = stripped.replace(/[^\x20-\x7e]/g, "");
+  return asciiOnly.slice(0, 200) || "-";
+}
+
+async function sendNtfy(text: string, opts: NotifyOpts): Promise<NotifyChannelResult> {
   const topic = process.env.NTFY_TOPIC;
-  if (!topic) return;
+  if (!topic) return "skipped";
   try {
     const headers: Record<string, string> = {
-      Title: opts.title ?? "NitsyClaw",
+      Title: sanitizeHeaderValue(opts.title ?? "NitsyClaw"),
       Priority: opts.priority ?? "default",
-      Tags: (opts.tags ?? ["robot"]).join(","),
+      Tags: sanitizeHeaderValue((opts.tags ?? ["robot"]).join(",")),
     };
-    if (opts.click) headers.Click = opts.click;
+    if (opts.click) headers.Click = sanitizeHeaderValue(opts.click);
     // Note: ntfy.sh email forwarding (Email header) was tested and rejected
     // by the free tier with HTTP 400 "anonymous email sending is not allowed".
     // To re-enable: get an ntfy paid account, add NTFY_AUTH_TOKEN env, send
@@ -69,15 +92,18 @@ async function sendNtfy(text: string, opts: NotifyOpts): Promise<void> {
       console.error(
         formatNotifyFailure("ntfy", `status=${response.status} ${response.statusText}`),
       );
+      return "failed";
     }
+    return "sent";
   } catch (e) {
     console.error(formatNotifyFailure("ntfy", e));
+    return "failed";
   }
 }
 
-async function sendWindowsToast(text: string, opts: NotifyOpts): Promise<void> {
-  if (process.env.WINDOWS_TOAST !== "true") return;
-  if (process.platform !== "win32") return;
+async function sendWindowsToast(text: string, opts: NotifyOpts): Promise<NotifyChannelResult> {
+  if (process.env.WINDOWS_TOAST !== "true") return "skipped";
+  if (process.platform !== "win32") return "skipped";
   try {
     const { spawn } = await import("node:child_process");
     const title = (opts.title ?? "NitsyClaw").replace(/'/g, "''");
@@ -108,7 +134,9 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($tpl)
       console.error(formatNotifyFailure("toast", e));
     });
     child.unref();
+    return "sent";
   } catch (e) {
     console.error(formatNotifyFailure("toast", e));
+    return "failed";
   }
 }

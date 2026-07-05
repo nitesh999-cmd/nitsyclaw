@@ -40,6 +40,7 @@ import {
 } from "../../../lib/dashboard-runtime";
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../lib/request-origin";
+import { requireDashboardSession } from "../../../lib/require-dashboard-session";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
@@ -195,6 +196,8 @@ function buildDashboardDeps(): AgentDeps {
 export async function POST(req: Request) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
+  const sessionError = await requireDashboardSession(req);
+  if (sessionError) return sessionError;
 
   const rateLimit = checkDashboardRateLimit(req, { scope: "dashboard-chat", limit: 30, windowMs: 60_000 });
   if (!rateLimit.allowed) {
