@@ -100,6 +100,26 @@ describe("WhatsAppSendMonitor", () => {
     expect(JSON.stringify(vi.mocked(pushNotify).mock.calls)).not.toContain("sk_live");
   });
 
+  it("rate-limits repeated urgent send-failure pushes while still recording heartbeats", async () => {
+    const inner = new FakeWhatsApp();
+    inner.failure = new Error("Protocol error (Runtime.callFunctionOn): Target closed");
+    let nowMs = new Date("2026-05-07T01:02:03.000Z").getTime();
+    const monitor = new WhatsAppSendMonitor(inner, {
+      db: {} as never,
+      now: () => new Date(nowMs),
+      failureNotifyCooldownMs: 60_000,
+    });
+
+    await expect(monitor.send({ to: "+61430008008", body: "hello" })).rejects.toThrow("Target closed");
+    nowMs += 10_000;
+    await expect(monitor.send({ to: "+61430008008", body: "hello again" })).rejects.toThrow("Target closed");
+    nowMs += 61_000;
+    await expect(monitor.send({ to: "+61430008008", body: "hello third" })).rejects.toThrow("Target closed");
+
+    expect(pushNotify).toHaveBeenCalledTimes(2);
+    expect(upsertSystemHeartbeat).toHaveBeenCalledTimes(3);
+  });
+
   it("suppresses noisy saved/working receipts before they reach WhatsApp", async () => {
     const inner = new FakeWhatsApp();
     const monitor = new WhatsAppSendMonitor(inner, {

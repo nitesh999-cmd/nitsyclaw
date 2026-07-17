@@ -3,11 +3,68 @@ import { mkdtempSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
+  SELF_CHAT_CALIBRATION_PHRASE,
+  allowSelfChatId,
+  isSelfChatCalibrationPhrase,
+  readAllowedSelfChatIds,
+} from "./whatsapp-self-chat-calibration.js";
+import {
   formatNonSelfChatDropNotice,
+  isMissingSendAckError,
   prepareOutboundBodyForWhatsApp,
   pruneChromiumCacheDirs,
+  resolveWebVersionCache,
+  shouldLogChatLookupError,
+  shouldRetryChatLookupForSelfChatCandidate,
   shouldSendNonSelfChatDropNotice,
 } from "./wwebjs-client.js";
+
+describe("resolveWebVersionCache", () => {
+  it("does not hard-pin a stale WhatsApp Web version by default", () => {
+    const previous = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+    delete process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+    try {
+      expect(resolveWebVersionCache()).toBeUndefined();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+      } else {
+        process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = previous;
+      }
+    }
+  });
+
+  it("allows an operator-provided remote WhatsApp Web version cache", () => {
+    const previous = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+    process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = "https://example.com/wa.html";
+    try {
+      expect(resolveWebVersionCache()).toEqual({
+        type: "remote",
+        remotePath: "https://example.com/wa.html",
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+      } else {
+        process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = previous;
+      }
+    }
+  });
+});
+
+describe("isMissingSendAckError", () => {
+  it("recognizes the whatsapp-web.js missing send acknowledgement crash", () => {
+    expect(
+      isMissingSendAckError(new TypeError("Cannot read properties of undefined (reading 'id')")),
+    ).toBe(true);
+  });
+
+  it("does not hide real browser target closure errors", () => {
+    const error = new Error("Protocol error (Runtime.callFunctionOn): Target closed");
+    error.name = "TargetCloseError";
+    expect(isMissingSendAckError(error)).toBe(false);
+  });
+});
 
 describe("prepareOutboundBodyForWhatsApp", () => {
   it.each([
@@ -33,24 +90,97 @@ describe("prepareOutboundBodyForWhatsApp", () => {
 });
 
 describe("non-self chat drop diagnostics", () => {
-  it("notifies only for owner-authored command-like messages outside self-chat", () => {
+  it("retries chat lookup only for owner-authored LID self-chat candidates", () => {
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: true,
+      to: "129274421981381@lid",
+      chatId: "",
+      ownerNumber: "+61430008008",
+    })).toBe(true);
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: true,
+      to: "61425046161@c.us",
+      chatId: "",
+      ownerNumber: "+61430008008",
+    })).toBe(false);
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: false,
+      to: "129274421981381@lid",
+      chatId: "",
+      ownerNumber: "+61430008008",
+    })).toBe(false);
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: true,
+      to: "129274421981381@lid",
+      chatId: "61425046161@c.us",
+      ownerNumber: "+61430008008",
+    })).toBe(false);
+  });
+
+  it("does not log expected broadcast or newsletter chat lookup failures", () => {
+    expect(shouldLogChatLookupError({
+      body: "",
+      from: "status@broadcast",
+      fromMe: false,
+      to: "123@c.us",
+    })).toBe(false);
+    expect(shouldLogChatLookupError({
+      body: "",
+      from: "123@newsletter",
+      fromMe: false,
+      to: "123@c.us",
+    })).toBe(false);
+  });
+
+  it("keeps chat lookup diagnostics for owner-authored command-like drops", () => {
+    expect(shouldLogChatLookupError({
+      body: "remind me to call Mukesh tomorrow",
+      from: "123@c.us",
+      fromMe: true,
+      to: "456@lid",
+    })).toBe(true);
+    expect(shouldLogChatLookupError({
+      body: "see you soon",
+      from: "123@c.us",
+      fromMe: true,
+      to: "456@lid",
+    })).toBe(false);
+  });
+
+  it("does not notify for owner-authored command-like messages outside self-chat by default", () => {
     expect(shouldSendNonSelfChatDropNotice({
       body: "remind me to call Mukesh tomorrow",
       fromMe: true,
       nowMs: 10_000,
       lastNoticeAtMs: 0,
+    })).toBe(false);
+  });
+
+  it("notifies only for owner-authored command-like messages outside self-chat when explicitly enabled", () => {
+    expect(shouldSendNonSelfChatDropNotice({
+      body: "remind me to call Mukesh tomorrow",
+      fromMe: true,
+      nowMs: 10_000,
+      lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(true);
     expect(shouldSendNonSelfChatDropNotice({
       body: "see you soon",
       fromMe: true,
       nowMs: 10_000,
       lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(false);
     expect(shouldSendNonSelfChatDropNotice({
       body: "what can you do?",
       fromMe: false,
       nowMs: 10_000,
       lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(false);
   });
 
@@ -60,12 +190,14 @@ describe("non-self chat drop diagnostics", () => {
       fromMe: true,
       nowMs: 30_000,
       lastNoticeAtMs: 20_000,
+      enabled: true,
     })).toBe(false);
     expect(shouldSendNonSelfChatDropNotice({
       body: "weather tomorrow",
       fromMe: true,
       nowMs: 11 * 60_000,
       lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(true);
   });
 
@@ -74,6 +206,25 @@ describe("non-self chat drop diagnostics", () => {
     expect(notice).toContain("outside your Message Yourself chat");
     expect(notice).toContain("I did not reply in that other chat");
     expect(notice).not.toContain("Mukesh");
+  });
+});
+
+describe("self-chat calibration", () => {
+  it("requires the exact calibration phrase", () => {
+    expect(isSelfChatCalibrationPhrase(SELF_CHAT_CALIBRATION_PHRASE)).toBe(true);
+    expect(isSelfChatCalibrationPhrase("hi")).toBe(false);
+    expect(isSelfChatCalibrationPhrase("nitsyclaw calibrate other chat")).toBe(false);
+  });
+
+  it("stores only LID self-chat ids in the session secret area", async () => {
+    const root = mkdtempSync(join(tmpdir(), "nitsyclaw-wa-self-chat-"));
+    try {
+      await allowSelfChatId(root, "129274421981381@lid");
+      await allowSelfChatId(root, "61425046161@c.us");
+      expect(await readAllowedSelfChatIds(root)).toEqual(["129274421981381@lid"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

@@ -749,6 +749,46 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("runs a WhatsApp notification status command without calling the agent", async () => {
+    const state = getFakeDbState(deps.db);
+    state.system_heartbeats.push({
+      source: "notify-channels",
+      status: "ok",
+      lastSeenAt: new Date("2026-04-25T07:59:00Z"),
+      metadata: { ntfy: "sent", toast: "sent", msMail: "skipped", consecutiveAllChannelFailures: 0, secret: "must-not-leak" },
+    });
+
+    await router.handle({
+      id: "x-notify-status",
+      from: OWNER,
+      body: "notify status",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Notification status loaded.");
+    expect(wa.sent[0].body).toContain("ntfy: sent");
+    expect(wa.sent[0].body).toContain("toast: sent");
+    expect(wa.sent[0].body).toContain("mail: skipped");
+    expect(wa.sent[0].body).not.toContain("must-not-leak");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
+  it("runs a WhatsApp notification test command without calling the agent", async () => {
+    await router.handle({
+      id: "x-notify-test",
+      from: OWNER,
+      body: "notify test",
+      timestamp: new Date("2026-04-25T08:00:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Notification test sent.");
+    expect(wa.sent[0].body).toContain("ntfy: skipped");
+    expect(wa.sent[0].body).toContain("notify status");
+    expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
+  });
+
   it("answers WhatsApp incident summary without leaking heartbeat secrets", async () => {
     const state = getFakeDbState(deps.db);
     state.system_heartbeats.push(

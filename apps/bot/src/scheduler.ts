@@ -20,6 +20,7 @@ import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { sendNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
+import { notifyAll } from "./notify-all.js";
 import { formatSafeLogError, logBotError } from "./safe-log.js";
 
 const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
@@ -206,6 +207,15 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
           opts.ownerPhone,
           now,
           opts.deps.timezone,
+          {
+            notify: async ({ body }) => {
+              await notifyAll(
+                body,
+                { title: "NitsyClaw calendar heads up", priority: "high", tags: ["calendar", "bell"] },
+                opts.deps.db,
+              );
+            },
+          },
         );
         if (result.briefed > 0 || result.scanned > 0) {
           await writeHeartbeat("pre-meeting-brief", {

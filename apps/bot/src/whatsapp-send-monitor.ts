@@ -12,16 +12,23 @@ import { formatSafeLogError, logBotError } from "./safe-log.js";
 export interface WhatsAppSendMonitorOptions {
   db: DB;
   now?: () => Date;
+  failureNotifyCooldownMs?: number;
 }
+
+const DEFAULT_FAILURE_NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
 
 export class WhatsAppSendMonitor implements WhatsAppClient {
   private readonly now: () => Date;
+  private readonly failureNotifyCooldownMs: number;
+  private lastFailureNotifyAtMs = 0;
+  private lastFailureFingerprint = "";
 
   constructor(
     private readonly inner: WhatsAppClient,
     private readonly opts: WhatsAppSendMonitorOptions,
   ) {
     this.now = opts.now ?? (() => new Date());
+    this.failureNotifyCooldownMs = opts.failureNotifyCooldownMs ?? DEFAULT_FAILURE_NOTIFY_COOLDOWN_MS;
   }
 
   ready(): Promise<void> {
@@ -69,12 +76,28 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
       }).catch((heartbeatError) => {
         logBotError("[whatsapp-send-monitor] failed to write heartbeat", heartbeatError);
       });
-      pushNotify(`WhatsApp send failed: ${error.slice(0, 180)}`, {
-        title: "NitsyClaw WhatsApp send failed",
-        priority: "urgent",
-      }).catch(() => {});
+      if (this.shouldPushFailure(error)) {
+        pushNotify(`WhatsApp send failed: ${error.slice(0, 180)}`, {
+          title: "NitsyClaw WhatsApp send failed",
+          priority: "urgent",
+        }).catch(() => {});
+      }
       throw e;
     }
+  }
+
+  private shouldPushFailure(error: string): boolean {
+    const nowMs = this.now().getTime();
+    const fingerprint = error.slice(0, 120);
+    if (
+      this.lastFailureFingerprint === fingerprint &&
+      nowMs - this.lastFailureNotifyAtMs < this.failureNotifyCooldownMs
+    ) {
+      return false;
+    }
+    this.lastFailureFingerprint = fingerprint;
+    this.lastFailureNotifyAtMs = nowMs;
+    return true;
   }
 
   onMessage(handler: (msg: InboundMessage) => Promise<void> | void): void {

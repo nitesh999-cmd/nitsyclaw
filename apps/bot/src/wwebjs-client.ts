@@ -37,6 +37,11 @@ import {
   parsePresenceUnavailableIntervalMs,
 } from "./whatsapp-presence.js";
 import { formatSafeLogError, logBotError } from "./safe-log.js";
+import {
+  allowSelfChatId,
+  isSelfChatCalibrationPhrase,
+  readAllowedSelfChatIds,
+} from "./whatsapp-self-chat-calibration.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
@@ -55,6 +60,8 @@ const CHROMIUM_CACHE_DIRS = new Set([
   "ShaderCache",
 ]);
 const NON_SELF_CHAT_NOTICE_COOLDOWN_MS = 10 * 60 * 1000;
+const NON_SELF_CHAT_NOTICE_ENABLED = process.env.WHATSAPP_NON_SELF_CHAT_NOTICE === "1";
+const SELF_CHAT_LOOKUP_RETRY_DELAYS_MS = [250, 750] as const;
 const COMMAND_LIKE_NON_SELF_CHAT_PATTERNS = [
   /\bnitsyclaw\b/i,
   /\bwhat\s+can\s+you\s+do\b/i,
@@ -143,6 +150,20 @@ function safeRestartReason(label: string, error: unknown): string {
   return `${label}: ${formatSafeLogError(error)}`;
 }
 
+export function resolveWebVersionCache(): { type: "remote"; remotePath: string } | undefined {
+  const remotePath = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH?.trim();
+  if (!remotePath) return undefined;
+  return { type: "remote", remotePath };
+}
+
+export function isMissingSendAckError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "TypeError" &&
+    /Cannot read properties of undefined \(reading 'id'\)/i.test(error.message)
+  );
+}
+
 export function prepareOutboundBodyForWhatsApp(body: string): string {
   return sanitizeUserFacingReply(body);
 }
@@ -152,8 +173,10 @@ export function shouldSendNonSelfChatDropNotice(args: {
   fromMe: boolean;
   nowMs: number;
   lastNoticeAtMs: number;
+  enabled?: boolean;
   cooldownMs?: number;
 }): boolean {
+  if (args.enabled !== true) return false;
   if (!args.fromMe) return false;
   const body = args.body.trim();
   if (!body) return false;
@@ -161,6 +184,31 @@ export function shouldSendNonSelfChatDropNotice(args: {
   const cooldownMs = args.cooldownMs ?? NON_SELF_CHAT_NOTICE_COOLDOWN_MS;
   if (args.lastNoticeAtMs > 0 && args.nowMs - args.lastNoticeAtMs < cooldownMs) return false;
   return true;
+}
+
+export function shouldLogChatLookupError(args: {
+  body: string;
+  from: string;
+  fromMe: boolean;
+  to: string;
+}): boolean {
+  if (args.from === "status@broadcast") return false;
+  if (args.from.endsWith("@newsletter") || args.to.endsWith("@newsletter")) return false;
+  if (!args.fromMe) return false;
+  return COMMAND_LIKE_NON_SELF_CHAT_PATTERNS.some((pattern) => pattern.test(args.body));
+}
+
+export function shouldRetryChatLookupForSelfChatCandidate(args: {
+  from: string;
+  fromMe: boolean;
+  to: string;
+  chatId: string;
+  ownerNumber: string;
+}): boolean {
+  if (args.fromMe !== true) return false;
+  if (args.chatId) return false;
+  if (!args.to.endsWith("@lid")) return false;
+  return normalizeWhatsAppOwnerId(args.from) === normalizeWhatsAppOwnerId(args.ownerNumber);
 }
 
 export function formatNonSelfChatDropNotice(): string {
@@ -179,6 +227,10 @@ function addressKind(value: string): string {
   if (value.endsWith("@lid")) return "lid";
   if (value.endsWith("@c.us")) return "contact";
   return "other";
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 }
 
 export interface WwebjsOptions {
@@ -270,14 +322,13 @@ export class WwebjsClient implements WhatsAppClient {
       console.log(`[wwebjs] pruned Chromium cache dir(s): count=${prunedCacheDirs}, freedMb=${freedMb.toFixed(1)}`);
     }
 
-    return new Client({
+    const options: ConstructorParameters<typeof Client>[0] = {
       authStrategy: new LocalAuth({ dataPath: this.opts.sessionDir }),
       puppeteer: this.puppeteerOpts as never,
-      webVersionCache: {
-        type: "remote",
-        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1023223821.html",
-      },
-    });
+    };
+    const webVersionCache = resolveWebVersionCache();
+    if (webVersionCache) options.webVersionCache = webVersionCache;
+    return new Client(options);
   }
 
   private startHealthProbe(): void {
@@ -534,15 +585,57 @@ export class WwebjsClient implements WhatsAppClient {
         const toRaw = envelope.to ?? "";
         let chatId = "";
         let chatIsMe = false;
-        try {
+        let chatError: unknown;
+        const readChatIdentity = async () => {
           const chat = await m.getChat() as WwebChatWithContact;
           chatId = chat.id?._serialized ?? "";
           if (typeof chat.getContact === "function") {
             const contact = await chat.getContact();
             chatIsMe = contact?.isMe === true;
           }
-        } catch (chatError) {
-          logBotError("[wwebjs] failed to read chat id", chatError);
+        };
+
+        try {
+          await readChatIdentity();
+        } catch (e) {
+          chatError = e;
+        }
+        for (const retryDelayMs of SELF_CHAT_LOOKUP_RETRY_DELAYS_MS) {
+          if (!shouldRetryChatLookupForSelfChatCandidate({
+            from: fromRaw,
+            fromMe: Boolean(fromMe),
+            to: toRaw,
+            chatId,
+            ownerNumber: this.opts.ownerNumber,
+          })) {
+            break;
+          }
+          await delay(retryDelayMs);
+          try {
+            await readChatIdentity();
+            chatError = undefined;
+          } catch (e) {
+            chatError = e;
+          }
+        }
+        if (chatError) {
+          if (shouldLogChatLookupError({ body, from: fromRaw, fromMe: Boolean(fromMe), to: toRaw })) {
+            logBotError("[wwebjs] failed to read chat id", chatError);
+          }
+        }
+        let allowedSelfChatIds = await readAllowedSelfChatIds(this.opts.sessionDir);
+        if (
+          shouldRetryChatLookupForSelfChatCandidate({
+            from: fromRaw,
+            fromMe: Boolean(fromMe),
+            to: toRaw,
+            chatId,
+            ownerNumber: this.opts.ownerNumber,
+          }) &&
+          isSelfChatCalibrationPhrase(body)
+        ) {
+          allowedSelfChatIds = await allowSelfChatId(this.opts.sessionDir, toRaw);
+          console.log("[wwebjs] self-chat calibration updated");
         }
         if (
           !isOwnerSelfChat({
@@ -552,6 +645,7 @@ export class WwebjsClient implements WhatsAppClient {
             chatId,
             chatIsMe,
             ownerNumber: this.opts.ownerNumber,
+            allowedSelfChatIds,
           })
         ) {
           console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)} chatIsMe=${chatIsMe}`);
@@ -561,6 +655,7 @@ export class WwebjsClient implements WhatsAppClient {
               fromMe: Boolean(fromMe),
               nowMs: Date.now(),
               lastNoticeAtMs: this.lastNonSelfChatNoticeAtMs,
+              enabled: NON_SELF_CHAT_NOTICE_ENABLED,
             })
           ) {
             this.lastNonSelfChatNoticeAtMs = Date.now();
@@ -642,6 +737,15 @@ export class WwebjsClient implements WhatsAppClient {
       );
       return { id: sent.id?._serialized ?? "" };
     } catch (e) {
+      if (isMissingSendAckError(e)) {
+        console.warn("[wwebjs] send ack missing after WhatsApp send; treating as sent without message id");
+        void markPresenceUnavailable(
+          client,
+          Math.min(this.healthProbeTimeoutMs, 2_000),
+          "WhatsApp presence after missing send ack",
+        );
+        return { id: "unknown-send-ack" };
+      }
       void this.restart(safeRestartReason("send failed", e));
       throw e;
     }

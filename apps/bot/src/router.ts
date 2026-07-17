@@ -1303,6 +1303,42 @@ export class Router {
     });
   }
 
+  private async formatNotifyTestReply(): Promise<string> {
+    const result = await notifyAll(
+      "NitsyClaw notification test. If you can see this, ntfy/toast is working.",
+      { title: "NitsyClaw notify test", priority: "high", tags: ["test_tube"] },
+      this.deps.db,
+    );
+    return formatWhatsAppReplyShape({
+      answer: "Notification test sent.",
+      state: `ntfy: ${result.ntfy}, toast: ${result.toast}, mail: ${result.msMail}.`,
+      details: [
+        `All-channel failure streak: ${result.consecutiveAllChannelFailures}.`,
+      ],
+      next: "If your phone did not buzz, send: notify status",
+    });
+  }
+
+  private async formatNotifyStatusReply(): Promise<string> {
+    const now = this.deps.now();
+    const heartbeat = await getSystemHeartbeat(this.deps.db, "notify-channels");
+    const ntfy = heartbeatMetadataText(heartbeat, "ntfy") ?? "not checked";
+    const toast = heartbeatMetadataText(heartbeat, "toast") ?? "not checked";
+    const msMail = heartbeatMetadataText(heartbeat, "msMail") ?? "not checked";
+    const failures = heartbeatMetadataText(heartbeat, "consecutiveAllChannelFailures") ?? "0";
+    return formatWhatsAppReplyShape({
+      answer: heartbeat ? "Notification status loaded." : "Notification status has no heartbeat yet.",
+      state: heartbeatLine("Notify channels", heartbeat, now, 24 * 60 * 60 * 1000),
+      details: [
+        `ntfy: ${ntfy}`,
+        `toast: ${toast}`,
+        `mail: ${msMail}`,
+        `failure streak: ${failures}`,
+      ],
+      next: "notify test",
+    });
+  }
+
   private async recordCanaryPersistence(proof: string): Promise<{ ok: boolean; id?: string; error?: string }> {
     try {
       const row = await insertMessage(this.deps.db, {
@@ -2075,6 +2111,7 @@ export class Router {
           mimetype: media.mimetype,
           transcriber: this.deps.transcriber,
           db: this.deps.db,
+          ownerHash: hashPhone(this.ownerPhone),
           sourceMessageId: persisted.id,
         });
         effectiveText = transcript;
@@ -2110,6 +2147,7 @@ export class Router {
           analyzer: this.deps.imageAnalyzer,
           db: this.deps.db,
           now: this.deps.now(),
+          ownerHash: hashPhone(this.ownerPhone),
           sourceMessageId: persisted.id,
         });
         if (out && out.amount && out.amount > 0) {
@@ -2167,6 +2205,7 @@ export class Router {
             csv: rawCsv,
             db: this.deps.db,
             now: this.deps.now(),
+            ownerHash: hashPhone(this.ownerPhone),
             defaultCurrency: process.env.DEFAULT_CURRENCY ?? "AUD",
             sourceMessageId: persisted.id,
           });
@@ -2484,6 +2523,21 @@ export class Router {
       } catch (guardError) {
         await this.failWhatsAppCommandJob(commandJob, guardError);
         await this.sendPublicFailure("can't-do guard", "Couldn't load the safety boundaries. I logged it; try again shortly.", guardError);
+      }
+      return;
+    }
+
+    const notifyCommand = parseNotifyCommand(effectiveText);
+    if (notifyCommand) {
+      try {
+        const reply = notifyCommand === "test"
+          ? await this.formatNotifyTestReply()
+          : await this.formatNotifyStatusReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (notifyError) {
+        await this.failWhatsAppCommandJob(commandJob, notifyError);
+        await this.sendPublicFailure("notification check", "Couldn't check notifications. I logged it; try again shortly.", notifyError);
       }
       return;
     }
@@ -3180,6 +3234,17 @@ function normalizeForRepeat(value: string): string {
 
 function normalizeCommandForDemo(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
+}
+
+function parseNotifyCommand(value: string): "test" | "status" | null {
+  const normalized = normalizeCommandForDemo(value);
+  if (["notify test", "notification test", "ntfy test", "test notifications", "test notification"].includes(normalized)) {
+    return "test";
+  }
+  if (["notify status", "notification status", "ntfy status", "notification check", "notifications status"].includes(normalized)) {
+    return "status";
+  }
+  return null;
 }
 
 function isExactCommand(command: string, expected: string[]): boolean {
