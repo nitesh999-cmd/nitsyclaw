@@ -8,8 +8,10 @@ describe("dashboard streaming chat route", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("uses a safe public message when AI config is missing", async () => {
+  it("does not require Anthropic when the local model route is available", async () => {
     delete process.env.ANTHROPIC_API_KEY;
+    process.env.WHATSAPP_OWNER_NUMBER = "+61430008008";
+    delete process.env.DATABASE_URL;
 
     const response = await POST(new Request("https://nitsyclaw.vercel.app/api/chat/stream", {
       method: "POST",
@@ -19,12 +21,12 @@ describe("dashboard streaming chat route", () => {
       },
       body: JSON.stringify({ history: [{ role: "user", content: "hello" }] }),
     }));
-    const body = await response.json() as { reply: string };
+    const body = await response.json() as { message: string };
 
     expect(response.status).toBe(503);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(body.reply).toBe("Dashboard AI is not configured.");
-    expect(body.reply).not.toContain("ANTHROPIC_API_KEY");
+    expect(body.message).toBe("Dashboard database is not configured.");
+    expect(body.message).not.toContain("ANTHROPIC_API_KEY");
   });
 
   it("returns a failing status when backend config is missing after validation", async () => {

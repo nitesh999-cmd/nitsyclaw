@@ -24,6 +24,18 @@ describe("loadEnv", () => {
     expect(env.NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS).toBe(240_000);
   });
 
+  it("allows true local-only startup without Anthropic", () => {
+    const env = loadEnv({
+      ANTHROPIC_API_KEY: undefined,
+      NITSYCLAW_MODEL_MODE: "local_only",
+      DATABASE_URL: "postgres://x",
+      WHATSAPP_OWNER_NUMBER: "+91",
+      ENCRYPTION_KEY,
+    });
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.NITSYCLAW_MODEL_MODE).toBe("local_only");
+  });
+
   it("throws on missing required", () => {
     // Build a minimal env that strips required keys
     const orig = { ...process.env };

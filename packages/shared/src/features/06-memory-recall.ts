@@ -4,6 +4,7 @@ import { z } from "zod";
 import { pinMemory, recallMemoryForOwner } from "../agent/memory.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import { hashPhone } from "../utils/crypto.js";
+import { looksLikeStoredPromptInjection, wrapUntrustedContext } from "../local-brain/pa-loop.js";
 
 export function registerMemoryRecall(registry: ToolRegistry): void {
   registry.register({
@@ -17,13 +18,19 @@ export function registerMemoryRecall(registry: ToolRegistry): void {
     handler: async (input: { query: string; limit?: number }, ctx: ToolContext) => {
       const ownerHash = hashPhone(ctx.userPhone);
       const results = await recallMemoryForOwner(ctx.deps.db, ownerHash, input.query, input.limit ?? 5);
+      const eligible = results
+        .filter((row) => !row.tags.some((tag) => tag === "memory:forgotten" || tag === "memory:corrected"))
+        .filter((row) => !looksLikeStoredPromptInjection(row.content));
       return {
-        count: results.length,
-        items: results.map((r) => ({
+        count: eligible.length,
+        excludedCount: results.length - eligible.length,
+        items: eligible.map((r) => ({
           id: r.id,
           kind: r.kind,
-          content: r.content,
+          content: wrapUntrustedContext(r.content),
           tags: r.tags,
+          source: r.sourceMessageId ? `message:${r.sourceMessageId}` : `memory:${r.id}`,
+          confidence: r.tags.includes("confidence:uncertain") ? "uncertain" : r.tags.includes("confidence:inferred") ? "inferred" : "explicit",
           createdAt: r.createdAt.toISOString(),
         })),
       };

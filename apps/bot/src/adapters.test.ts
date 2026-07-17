@@ -29,6 +29,13 @@ describe("buildAgentDeps web search wiring", () => {
     expect(results[0]?.snippet).toContain("SERPER_API_KEY");
   });
 
+  it("builds in local-only mode without an Anthropic key", async () => {
+    const deps = makeDeps({ ANTHROPIC_API_KEY: undefined, NITSYCLAW_MODEL_MODE: "local_only" });
+    expect(deps.llm).toBeDefined();
+    await expect(deps.imageAnalyzer.extractReceipt(Buffer.from("image"), "image/jpeg"))
+      .rejects.toThrow("ANTHROPIC_API_KEY");
+  });
+
   it("can disable web research explicitly", async () => {
     const deps = makeDeps({ ENABLE_WEB_RESEARCH: false, SERPER_API_KEY: "serper-test-key" });
 

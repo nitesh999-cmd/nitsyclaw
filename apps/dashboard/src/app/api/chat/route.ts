@@ -12,8 +12,15 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
+import { getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import {
+  createPrivacyAwareEmbedder,
+  createRoutedLlm,
+  hasExplicitCloudApproval,
+  localBrainModeFromEnv,
+  OllamaProvider,
+} from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
 import {
   completeCommandJob,
@@ -57,7 +64,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const NO_STORE = { "Cache-Control": "no-store" };
-const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
@@ -154,25 +160,52 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
   };
 }
 
-function buildDashboardDeps(): AgentDeps {
+function buildDashboardDeps(ownerHash: string): AgentDeps {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
   const openaiKey = process.env.OPENAI_API_KEY;
+  const db = getDb();
+  const local = new OllamaProvider();
+  const cloudLlm = apiKey ? makeAnthropicLlm(apiKey, model) : undefined;
+  const cloudEmbedder = openaiKey ? makeOpenAiEmbedder(openaiKey) : undefined;
 
   return {
-    db: getDb(),
+    db,
     whatsapp: new NoopWhatsApp(),
-    llm: makeAnthropicLlm(apiKey, model),
+    llm: createRoutedLlm({
+      local,
+      cloud: cloudLlm,
+      mode: localBrainModeFromEnv(),
+      explicitCloudApproval: hasExplicitCloudApproval,
+      telemetry: async (event) => {
+        await logAudit(db, {
+          actor: "model-router",
+          tool: "model_route",
+          input: {
+            mode: event.mode,
+            requestClass: event.requestClass,
+            sensitivity: event.sensitivity,
+            ownerHash,
+          },
+          output: {
+            route: event.route,
+            model: event.model,
+            reasonCode: event.reasonCode,
+            fallback: event.fallback,
+          },
+          success: event.success,
+          durationMs: event.latencyMs,
+          error: event.errorCode,
+        });
+      },
+    }),
     transcriber: noopTranscriber,
     webSearch: process.env.SERPER_API_KEY
       ? makeSerperSearch(process.env.SERPER_API_KEY)
       : noopWebSearch,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
-    embedder: openaiKey
-      ? makeOpenAiEmbedder(openaiKey)
-      : { async embed() { return []; } },
+    embedder: createPrivacyAwareEmbedder({ local, cloud: cloudEmbedder }),
     now: () => new Date(),
     timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
     profile: {
@@ -207,13 +240,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { reply: CHAT_CONFIG_ERROR },
-      { status: 503, headers: NO_STORE },
-    );
-  }
-
   const rawBody = await parseLimitedJsonBody(req);
   if (!rawBody.ok) {
     return NextResponse.json({ reply: rawBody.reply }, { status: rawBody.status, headers: NO_STORE });
@@ -225,9 +251,9 @@ export async function POST(req: Request) {
   const last = parsedBody.last;
 
   try {
-    const deps = buildDashboardDeps();
-    const registry = registerAllFeatures({ surface: "dashboard" });
     const { ownerPhone, ownerHash } = getOwnerIdentity();
+    const deps = buildDashboardDeps(ownerHash);
+    const registry = registerAllFeatures({ surface: "dashboard" });
     const privateMode = parsePrivateModeInput(last.content, parsedBody.body.privateMode);
     if (privateMode) {
       if (isPrivateModeHelpRequest(privateMode.text)) {
