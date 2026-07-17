@@ -25,6 +25,9 @@ Adopt the boring reliable stack first:
 | Playwright | High | Keep | Best fit for real dashboard route, mobile, and destructive-action flow checks. |
 | Lighthouse | Medium | Manual only | Useful for performance/SEO, but local Windows Chrome cleanup was flaky after report generation. |
 | npm audit | High | Keep | Low-cost dependency advisory gate. It is not enough alone, but valuable with Semgrep. |
+| Ollama 0.32.1 | High for owner-local PA | Adopt behind adapter | Already installed and reachable; HTTP-native adapter adds no package. Manual exact-name model pulls and local-only networking keep supply-chain and privacy risk visible. |
+| qwen3:8b | High, pending live proof | Recommended first model | Tool-capable 8B model is a conservative starting point for the 63 GB RAM machine; live quality/latency must be measured before stickier adoption. |
+| nomic-embed-text | Medium-high, pending live proof | Recommended first embedder | Small local embedding model; use bounded in-memory reranking until a dimension-aware schema is designed. |
 
 ## Adoption rules
 
@@ -34,4 +37,5 @@ Adopt the boring reliable stack first:
 4. Project agents must be read-only by default.
 5. Any agent/tool that can write files, run shell commands, deploy, send messages, or access secrets needs explicit review.
 6. Do not claim a tool is part of release readiness until `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm test:e2e`, `pnpm run security:audit`, and `pnpm run security:semgrep` still pass.
+7. Never expose Ollama's unauthenticated local API to the public internet. Any future network bridge needs authentication, encryption, IP restrictions, and a threat-model update.
 
