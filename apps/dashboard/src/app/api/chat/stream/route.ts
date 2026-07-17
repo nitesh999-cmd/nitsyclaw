@@ -21,6 +21,13 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, insertMessage, insertFeatureRequest, logAudit, redactAuditString } from "@nitsyclaw/shared/db";
 import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import {
+  createPrivacyAwareEmbedder,
+  createRoutedLlm,
+  hasExplicitCloudApproval,
+  localBrainModeFromEnv,
+  OllamaProvider,
+} from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
 import {
@@ -62,7 +69,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const NO_STORE = { "Cache-Control": "no-store" };
-const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
@@ -118,16 +124,15 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
   };
 }
 
-function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: string } {
+function buildDashboardDeps(ownerHash: string): { deps: AgentDeps } {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
   const openaiKey = process.env.OPENAI_API_KEY;
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = apiKey ? new Anthropic({ apiKey }) : undefined;
+  const db = getDb();
+  const local = new OllamaProvider();
 
-  // LlmClient is used only for tool round-trips inside this route. The final
-  // round uses anthropic.messages.stream directly so we can pipe deltas.
-  const llm: LlmClient = {
+  const cloudLlm: LlmClient | undefined = anthropic ? {
     async complete(args) {
       const resp = await anthropic.messages.create({
         model,
@@ -162,10 +167,38 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
       const stopReason = (resp.stop_reason ?? "end_turn") as "end_turn" | "tool_use" | "max_tokens";
       return { stopReason, toolCalls, text };
     },
-  };
+  } : undefined;
+
+  const llm = createRoutedLlm({
+    local,
+    cloud: cloudLlm,
+    mode: localBrainModeFromEnv(),
+    explicitCloudApproval: hasExplicitCloudApproval,
+    telemetry: async (event) => {
+      await logAudit(db, {
+        actor: "model-router",
+        tool: "model_route",
+        input: {
+          mode: event.mode,
+          requestClass: event.requestClass,
+          sensitivity: event.sensitivity,
+          ownerHash,
+        },
+        output: {
+          route: event.route,
+          model: event.model,
+          reasonCode: event.reasonCode,
+          fallback: event.fallback,
+        },
+        success: event.success,
+        durationMs: event.latencyMs,
+        error: event.errorCode,
+      });
+    },
+  });
 
   const deps: AgentDeps = {
-    db: getDb(),
+    db,
     whatsapp: new NoopWhatsApp(),
     llm,
     transcriber: noopTranscriber,
@@ -174,7 +207,10 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
       : noopWebSearch,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
-    embedder: openaiKey ? makeOpenAiEmbedder(openaiKey) : { async embed() { return []; } },
+    embedder: createPrivacyAwareEmbedder({
+      local,
+      cloud: openaiKey ? makeOpenAiEmbedder(openaiKey) : undefined,
+    }),
     now: () => new Date(),
     timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
     profile: {
@@ -193,7 +229,7 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
       timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
     },
   };
-  return { deps, anthropic, model };
+  return { deps };
 }
 
 export async function POST(req: Request) {
@@ -210,9 +246,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ reply: CHAT_CONFIG_ERROR }, { status: 503, headers: NO_STORE });
-  }
   const rawBody = await parseLimitedJsonBody(req);
   if (!rawBody.ok) {
     return NextResponse.json({ reply: rawBody.reply }, { status: rawBody.status, headers: NO_STORE });
@@ -249,7 +282,7 @@ export async function POST(req: Request) {
       });
     }
     try {
-      const { deps } = buildDashboardDeps();
+      const { deps } = buildDashboardDeps(ownerHash);
       const promptProfile = await resolvePromptProfileFromContext(deps.db, {
         userPhone: ownerPhone,
         now: deps.now(),
@@ -289,7 +322,7 @@ export async function POST(req: Request) {
       });
     }
     try {
-      const { deps } = buildDashboardDeps();
+      const { deps } = buildDashboardDeps(ownerHash);
       const commandJob = await createCommandJob(deps.db, {
         source: "dashboard",
         ownerHash,
@@ -328,14 +361,14 @@ export async function POST(req: Request) {
     }
   }
 
-  let built: { deps: AgentDeps; anthropic: Anthropic; model: string };
+  let built: { deps: AgentDeps };
   try {
-    built = buildDashboardDeps();
+    built = buildDashboardDeps(ownerHash);
   } catch (e: unknown) {
     const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
   }
-  const { deps, anthropic, model } = built;
+  const { deps } = built;
   const promptProfile = await resolvePromptProfileFromContext(deps.db, {
     userPhone: ownerPhone,
     now: deps.now(),
@@ -469,21 +502,20 @@ export async function POST(req: Request) {
             await new Promise((r) => setTimeout(r, 5));
           }
         } else {
-          // All MAX_TOOL_ROUNDS exhausted with no final text — issue a proper
-          // streaming call to wrap up.
-          const stream2 = anthropic.messages.stream({
-            model,
-            max_tokens: 1500,
-            system: buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
-            tools: registry.toAnthropicTools() as Anthropic.Tool[],
-            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          // All tool rounds were used. Ask the routed model to close the loop,
+          // preserving local-only and sensitive-data routing rules.
+          const completion = await deps.llm.complete({
+            system: [
+              buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
+              "No more tools are available in this turn. Summarise the completed work and any honest limitations.",
+            ].join("\n\n"),
+            messages,
+            maxTokens: 1500,
           });
-          for await (const event of stream2) {
-            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-              const delta = event.delta.text;
-              finalText += delta;
-              send({ type: "text", delta });
-            }
+          finalText = completion.text;
+          for (const word of finalText.split(/(\s+)/)) {
+            send({ type: "text", delta: word });
+            await new Promise((resolve) => setTimeout(resolve, 5));
           }
         }
 

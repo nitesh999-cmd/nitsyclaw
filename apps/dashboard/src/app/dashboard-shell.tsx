@@ -20,6 +20,7 @@ const navGroups = [
     label: "Supporting",
     items: [
       { href: "/memory", label: "Memory", mark: "Keep" },
+      { href: "/local-brain", label: "Local Brain", mark: "Local" },
       { href: "/privacy-center", label: "Privacy", mark: "Trust" },
       { href: "/settings", label: "Settings", mark: "Safe" },
     ],

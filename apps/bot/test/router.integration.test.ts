@@ -1428,6 +1428,33 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((m) => m.body === "ack")).toBe(false);
   });
 
+  it("builds an evidence-backed Today focus without calling the LLM", async () => {
+    const state = getFakeDbState(deps.db);
+    state.reminders.push({
+      id: "focus-reminder-1",
+      text: "prepare the customer proposal",
+      fireAt: new Date("2026-04-24T09:00:00Z"),
+      rrule: null,
+      status: "pending",
+      createdAt: new Date("2026-04-23T08:00:00Z"),
+    });
+
+    await router.handle({
+      id: "x-today-focus",
+      from: OWNER,
+      body: "What should I focus on today?",
+      timestamp: new Date("2026-04-25T08:10:00Z"),
+      hasMedia: false,
+    });
+
+    expect(wa.sent[0].body).toContain("Today - top focus");
+    expect(wa.sent[0].body).toContain("prepare the customer proposal");
+    expect(wa.sent[0].body).toContain("Why:");
+    expect(wa.sent[0].body).toContain("Next:");
+    expect(wa.sent[0].body).toContain("Unavailable sources: connected calendars, connected inboxes");
+    expect(wa.sent.some((message) => message.body === "ack")).toBe(false);
+  });
+
   it("answers weekly admin digest from local reminders expenses and command jobs", async () => {
     const state = getFakeDbState(deps.db);
     state.reminders.push(

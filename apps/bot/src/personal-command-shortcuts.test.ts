@@ -8,6 +8,8 @@ import {
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
+  parseTodayFocusShortcut,
+  parseLocalBrainStatusShortcut,
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
   parseDemoStartShortcut,
@@ -315,6 +317,14 @@ describe("personal command shortcuts", () => {
     expect(parseDailyStatusShortcut("today summary")).toEqual({ kind: "daily-status" });
     expect(parseDailyStatusShortcut("morning brief")).toEqual({ kind: "daily-status" });
     expect(parseDailyStatusShortcut("weather tomorrow")).toBeNull();
+  });
+
+  it("detects local brain and today focus shortcuts", () => {
+    expect(parseTodayFocusShortcut("What should I focus on today?")).toEqual({ kind: "today-focus" });
+    expect(parseTodayFocusShortcut("top priorities today")).toEqual({ kind: "today-focus" });
+    expect(parseTodayFocusShortcut("weather today")).toBeNull();
+    expect(parseLocalBrainStatusShortcut("local brain status")).toEqual({ kind: "local-brain-status" });
+    expect(parseLocalBrainStatusShortcut("ollama status")).toEqual({ kind: "local-brain-status" });
   });
 
   it("detects weekly admin digest and coming-week shortcuts", () => {

@@ -9,6 +9,14 @@ import { formatOneDriveConnectorStatusForWhatsApp, getOneDriveConnectorStatus } 
 import { formatOutlookConnectorStatusForWhatsApp, getOutlookConnectorStatus } from "@nitsyclaw/shared/integrations/outlook-connector";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
 import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
+import {
+  buildTodayFocusPlan,
+  formatTodayFocusPlan,
+  loadTodayFocusEvidence,
+  localBrainModeFromEnv,
+  OllamaProvider,
+  type FocusEvidence,
+} from "@nitsyclaw/shared/local-brain";
 import { detectIntent } from "@nitsyclaw/shared/utils";
 import {
   registerAllFeatures,
@@ -122,6 +130,8 @@ import {
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
+  parseTodayFocusShortcut,
+  parseLocalBrainStatusShortcut,
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
   parseDemoStartShortcut,
@@ -476,6 +486,61 @@ export class Router {
       "",
       "No external accounts used. This is from local NitsyClaw history only.",
     ].join("\n");
+  }
+
+  private async formatTodayFocusReply(): Promise<string> {
+    const now = this.deps.now();
+    const evidence = await loadTodayFocusEvidence(this.deps.db, this.tenant().ownerHash, now, this.deps.timezone);
+    const unavailableSources: string[] = [];
+
+    if (this.deps.aggregator) {
+      const [events, emails] = await Promise.allSettled([
+        this.deps.aggregator.fetchAllEventsToday(this.deps.timezone),
+        this.deps.aggregator.fetchAllUnreadEmails(10),
+      ]);
+      if (events.status === "fulfilled") {
+        evidence.push(...events.value.map((event, index): FocusEvidence => ({
+          id: `calendar-${event.source}-${index}`,
+          type: "calendar",
+          title: event.title,
+          source: `calendar:${event.source}`,
+          dueAt: event.start,
+          status: event.start < now ? "started" : "today",
+          confidence: 1,
+        })));
+      } else unavailableSources.push("connected calendars");
+      if (emails.status === "fulfilled") {
+        evidence.push(...emails.value.map((email, index): FocusEvidence => ({
+          id: `email-${email.source}-${index}`,
+          type: "email",
+          title: `${email.subject} - from ${email.from}`,
+          source: `email:${email.source}`,
+          dueAt: email.date,
+          status: "unread",
+          confidence: 0.85,
+        })));
+      } else unavailableSources.push("connected inboxes");
+    } else {
+      unavailableSources.push("connected calendars", "connected inboxes");
+    }
+
+    return formatTodayFocusPlan(buildTodayFocusPlan({ evidence, now, unavailableSources }));
+  }
+
+  private async formatLocalBrainStatusReply(): Promise<string> {
+    const health = await new OllamaProvider().health();
+    const state = health.state === "online" ? "ready" : health.state;
+    return formatWhatsAppReplyShape({
+      answer: `Local brain: ${state}`,
+      state: `Mode: ${localBrainModeFromEnv()} | Ollama: ${health.version ?? "not reachable"}`,
+      details: [
+        `Chat model: ${health.chatModel ?? "no chat model configured"}`,
+        `Memory model: ${health.embeddingModel ?? "no embedding model configured"}`,
+        "Privacy: private requests stay local unless you explicitly approve cloud reasoning.",
+        `Models detected: ${health.models.length}.`,
+      ],
+      next: health.state === "offline" ? "Start Ollama, then send: local brain status" : "Send: what should I focus on today",
+    });
   }
 
   private async formatWeeklyAdminDigestReply(userPhone: string): Promise<string> {
@@ -2665,6 +2730,27 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, dailyStatusError);
         await this.sendPublicFailure("daily status", "Couldn't load daily status. I logged it; try again shortly.", dailyStatusError);
       }
+      return;
+    }
+
+    const todayFocus = parseTodayFocusShortcut(effectiveText);
+    if (todayFocus) {
+      try {
+        const reply = await this.formatTodayFocusReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (todayFocusError) {
+        await this.failWhatsAppCommandJob(commandJob, todayFocusError);
+        await this.sendPublicFailure("today focus", "Couldn't build today's focus. I logged it; try again shortly.", todayFocusError);
+      }
+      return;
+    }
+
+    const localBrainStatus = parseLocalBrainStatusShortcut(effectiveText);
+    if (localBrainStatus) {
+      const reply = await this.formatLocalBrainStatusReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 

@@ -4,6 +4,7 @@ import { reminders, expenses, briefs, confirmations, messages } from "@nitsyclaw
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { and, eq, gte, desc } from "drizzle-orm";
 import { getOwnerIdentity } from "../lib/dashboard-runtime";
+import { buildTodayFocusPlan, loadTodayFocusEvidence } from "@nitsyclaw/shared/local-brain";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +16,13 @@ async function loadToday() {
   const { ownerHash } = getOwnerIdentity();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const [pendingReminders, recentExpenses, latestBrief, pendingConfirmations, lastMessageRows] = await Promise.all([
+  const [pendingReminders, recentExpenses, latestBrief, pendingConfirmations, lastMessageRows, focusEvidence] = await Promise.all([
     db.select().from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "pending"))).orderBy(reminders.fireAt).limit(10),
     db.select().from(expenses).where(and(eq(expenses.ownerHash, ownerHash), gte(expenses.occurredAt, today))).orderBy(desc(expenses.occurredAt)).limit(10),
     db.select().from(briefs).where(eq(briefs.ownerHash, ownerHash)).orderBy(desc(briefs.createdAt)).limit(1),
     db.select().from(confirmations).where(and(eq(confirmations.ownerHash, ownerHash), eq(confirmations.status, "pending"))).limit(10),
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
+    loadTodayFocusEvidence(db, ownerHash, new Date(), process.env.TIMEZONE ?? "Australia/Melbourne"),
   ]);
   return {
     pendingReminders,
@@ -28,6 +30,7 @@ async function loadToday() {
     latestBrief: latestBrief[0] ?? null,
     pendingConfirmations,
     lastMessage: lastMessageRows[0] ?? null,
+    focusEvidence,
   };
 }
 
@@ -59,6 +62,7 @@ function emptyTodayData(): TodayData {
     latestBrief: null,
     pendingConfirmations: [],
     lastMessage: null,
+    focusEvidence: [],
   };
 }
 
@@ -91,6 +95,10 @@ export default async function TodayPage() {
   const attentionCount = data.pendingConfirmations.length + data.pendingReminders.length;
   const todayTotal = data.recentExpenses.reduce((sum, e) => sum + e.amount, 0);
   const overdue = data.pendingReminders.filter((r) => r.fireAt < new Date());
+  const focusPlan = buildTodayFocusPlan({
+    evidence: data.focusEvidence,
+    unavailableSources: data.dataUnavailable ? ["live dashboard data"] : ["connected calendar and inbox data on this surface"],
+  });
   const bestNextAction = data.pendingConfirmations.length > 0
     ? { href: "/confirmations", label: "Review waiting approvals", detail: "Something needs your decision before it can act." }
     : overdue.length > 0
@@ -176,6 +184,48 @@ export default async function TodayPage() {
           Live dashboard data is taking too long to load. I am showing a safe temporary view instead of pretending the day is empty.
         </div>
       ) : null}
+
+      <section className="nc-section overflow-hidden" data-testid="today-focus-plan">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="nc-eyebrow">Today&apos;s focus</div>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-100 md:text-3xl">Three things worth your attention</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Ranked from your chosen focus, reminders, waiting approvals, active work, and saved commitments. No invented priorities.
+            </p>
+          </div>
+          <a href="/local-brain" className="nc-button min-h-10 shrink-0">Why these?</a>
+        </div>
+
+        {focusPlan.priorities.length > 0 ? (
+          <div className="mt-5 grid gap-3 lg:grid-cols-3">
+            {focusPlan.priorities.map((priority, index) => (
+              <article key={priority.id} className="rounded-2xl border border-slate-700/80 bg-slate-900/50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d8b75d] text-sm font-bold text-slate-950">{index + 1}</span>
+                  <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">Evidence-backed</span>
+                </div>
+                <h3 className="mt-4 text-lg font-semibold leading-6 text-slate-100">{priority.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-400"><span className="font-semibold text-slate-300">Why:</span> {priority.why}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300"><span className="font-semibold text-[#d8b75d]">Smallest next:</span> {priority.smallestNextAction}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="nc-empty mt-5">
+            I could not find enough current tasks, commitments, or memories to rank without guessing. Add a reminder or choose a daily focus first.
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm leading-6 text-slate-400">
+            {focusPlan.overdueOrAtRisk.length > 0
+              ? <><span className="font-semibold text-red-300">Overdue or at risk:</span> {focusPlan.overdueOrAtRisk.join(" | ")}</>
+              : <><span className="font-semibold text-emerald-300">No evidence-backed overdue items found.</span> Connected calendar and inbox context is labelled unavailable until it is wired here.</>}
+          </div>
+          <a href="/chat" className="nc-button-primary">Prepare my first step</a>
+        </div>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_1fr_1.1fr]" data-testid="today-work-status">
         <div className="nc-section">

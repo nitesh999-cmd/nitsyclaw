@@ -2830,3 +2830,34 @@ Every notify failure (ntfy, Windows toast, MS mail) was caught and logged with n
 - Full `router.ts` (3192 lines), confirmation-rail race conditions, and encrypted-column mixed-plaintext edge cases were not exhaustively reviewed this session (2 of 4 bug-hunt subagents hit the session limit before returning).
 - Recurring reminders beyond simple weekday patterns remain unimplemented (pre-existing, not new this session).
 
+---
+
+## 62. Session 2026-07-17 -- Ollama Local Brain foundation + Today focus proof
+
+**Date:** 2026-07-17 (Sydney)
+**Driver:** Nitesh -- "NITSYCLAW LOCAL-BRAIN SPRINT — START NOW."
+
+### Architecture decision
+
+Added a shared HTTP-native Ollama provider and deterministic privacy router. `auto` keeps private everyday work local, permits cloud for difficult ordinary reasoning, and blocks sensitive fallback unless the owner explicitly approves cloud reasoning. `local_only` never falls back. Route audits store safe labels/reasons/timing only, never prompts.
+
+Both bot and dashboard now receive the same routed `LlmClient` through `AgentDeps`. Private memory embeddings prefer Ollama and refuse silent cloud fallback. Existing 1536-dimensional vectors are left untouched; local embeddings rerank a bounded owner-scoped recent set until a dimension-aware migration is measured.
+
+### PA loop and proof slice
+
+Codified Capture -> Understand -> Retrieve -> Propose -> Approve -> Act -> Remember. Retrieval rechecks `ownerHash`, excludes corrected/forgotten and instruction-like rows, wraps context as untrusted data, and reports provenance/confidence/time.
+
+Added deterministic WhatsApp commands `what should I focus on today?` and `local brain status`. Today focus ranks up to three real priorities from daily focus, reminders, approvals, command jobs, memories/entities, plus bot-connected calendar/inbox context. The dashboard adds the same grounded Today proof and a private `/local-brain` inspection surface.
+
+### Environment and verification boundary
+
+Ollama 0.32.1 was installed and reachable on loopback, with zero models installed. No automatic pull occurred. `qwen3:8b` and `nomic-embed-text` are documented recommendations; live answer quality, retrieval quality, and token latency remain unverified until those manual pulls occur.
+
+Added 36 deterministic PA evaluation scenarios and 63 focused local-brain tests covering provider protocol, offline/missing-model/timeout handling, routing, approvals, tenant isolation, memory injection filtering, and Today grounding. Full-suite/release-gate results belong in the final sprint handoff after they complete.
+
+### Independent adversarial correction
+
+A fresh read-only verifier reproduced two P0 leaks in the first implementation: routing considered only the latest turn while sending full history, and ordinary-looking saved memory could fall through to cloud embeddings. The release was stopped. The corrected boundary classifies the complete outbound prompt/history/tool context, makes privacy sticky, requires the exact `cloud approved for this full conversation context:` disclosure for sensitive escalation, and never cloud-embeds saved memory by default. Regression probes also enforce proposal action flags, escape memory wrapper delimiters, owner-filter dashboard route telemetry, exclude stale/corrected/forgotten Today evidence, and allow true `local_only` boot without Anthropic.
+
+The verifier's second pass caught two P1 gaps: static system-policy words made ordinary auto fallback impossible, and injection filtering was not wired into production `recall_memory`. The final design distinguishes static policy from dynamic context, strips the marked owner profile from every cloud prompt, keeps private history/tool data sticky, and filters/wraps production recall results with a matching system-level untrusted-data instruction. Expired confirmations are excluded from Today focus and bot route telemetry now carries the owner hash.
+

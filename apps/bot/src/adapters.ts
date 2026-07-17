@@ -8,6 +8,14 @@ import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent, sendMailRich } from "./microsoft-graph.js";
 import { logBotError } from "./safe-log.js";
 import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { logAudit } from "@nitsyclaw/shared/db";
+import {
+  OllamaProvider,
+  createPrivacyAwareEmbedder,
+  createRoutedLlm,
+  hasExplicitCloudApproval,
+  type LocalBrainMode,
+} from "@nitsyclaw/shared/local-brain";
 import type {
   AgentDeps,
   CalendarClient,
@@ -18,6 +26,7 @@ import type {
   Transcriber,
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
+import { hashPhone } from "@nitsyclaw/shared/utils";
 
 /** RFC 2047 encoded-word for header values containing non-ASCII (e.g. "Café invoice"). */
 function encodeHeaderValue(value: string): string {
@@ -357,7 +366,7 @@ export const realCalendar: CalendarClient = {
 export const stubCalendar = realCalendar;
 
 export interface BotConfigEnv {
-  ANTHROPIC_API_KEY: string;
+  ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL: string;
   OPENAI_API_KEY?: string;
   TRANSCRIPTION_MODEL: string;
@@ -372,6 +381,14 @@ export interface BotConfigEnv {
   CURRENT_COUNTRY?: string;
   DEFAULT_CURRENCY?: string;
   REPLY_LANGUAGE?: string;
+  NITSYCLAW_MODEL_MODE?: LocalBrainMode;
+  WHATSAPP_OWNER_NUMBER?: string;
+  OLLAMA_BASE_URL?: string;
+  OLLAMA_CHAT_MODEL?: string;
+  OLLAMA_EMBEDDING_MODEL?: string;
+  OLLAMA_TIMEOUT_MS?: number;
+  OLLAMA_RETRIES?: number;
+  OLLAMA_CONTEXT_LIMIT?: number;
 }
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
@@ -385,14 +402,57 @@ export function buildAgentDeps(args: {
   whatsapp: AgentDeps["whatsapp"];
   now?: () => Date;
 }): AgentDeps {
-  const llm = makeAnthropicLlm(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL);
+  const cloudLlm = args.env.ANTHROPIC_API_KEY
+    ? makeAnthropicLlm(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL)
+    : undefined;
+  const ollama = new OllamaProvider({
+    baseUrl: args.env.OLLAMA_BASE_URL,
+    chatModel: args.env.OLLAMA_CHAT_MODEL,
+    embeddingModel: args.env.OLLAMA_EMBEDDING_MODEL,
+    requestTimeoutMs: args.env.OLLAMA_TIMEOUT_MS,
+    retries: args.env.OLLAMA_RETRIES,
+    contextWindow: args.env.OLLAMA_CONTEXT_LIMIT,
+  });
+  const llm = createRoutedLlm({
+    local: ollama,
+    cloud: cloudLlm,
+    mode: args.env.NITSYCLAW_MODEL_MODE ?? "auto",
+    explicitCloudApproval: hasExplicitCloudApproval,
+    telemetry: async (event) => {
+      const ownerHash = args.env.WHATSAPP_OWNER_NUMBER ? hashPhone(args.env.WHATSAPP_OWNER_NUMBER) : undefined;
+      await logAudit(args.db, {
+        actor: "agent",
+        tool: "model_route",
+        input: {
+          mode: event.mode,
+          reason: event.reasonCode,
+          requestClass: event.requestClass,
+          sensitivity: event.sensitivity,
+          ...(ownerHash ? { ownerHash } : {}),
+        },
+        output: {
+          route: event.route,
+          model: event.model,
+          fallback: event.fallback,
+          errorCode: event.errorCode,
+        },
+        success: event.success,
+        durationMs: event.latencyMs,
+      });
+    },
+  });
   const transcriber = args.env.OPENAI_API_KEY
     ? makeOpenAiTranscriber(args.env.OPENAI_API_KEY, args.env.TRANSCRIPTION_MODEL)
     : { async transcribe() { throw new Error("OPENAI_API_KEY not set"); } };
-  const embedder = args.env.OPENAI_API_KEY
-    ? makeOpenAiEmbedder(args.env.OPENAI_API_KEY)
-    : { async embed() { return []; } };
-  const imageAnalyzer = makeAnthropicImageAnalyzer(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL);
+  const cloudEmbedder = args.env.OPENAI_API_KEY ? makeOpenAiEmbedder(args.env.OPENAI_API_KEY) : undefined;
+  const embedder = createPrivacyAwareEmbedder({ local: ollama, cloud: cloudEmbedder });
+  const imageAnalyzer = args.env.ANTHROPIC_API_KEY
+    ? makeAnthropicImageAnalyzer(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL)
+    : {
+        async extractReceipt() {
+          throw new Error("Receipt image analysis needs ANTHROPIC_API_KEY; local image analysis is not configured.");
+        },
+      };
   const webSearch =
     args.env.ENABLE_WEB_RESEARCH === false
       ? noopWebSearch
