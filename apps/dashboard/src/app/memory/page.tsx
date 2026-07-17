@@ -1,8 +1,8 @@
 import { getDb, memories } from "@nitsyclaw/shared/db";
 import { assessMemoryQuality, formatMemoryQualityLabel } from "@nitsyclaw/shared/agent";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { desc, sql } from "drizzle-orm";
-import { logDashboardLoadError } from "../../lib/dashboard-runtime";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query.js";
 
 export const dynamic = "force-dynamic";
@@ -10,17 +10,23 @@ export const dynamic = "force-dynamic";
 async function load(q?: string) {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
   const term = normalizeSearchTerm(q);
   if (term) {
     const like = likePatternForSearchTerm(term);
     return db
       .select()
       .from(memories)
-      .where(sql`lower(${memories.content}) LIKE ${like} ESCAPE '\'`)
+      .where(and(eq(memories.ownerHash, ownerHash), sql`lower(${memories.content}) LIKE ${like} ESCAPE '\'`))
       .orderBy(desc(memories.createdAt))
       .limit(100);
   }
-  return db.select().from(memories).orderBy(desc(memories.createdAt)).limit(100);
+  return db
+    .select()
+    .from(memories)
+    .where(eq(memories.ownerHash, ownerHash))
+    .orderBy(desc(memories.createdAt))
+    .limit(100);
 }
 
 export default async function MemoryPage({

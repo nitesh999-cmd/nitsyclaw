@@ -1,8 +1,9 @@
 // Feature 6: Memory recall — "Where did I save the thing about X?"
 
 import { z } from "zod";
-import { recallMemory } from "../agent/memory.js";
+import { pinMemory, recallMemoryForOwner } from "../agent/memory.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
+import { hashPhone } from "../utils/crypto.js";
 
 export function registerMemoryRecall(registry: ToolRegistry): void {
   registry.register({
@@ -14,7 +15,8 @@ export function registerMemoryRecall(registry: ToolRegistry): void {
       limit: z.number().int().min(1).max(20).optional(),
     }),
     handler: async (input: { query: string; limit?: number }, ctx: ToolContext) => {
-      const results = await recallMemory(ctx.deps.db, input.query, input.limit ?? 5);
+      const ownerHash = hashPhone(ctx.userPhone);
+      const results = await recallMemoryForOwner(ctx.deps.db, ownerHash, input.query, input.limit ?? 5);
       return {
         count: results.length,
         items: results.map((r) => ({
@@ -36,8 +38,9 @@ export function registerMemoryRecall(registry: ToolRegistry): void {
       tags: z.array(z.string()).optional(),
     }),
     handler: async (input: { content: string; tags?: string[] }, ctx: ToolContext) => {
-      const { pinMemory } = await import("../agent/memory.js");
+      const ownerHash = hashPhone(ctx.userPhone);
       const m = await pinMemory(ctx.deps.db, {
+        ownerHash,
         content: input.content,
         tags: input.tags,
         embedder: ctx.deps.embedder,

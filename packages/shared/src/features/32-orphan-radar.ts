@@ -5,10 +5,10 @@
 // contacts not heard from in N days where there's an open thread.
 
 import { z } from "zod";
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { hashPhone } from "../utils/crypto.js";
 import { reminders, snoozes, entities } from "../db/schema.js";
-import { privateOwnerTenantForPhone } from "../tenancy.js";
+import { assertPublicSaleTenantBoundaries, privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
 import type { DB } from "../db/client.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
@@ -31,6 +31,8 @@ export async function findOrphansForOwner(
   db: DB,
   args: FindOrphansArgs,
 ): Promise<{ windowHours: number; staleContactDays: number; items: OrphanItem[] }> {
+  assertPublicSaleTenantBoundaries();
+  privateOwnerTenant(args.ownerHash);
   const windowHours = args.windowHours ?? 48;
   const staleDays = args.staleContactDays ?? 7;
   const limit = Math.min(args.limit ?? 10, 30);
@@ -42,6 +44,7 @@ export async function findOrphansForOwner(
       .from(reminders)
       .where(
         and(
+          eq(reminders.ownerHash, args.ownerHash),
           eq(reminders.status, "pending"),
           gte(reminders.fireAt, args.now),
           lte(reminders.fireAt, windowEnd),

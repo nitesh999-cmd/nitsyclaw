@@ -41,8 +41,9 @@ import {
 } from "./schema.js";
 
 function guardUnscopedCustomerDataAccess(tenant: TenantContext) {
-  requireTenantContext(tenant);
+  const context = requireTenantContext(tenant);
   assertPublicSaleTenantBoundaries();
+  return context;
 }
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -78,8 +79,8 @@ export async function recentMessages(db: DB, fromNumber: string, limit = 50) {
 }
 
 export async function insertMemory(db: DB, tenant: TenantContext, m: NewMemory) {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.insert(memories).values(m).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db.insert(memories).values({ ...m, ownerHash: context.ownerHash }).returning();
   return row!;
 }
 
@@ -94,12 +95,12 @@ export async function searchMemoriesLexical(
   query: string,
   limit = 10,
 ): Promise<Memory[]> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const q = `%${query.toLowerCase()}%`;
   return db
     .select()
     .from(memories)
-    .where(sql`lower(${memories.content}) LIKE ${q}`)
+    .where(and(eq(memories.ownerHash, context.ownerHash), sql`lower(${memories.content}) LIKE ${q}`))
     .orderBy(desc(memories.createdAt))
     .limit(limit);
 }
@@ -110,29 +111,36 @@ export async function updateMemory(
   id: string,
   patch: Partial<Pick<NewMemory, "kind" | "content" | "tags">>,
 ): Promise<Memory | null> {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.update(memories).set(patch).where(eq(memories.id, id)).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .update(memories)
+    .set(patch)
+    .where(and(eq(memories.id, id), eq(memories.ownerHash, context.ownerHash)))
+    .returning();
   return row ?? null;
 }
 
 export async function deleteMemory(db: DB, tenant: TenantContext, id: string): Promise<boolean> {
-  guardUnscopedCustomerDataAccess(tenant);
-  const rows = await db.delete(memories).where(eq(memories.id, id)).returning({ id: memories.id });
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const rows = await db
+    .delete(memories)
+    .where(and(eq(memories.id, id), eq(memories.ownerHash, context.ownerHash)))
+    .returning({ id: memories.id });
   return rows.length > 0;
 }
 
 export async function insertReminder(db: DB, tenant: TenantContext, r: NewReminder) {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.insert(reminders).values(r).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db.insert(reminders).values({ ...r, ownerHash: context.ownerHash }).returning();
   return row!;
 }
 
 export async function dueReminders(db: DB, tenant: TenantContext, now: Date): Promise<Reminder[]> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   return db
     .select()
     .from(reminders)
-    .where(and(eq(reminders.status, "pending"), lte(reminders.fireAt, now)));
+    .where(and(eq(reminders.ownerHash, context.ownerHash), eq(reminders.status, "pending"), lte(reminders.fireAt, now)));
 }
 
 export async function listPendingReminders(
@@ -141,11 +149,11 @@ export async function listPendingReminders(
   now: Date,
   limit = 5,
 ): Promise<Reminder[]> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .select()
     .from(reminders)
-    .where(eq(reminders.status, "pending"))
+    .where(and(eq(reminders.ownerHash, context.ownerHash), eq(reminders.status, "pending")))
     .orderBy(asc(reminders.fireAt))
     .limit(100);
 
@@ -156,32 +164,41 @@ export async function listPendingReminders(
 }
 
 export async function markReminderFired(db: DB, tenant: TenantContext, id: string) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(reminders).set({ status: "fired" }).where(eq(reminders.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(reminders)
+    .set({ status: "fired" })
+    .where(and(eq(reminders.id, id), eq(reminders.ownerHash, context.ownerHash)));
 }
 
 export async function cancelReminder(db: DB, tenant: TenantContext, id: string) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(reminders).set({ status: "cancelled" }).where(eq(reminders.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(reminders)
+    .set({ status: "cancelled" })
+    .where(and(eq(reminders.id, id), eq(reminders.ownerHash, context.ownerHash)));
 }
 
 export async function rescheduleReminder(db: DB, tenant: TenantContext, id: string, fireAt: Date) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(reminders).set({ status: "pending", fireAt }).where(eq(reminders.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(reminders)
+    .set({ status: "pending", fireAt })
+    .where(and(eq(reminders.id, id), eq(reminders.ownerHash, context.ownerHash)));
 }
 
 export async function insertExpense(db: DB, tenant: TenantContext, e: NewExpense) {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.insert(expenses).values(e).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db.insert(expenses).values({ ...e, ownerHash: context.ownerHash }).returning();
   return row!;
 }
 
 export async function expensesBetween(db: DB, tenant: TenantContext, from: Date, to: Date) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   return db
     .select()
     .from(expenses)
-    .where(and(gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)));
+    .where(and(eq(expenses.ownerHash, context.ownerHash), gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)));
 }
 
 export async function recentExpensesBetween(
@@ -191,22 +208,23 @@ export async function recentExpensesBetween(
   to: Date,
   limit = 200,
 ) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .select()
     .from(expenses)
+    .where(and(eq(expenses.ownerHash, context.ownerHash), gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)))
     .orderBy(desc(expenses.occurredAt))
     .limit(limit);
 
-  return rows.filter((row) => row.occurredAt >= from && row.occurredAt <= to);
+  return rows;
 }
 
 export async function upsertBrief(db: DB, tenant: TenantContext, forDate: string, body: string) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   await db
     .insert(briefs)
-    .values({ forDate, body })
-    .onConflictDoUpdate({ target: briefs.forDate, set: { body } });
+    .values({ ownerHash: context.ownerHash, forDate, body })
+    .onConflictDoUpdate({ target: [briefs.ownerHash, briefs.forDate], set: { body } });
 }
 
 export async function insertConfirmation(
@@ -216,10 +234,10 @@ export async function insertConfirmation(
   payload: Record<string, unknown>,
   expiresAt: Date,
 ) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db
     .insert(confirmations)
-    .values({ action, payload, expiresAt })
+    .values({ ownerHash: context.ownerHash, action, payload, expiresAt })
     .returning();
   return row!;
 }
@@ -230,24 +248,63 @@ export async function setConfirmationStatus(
   id: string,
   status: "approved" | "rejected" | "expired",
 ) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(confirmations)
+    .set({ status })
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, context.ownerHash)));
 }
 
 export async function restorePendingConfirmation(db: DB, tenant: TenantContext, id: string) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(confirmations).set({ status: "pending" }).where(eq(confirmations.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(confirmations)
+    .set({ status: "pending" })
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, context.ownerHash)));
 }
 
-export async function getLatestPendingConfirmation(db: DB, tenant: TenantContext): Promise<{ id: string; action: string } | null> {
-  guardUnscopedCustomerDataAccess(tenant);
+export async function getLatestPendingConfirmation(
+  db: DB,
+  tenant: TenantContext,
+): Promise<{ id: string; action: string; status: string; expiresAt: Date; payload: Record<string, unknown> } | null> {
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db
     .select()
     .from(confirmations)
-    .where(eq(confirmations.status, "pending"))
+    .where(and(eq(confirmations.ownerHash, context.ownerHash), eq(confirmations.status, "pending")))
     .orderBy(desc(confirmations.createdAt))
     .limit(1);
-  return row ? { id: row.id, action: row.action } : null;
+  return row
+    ? {
+        id: row.id,
+        action: row.action,
+        status: row.status,
+        expiresAt: row.expiresAt,
+        payload: row.payload as Record<string, unknown>,
+      }
+    : null;
+}
+
+export async function getPendingConfirmationById(
+  db: DB,
+  tenant: TenantContext,
+  id: string,
+): Promise<{ id: string; action: string; status: string; expiresAt: Date; payload: Record<string, unknown> } | null> {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .select()
+    .from(confirmations)
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, context.ownerHash)))
+    .limit(1);
+  return row
+    ? {
+        id: row.id,
+        action: row.action,
+        status: row.status,
+        expiresAt: row.expiresAt,
+        payload: row.payload as Record<string, unknown>,
+      }
+    : null;
 }
 
 export async function insertFeatureRequest(
@@ -429,11 +486,11 @@ export async function deleteConnectedAccount(
  * Returns count of rows updated.
  */
 export async function pruneExpiredConfirmations(db: DB, tenant: TenantContext, now: Date = new Date()): Promise<number> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .update(confirmations)
     .set({ status: "expired" })
-    .where(and(eq(confirmations.status, "pending"), lt(confirmations.expiresAt, now)))
+    .where(and(eq(confirmations.ownerHash, context.ownerHash), eq(confirmations.status, "pending"), lt(confirmations.expiresAt, now)))
     .returning({ id: confirmations.id });
   return rows.length;
 }
@@ -913,7 +970,10 @@ export async function contactTimeline(
 
   const memIds = byTable.get("memories")?.map((r) => r.id) ?? [];
   if (memIds.length) {
-    const rows = await db.select().from(memories).where(sql`${memories.id} = ANY(${memIds})`);
+    const rows = await db
+      .select()
+      .from(memories)
+      .where(and(eq(memories.ownerHash, args.ownerHash), sql`${memories.id} = ANY(${memIds})`));
     for (const m of rows) {
       const meta = byTable.get("memories")!.find((r) => r.id === m.id)!;
       hits.push({
@@ -928,7 +988,10 @@ export async function contactTimeline(
 
   const expIds = byTable.get("expenses")?.map((r) => r.id) ?? [];
   if (expIds.length) {
-    const rows = await db.select().from(expenses).where(sql`${expenses.id} = ANY(${expIds})`);
+    const rows = await db
+      .select()
+      .from(expenses)
+      .where(and(eq(expenses.ownerHash, args.ownerHash), sql`${expenses.id} = ANY(${expIds})`));
     for (const e of rows) {
       const meta = byTable.get("expenses")!.find((r) => r.id === e.id)!;
       const amount = (e.amount / 100).toFixed(2);
@@ -944,7 +1007,10 @@ export async function contactTimeline(
 
   const remIds = byTable.get("reminders")?.map((r) => r.id) ?? [];
   if (remIds.length) {
-    const rows = await db.select().from(reminders).where(sql`${reminders.id} = ANY(${remIds})`);
+    const rows = await db
+      .select()
+      .from(reminders)
+      .where(and(eq(reminders.ownerHash, args.ownerHash), sql`${reminders.id} = ANY(${remIds})`));
     for (const r of rows) {
       const meta = byTable.get("reminders")!.find((row) => row.id === r.id)!;
       hits.push({
@@ -1002,21 +1068,24 @@ export async function recallAcrossSurfaces(
     db
       .select()
       .from(memories)
-      .where(sql`${memories.content} ILIKE ${pattern}`)
+      .where(and(eq(memories.ownerHash, args.ownerHash), sql`${memories.content} ILIKE ${pattern}`))
       .orderBy(desc(memories.createdAt))
       .limit(limit),
     db
       .select()
       .from(expenses)
       .where(
-        sql`(${expenses.merchant} ILIKE ${pattern} OR ${expenses.notes} ILIKE ${pattern} OR ${expenses.category} ILIKE ${pattern})`,
+        and(
+          eq(expenses.ownerHash, args.ownerHash),
+          sql`(${expenses.merchant} ILIKE ${pattern} OR ${expenses.notes} ILIKE ${pattern} OR ${expenses.category} ILIKE ${pattern})`,
+        ),
       )
       .orderBy(desc(expenses.occurredAt))
       .limit(limit),
     db
       .select()
       .from(reminders)
-      .where(sql`${reminders.text} ILIKE ${pattern}`)
+      .where(and(eq(reminders.ownerHash, args.ownerHash), sql`${reminders.text} ILIKE ${pattern}`))
       .orderBy(desc(reminders.createdAt))
       .limit(limit),
   ]);

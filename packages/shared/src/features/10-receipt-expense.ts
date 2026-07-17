@@ -7,6 +7,7 @@ import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { ImageAnalyzer } from "../agent/deps.js";
 import type { DB } from "../db/client.js";
 import { privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
+import { hashPhone } from "../utils/crypto.js";
 
 type Category = "food" | "transport" | "groceries" | "shopping" | "bills" | "entertainment" | "health" | "other";
 
@@ -56,12 +57,13 @@ export async function processReceiptImage(args: {
   analyzer: ImageAnalyzer;
   db: DB;
   now: Date;
+  ownerHash: string;
   sourceMessageId?: string;
 }) {
   const fields = await args.analyzer.extractReceipt(args.image, args.mimetype);
   if (!fields.amount || fields.amount <= 0) throw new Error("could not extract amount from receipt");
   const category = categorizeExpense({ merchant: fields.merchant, rawText: fields.rawText });
-  const e = await insertExpense(args.db, privateOwnerTenant(), {
+  const e = await insertExpense(args.db, privateOwnerTenant(args.ownerHash), {
     amount: Math.round(fields.amount * 100),
     currency: fields.currency ?? "AUD",
     category,
@@ -141,6 +143,7 @@ export async function importExpensesFromCsv(args: {
   csv: string;
   db: DB;
   now: Date;
+  ownerHash: string;
   defaultCurrency?: string;
   sourceMessageId?: string;
 }): Promise<ExpenseCsvImportResult> {
@@ -150,7 +153,7 @@ export async function importExpensesFromCsv(args: {
     defaultCurrency: args.defaultCurrency,
   });
   for (const item of parsed.items) {
-    await insertExpense(args.db, privateOwnerTenant(), {
+    await insertExpense(args.db, privateOwnerTenant(args.ownerHash), {
       amount: item.amountCents,
       currency: item.currency,
       category: item.category,
@@ -211,6 +214,7 @@ export function registerReceiptExpense(registry: ToolRegistry): void {
         csv: input.csv,
         db: ctx.deps.db,
         now: ctx.now,
+        ownerHash: hashPhone(ctx.userPhone),
         defaultCurrency: input.defaultCurrency,
       });
       if (result.importedCount === 0) throw new Error("no expense rows found in CSV");

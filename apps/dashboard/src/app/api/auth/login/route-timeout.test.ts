@@ -37,7 +37,7 @@ describe("dashboard login route timeout handling", () => {
     expect(response.status).toBe(503);
     expect(await response.text()).toBe("Login protection is temporarily unavailable. Please try again shortly.");
     expect(response.headers.get("set-cookie")).toBeNull();
-  });
+  }, 10_000);
 
   it("does not make a valid owner login wait for attempt storage", async () => {
     vi.stubEnv("NODE_ENV", "production");

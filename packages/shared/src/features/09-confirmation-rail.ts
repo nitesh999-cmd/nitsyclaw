@@ -5,10 +5,8 @@
 // Side-effecting actions must never be resolved by a bare "yes".
 
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
-import { confirmations } from "../db/schema.js";
-import { restorePendingConfirmation, setConfirmationStatus } from "../db/repo.js";
-import { assertPublicSaleTenantBoundaries, privateOwnerTenant, privateOwnerTenantForPhone } from "../tenancy.js";
+import { getLatestPendingConfirmation, getPendingConfirmationById, restorePendingConfirmation, setConfirmationStatus } from "../db/repo.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { DB } from "../db/client.js";
 import { createPrivateSpotifyPlaylist } from "../integrations/spotify.js";
@@ -31,24 +29,19 @@ export async function resolveConfirmation(args: {
   reply: string;
   now: Date;
   confirmationId?: string;
-  userPhone?: string;
+  userPhone: string;
 }): Promise<{ id: string; action: string; decision: ConfirmationDecision; payload: Record<string, unknown> } | null> {
-  assertPublicSaleTenantBoundaries();
   const r = args.reply.trim().toLowerCase();
   const yes = /^(y|yes|approve|approved|confirm|confirmed|ok|okay)\b/.test(r);
   const no = /^(n|no|cancel|reject|rejected|abort)\b/.test(r);
   if (!yes && !no) return null;
 
+  const tenant = privateOwnerTenantForPhone(args.userPhone);
   let row;
   if (args.confirmationId) {
-    [row] = await args.db.select().from(confirmations).where(eq(confirmations.id, args.confirmationId)).limit(1);
+    row = await getPendingConfirmationById(args.db, tenant, args.confirmationId);
   } else {
-    [row] = await args.db
-      .select()
-      .from(confirmations)
-      .where(eq(confirmations.status, "pending"))
-      .orderBy(desc(confirmations.createdAt))
-      .limit(1);
+    row = await getLatestPendingConfirmation(args.db, tenant);
   }
   if (!row) return null;
   if (row.status !== "pending") return null;
@@ -60,7 +53,6 @@ export async function resolveConfirmation(args: {
   if (row.expiresAt < args.now) decision = "expired";
   else decision = yes ? "approved" : "rejected";
 
-  const tenant = args.userPhone ? privateOwnerTenantForPhone(args.userPhone) : privateOwnerTenant();
   await setConfirmationStatus(args.db, tenant, row.id, decision);
   return { id: row.id, action: row.action, decision, payload: row.payload as Record<string, unknown> };
 }

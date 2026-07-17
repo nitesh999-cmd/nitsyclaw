@@ -12,6 +12,7 @@ export async function transcribeAndStore(args: {
   mimetype: string;
   transcriber: Transcriber;
   db: import("../db/client.js").DB;
+  ownerHash: string;
   sourceMessageId?: string;
 }): Promise<{ transcript: string; memoryId: string }> {
   if (args.audio.byteLength === 0) throw new Error("empty audio");
@@ -20,7 +21,7 @@ export async function transcribeAndStore(args: {
   if (args.sourceMessageId) {
     await updateMessageTranscript(args.db, args.sourceMessageId, encryptForStorage(transcript));
   }
-  const mem = await insertMemory(args.db, privateOwnerTenant(), {
+  const mem = await insertMemory(args.db, privateOwnerTenant(args.ownerHash), {
     kind: "note",
     content: transcript,
     tags: ["voice"],

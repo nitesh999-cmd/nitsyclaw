@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getDb, insertReminder, reminders } from "@nitsyclaw/shared/db";
+import { cancelReminder, getDb, insertReminder, markReminderFired, reminders, rescheduleReminder as rescheduleReminderRow } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries, privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
 import { parseRelativeTime } from "@nitsyclaw/shared/utils";
 import { desc, eq } from "drizzle-orm";
@@ -41,10 +41,15 @@ async function setReminderStatus(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   if (!id || !["pending", "fired", "cancelled"].includes(status)) return;
 
-  await getDb()
-    .update(reminders)
-    .set({ status: status as "pending" | "fired" | "cancelled" })
-    .where(eq(reminders.id, id));
+  const { ownerHash } = getOwnerIdentity();
+  const tenant = privateOwnerTenant(ownerHash);
+  if (status === "fired") {
+    await markReminderFired(getDb(), tenant, id);
+  } else if (status === "cancelled") {
+    await cancelReminder(getDb(), tenant, id);
+  } else {
+    await rescheduleReminderRow(getDb(), tenant, id, new Date());
+  }
   revalidatePath("/reminders");
   revalidatePath("/");
 }
@@ -59,10 +64,8 @@ async function rescheduleReminder(formData: FormData) {
     redirect("/reminders?error=reschedule-invalid-date");
   }
 
-  await getDb()
-    .update(reminders)
-    .set({ fireAt, status: "pending" })
-    .where(eq(reminders.id, id));
+  const { ownerHash } = getOwnerIdentity();
+  await rescheduleReminderRow(getDb(), privateOwnerTenant(ownerHash), id, fireAt);
   revalidatePath("/reminders");
   revalidatePath("/");
 }
@@ -216,5 +219,11 @@ export default async function RemindersPage({
 async function load() {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
-  return db.select().from(reminders).orderBy(desc(reminders.fireAt)).limit(100);
+  const { ownerHash } = getOwnerIdentity();
+  return db
+    .select()
+    .from(reminders)
+    .where(eq(reminders.ownerHash, ownerHash))
+    .orderBy(desc(reminders.fireAt))
+    .limit(100);
 }

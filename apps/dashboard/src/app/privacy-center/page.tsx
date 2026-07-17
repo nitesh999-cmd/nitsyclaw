@@ -14,8 +14,9 @@ import {
 } from "@nitsyclaw/shared/db";
 import { createDataInventoryMap } from "@nitsyclaw/shared/features";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { count } from "drizzle-orm/sql";
+import { getOwnerIdentity } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ type PrivacyCenterState =
 async function loadPrivacyCenter(): Promise<PrivacyCenterData> {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
   const [
     messageCount,
     memoryCount,
@@ -88,11 +90,11 @@ async function loadPrivacyCenter(): Promise<PrivacyCenterData> {
     auditRows,
   ] = await Promise.all([
     db.select({ value: count() }).from(messages),
-    db.select({ value: count() }).from(memories),
-    db.select({ value: count() }).from(reminders),
-    db.select({ value: count() }).from(expenses),
-    db.select({ value: count() }).from(briefs),
-    db.select({ value: count() }).from(confirmations),
+    db.select({ value: count() }).from(memories).where(eq(memories.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(reminders).where(eq(reminders.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(expenses).where(eq(expenses.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(briefs).where(eq(briefs.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(confirmations).where(eq(confirmations.ownerHash, ownerHash)),
     db.select({ value: count() }).from(featureRequests),
     db.select({ value: count() }).from(profileContext),
     db.select({ value: count() }).from(connectedAccounts),

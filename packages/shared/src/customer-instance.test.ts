@@ -24,7 +24,7 @@ describe("customer instance model", () => {
     });
   });
 
-  it("keeps customer pilots blocked from public sale until tenant storage is verified", () => {
+  it("keeps customer pilots blocked from public sale until tenant review and account auth are verified", () => {
     const readiness = evaluateCustomerInstanceReadiness({
       instanceId: "pilot-acme",
       ownerHash: "acme-owner",
@@ -36,7 +36,8 @@ describe("customer instance model", () => {
     expect(readiness.canUseForPersonal).toBe(false);
     expect(readiness.canPilotWithHumanSetup).toBe(true);
     expect(readiness.canSellPublicly).toBe(false);
-    expect(readiness.blockers.join(" ")).toContain("tenant-scoped storage is missing");
+    expect(readiness.blockers.join(" ")).toContain("tenant review is still needed");
+    expect(readiness.blockers.join(" ")).not.toContain("tenant-scoped storage is missing");
     expect(readiness.nextActions[0]).toContain("pilot mode");
   });
 

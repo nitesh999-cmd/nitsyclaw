@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { desc, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
-import { logDashboardError } from "../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../lib/public-sale-data-guard";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../../lib/search-query";
 import { requireSameOrigin } from "../../../lib/request-origin";
@@ -42,6 +42,7 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const q = likePatternForSearchTerm(term);
     const db = getDb();
+    const { ownerHash } = getOwnerIdentity();
 
     const [memoryRows, reminderRows, messageRows] = await Promise.all([
       db
@@ -52,7 +53,7 @@ export async function GET(req: Request): Promise<Response> {
           createdAt: memories.createdAt,
         })
         .from(memories)
-        .where(sql`lower(${memories.content}) LIKE ${q} ESCAPE '\'`)
+        .where(and(eq(memories.ownerHash, ownerHash), sql`lower(${memories.content}) LIKE ${q} ESCAPE '\'`))
         .orderBy(desc(memories.createdAt))
         .limit(8),
 
@@ -64,7 +65,10 @@ export async function GET(req: Request): Promise<Response> {
         })
         .from(reminders)
         .where(
-          sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q} ESCAPE '\'`,
+          and(
+            eq(reminders.ownerHash, ownerHash),
+            sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q} ESCAPE '\'`,
+          ),
         )
         .orderBy(desc(reminders.createdAt))
         .limit(8),

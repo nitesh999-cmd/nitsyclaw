@@ -10,7 +10,8 @@ describe("sale readiness gate", () => {
     expect(result.blockers).toContain("multi-user auth is not verified");
     expect(result.blockers).toContain("tenant isolation is not verified");
     expect(result.blockers).toContain("provider-side delete/revoke is not verified");
-    expect(result.blockers.join(" ")).toContain("tenant-scoped storage is missing");
+    expect(result.blockers.join(" ")).toContain("tenant review is still needed");
+    expect(result.blockers.join(" ")).not.toContain("tenant-scoped storage is missing");
     expect(result.privateUseScore).toBe(0);
     expect(result.publicSaleScore).toBe(0);
     expect(result.privateUseBlockers).toContain("owner dashboard password is missing or too weak");
@@ -28,8 +29,10 @@ describe("sale readiness gate", () => {
 
     expect(result.ready).toBe(false);
     expect(result.mode).toBe("public-sale");
-    expect(result.blockers.join(" ")).toContain("tenant-scoped storage is missing");
-    expect(result.tenantBoundaryBlockers.join(" ")).toContain("memories");
+    expect(result.blockers.join(" ")).toContain("tenant review is still needed");
+    expect(result.blockers.join(" ")).not.toContain("tenant-scoped storage is missing");
+    expect(result.tenantBoundaryBlockers.join(" ")).toContain("messages");
+    expect(result.tenantBoundaryBlockers.join(" ")).not.toContain("memories");
     expect(result.publicSaleScore).toBe(5);
   });
 

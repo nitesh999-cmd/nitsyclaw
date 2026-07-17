@@ -5,6 +5,7 @@ import { makeAgentDeps, makeFakeDb } from "./helpers.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 import { ToolRegistry } from "../src/agent/tools.js";
 import type { DB } from "../src/db/client.js";
+import { hashPhone } from "../src/utils/crypto.js";
 
 const NOW = new Date("2026-04-25T03:30:00Z"); // 09:00 IST
 
@@ -67,7 +68,7 @@ describe("fireDueReminders", () => {
       },
     ];
     const firedIds: string[] = [];
-    const inserted: Array<{ text: string; fireAt: Date; rrule: string | null }> = [];
+    const inserted: Array<{ text: string; fireAt: Date; rrule: string | null; ownerHash?: string }> = [];
     const testDb = {
       select: () => ({
         from: () => ({
@@ -101,6 +102,7 @@ describe("fireDueReminders", () => {
     expect(inserted).toEqual([
       {
         text: "review invoices",
+        ownerHash: hashPhone("+61430008008"),
         fireAt: new Date("2026-05-02T02:00:00Z"),
         rrule: "FREQ=WEEKLY;BYDAY=SA",
       },

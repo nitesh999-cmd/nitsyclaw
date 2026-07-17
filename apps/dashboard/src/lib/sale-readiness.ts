@@ -76,7 +76,7 @@ export function evaluateSaleReadiness(
       label: "tenant isolation",
       ok: env.NITSYCLAW_TENANT_ISOLATION === "verified",
       blocker: "tenant isolation is not verified",
-      action: "Add tenant IDs to stored data and enforce tenant-scoped reads/writes.",
+      action: "Verify account-aware auth, tenant-scoped data access, and remaining review-only tables.",
     },
     {
       label: "provider-side delete/revoke",

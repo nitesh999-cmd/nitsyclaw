@@ -11,7 +11,7 @@ import {
 } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -110,11 +110,12 @@ async function loadChecklist(): Promise<ChecklistItem[]> {
 
   try {
     const db = getDb();
+    const { ownerHash } = getOwnerIdentity();
     checks.database = true;
     const [memoryRows, reminderRows, confirmationRows] = await Promise.all([
-      db.select().from(memories).limit(1),
-      db.select().from(reminders).where(eq(reminders.status, "pending")).limit(1),
-      db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(10),
+      db.select().from(memories).where(eq(memories.ownerHash, ownerHash)).limit(1),
+      db.select().from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "pending"))).limit(1),
+      db.select().from(confirmations).where(and(eq(confirmations.ownerHash, ownerHash), eq(confirmations.status, "pending"))).limit(10),
     ]);
     checks.firstMemory = memoryRows.length > 0;
     checks.firstReminder = reminderRows.length > 0;

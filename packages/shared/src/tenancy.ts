@@ -46,38 +46,38 @@ export const TENANT_TABLE_BOUNDARIES: TenantTableBoundary[] = [
   },
   {
     table: "memories",
-    kind: "single_owner_only",
-    scopeColumn: null,
-    publicSaleRisk: "blocked",
-    note: "Personal memory has no tenant column; cross-customer memory leakage would be possible in public sale mode.",
+    kind: "tenant_scoped",
+    scopeColumn: "owner_hash",
+    publicSaleRisk: "ok",
+    note: "Personal memory rows are scoped by owner_hash.",
   },
   {
     table: "reminders",
-    kind: "single_owner_only",
-    scopeColumn: null,
-    publicSaleRisk: "blocked",
-    note: "Reminder rows are not tenant-scoped yet.",
+    kind: "tenant_scoped",
+    scopeColumn: "owner_hash",
+    publicSaleRisk: "ok",
+    note: "Reminder rows are scoped by owner_hash.",
   },
   {
     table: "expenses",
-    kind: "single_owner_only",
-    scopeColumn: null,
-    publicSaleRisk: "blocked",
-    note: "Expense rows are not tenant-scoped yet.",
+    kind: "tenant_scoped",
+    scopeColumn: "owner_hash",
+    publicSaleRisk: "ok",
+    note: "Expense rows are scoped by owner_hash.",
   },
   {
     table: "briefs",
-    kind: "single_owner_only",
-    scopeColumn: null,
-    publicSaleRisk: "blocked",
-    note: "Daily briefs are unique by date only; public sale needs tenant_id + date uniqueness.",
+    kind: "tenant_scoped",
+    scopeColumn: "owner_hash",
+    publicSaleRisk: "ok",
+    note: "Daily briefs are unique by owner_hash plus date.",
   },
   {
     table: "confirmations",
-    kind: "single_owner_only",
-    scopeColumn: null,
-    publicSaleRisk: "blocked",
-    note: "Risky action approvals are not tied to a tenant yet.",
+    kind: "tenant_scoped",
+    scopeColumn: "owner_hash",
+    publicSaleRisk: "ok",
+    note: "Risky action approvals are scoped by owner_hash.",
   },
   {
     table: "feature_requests",
@@ -130,10 +130,17 @@ export const TENANT_TABLE_BOUNDARIES: TenantTableBoundary[] = [
   },
 ];
 
-export function privateOwnerTenant(ownerHash = "owner"): TenantContext {
+function requireOwnerHash(ownerHash: string): string {
+  const trimmed = ownerHash.trim();
+  if (!trimmed) throw new Error("owner hash is required for customer data access");
+  return trimmed;
+}
+
+export function privateOwnerTenant(ownerHash: string): TenantContext {
+  const scopedOwnerHash = requireOwnerHash(ownerHash);
   return {
-    tenantId: ownerHash,
-    ownerHash,
+    tenantId: scopedOwnerHash,
+    ownerHash: scopedOwnerHash,
     mode: "private-owner",
   };
 }
@@ -192,11 +199,9 @@ export function evaluateTenantBoundaries(
     ],
     tableBoundaries: TENANT_TABLE_BOUNDARIES,
     nextActions: [
-      "Add tenant_id/owner_hash to memories, reminders, expenses, briefs, and confirmations.",
-      "Make all reads/writes require an explicit tenant context before public sale mode can be enabled.",
-      "Change daily brief uniqueness from date-only to tenant plus date.",
       "Add account-aware dashboard sessions before onboarding any customer.",
-      "Add tenant-scoped export/delete tests for every stored customer data table.",
+      "Review messages, feature_requests, audit_log, and dashboard_auth_attempts before public sale mode can be enabled.",
+      "Add tenant-scoped export/delete tests for every remaining stored customer data table.",
     ],
   };
 }

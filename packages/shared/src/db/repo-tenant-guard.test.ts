@@ -20,6 +20,7 @@ const guardedRepoFunctions = [
   "setConfirmationStatus",
   "restorePendingConfirmation",
   "getLatestPendingConfirmation",
+  "getPendingConfirmationById",
   "pruneExpiredConfirmations",
 ];
 

@@ -30,8 +30,8 @@ function parseDate(value: string | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function expenseWhere(filters: ExpenseFilters): SQL | undefined {
-  const clauses: SQL[] = [];
+export function expenseWhere(filters: ExpenseFilters, ownerHash: string): SQL {
+  const clauses: SQL[] = [eq(expenses.ownerHash, ownerHash)];
   const from = parseDate(filters.from);
   const to = parseDate(filters.to);
 
@@ -46,5 +46,5 @@ export function expenseWhere(filters: ExpenseFilters): SQL | undefined {
     clauses.push(lt(expenses.occurredAt, exclusiveTo));
   }
 
-  return clauses.length ? and(...clauses) : undefined;
+  return and(...clauses)!;
 }

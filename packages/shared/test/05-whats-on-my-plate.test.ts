@@ -5,7 +5,7 @@ import { makeAgentDeps } from "./helpers.js";
 describe("summarizeToday", () => {
   it("returns 'wide open' when nothing scheduled", async () => {
     const deps = makeAgentDeps();
-    const r = await summarizeToday({ now: deps.now(), deps });
+    const r = await summarizeToday({ now: deps.now(), ownerPhone: "+61000", deps });
     expect(r.text).toContain("Wide open");
   });
 });

@@ -47,6 +47,7 @@ export const memories = pgTable(
   "memories",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
     kind: text("kind", { enum: ["fact", "note", "pin", "summary"] }).notNull(),
     content: text("content").notNull(),
     tags: text("tags").array().default([]).notNull(),
@@ -55,7 +56,8 @@ export const memories = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    kindIdx: index("memories_kind_idx").on(t.kind),
+    ownerCreatedIdx: index("memories_owner_created_idx").on(t.ownerHash, t.createdAt),
+    ownerKindIdx: index("memories_owner_kind_idx").on(t.ownerHash, t.kind),
   }),
 );
 
@@ -66,6 +68,7 @@ export const reminders = pgTable(
   "reminders",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
     text: text("text").notNull(),
     fireAt: timestamp("fire_at", { withTimezone: true }).notNull(),
     rrule: text("rrule"), // null = one-shot; iCal RRULE for recurring
@@ -75,35 +78,50 @@ export const reminders = pgTable(
   (t) => ({
     fireIdx: index("reminders_fire_idx").on(t.fireAt),
     statusIdx: index("reminders_status_idx").on(t.status),
+    ownerStatusFireIdx: index("reminders_owner_status_fire_idx").on(t.ownerHash, t.status, t.fireAt),
   }),
 );
 
 /**
  * Expenses logged from receipt photos or text.
  */
-export const expenses = pgTable("expenses", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  amount: integer("amount_cents").notNull(), // store cents to avoid float
-  currency: text("currency").notNull().default("AUD"),
-  category: text("category").notNull(),
-  merchant: text("merchant"),
-  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
-  sourceMessageId: uuid("source_message_id"),
-  receiptPath: text("receipt_path"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    amount: integer("amount_cents").notNull(), // store cents to avoid float
+    currency: text("currency").notNull().default("AUD"),
+    category: text("category").notNull(),
+    merchant: text("merchant"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    sourceMessageId: uuid("source_message_id"),
+    receiptPath: text("receipt_path"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerOccurredIdx: index("expenses_owner_occurred_idx").on(t.ownerHash, t.occurredAt),
+  }),
+);
 
 /**
  * Daily morning briefs — one row per day.
  */
-export const briefs = pgTable("briefs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  forDate: text("for_date").notNull().unique(), // 'YYYY-MM-DD'
-  body: text("body").notNull(),
-  delivered: boolean("delivered").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const briefs = pgTable(
+  "briefs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    forDate: text("for_date").notNull(), // 'YYYY-MM-DD'
+    body: text("body").notNull(),
+    delivered: boolean("delivered").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerDateUniqueIdx: uniqueIndex("briefs_owner_date_unique_idx").on(t.ownerHash, t.forDate),
+  }),
+);
 
 /**
  * Entity graph (Feature 28 substrate). Typed entities extracted from
@@ -184,14 +202,21 @@ export const dailyFocus = pgTable(
 /**
  * Pending confirmations — destructive actions wait here for y/n.
  */
-export const confirmations = pgTable("confirmations", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  action: text("action").notNull(), // e.g. 'send_email', 'create_calendar_event'
-  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-  status: text("status", { enum: ["pending", "approved", "rejected", "expired"] }).notNull().default("pending"),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const confirmations = pgTable(
+  "confirmations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    action: text("action").notNull(), // e.g. 'send_email', 'create_calendar_event'
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status", { enum: ["pending", "approved", "rejected", "expired"] }).notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerStatusExpiresIdx: index("confirmations_owner_status_expires_idx").on(t.ownerHash, t.status, t.expiresAt),
+  }),
+);
 
 /**
  * Audit log — every tool call the agent makes. R6 + R15 require this.

@@ -7,7 +7,7 @@ import {
   normalizeExpenseFilters,
   validateExpenseFilters,
 } from "../../../../lib/expense-utils.js";
-import { logDashboardError } from "../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
@@ -36,13 +36,12 @@ export async function GET(req: Request) {
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400, headers: NO_STORE });
   }
-  const where = expenseWhere(filters);
+  const { ownerHash } = getOwnerIdentity();
+  const where = expenseWhere(filters, ownerHash);
 
   try {
     const db = getDb();
-    const rows = where
-      ? await db.select().from(expenses).where(where).orderBy(desc(expenses.occurredAt)).limit(1000)
-      : await db.select().from(expenses).orderBy(desc(expenses.occurredAt)).limit(1000);
+    const rows = await db.select().from(expenses).where(where).orderBy(desc(expenses.occurredAt)).limit(1000);
 
     const header = ["date", "merchant", "category", "currency", "amount", "notes"];
     const lines = [

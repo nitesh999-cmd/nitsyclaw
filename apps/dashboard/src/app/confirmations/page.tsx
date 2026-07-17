@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { getDb, confirmations, restorePendingConfirmation, setConfirmationStatus } from "@nitsyclaw/shared/db";
 import { createPrivateSpotifyPlaylist } from "@nitsyclaw/shared/integrations/spotify";
 import { assertPublicSaleTenantBoundaries, privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,11 @@ async function approveSpotifyConfirmation(formData: FormData) {
   const db = getDb();
   const { ownerHash } = getOwnerIdentity();
   const tenant = privateOwnerTenant(ownerHash);
-  const [row] = await db.select().from(confirmations).where(eq(confirmations.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(confirmations)
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, ownerHash)))
+    .limit(1);
   if (!row || row.status !== "pending") return;
   if (row.expiresAt < new Date()) {
     await setConfirmationStatus(db, tenant, id, "expired");
@@ -71,7 +75,8 @@ async function approveSpotifyConfirmation(formData: FormData) {
 async function loadConfirmations() {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
-  return db.select().from(confirmations).orderBy(desc(confirmations.createdAt)).limit(100);
+  const { ownerHash } = getOwnerIdentity();
+  return db.select().from(confirmations).where(eq(confirmations.ownerHash, ownerHash)).orderBy(desc(confirmations.createdAt)).limit(100);
 }
 
 function badge(status: string) {

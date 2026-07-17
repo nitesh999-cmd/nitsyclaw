@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { transcribeAndStore } from "../src/features/02-voice-capture.js";
 import { fakeTranscriber, makeFakeDb } from "./helpers.js";
 
+const OWNER_HASH = "owner-voice-test";
+
 describe("transcribeAndStore", () => {
   it("transcribes and stores as memory", async () => {
     const { db, state } = makeFakeDb();
@@ -10,6 +12,7 @@ describe("transcribeAndStore", () => {
       mimetype: "audio/ogg",
       transcriber: fakeTranscriber,
       db,
+      ownerHash: OWNER_HASH,
     });
     expect(out.transcript).toContain("transcribed");
     expect(state.memories).toHaveLength(1);
@@ -25,6 +28,7 @@ describe("transcribeAndStore", () => {
         mimetype: "audio/ogg",
         transcriber: fakeTranscriber,
         db,
+        ownerHash: OWNER_HASH,
       }),
     ).rejects.toThrow(/empty audio/);
   });
@@ -33,7 +37,7 @@ describe("transcribeAndStore", () => {
     const { db } = makeFakeDb();
     const t = { async transcribe() { return "   "; } };
     await expect(
-      transcribeAndStore({ audio: Buffer.from("x"), mimetype: "audio/ogg", transcriber: t, db }),
+      transcribeAndStore({ audio: Buffer.from("x"), mimetype: "audio/ogg", transcriber: t, db, ownerHash: OWNER_HASH }),
     ).rejects.toThrow(/empty/);
   });
 });

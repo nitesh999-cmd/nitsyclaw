@@ -2,7 +2,8 @@
 import { getDb } from "@nitsyclaw/shared/db";
 import { reminders, expenses, briefs, confirmations, messages } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { eq, gte, desc } from "drizzle-orm";
+import { and, eq, gte, desc } from "drizzle-orm";
+import { getOwnerIdentity } from "../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,14 @@ const DEFAULT_TODAY_TIMEOUT_MS = 1_200;
 async function loadToday() {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [pendingReminders, recentExpenses, latestBrief, pendingConfirmations, lastMessageRows] = await Promise.all([
-    db.select().from(reminders).where(eq(reminders.status, "pending")).orderBy(reminders.fireAt).limit(10),
-    db.select().from(expenses).where(gte(expenses.occurredAt, today)).orderBy(desc(expenses.occurredAt)).limit(10),
-    db.select().from(briefs).orderBy(desc(briefs.createdAt)).limit(1),
-    db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(10),
+    db.select().from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "pending"))).orderBy(reminders.fireAt).limit(10),
+    db.select().from(expenses).where(and(eq(expenses.ownerHash, ownerHash), gte(expenses.occurredAt, today))).orderBy(desc(expenses.occurredAt)).limit(10),
+    db.select().from(briefs).where(eq(briefs.ownerHash, ownerHash)).orderBy(desc(briefs.createdAt)).limit(1),
+    db.select().from(confirmations).where(and(eq(confirmations.ownerHash, ownerHash), eq(confirmations.status, "pending"))).limit(10),
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
   ]);
   return {

@@ -1,7 +1,7 @@
 import { getDb, memories, reminders, messages } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { desc, sql } from "drizzle-orm";
-import { logDashboardError } from "../../lib/dashboard-runtime";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
 import { likePatternForSearchTerm, normalizeSearchTerm } from "../../lib/search-query";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ async function searchAll(term: string): Promise<SearchResult[]> {
   assertPublicSaleTenantBoundaries();
   const q = likePatternForSearchTerm(term);
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
 
   const [memoryRows, reminderRows, messageRows] = await Promise.all([
     db
@@ -35,7 +36,7 @@ async function searchAll(term: string): Promise<SearchResult[]> {
         createdAt: memories.createdAt,
       })
       .from(memories)
-      .where(sql`lower(${memories.content}) LIKE ${q} ESCAPE '\'`)
+      .where(and(eq(memories.ownerHash, ownerHash), sql`lower(${memories.content}) LIKE ${q} ESCAPE '\'`))
       .orderBy(desc(memories.createdAt))
       .limit(8),
 
@@ -47,7 +48,10 @@ async function searchAll(term: string): Promise<SearchResult[]> {
       })
       .from(reminders)
       .where(
-        sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q} ESCAPE '\'`,
+        and(
+          eq(reminders.ownerHash, ownerHash),
+          sql`${reminders.status} = 'pending' AND lower(${reminders.text}) LIKE ${q} ESCAPE '\'`,
+        ),
       )
       .orderBy(desc(reminders.createdAt))
       .limit(8),
