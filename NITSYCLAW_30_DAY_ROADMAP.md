@@ -2,10 +2,10 @@
 
 ## Week 1 — prove the local core
 
-- Manually pull `qwen3:8b` and `nomic-embed-text`.
-- Capture cold/warm first-token, total latency, memory use, model-load time, and 30-response human grades.
+- Completed: pull only `qwen3:8b` and `nomic-embed-text`.
+- Completed: capture cold/warm first-token, total latency, memory use, model-load time, and tokens/second. Remaining: 30-response human grades.
 - Run a 24-hour local keep-alive/timeout stability test.
-- Create 25 synthetic owner-memory queries and tune retrieval thresholds.
+- Completed: create 25 labelled synthetic owner-memory queries and enforce privacy, grounding, top-1/top-3, injection, and stale-memory thresholds as a release gate.
 - Prove Ollama-offline behaviour for private, ordinary, and local-only requests.
 
 Exit: evidence supports keeping the selected models, or a measured model swap is proposed.

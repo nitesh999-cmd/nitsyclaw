@@ -5,9 +5,10 @@
 - Ollama executable: `C:\Users\Nitesh\AppData\Local\Programs\Ollama\ollama.exe`
 - Version checked during this sprint: 0.32.1
 - Service: reachable at `http://127.0.0.1:11434`
-- Models detected during this sprint: none
+- Models installed during this sprint: `qwen3:8b` (5.2 GB) and `nomic-embed-text` (274 MB), and no others were pulled
 - System memory: about 63 GB RAM
-- GPU/VRAM: not verified, so the primary recommendation is deliberately conservative
+- GPU: NVIDIA GeForce RTX 4060 Laptop GPU with 8,188 MiB VRAM
+- Measured placement: 16K context was partial GPU (80% GPU / 20% CPU); 4K context was 100% GPU
 
 ## Recommended models
 
@@ -34,15 +35,18 @@ Official references: [Qwen3 model library](https://ollama.com/library/qwen3), [n
 Copy `.env.local.example` to `.env.local` if needed and set:
 
 ```dotenv
-NITSYCLAW_MODEL_MODE="auto"
+NITSYCLAW_MODEL_MODE="local_only"
 OLLAMA_BASE_URL="http://127.0.0.1:11434"
 OLLAMA_CHAT_MODEL="qwen3:8b"
 OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
 OLLAMA_TIMEOUT_MS="45000"
 OLLAMA_RETRIES="1"
-OLLAMA_CONTEXT_LIMIT="16384"
+OLLAMA_CONTEXT_LIMIT="4096"
 OLLAMA_KEEP_ALIVE="5m"
+OLLAMA_THINK="false"
 ```
+
+The 4K context and non-thinking mode are deliberate laptop defaults. On this 8 GB GPU, 16K increased the loaded model footprint to about 7.8 GB, forced partial CPU offload, exceeded the normal 45-second cold timeout, and consumed an 80-token test response without producing visible text. At 4K with thinking disabled, qwen3:8b loaded fully on GPU and produced a visible concise answer. Increase context only after measuring the target machine.
 
 Modes:
 
@@ -64,6 +68,9 @@ Without that exact prefix, earlier private history and tool results make the rou
 npm run local-brain:doctor
 npm run local-brain:eval
 npm run local-brain:benchmark
+npm run local-brain:retrieval-benchmark
+npm run local-brain:release-gate
+npm run local-brain:controlled-demo
 npm run bot
 ```
 
