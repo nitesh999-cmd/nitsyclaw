@@ -1,4 +1,7 @@
 import { localBrainModeFromEnv, OllamaProvider } from "@nitsyclaw/shared/local-brain";
+import { loadLocalBrainEnv } from "./local-brain-env.js";
+
+loadLocalBrainEnv();
 
 async function main() {
 const health = await new OllamaProvider().health();

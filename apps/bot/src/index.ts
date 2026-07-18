@@ -132,6 +132,7 @@ async function main() {
       OLLAMA_TIMEOUT_MS: env.OLLAMA_TIMEOUT_MS,
       OLLAMA_RETRIES: env.OLLAMA_RETRIES,
       OLLAMA_CONTEXT_LIMIT: env.OLLAMA_CONTEXT_LIMIT,
+      OLLAMA_THINK: env.OLLAMA_THINK,
     },
     db,
     whatsapp: monitoredWhatsapp,

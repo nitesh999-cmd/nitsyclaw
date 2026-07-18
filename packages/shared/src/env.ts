@@ -37,6 +37,7 @@ const envSchema = z.object({
   OLLAMA_TIMEOUT_MS: z.coerce.number().min(1_000).max(300_000).default(45_000),
   OLLAMA_RETRIES: z.coerce.number().int().min(0).max(3).default(1),
   OLLAMA_CONTEXT_LIMIT: z.coerce.number().int().min(1_024).max(262_144).default(16_384),
+  OLLAMA_THINK: envBoolean.default(false),
   OPENAI_API_KEY: z.string().optional(),
   TRANSCRIPTION_MODEL: z.string().default("whisper-1"),
   SERPER_API_KEY: z.string().optional(),

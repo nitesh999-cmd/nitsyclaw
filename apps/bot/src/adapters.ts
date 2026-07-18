@@ -389,6 +389,7 @@ export interface BotConfigEnv {
   OLLAMA_TIMEOUT_MS?: number;
   OLLAMA_RETRIES?: number;
   OLLAMA_CONTEXT_LIMIT?: number;
+  OLLAMA_THINK?: boolean;
 }
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
@@ -412,6 +413,7 @@ export function buildAgentDeps(args: {
     requestTimeoutMs: args.env.OLLAMA_TIMEOUT_MS,
     retries: args.env.OLLAMA_RETRIES,
     contextWindow: args.env.OLLAMA_CONTEXT_LIMIT,
+    think: args.env.OLLAMA_THINK,
   });
   const llm = createRoutedLlm({
     local: ollama,

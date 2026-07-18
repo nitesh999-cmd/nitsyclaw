@@ -46,6 +46,8 @@ interface OllamaChatApiResponse {
   };
   total_duration?: number;
   load_duration?: number;
+  prompt_eval_duration?: number;
+  eval_duration?: number;
   prompt_eval_count?: number;
   eval_count?: number;
 }
@@ -75,6 +77,7 @@ export class OllamaProvider {
   private readonly healthTimeoutMs: number;
   private readonly retries: number;
   private readonly keepAlive: string;
+  private readonly think: boolean;
   private readonly fetchFn: typeof fetch;
   private readonly now: () => Date;
 
@@ -87,6 +90,7 @@ export class OllamaProvider {
     this.retries = boundedInt(config.retries, envNumber("OLLAMA_RETRIES"), 1, 0, 3);
     this.contextWindow = boundedInt(config.contextWindow, envNumber("OLLAMA_CONTEXT_LIMIT"), DEFAULT_CONTEXT_WINDOW, 1_024, 262_144);
     this.keepAlive = config.keepAlive ?? process.env.OLLAMA_KEEP_ALIVE ?? "5m";
+    this.think = config.think ?? envBoolean("OLLAMA_THINK") ?? false;
     this.fetchFn = config.fetchFn ?? fetch;
     this.now = config.now ?? (() => new Date());
   }
@@ -266,6 +270,7 @@ export class OllamaProvider {
       stream,
       tools: request.tools?.length ? request.tools : undefined,
       format: request.format,
+      think: request.think ?? this.think,
       keep_alive: this.keepAlive,
       options: {
         num_ctx: boundedInt(request.contextWindow, undefined, this.contextWindow, 1_024, 262_144),
@@ -417,6 +422,8 @@ function parseUsage(response: OllamaChatApiResponse): OllamaUsage {
   return {
     totalDurationMs: nanosToMs(response.total_duration),
     loadDurationMs: nanosToMs(response.load_duration),
+    promptEvalDurationMs: nanosToMs(response.prompt_eval_duration),
+    evalDurationMs: nanosToMs(response.eval_duration),
     promptTokens: response.prompt_eval_count,
     completionTokens: response.eval_count,
   };
@@ -482,6 +489,13 @@ function cleanModelName(value: string | undefined): string | undefined {
 function envNumber(name: string): number | undefined {
   const parsed = Number(process.env[name]);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function envBoolean(name: string): boolean | undefined {
+  const normalized = process.env[name]?.trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized ?? "")) return true;
+  if (["false", "0", "no", "off"].includes(normalized ?? "")) return false;
+  return undefined;
 }
 
 function positiveInt(primary: number | undefined, secondary: number | undefined, fallback: number): number {

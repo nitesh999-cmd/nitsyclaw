@@ -1,7 +1,7 @@
 // Feature 6: Memory recall — "Where did I save the thing about X?"
 
 import { z } from "zod";
-import { pinMemory, recallMemoryForOwner } from "../agent/memory.js";
+import { correctMemory, pinMemory, recallMemoryForOwner } from "../agent/memory.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import { hashPhone } from "../utils/crypto.js";
 import { looksLikeStoredPromptInjection, wrapUntrustedContext } from "../local-brain/pa-loop.js";
@@ -45,6 +45,9 @@ export function registerMemoryRecall(registry: ToolRegistry): void {
       tags: z.array(z.string()).optional(),
     }),
     handler: async (input: { content: string; tags?: string[] }, ctx: ToolContext) => {
+      if (looksLikeStoredPromptInjection(input.content)) {
+        return { status: "rejected", reason: "instruction_like_content" };
+      }
       const ownerHash = hashPhone(ctx.userPhone);
       const m = await pinMemory(ctx.deps.db, {
         ownerHash,
@@ -53,6 +56,31 @@ export function registerMemoryRecall(registry: ToolRegistry): void {
         embedder: ctx.deps.embedder,
       });
       return { id: m.id };
+    },
+  });
+
+  registry.register({
+    name: "correct_memory",
+    description: "Replace an existing saved memory after the user explicitly corrects it. The old memory is retained as superseded and excluded from future recall.",
+    inputSchema: z.object({
+      oldQuery: z.string().min(2).describe("A short exact phrase that identifies the old memory"),
+      correctedContent: z.string().min(2).describe("The corrected fact or preference to remember"),
+      tags: z.array(z.string()).optional(),
+    }),
+    handler: async (input: { oldQuery: string; correctedContent: string; tags?: string[] }, ctx: ToolContext) => {
+      if (looksLikeStoredPromptInjection(input.correctedContent)) {
+        return { status: "rejected", reason: "instruction_like_content" };
+      }
+      const ownerHash = hashPhone(ctx.userPhone);
+      const corrected = await correctMemory(ctx.deps.db, {
+        ownerHash,
+        oldQuery: input.oldQuery,
+        correctedContent: input.correctedContent,
+        tags: input.tags,
+        embedder: ctx.deps.embedder,
+      });
+      if (!corrected) return { status: "not_found" };
+      return { status: "corrected", previousId: corrected.previous.id, replacementId: corrected.replacement.id };
     },
   });
 }
