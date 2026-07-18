@@ -2909,3 +2909,33 @@ Verification completed:
 
 Remaining limitation: this proves the browser path against synthetic disposable data only. Owner-only demo still requires local Ollama running with the exact models. Public sale remains blocked by the known multi-user auth and tenant-isolation review gaps.
 
+### Main integration addendum -- 2026-07-18
+
+Created a separate integration worktree at `C:\Users\Nitesh\projects\NitsyClaw-integrate-local-brain` and branch `integrate/local-brain-main` from newest verified local `main` commit `2038900`. The completed branches `feat/ollama-local-brain` and `feat/local-brain-browser-proof` were not modified. The normal checkout and Ollama checkout untracked/cache files were preserved.
+
+Cherry-picked the complete Local Brain chain with no conflicts:
+
+- `76a0a26` -> `d802fc6`
+- `1bc6ec7` -> `702f749`
+- `9f4a8ef` -> `fa5cf7a`
+- `dca9ef8` -> `c41eafe`
+- `69935ff` -> `1a5ca7c`
+- `5774ddc` -> `2181eba`
+
+Verified safety boundaries after integration. `/local-brain` still calls `assertPublicSaleTenantBoundaries()`, uses `getOwnerIdentity()`, and scopes memories/confirmations/audit evidence by `ownerHash`. The synthetic browser fixture still refuses real database URLs, production/Railway/Vercel env, non-loopback Ollama, non-`local_only` mode, and external provider keys. The WhatsApp release gate remained explicitly dry with no WhatsApp sends, Railway mutation, or provider OAuth actions. Public sale remains blocked: `customer:check` reports private-owner personal use only, and `tenant:check` reports `safe_for_public_sale=no` with remaining reviews for messages, feature_requests, audit_log, and dashboard_auth_attempts.
+
+Post-integration verification completed:
+
+- `pnpm install --offline --frozen-lockfile`: passed; downloaded 0, lockfile unchanged.
+- Focused affected tests: passed; 9 files, 247 tests.
+- `pnpm typecheck`: passed for shared, bot, dashboard.
+- `pnpm lint`: passed with 0 errors and 6 existing warnings.
+- `pnpm test`: passed; 208 files, 1,068 tests.
+- `pnpm build`: passed for bot and dashboard.
+- `pnpm run local-brain:release-gate` with explicit local-only Ollama env: passed; Ollama 0.32.1, `qwen3:8b`, `nomic-embed-text:latest`, policy 36/36, retrieval 25/25, top-1/top-3/grounding 1.0, zero privacy/injection/stale-memory failures.
+- `pnpm run local-brain:controlled-demo` with explicit local-only Ollama env: passed; grounded Today focus, preference recall, correction applied, cross-owner and injection excluded, risky action stayed waiting, and real Qwen routed `local_only` in 3886.5 ms.
+- `pnpm run local-brain:browser-proof`: passed; synthetic browser evidence written to `output/playwright/local-brain-browser-proof/2026-07-18T07-19-19-238Z/` and intentionally not committed.
+- `pnpm run whatsapp:release-gate`: passed in dry/no-send scope.
+
+Generated Next type churn in `apps/dashboard/next-env.d.ts` was restored to the tracked production route import. Runtime browser proof artifacts are ignored via `.gitignore` and not staged. No push, deploy, live WhatsApp send, external account action, model pull, real DB seed, or schema migration was performed.
+
