@@ -154,8 +154,8 @@ async function assertBrowserProof(page: Page): Promise<Record<string, string>> {
   if (checks.fixture !== fixtureName) throw new Error(`Unexpected fixture ${checks.fixture}`);
   if (!checks.todayFocus.includes("synthetic Local Brain browser proof")) throw new Error("Today focus proof did not render synthetic grounded focus.");
   if (!checks.preference.includes("peppermint tea")) throw new Error("Corrected preference was not shown.");
-  if (!checks.riskyAction.includes("awaiting_approval") || !checks.riskyAction.includes("action calls 0")) throw new Error("Risky action did not remain waiting with zero action calls.");
-  if (!checks.localRoute.includes("local / local_only")) throw new Error("Qwen route did not render local_only.");
+  if (!checks.riskyAction.includes("Waiting for approval") || !checks.riskyAction.includes("0 actions sent")) throw new Error("Risky action did not remain waiting with zero action calls.");
+  if (!checks.localRoute.includes("qwen3:8b via Ollama") || !checks.localRoute.includes("Local only")) throw new Error("Qwen route did not render local_only.");
 
   for (const name of [
     "todayFocusGrounded",

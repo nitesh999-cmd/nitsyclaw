@@ -91,6 +91,24 @@ describe("package scripts", () => {
     expect(source).toContain("next dev --webpack -p 3101");
   });
 
+  test("Local Brain owner demo is synthetic, local-only, and records repeatable proof", () => {
+    expect(rootPackage.scripts?.["local-brain:owner-demo"]).toBe(
+      "tsx scripts/local-brain-owner-demo.ts",
+    );
+
+    const source = readFileSync("scripts/local-brain-owner-demo.ts", "utf8");
+    expect(source).toContain('recordVideo: { dir: evidenceDir, size: viewport }');
+    expect(source).toContain('const viewport = { width: 1920, height: 1080 }');
+    expect(source).toContain('DATABASE_URL: ""');
+    expect(source).toContain('NITSYCLAW_MODEL_MODE: "local_only"');
+    expect(source).toContain('NITSYCLAW_SYNTHETIC_DB_FIXTURE: fixtureName');
+    expect(source).toContain("blockNonLocalhostBrowserRequests");
+    expect(source).toContain('outboundActionCalls: 0');
+    expect(source).not.toMatch(/spawn(?:Sync)?\(\s*["'](?:vercel|railway|gh)["']/i);
+    expect(source).not.toMatch(/page\.goto\(\s*["']https?:\/\//i);
+    expect(source).not.toMatch(/from\s+["'][^"']*(?:whatsapp|calendar|analytics|oauth)[^"']*["']/i);
+  });
+
   test("Vercel build gate uses the checked PowerShell wrapper", () => {
     expect(rootPackage.scripts?.["release:vercel-build"]).toBe(
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",

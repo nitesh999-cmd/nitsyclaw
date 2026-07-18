@@ -17,5 +17,8 @@ describe("local brain dashboard approval guard", () => {
     expect(source).toContain("loadBrowserProofLocalBrain(provider, health)");
     expect(source).toContain('data-testid="local-brain-browser-proof"');
     expect(source).toContain("data.browserProof.checks");
+    expect(source).toContain("Six things this demo proves");
+    expect(source).toContain("Waiting for approval - {data.browserProof.actionCalls} actions sent");
+    expect(source).toContain("Local Brain: remembers privately, acts carefully, runs locally.");
   });
 });

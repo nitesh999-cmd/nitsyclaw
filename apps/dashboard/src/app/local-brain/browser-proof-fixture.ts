@@ -39,6 +39,7 @@ export interface BrowserProofData {
     riskyActionStatus: string;
     approvalRequired: boolean;
     actionCalls: number;
+    localResponse: string;
     localResponseCharacters: number;
     route: string;
     mode: string;
@@ -238,6 +239,7 @@ export async function loadBrowserProofLocalBrain(provider: OllamaProvider, healt
       riskyActionStatus: risky.status,
       approvalRequired: risky.approvalRequired,
       actionCalls,
+      localResponse: response.text.trim(),
       localResponseCharacters: response.text.trim().length,
       route: decision?.route ?? "unknown",
       mode: decision?.mode ?? "unknown",
