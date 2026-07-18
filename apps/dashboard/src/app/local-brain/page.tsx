@@ -10,10 +10,25 @@ import {
 } from "@nitsyclaw/shared/local-brain";
 import { getOwnerIdentity } from "../../lib/dashboard-runtime";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
+import {
+  isLocalBrainBrowserProofEnabled,
+  loadBrowserProofLocalBrain,
+  type BrowserProofData,
+} from "./browser-proof-fixture";
 
 export const dynamic = "force-dynamic";
 
-async function loadLocalBrain(provider: OllamaProvider, health: OllamaHealth) {
+interface LocalBrainData {
+  health: OllamaHealth;
+  approvals: Array<{ id: string; action: string }>;
+  route: { output?: unknown; durationMs?: number | null } | null;
+  retrieved: RetrievedLocalMemory[];
+  retrievalNote: string;
+  excludedCount: number;
+  browserProof?: BrowserProofData["browserProof"];
+}
+
+async function loadLocalBrain(provider: OllamaProvider, health: OllamaHealth): Promise<LocalBrainData> {
   assertPublicSaleTenantBoundaries();
   const { ownerHash } = getOwnerIdentity();
   const db = getDb();
@@ -49,8 +64,6 @@ async function loadLocalBrain(provider: OllamaProvider, health: OllamaHealth) {
   return { health, approvals: approvalRows, route: routeRows[0] ?? null, retrieved, retrievalNote, excludedCount };
 }
 
-type LocalBrainData = Awaited<ReturnType<typeof loadLocalBrain>>;
-
 function emptyData(reason: string, health?: OllamaHealth): LocalBrainData {
   return {
     health: health ?? {
@@ -80,7 +93,9 @@ export default async function LocalBrainPage() {
   const provider = new OllamaProvider();
   const health = await provider.health();
   try {
-    data = await loadLocalBrain(provider, health);
+    data = isLocalBrainBrowserProofEnabled()
+      ? await loadBrowserProofLocalBrain(provider, health)
+      : await loadLocalBrain(provider, health);
   } catch (error) {
     data = emptyData(error instanceof Error ? error.message : "Local Brain data could not be loaded.", health);
   }
@@ -173,6 +188,52 @@ export default async function LocalBrainPage() {
           </section>
         </div>
       </section>
+
+      {data.browserProof ? (
+        <section className="nc-section" data-testid="local-brain-browser-proof">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="nc-eyebrow">Synthetic browser proof</div>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-100">Disposable fixture, local-only route</h2>
+            </div>
+            <span data-testid="browser-proof-fixture-name" className="rounded-full border border-emerald-800 bg-emerald-950/30 px-3 py-1 text-xs text-emerald-200">
+              {data.browserProof.fixtureName}
+            </span>
+          </div>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+            This panel renders only under the fail-closed browser-proof fixture. It uses synthetic owner data, no real database URL, and localhost Ollama only.
+          </p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/35 p-4">
+              <div className="nc-eyebrow">Today focus</div>
+              <div data-testid="browser-proof-today-focus" className="mt-2 text-sm font-semibold text-slate-100">{data.browserProof.todayFocusTitle}</div>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/35 p-4">
+              <div className="nc-eyebrow">Preference recall</div>
+              <div data-testid="browser-proof-preference" className="mt-2 text-sm font-semibold text-slate-100">{data.browserProof.activePreference}</div>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/35 p-4">
+              <div className="nc-eyebrow">Risky action</div>
+              <div data-testid="browser-proof-risky-action" className="mt-2 text-sm font-semibold text-slate-100">
+                {data.browserProof.riskyActionStatus}; action calls {data.browserProof.actionCalls}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/35 p-4">
+              <div className="nc-eyebrow">Model route</div>
+              <div data-testid="browser-proof-local-route" className="mt-2 text-sm font-semibold text-slate-100">
+                {data.browserProof.route} / {data.browserProof.mode} / {data.browserProof.localResponseCharacters} chars
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-2 md:grid-cols-2">
+            {Object.entries(data.browserProof.checks).map(([key, passed]) => (
+              <div key={key} data-testid={`browser-proof-check-${key}`} className={passed ? "rounded-xl border border-emerald-900/60 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100" : "rounded-xl border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-100"}>
+                {passed ? "PASS" : "FAIL"} - {key.replace(/[A-Z]/g, (match) => ` ${match.toLowerCase()}`)}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {data.health.reason ? <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">{data.health.reason}</div> : null}
     </div>
