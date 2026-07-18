@@ -2881,3 +2881,31 @@ Local browser proof: started the dashboard locally on `http://127.0.0.1:3107` wi
 
 Leakage check: changed Local Brain scripts print status, timings, routing labels, model names, and counts only; they do not print model response text, prompt payloads, memory contents, credentials, or personal data. The temp dev-server log contained only the expected dev-auth warning and no secret value. `.env.local.example` contains placeholder URL/key shapes only.
 
+### Browser proof addendum -- 2026-07-18
+
+Created `feat/local-brain-browser-proof` from verified Local Brain tip `dca9ef8` in the normal `C:\Users\Nitesh\projects\NitsyClaw` checkout. The newer `main` WhatsApp/tenant commits were left out of scope so the browser proof remains tied to the already-verified Local Brain release line. Existing untracked files and caches were preserved and not staged.
+
+Added a fail-closed synthetic browser fixture and runner:
+
+- `apps/dashboard/src/app/local-brain/browser-proof-fixture.ts`
+- `scripts/local-brain-browser-proof.ts`
+- `pnpm run local-brain:browser-proof`
+- docs: `docs/local-brain-browser-proof.md`
+
+The fixture refuses to run with `DATABASE_URL`/`DATABASE_URL_DIRECT`, production/Vercel/Railway markers, non-loopback Ollama, non-`local_only` routing, or provider/send/analytics env such as OpenAI, Anthropic, Google/Microsoft/Spotify secrets, ntfy, or PostHog. The runner starts the dashboard only on loopback, clears outbound-provider env in the child process, blocks browser-side non-localhost requests, uses unmistakably synthetic owner identifiers/data, and tears down the dev server in `finally`.
+
+`pnpm run local-brain:browser-proof` passed. Evidence artifacts were written under `output/playwright/local-brain-browser-proof/2026-07-18T07-01-13-528Z/` and are ignored runtime artifacts, not committed. The proof rendered `/local-brain` and verified: grounded Today focus, corrected preference recall, old memory excluded, other-owner memory excluded, prompt-injection memory excluded, risky action stayed `awaiting_approval`, zero outbound action calls, and a real Qwen response routed `local / local_only`.
+
+Verification completed:
+
+- `pnpm exec vitest run apps/dashboard/src/app/local-brain/page.test.ts apps/dashboard/src/app/local-brain/browser-proof-fixture.test.ts package-scripts.test.ts` -- pass; 3 files, 39 tests.
+- `pnpm typecheck` -- pass for shared, bot, dashboard.
+- `pnpm lint` -- pass with 0 errors and 6 pre-existing warnings.
+- `pnpm test` -- pass; 208 files, 1,068 tests.
+- `pnpm build` -- pass for bot and dashboard.
+- `pnpm run local-brain:release-gate` -- first attempt failed only because `NITSYCLAW_MODEL_MODE` was not set in that shell; rerun with explicit local-only Ollama env passed with Ollama 0.32.1, `qwen3:8b`, `nomic-embed-text:latest`, policy 36/36, retrieval 25/25, top-1/top-3/grounding 1.0, and zero privacy/injection/stale-memory failures.
+- `pnpm run local-brain:controlled-demo` with explicit local-only Ollama env -- pass; real Qwen local response in 591.9 ms, 67 chars, route `local_only`.
+- `pnpm run whatsapp:release-gate` -- pass in dry scope; no Railway mutation, no WhatsApp sends, no provider OAuth actions.
+
+Remaining limitation: this proves the browser path against synthetic disposable data only. Owner-only demo still requires local Ollama running with the exact models. Public sale remains blocked by the known multi-user auth and tenant-isolation review gaps.
+
