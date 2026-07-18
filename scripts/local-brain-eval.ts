@@ -1,4 +1,7 @@
 import { PA_EVALUATION_SCENARIOS, runPaEvaluation, summarizePaEvaluation } from "@nitsyclaw/shared/local-brain";
+import { loadLocalBrainEnv } from "./local-brain-env.js";
+
+loadLocalBrainEnv();
 
 const results = runPaEvaluation();
 const summary = summarizePaEvaluation(results);
@@ -11,7 +14,7 @@ console.log(JSON.stringify({
   policyRouting: {
     ...routes,
     localRateAmongPermitted: routes.local / (routes.local + routes.cloud),
-    runtimeFallbackRate: "not_measured_no_live_model",
+    runtimeFallbackRate: "not_measured_policy_only",
   },
   failures: results.filter((result) => !result.passed),
 }, null, 2));

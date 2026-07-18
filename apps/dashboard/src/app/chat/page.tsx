@@ -258,6 +258,7 @@ export default function ChatPage() {
     let spokenSoFar = 0; // index in finalText we've already passed to TTS
     let finalText = "";
     let sawError = false;
+    let sawReceipt = false;
 
     try {
       const r = await fetch("/api/chat/stream", {
@@ -299,6 +300,7 @@ export default function ChatPage() {
             setAssistantContent(finalText);
             handleSpeakBoundary();
           } else if (event.type === "receipt" && typeof event.text === "string" && !finalText) {
+            sawReceipt = true;
             setAssistantContent(event.text);
           } else if (event.type === "done") {
             // Speak any remaining unspoken text (final fragment without terminator)
@@ -321,7 +323,7 @@ export default function ChatPage() {
       // hit the non-streaming /api/chat endpoint to get *something* visible.
       // This catches edge cases where chunked streaming silently fails (proxy,
       // browser quirk, malformed response) — both endpoints run the same agent.
-      if (!finalText && !sawError) {
+      if (!finalText && !sawError && !sawReceipt) {
         console.warn("[chat] empty stream — falling back to /api/chat");
         try {
           const fb = await fetch("/api/chat", {

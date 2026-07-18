@@ -34,6 +34,7 @@ export interface OllamaProviderConfig {
   retries?: number;
   contextWindow?: number;
   keepAlive?: string;
+  think?: boolean;
   fetchFn?: typeof fetch;
   now?: () => Date;
 }
@@ -59,6 +60,7 @@ export interface OllamaChatRequest {
   format?: "json" | Record<string, unknown>;
   maxTokens?: number;
   contextWindow?: number;
+  think?: boolean;
   signal?: AbortSignal;
 }
 
@@ -71,6 +73,8 @@ export interface OllamaToolCall {
 export interface OllamaUsage {
   totalDurationMs?: number;
   loadDurationMs?: number;
+  promptEvalDurationMs?: number;
+  evalDurationMs?: number;
   promptTokens?: number;
   completionTokens?: number;
 }
