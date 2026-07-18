@@ -2939,3 +2939,15 @@ Post-integration verification completed:
 
 Generated Next type churn in `apps/dashboard/next-env.d.ts` was restored to the tracked production route import. Runtime browser proof artifacts are ignored via `.gitignore` and not staged. No push, deploy, live WhatsApp send, external account action, model pull, real DB seed, or schema migration was performed.
 
+### Owner demo addendum -- 2026-07-18
+
+Built the polished owner-only Local Brain demonstration on `integrate/local-brain-main`. The existing page was visually calm but its synthetic proof panel was too developer-oriented. The narrow presentation pass retained the product layout and all safety behavior while translating raw QA terms into six plain-English proof moments: private local AI, useful memory, correction handling, owner/injection boundaries, approval hold, and a real local Qwen response.
+
+Added `pnpm run local-brain:owner-demo`, a 1920x1080 Playwright recorder with a temporary caption overlay, deliberate cursor pacing, six scene screenshots, clean hero screenshot, WebM, optional MP4 conversion when an existing converter is available, machine-readable evidence, localhost-only browser routing, fail-closed environment checks, privacy scanning, and automatic server teardown. Added owner guide, voiceover, and live-presentation scripts. Media remains under ignored `output/playwright/` paths.
+
+The first two recording attempts failed closed and exposed genuine runner defects: a transformed helper inside a browser callback referenced unavailable `__name`, then a Next dev refresh removed the injected caption after scene four. The final runner uses direct DOM assignments, binds Next to `127.0.0.1`, and recreates the caption overlay after refresh.
+
+Final owner-demo evidence: `output/playwright/local-brain-owner-demo/2026-07-18T08-11-30-290Z/`. The successful command completed in 86 seconds; evidence timestamps span 81.9 seconds. It produced MP4 and WebM, clean hero, six scene images, and evidence JSON. Checks passed for grounded focus, corrected preference recall, stale-memory exclusion, cross-owner exclusion, injection exclusion, approval waiting, zero outbound action calls, and a real `qwen3:8b` response through Ollama `local_only`. Privacy scan passed; no real DB URL or external browser request was used.
+
+Post-change verification: focused tests passed (3 files, 40 tests); typecheck passed; lint passed with zero errors and six existing warnings; build passed; Local Brain release gate passed at policy 36/36 and retrieval 25/25 with zero privacy/injection/stale-memory failures; refreshed browser proof passed; dry WhatsApp release gate passed. Public sale remains blocked by the unchanged account-aware session and tenant-review requirements.
+
