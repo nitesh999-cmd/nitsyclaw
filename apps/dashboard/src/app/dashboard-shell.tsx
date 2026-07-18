@@ -98,8 +98,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const isPublicMarketing = pathname === "/offer";
+  const isLocalProspectDemo = pathname === "/local-brain/prospect-demo";
 
-  if (isLogin || isPublicMarketing) {
+  if (isLogin || isPublicMarketing || isLocalProspectDemo) {
     return <main className="min-h-screen p-4 md:p-8">{children}</main>;
   }
 

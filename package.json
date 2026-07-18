@@ -26,6 +26,7 @@
     "local-brain:controlled-demo": "tsx scripts/local-brain-controlled-demo.ts",
     "local-brain:browser-proof": "tsx scripts/local-brain-browser-proof.ts",
     "local-brain:owner-demo": "tsx scripts/local-brain-owner-demo.ts",
+    "local-brain:prospect-demo": "tsx scripts/local-brain-prospect-demo.ts",
     "release:wait-railway": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-wait-for-commit.ps1",
     "release:whatsapp-full": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
     "ci:powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
