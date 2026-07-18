@@ -2861,3 +2861,23 @@ A fresh read-only verifier reproduced two P0 leaks in the first implementation: 
 
 The verifier's second pass caught two P1 gaps: static system-policy words made ordinary auto fallback impossible, and injection filtering was not wired into production `recall_memory`. The final design distinguishes static policy from dynamic context, strips the marked owner profile from every cloud prompt, keeps private history/tool data sticky, and filters/wraps production recall results with a matching system-level untrusted-data instruction. Expired confirmations are excluded from Today focus and bot route telemetry now carries the owner hash.
 
+### Final verification addendum -- 2026-07-18
+
+Continued in the dedicated `C:\Users\Nitesh\projects\NitsyClaw-ollama` worktree on `feat/ollama-local-brain`. The normal `C:\Users\Nitesh\projects\NitsyClaw` checkout was on `main`; this branch was already checked out in the worktree, so the main checkout was left untouched.
+
+Verified the restored dependency tree without reinstalling or pulling models. Initial raw `pnpm exec` attempts hit Codex/pnpm dependency-status temp-file writes, so local binaries were used first; canonical `pnpm` gates then completed under the actual worktree. Installed Ollama models remained exactly `qwen3:8b` and `nomic-embed-text:latest`. `local-brain:doctor` reported Ollama 0.32.1 online, `local_only`, qwen3:8b, nomic embeddings, and 31 ms health latency.
+
+Release gates completed:
+
+- `pnpm run local-brain:release-gate`: pass; local-only mode, Ollama online, exact models, 36/36 policy scenarios, 25 retrieval queries, top-1 1.0, top-3 1.0, grounding 1.0, zero privacy/injection/stale-memory failures.
+- `pnpm run local-brain:controlled-demo`: pass; grounded Today focus, preference recall, correction superseding old memory, cross-owner exclusion, prompt-injection exclusion, risky action stayed `awaiting_approval` with zero action calls, and real Qwen response routed `local_only` in 5.99 s.
+- `pnpm test`: pass; 207 files, 1,061 tests.
+- `pnpm lint`: pass with 0 errors and 6 warnings.
+- `pnpm typecheck`: pass for shared, bot, and dashboard.
+- `pnpm build`: pass for bot and dashboard.
+- `pnpm run whatsapp:release-gate`: pass; declared dry scope, no Railway mutation, no WhatsApp sends, no provider OAuth actions.
+
+Local browser proof: started the dashboard locally on `http://127.0.0.1:3107` with dev auth bypass and local-only Ollama settings. Playwright proved `/local-brain` rendered HTTP 200 with `Local Brain`, `Ollama online`, `qwen3:8b`, and no risky actions waiting. Full browser proof seeded with synthetic owner database rows remains unverified because this run deliberately avoided loading or mutating real DB-backed personal data. The service-level controlled demo is the verified synthetic-owner proof for retrieval, correction, cross-owner exclusion, injection exclusion, and approval safety.
+
+Leakage check: changed Local Brain scripts print status, timings, routing labels, model names, and counts only; they do not print model response text, prompt payloads, memory contents, credentials, or personal data. The temp dev-server log contained only the expected dev-auth warning and no secret value. `.env.local.example` contains placeholder URL/key shapes only.
+
