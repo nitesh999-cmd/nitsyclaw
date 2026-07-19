@@ -1,4 +1,4 @@
-import { createInterface, type Interface } from "node:readline/promises";
+import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import {
   createRoutedLlm,
@@ -11,9 +11,11 @@ import {
 import { loadLocalBrainEnv } from "./local-brain-env.js";
 import {
   activeOwnerAlphaMemories,
+  acquireOwnerAlphaSessionLock,
   assertOwnerAlphaEnvironment,
   correctOwnerAlphaMemory,
   forgetOwnerAlphaMemory,
+  isExactOwnerAlphaRemovalConfirmation,
   loadOrCreateOwnerAlphaState,
   ownerAlphaMemoryCandidates,
   rememberOwnerAlphaMemory,
@@ -25,6 +27,8 @@ import {
   type OwnerAlphaScorecardEntry,
   type OwnerAlphaState,
 } from "./local-brain-owner-alpha-lib.js";
+
+type AskOwner = (prompt: string) => Promise<string>;
 
 interface HealthResult {
   status: "pass" | "fail";
@@ -39,15 +43,20 @@ const blockedActionMessage = "Waiting for approval. This owner alpha has no outb
 async function main() {
   loadLocalBrainEnv();
   const environment = assertOwnerAlphaEnvironment();
-  const provider = createOwnerAlphaProvider(environment);
-  const health = await runOwnerAlphaHealthCheck(environment, provider);
-  printHealth(health, environment);
-  if (health.status !== "pass") {
-    process.exitCode = 1;
-    return;
+  const sessionLock = acquireOwnerAlphaSessionLock(environment.dataDir);
+  try {
+    const provider = createOwnerAlphaProvider(environment);
+    const health = await runOwnerAlphaHealthCheck(environment, provider);
+    printHealth(health, environment);
+    if (health.status !== "pass") {
+      process.exitCode = 1;
+      return;
+    }
+    if (process.argv.includes("--health")) return;
+    await runOwnerSession(environment, provider);
+  } finally {
+    sessionLock.release();
   }
-  if (process.argv.includes("--health")) return;
-  await runOwnerSession(environment, provider);
 }
 
 function createOwnerAlphaProvider(environment: OwnerAlphaEnvironment): OllamaProvider {
@@ -123,7 +132,8 @@ async function runOwnerAlphaHealthCheck(
     checks.approvalHeld = approvalProbe.status === "awaiting_approval" && approvalProbe.approvalRequired;
     checks.zeroActionCalls = actionCalls === 0 && !approvalProbe.acted;
     const state = loadOrCreateOwnerAlphaState(environment.dataDir);
-    checks.storageReady = state.ownerHash.length === 64;
+    const storageResult = saveOwnerAlphaState(environment.dataDir, state);
+    checks.storageReady = state.ownerHash.length === 64 && storageResult.scorecardUpdated;
     const status = Object.values(checks).every(Boolean) ? "pass" : "fail";
     return {
       status,
@@ -146,12 +156,17 @@ async function runOwnerAlphaHealthCheck(
 async function runOwnerSession(environment: OwnerAlphaEnvironment, provider: OllamaProvider) {
   const state = loadOrCreateOwnerAlphaState(environment.dataDir);
   const rl = createInterface({ input, output });
+  const sessionAbort = new AbortController();
+  const ask: AskOwner = (prompt) => rl.question(prompt, { signal: sessionAbort.signal });
   const responseTimes: number[] = [];
   let removed = false;
-  process.once("SIGINT", () => {
+  const onClose = () => sessionAbort.abort();
+  const onInterrupt = () => {
     output.write("\nShutting down cleanly. No background Local Brain process remains.\n");
     rl.close();
-  });
+  };
+  rl.once("close", onClose);
+  process.once("SIGINT", onInterrupt);
 
   console.log("\nNitsyClaw owner-only alpha is ready.");
   console.log("Only explicit /remember and /correct commands persist text. Conversation turns are not saved.");
@@ -159,27 +174,31 @@ async function runOwnerSession(environment: OwnerAlphaEnvironment, provider: Oll
 
   try {
     for (;;) {
-      const raw = await rl.question("Nitesh > ");
+      const raw = await ask("Nitesh > ");
       const text = raw.trim();
       if (!text) continue;
-      if (text === "/exit") break;
-      if (text === "/help") { printHelp(); continue; }
-      if (text === "/where") { console.log(`Local alpha data: ${environment.dataDir}`); continue; }
-      if (text === "/memories") { printMemories(state); continue; }
-      if (text === "/remember") { await rememberFlow(rl, environment, state); continue; }
-      if (text === "/correct") { await correctFlow(rl, environment, state); continue; }
-      if (text === "/forget") { await forgetFlow(rl, environment, state); continue; }
-      if (text === "/score") { await scoreFlow(rl, environment, state, responseTimes); continue; }
-      if (text === "/health") { printHealth(await runOwnerAlphaHealthCheck(environment, provider), environment); continue; }
-      if (text === "/remove-data") {
-        removed = await removeDataFlow(rl, environment);
+      const command = text.toLowerCase();
+      if (command === "/exit") break;
+      if (command === "/help") { printHelp(); continue; }
+      if (command === "/where") { console.log(`Local alpha data: ${environment.dataDir}`); continue; }
+      if (command === "/memories") { printMemories(state); continue; }
+      if (command === "/remember") { await rememberFlow(ask, environment, state); continue; }
+      if (command === "/correct") { await correctFlow(ask, environment, state); continue; }
+      if (command === "/forget") { await forgetFlow(ask, environment, state); continue; }
+      if (command === "/score") { await scoreFlow(ask, environment, state, responseTimes); continue; }
+      if (command === "/health") { printHealth(await runOwnerAlphaHealthCheck(environment, provider), environment); continue; }
+      if (command === "/remove-data") {
+        removed = await removeDataFlow(ask, environment);
         if (removed) break;
         continue;
       }
       if (text.startsWith("/")) { console.log("Unknown command. Type /help."); continue; }
       await answerOwnerRequest(text, state, provider, responseTimes);
     }
+  } catch (error) {
+    if (!isSessionClosedError(error)) throw error;
   } finally {
+    process.removeListener("SIGINT", onInterrupt);
     rl.close();
     if (!removed) console.log("Owner alpha stopped. Ollama remains managed by the existing Ollama desktop service.");
   }
@@ -264,77 +283,98 @@ function blockedProposal(requestClass: PaRequestClass) {
   };
 }
 
-async function rememberFlow(rl: Interface, environment: OwnerAlphaEnvironment, state: OwnerAlphaState) {
+async function rememberFlow(ask: AskOwner, environment: OwnerAlphaEnvironment, state: OwnerAlphaState) {
   console.log("Save only a small, low-risk fact or preference. Do not enter passwords, tokens, banking, health, identity, customer, or confidential business data.");
-  const content = (await rl.question("Memory to save (blank cancels): ")).trim();
+  const content = (await ask("Memory to save (blank cancels): ")).trim();
   if (!content) return;
-  const confirmation = (await rl.question("Store this locally for this owner alpha? Type YES: ")).trim();
+  const confirmation = (await ask("Store this locally for this owner alpha? Type YES: ")).trim();
   if (confirmation !== "YES") { console.log("Not stored."); return; }
   const result = rememberOwnerAlphaMemory(state, content);
   if (result.status === "rejected") { console.log(result.reason); return; }
-  saveOwnerAlphaState(environment.dataDir, state);
+  const saved = saveOwnerAlphaState(environment.dataDir, state);
   console.log("Saved locally for this owner only.");
+  if (saved.warning) console.log(`Warning: ${saved.warning}`);
 }
 
-async function correctFlow(rl: Interface, environment: OwnerAlphaEnvironment, state: OwnerAlphaState) {
+async function correctFlow(ask: AskOwner, environment: OwnerAlphaEnvironment, state: OwnerAlphaState) {
   const memories = activeOwnerAlphaMemories(state);
   if (!memories.length) { console.log("There are no active memories to correct."); return; }
   printNumberedMemories(memories);
-  const index = await chooseMemoryIndex(rl, memories.length, "Memory number to correct (blank cancels): ");
+  const index = await chooseMemoryIndex(ask, memories.length, "Memory number to correct (blank cancels): ");
   if (index === null) return;
-  const corrected = (await rl.question("Correct replacement text (blank cancels): ")).trim();
+  const corrected = (await ask("Correct replacement text (blank cancels): ")).trim();
   if (!corrected) return;
-  const confirmation = (await rl.question("Retire the old memory and store this correction? Type YES: ")).trim();
+  const confirmation = (await ask("Retire the old memory and store this correction? Type YES: ")).trim();
   if (confirmation !== "YES") { console.log("No correction stored."); return; }
   const result = correctOwnerAlphaMemory(state, memories[index]!.id, corrected);
   if (result.status === "rejected") { console.log(result.reason); return; }
-  saveOwnerAlphaState(environment.dataDir, state);
+  const saved = saveOwnerAlphaState(environment.dataDir, state);
   console.log("Corrected. The old memory is retired from retrieval.");
+  if (saved.warning) console.log(`Warning: ${saved.warning}`);
 }
 
-async function forgetFlow(rl: Interface, environment: OwnerAlphaEnvironment, state: OwnerAlphaState) {
+async function forgetFlow(ask: AskOwner, environment: OwnerAlphaEnvironment, state: OwnerAlphaState) {
   const memories = activeOwnerAlphaMemories(state);
   if (!memories.length) { console.log("There are no active memories to forget."); return; }
   printNumberedMemories(memories);
-  const index = await chooseMemoryIndex(rl, memories.length, "Memory number to forget (blank cancels): ");
+  const index = await chooseMemoryIndex(ask, memories.length, "Memory number to forget (blank cancels): ");
   if (index === null) return;
-  const confirmation = (await rl.question("Retire this memory from retrieval? Type FORGET: ")).trim();
+  const confirmation = (await ask("Retire this memory from retrieval? Type FORGET: ")).trim();
   if (confirmation !== "FORGET") { console.log("Memory kept."); return; }
   if (!forgetOwnerAlphaMemory(state, memories[index]!.id)) { console.log("Memory was not changed."); return; }
-  saveOwnerAlphaState(environment.dataDir, state);
+  const saved = saveOwnerAlphaState(environment.dataDir, state);
   console.log("Forgotten for retrieval. The audit-safe retired record remains until local-data removal.");
+  if (saved.warning) console.log(`Warning: ${saved.warning}`);
 }
 
 async function scoreFlow(
-  rl: Interface,
+  ask: AskOwner,
   environment: OwnerAlphaEnvironment,
   state: OwnerAlphaState,
   responseTimes: number[],
 ) {
   console.log("Rate today from 1 (poor) to 5 (excellent). For crashes/confusing behaviour, 5 means no problems.");
+  const ratings: number[] = [];
+  for (const label of [
+    "1. Useful memory",
+    "2. Correction accuracy",
+    "3. Response quality",
+    "4. Response speed",
+    "5. Approval behaviour",
+    "6. Privacy confidence",
+    "7. No crashes or confusing behaviour",
+  ]) {
+    const rating = await askRating(ask, label);
+    if (rating === null) {
+      console.log("Scorecard cancelled; nothing saved.");
+      return;
+    }
+    ratings.push(rating);
+  }
   const entry: OwnerAlphaScorecardEntry = {
     date: sydneyDate(),
     recordedAt: new Date().toISOString(),
-    usefulMemory: await askRating(rl, "1. Useful memory"),
-    correctionAccuracy: await askRating(rl, "2. Correction accuracy"),
-    responseQuality: await askRating(rl, "3. Response quality"),
-    responseSpeed: await askRating(rl, "4. Response speed"),
-    approvalBehaviour: await askRating(rl, "5. Approval behaviour"),
-    privacyConfidence: await askRating(rl, "6. Privacy confidence"),
-    crashesOrConfusingBehaviour: await askRating(rl, "7. No crashes or confusing behaviour"),
+    usefulMemory: ratings[0]!,
+    correctionAccuracy: ratings[1]!,
+    responseQuality: ratings[2]!,
+    responseSpeed: ratings[3]!,
+    approvalBehaviour: ratings[4]!,
+    privacyConfidence: ratings[5]!,
+    crashesOrConfusingBehaviour: ratings[6]!,
     measuredMedianResponseMs: median(responseTimes),
-    notes: (await rl.question("Short notes (optional): ")).trim().slice(0, 2_000),
+    notes: (await ask("Short notes (optional): ")).trim().slice(0, 2_000),
   };
   upsertOwnerAlphaScorecardEntry(state, entry);
-  saveOwnerAlphaState(environment.dataDir, state);
-  console.log(`Today's scorecard is saved locally: ${scorecardFilePath(environment.dataDir)}`);
+  const saved = saveOwnerAlphaState(environment.dataDir, state);
+  if (saved.scorecardUpdated) console.log(`Today's scorecard is saved locally: ${scorecardFilePath(environment.dataDir)}`);
+  else console.log(`Today's ratings were saved in local state. Warning: ${saved.warning}`);
 }
 
-async function removeDataFlow(rl: Interface, environment: OwnerAlphaEnvironment): Promise<boolean> {
+async function removeDataFlow(ask: AskOwner, environment: OwnerAlphaEnvironment): Promise<boolean> {
   console.log(`This removes the entire owner-alpha folder only: ${environment.dataDir}`);
   console.log("It removes explicit memories, retired correction records, and scorecards. It does not uninstall Ollama or delete models.");
-  const confirmation = (await rl.question("Type REMOVE LOCAL ALPHA DATA to continue: ")).trim();
-  if (confirmation !== "REMOVE LOCAL ALPHA DATA") { console.log("Nothing removed."); return false; }
+  const confirmation = await ask("Type REMOVE LOCAL ALPHA DATA to continue: ");
+  if (!isExactOwnerAlphaRemovalConfirmation(confirmation)) { console.log("Nothing removed."); return false; }
   removeOwnerAlphaData(environment.dataDir);
   console.log("Local owner-alpha data removed. This session is now shut down.");
   return true;
@@ -378,9 +418,9 @@ function printNumberedMemories(memories: ReturnType<typeof activeOwnerAlphaMemor
   memories.forEach((memory, index) => console.log(`${index + 1}. ${memory.content}`));
 }
 
-async function chooseMemoryIndex(rl: Interface, count: number, prompt: string): Promise<number | null> {
+async function chooseMemoryIndex(ask: AskOwner, count: number, prompt: string): Promise<number | null> {
   for (;;) {
-    const raw = (await rl.question(prompt)).trim();
+    const raw = (await ask(prompt)).trim();
     if (!raw) return null;
     const value = Number(raw);
     if (Number.isInteger(value) && value >= 1 && value <= count) return value - 1;
@@ -388,12 +428,18 @@ async function chooseMemoryIndex(rl: Interface, count: number, prompt: string): 
   }
 }
 
-async function askRating(rl: Interface, label: string): Promise<number> {
+async function askRating(ask: AskOwner, label: string): Promise<number | null> {
   for (;;) {
-    const value = Number((await rl.question(`${label} (1-5): `)).trim());
+    const raw = (await ask(`${label} (1-5, blank cancels): `)).trim();
+    if (!raw || raw.toLowerCase() === "/cancel") return null;
+    const value = Number(raw);
     if (Number.isInteger(value) && value >= 1 && value <= 5) return value;
     console.log("Enter a whole number from 1 to 5.");
   }
+}
+
+function isSessionClosedError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || (error as NodeJS.ErrnoException).code === "ERR_USE_AFTER_CLOSE");
 }
 
 function median(values: number[]): number | null {

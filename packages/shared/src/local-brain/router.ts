@@ -15,8 +15,8 @@ const HIGHLY_SENSITIVE_RE = /\b(password|passcode|api\s*key|secret|token|otp|2fa
 const PRIVATE_RE = /\b(my|mine|i|family|partner|wife|husband|child|children|client|customer|salary|address|birthday|calendar|email|memory|reminder|commitment|project|task list)\b/i;
 const DIFFICULT_RE = /\b(code|debug|architecture|legal|contract|lawsuit|medical advice|diagnos|investment|tax strategy|consequential|high stakes|root cause|security review|threat model|multi[- ]step|complex|council|best reasoning|cloud reasoning)\b/i;
 const READ_ONLY_RE = /\b(find|search|look up|investigate|research|check|inspect|review|analy[sz]e|summari[sz]e|what happened|show(?: me)?|list (?:my|the|all))\b/i;
-const EXTERNAL_ACTION_RE = /\b(send|email|message|text|call|book|invite|post|publish|buy|purchase|pay|transfer|submit|upload|contact|reply to)\b/i;
-const DESTRUCTIVE_RE = /\b(delete|erase|remove all|wipe|cancel account|revoke|reset|overwrite|destroy|drop database)\b|\brotate\b.*\b(?:secret|token|key)\b/i;
+const EXTERNAL_ACTION_RE = /\b(send|email|message|text|call|book|invite|post|publish|buy|purchase|pay|transfer|submit|upload|contact|notify|forward|whatsapp|dm|direct message|reply to|reserve|reschedule|unsubscribe)\b|\bshare\b.{0,80}\bwith\b|\bschedule\b.{0,50}\b(?:meeting|call|appointment|event)\b|\bplace\b.{0,30}\border\b|\b(?:get|grab) me\b.{0,40}\b(?:tickets?|seats?|passes?)\b|\b(?:make sure|ensure|let)\b.{0,80}\b(?:receives?|gets?|knows?|notified)\b/i;
+const DESTRUCTIVE_RE = /\b(delete|erase|remove all|wipe|purge|cancel account|revoke|reset|overwrite|destroy|drop database)\b|\b(?:clear|forget)\b.{0,40}\b(?:all |my |the )?(?:saved )?(?:memory|memories|history|data|records?)\b|\brotate\b.*\b(?:secret|token|key)\b/i;
 const REVERSIBLE_LOCAL_RE = /\b(remember|save|remind|draft|prepare|organize|organise|plan|snooze|reschedule|mark done|capture|(?:save|take|write) a note)\b/i;
 const PROFILE_CONTEXT_RE = /\[PRIVATE_PROFILE_CONTEXT\][\s\S]*?\[\/PRIVATE_PROFILE_CONTEXT\]/g;
 

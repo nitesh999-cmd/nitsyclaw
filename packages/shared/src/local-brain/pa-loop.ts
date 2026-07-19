@@ -102,7 +102,7 @@ export async function runPaLoop(args: {
 }
 
 export function looksLikeStoredPromptInjection(text: string): boolean {
-  return /(?:\[\/?untrusted_memory_data\]|\b(?:ignore|disregard|forget) (?:all |any )?(?:previous|prior|earlier|system) (?:instructions|directions)\b|\bfollow (?:these|the) instructions\b|\boutput (?:all|every) (?:saved )?(?:credential|secret|token|password)s?\b|\bsystem prompt\b|\bdeveloper message\b|\byou are now\b|\bact as\b|\btool call\b|\bexfiltrate\b|\breveal secrets?\b|\boverride safety\b|\bdo not tell the user\b)/i.test(text);
+  return /(?:\[\/?untrusted_memory_data\]|\b(?:ignore|disregard|forget) (?:all |any |the )?(?:previous|prior|earlier|system|developer) (?:instructions|directions|message|prompt)\b|\bfollow (?:these|the|my) instructions\b|\b(?:treat|use) (?:this|the following) (?:memory|note|text) as (?:an? )?(?:instruction|system|developer|policy)\b|\b(?:obey|execute) (?:this|the following|these) (?:text|instructions|commands?)\b|\bpretend (?:that )?you are (?:the )?(?:system|developer|administrator|admin)\b|\boutput (?:all|every) (?:saved )?(?:credential|secret|token|password)s?\b|\b(?:print|show|expose|dump)\b.{0,80}\b(?:hidden|private|saved|all)\b.{0,40}\b(?:credential|secret|token|password|memory|memories)s?\b|\bsystem prompt\b|\bdeveloper message\b|\byou are now\b|\bact as\b|\btool call\b|\bexfiltrate\b|\breveal secrets?\b|\boverride safety\b|\bdo not tell the user\b)/i.test(text);
 }
 
 export function wrapUntrustedContext(text: string): string {

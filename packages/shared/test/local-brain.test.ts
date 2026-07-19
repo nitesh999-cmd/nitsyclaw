@@ -150,6 +150,22 @@ describe("OllamaProvider", () => {
     await expect(provider.chat({ messages: [{ role: "user", content: "Hi" }] })).rejects.toMatchObject({ code: "model_missing" });
   });
 
+  it("times out a stalled local request without falling back", async () => {
+    const stalledFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    })) as unknown as typeof fetch;
+    const provider = new OllamaProvider({ fetchFn: stalledFetch, chatModel: "qwen3:8b", requestTimeoutMs: 10, retries: 0 });
+    await expect(provider.chat({ messages: [{ role: "user", content: "Hi" }] })).rejects.toMatchObject({ code: "timeout" });
+  });
+
+  it("surfaces an empty local model response for the caller to fail closed", async () => {
+    const provider = new OllamaProvider({
+      chatModel: "qwen3:8b",
+      fetchFn: makeFetch((url) => url.endsWith("/api/tags") ? json(MODELS) : json({ model: "qwen3:8b", message: { content: "" } })),
+    });
+    await expect(provider.chat({ messages: [{ role: "user", content: "Hi" }] })).resolves.toMatchObject({ text: "" });
+  });
+
   it("supports cancellation", async () => {
     const controller = new AbortController();
     controller.abort();

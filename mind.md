@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-07-05 (full-codebase bug hunt + fix batch -- P0 dashboard auth, Outlook timezone corruption, session 61)
+> Updated: 2026-07-19 (Owner Alpha adversarial QA and fail-closed reliability fixes, session 63)
 
 ---
 
@@ -2964,4 +2964,46 @@ Three independent review passes found no P0 issue. The first flagged six P1 trus
 Verification passed: 8/8 focused V2 tests, 12/12 route-security tests, 210 files/1,077 full-suite tests, typecheck, lint with zero errors and six existing warnings, build, Local Brain release gate (36/36 policy, 25/25 retrieval, 100% top-1/top-3/grounding, zero privacy/injection/stale failures), controlled demo, refreshed browser proof, dry/no-send WhatsApp release gate, and the final desktop plus phone prospect recordings.
 
 V2 is recommended for controlled owner-led prospect interviews. V1 remains the internal engineering artifact. Neither artifact changes the public-sale block: account-aware sessions and unresolved tenant review for messages, feature requests, audit logs, and dashboard authentication attempts still require closure.
+
+---
+
+## 63. Session 2026-07-19 -- Owner Alpha adversarial QA and reliability hardening
+
+**Date:** 2026-07-19 (Sydney)
+**Driver:** Nitesh -- senior QA/adversarial test of the seven-day owner-only Local Brain alpha.
+
+### Scope and data boundary
+
+Tested `owner-alpha.ps1` and its local state/command workflow against synthetic disposable data roots only. The real `%LOCALAPPDATA%\NitsyClaw\owner-alpha` data was not enumerated, opened, copied, or mutated. All inference stayed on loopback Ollama with exact `qwen3:8b` and `nomic-embed-text:latest`. No database, WhatsApp, email, calendar, purchase, deploy, Railway, Vercel, or public-account action ran.
+
+The initial owner-alpha implementation was commit `0aa417a`. The full adversarial record is `BUG-TEST-REPORT.md`.
+
+### Reproduced and fixed
+
+- **P1 concurrent lost update:** two state snapshots could overwrite one another. Added a one-session process lock with live-PID rejection, stale-lock recovery, token-owned release, and cleanup on EOF/removal.
+- **P1 approval classification gaps:** indirect forwarding, sharing, WhatsApp/DM, meeting scheduling, purchases/tickets, indirect recipient phrasing, and clearing saved data could classify as answer-only. Expanded deterministic external/destructive patterns. Owner alpha still has no action handler or approval-execution command.
+- **P1 stored-instruction bypasses:** four ordinary-language instruction/policy impersonation variants passed write and retrieval filters. Expanded the shared injection detector while retaining untrusted memory wrappers.
+- **P1 child credential exposure:** Google/Microsoft token JSON and other credential-shaped environment values could reach the child. Added explicit provider/account keys plus dynamic credential-name and capability stripping; parent values restore after exit.
+- **P1 junction redirect:** an exact-looking data directory junction could redirect writes. Storage/removal now refuse symlinks and Windows junctions.
+- **P2 destructive confirmation weakness:** leading/trailing spaces were accepted because the phrase was trimmed. Removal now compares raw input byte-for-byte.
+- **P2 partial-save truthfulness:** Markdown scorecard failure could throw after JSON state persisted. JSON is now the atomic source of truth; Markdown is an atomic derived view with explicit warning/health failure.
+- **P2 state ambiguity:** duplicate IDs/dates and malformed timestamps/tags loaded. Validation now fails closed.
+- **P2 duplicate memories:** identical active facts were accepted. Case-insensitive duplicates now reject without changing the first record.
+- **P2 EOF cleanup:** closed stdin could skip the visible shutdown path and lock cleanup. Readline close now aborts pending questions cleanly.
+- **P3 usability:** commands are case-insensitive and a score entry can be cancelled with blank input or `/cancel` before any write.
+
+No Constitution rule was added because the fixes enforce existing privacy, owner scoping, injection, approval, destructive-action, and verification invariants.
+
+### Observable adversarial proof
+
+- Real launcher session: 37/37 scripted prompts, health pass, real local Qwen answer, duplicate/injection rejection, exact correction, two approval holds with zero executions, safe score cancellation, one completed score, clean shutdown, two active + one retired memory, no remaining lock, no stderr.
+- Restart/concurrency/removal: owner hash and data persisted; second simultaneous launch exited 1 and failed closed; five incorrect removal phrases did nothing; exact phrase removed nested/unexpected synthetic files; no synthetic data remained.
+- Health failure injection through temporary loopback servers: delayed-valid passed; empty response, missing models, and unreachable Ollama all exited 1 and did not open a session. Provider timeout/cancellation regressions pass.
+- Filesystem/privacy: paths with spaces passed; junction target stayed untouched; dynamic credentials were absent in the child and restored in the parent; the only normal runtime files were `state.json` and `scorecard.md`.
+
+### Verification
+
+Final fresh-context owner workflow passed remember, exact correction, real local recall, indirect approval hold, score, shutdown, restart, and exact removal with synthetic data only. Focused tests passed 97/97; the full suite passed 211 files / 1,100 tests; typecheck, lint (0 errors, 6 existing warnings), build, Local Brain release gate (36/36 policy, 25/25 retrieval, zero safety failures), browser proof, dry WhatsApp release gate, and Playwright 19/19 passed.
+
+The repo-wide deep security gate remains red on 36 pre-existing Semgrep findings outside owner-alpha files. The separate audit reports 9 pre-existing dependency advisories (4 high, 5 moderate). These are recorded as broader-release blockers in `BUG-TEST-REPORT.md`; unrelated CI, dependency, and prospect-demo files were not modified. Push and deploy were intentionally skipped.
 

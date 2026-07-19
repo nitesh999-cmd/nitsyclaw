@@ -14,6 +14,8 @@ This alpha is for Nitesh to use the real Local Brain privately on this Windows c
 - Every memory carries a random local owner hash. State loading and retrieval recheck that owner scope and fail closed on a foreign-owner row.
 - Corrected and forgotten memories are excluded. Stored prompt-injection patterns are rejected on write and filtered again on retrieval. Retrieved memory remains wrapped as untrusted data.
 - Conversation turns and model responses are not persisted. Only text explicitly accepted through `/remember` or `/correct`, retired memory audit rows, and scorecard entries are stored.
+- A process lock permits only one owner-alpha session to read and write the local state at a time. A second launch fails closed; a lock left by a dead process is recovered on the next launch.
+- Storage refuses symbolic links and Windows junctions at the `NitsyClaw/owner-alpha` boundary, so an override cannot silently redirect writes or removal into another folder.
 - No bulk import exists. Enter only small amounts of low-risk information manually. Do not enter passwords, tokens, financial details, health information, government identifiers, customer data, confidential client material, or anything you would not keep as a plain local note.
 
 ## Start and daily use
@@ -35,6 +37,8 @@ Commands inside the session:
 - `/where` — show the local data folder.
 - `/remove-data` — remove the complete owner-alpha data folder after exact typed confirmation.
 - `/exit` — shut down cleanly.
+
+Commands are case-insensitive, so `/HELP` and `/help` behave the same. Memory text keeps its original casing. Identical active memories are rejected, including duplicates that differ only by letter case or surrounding whitespace. Conflicting facts are not guessed away: use `/correct` to select and retire the stale fact explicitly.
 
 ## Seven-day routine
 
@@ -60,6 +64,8 @@ The scorecard covers:
 
 Scores use 1 (poor) to 5 (excellent). For crashes/confusing behaviour, 5 means no problem. The scorecard also records the session's measured median model response time and an optional note. The local Markdown scorecard path is shown after each `/score` entry.
 
+At any rating prompt, leave the answer blank or enter `/cancel` to cancel the whole score entry. No partial score is written. Entering `/score` again on the same Sydney date replaces that day's entry rather than creating a duplicate.
+
 ## Health check
 
 Startup and `/health` must prove all of the following before the alpha is considered usable:
@@ -83,7 +89,17 @@ For normal shutdown, type `/exit` or press Ctrl+C. No dashboard, bot, WhatsApp c
 
 For removal, start the same owner-alpha launcher, type `/remove-data`, inspect the exact displayed folder, then type `REMOVE LOCAL ALPHA DATA`. This deletes only the exact `%LOCALAPPDATA%\NitsyClaw\owner-alpha` directory. It removes active memories, retired correction/forget records, and scorecards. It does not uninstall Ollama, delete `qwen3:8b`, delete `nomic-embed-text`, change the repository, or affect production data.
 
+The removal phrase is byte-for-byte exact. Different case, leading or trailing spaces, a partial phrase, or blank input removes nothing. If Windows reports a locked file or removal is interrupted, close the program holding the file and run the same removal flow again. Removal is idempotent when the folder is already absent. Do not manually broaden the deletion path.
+
 The alpha stores plain JSON and Markdown under the current Windows user's Local AppData folder. Windows account access is the practical local boundary; the files are not separately encrypted. That is why the alpha is restricted to small, low-risk information.
+
+## Failure and recovery notes
+
+- `Another owner-alpha session is already running`: return to the first terminal and use `/exit`. Do not run two writers.
+- `session lock is unreadable`: stop. Inspect only the displayed owner-alpha folder and use the documented complete local-data removal flow if you want a clean reset.
+- invalid JSON, duplicate memory ids, foreign owner scope, invalid dates, or malformed metadata: startup fails closed. Preserve the folder if a bug report is needed; otherwise remove the complete alpha data with the documented flow. Do not hand-edit a partially understood state file.
+- scorecard refresh warning: the JSON state was saved, but the derived Markdown view could not be refreshed. Run `/health`; it must fail until the file/folder permission or name collision is corrected.
+- missing model, empty response, timeout, or unreachable Ollama: health shows `FAIL` and the interactive session does not open. Restore the existing Ollama service/models; never add a cloud fallback.
 
 ## Stop rules
 
