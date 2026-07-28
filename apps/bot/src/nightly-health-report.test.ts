@@ -61,6 +61,63 @@ describe("nightly WhatsApp health report", () => {
     expect(wa.sent[0].body).toContain("last error: temporary send failure");
     expect(wa.sent[0].body).toContain("Next: send what went wrong or proof details");
   });
+
+  it("cannot claim ready while owner self-chat identity resolution keeps failing", async () => {
+    const wa = new MockWhatsAppClient();
+    const now = new Date("2026-05-17T10:50:00Z");
+    const deps = makeAgentDeps({
+      whatsapp: wa,
+      now: () => now,
+      timezone: "Australia/Melbourne",
+    });
+    const state = deps.db.__state;
+    state.system_heartbeats.push(
+      heartbeat("bot-runtime", "ok", now, { commitShort: "abc1234" }),
+      heartbeat("bot-scheduler", "ok", now),
+      heartbeat("whatsapp-client", "ok", now),
+      heartbeat("whatsapp-send", "ok", now),
+      heartbeat("whatsapp-loop-guard", "ok", now),
+      heartbeat("whatsapp-inbound", "degraded", now, {
+        ownerSelfChatIdentityFailures: 3,
+        droppedCount: 3,
+        acceptedCount: 0,
+      }),
+    );
+
+    const report = await buildNightlyWhatsAppHealthReport(deps);
+
+    expect(report.status).toBe("needs_attention");
+    expect(report.body).toContain("Inbound routing: degraded");
+    expect(report.body).toContain("owner self-chat identity resolution failing (3 in a row)");
+    expect(report.body).not.toMatch(/@lid|@c\.us/);
+  });
+
+  it("keeps a healthy inbound routing heartbeat out of the way", async () => {
+    const wa = new MockWhatsAppClient();
+    const now = new Date("2026-05-17T10:50:00Z");
+    const deps = makeAgentDeps({
+      whatsapp: wa,
+      now: () => now,
+      timezone: "Australia/Melbourne",
+    });
+    const state = deps.db.__state;
+    state.system_heartbeats.push(
+      heartbeat("bot-runtime", "ok", now, { commitShort: "abc1234" }),
+      heartbeat("bot-scheduler", "ok", now),
+      heartbeat("whatsapp-client", "ok", now),
+      heartbeat("whatsapp-send", "ok", now),
+      heartbeat("whatsapp-loop-guard", "ok", now),
+      heartbeat("whatsapp-inbound", "ok", now, {
+        ownerSelfChatIdentityFailures: 0,
+        acceptedCount: 4,
+      }),
+    );
+
+    const report = await buildNightlyWhatsAppHealthReport(deps);
+
+    expect(report.status).toBe("ready");
+    expect(report.body).toContain("Inbound routing: ok");
+  });
 });
 
 function heartbeat(

@@ -4,9 +4,29 @@ import { describe, expect, test } from "vitest";
 describe("wwebjs client regressions", () => {
   const source = readFileSync("apps/bot/src/wwebjs-client.ts", "utf8");
 
+  const gateSource = readFileSync("apps/bot/src/whatsapp-inbound-gate.ts", "utf8");
+  const lidSource = readFileSync("apps/bot/src/whatsapp-lid-identity.ts", "utf8");
+
   test("does not drop owner-authored LID self-chat messages after self-chat gate passes", () => {
-    expect(source).toContain("fromMe !== true");
-    expect(source).toContain("from !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)");
+    expect(gateSource).toContain("envelope.fromMe !== true");
+    expect(gateSource).toContain(
+      "normalizeWhatsAppOwnerId(envelope.from) !== normalizeWhatsAppOwnerId(deps.ownerNumber)",
+    );
+    expect(source).toContain("decideInboundAction");
+  });
+
+  test("accepts an @lid self-chat only after the LID resolves to the owner number", () => {
+    expect(source).toContain("getContactLidAndPhone");
+    expect(lidSource).toContain("if (phone !== owner) return \"rejected_identity\"");
+    expect(lidSource).toContain("return unresolved ? \"unresolved\" : \"accepted\"");
+    expect(source).toContain("resolveLidSelfChat");
+  });
+
+  test("does not log message bodies, phone numbers, lids or message ids on inbound drops", () => {
+    expect(source).not.toContain("id=${messageId}");
+    expect(source).toContain("addressKind(ctx.to)");
+    expect(source).not.toContain("to=${toRaw}");
+    expect(source).not.toContain("from=${fromRaw}");
   });
 
   test("keeps existing ready waiters alive when the client restarts before first ready", () => {

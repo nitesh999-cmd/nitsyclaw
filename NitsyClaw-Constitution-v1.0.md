@@ -369,6 +369,12 @@ R37 makes `pushNotify`/`notifyAll` best-effort so a broken push channel never bl
 - *Added:* 2026-07-05
 - *Extends:* R37 (push notification on every reply)
 
+### R65 — An @lid self-chat is accepted only after the LID resolves to WHATSAPP_OWNER_NUMBER (extends R42)
+WhatsApp now delivers genuine "Message Yourself" events with `to=<id>@lid`, an empty `getChat()` id, and `chatIsMe=false`, so the R42 envelope rules dropped real owner commands (`[wwebjs] dropped: not self-chat ... to=lid chat=empty chatIsMe=false`). Broadly accepting `fromMe=true` or any `@lid` recipient is forbidden — the owner also messages other people, and some of those chats are LID-addressed. When, and only when, the plain envelope rules already said "no" and the envelope is an owner-authored candidate (`fromMe=true`, no group/status/newsletter/broadcast address, no known non-LID chat id, and a plain sender id that is the owner), the client resolves each `@lid` endpoint via whatsapp-web.js `getContactLidAndPhone` (installed 1.34.7) through a bounded TTL cache (10 min, 64 entries, timeout 8 s) and accepts only when every resolved phone normalizes exactly to `WHATSAPP_OWNER_NUMBER`. Every other outcome fails closed: lookup error, empty/malformed payload, echoed mismatched lid, or a phone belonging to somebody else. Repeated *unresolved* candidates (not mismatches, which are correct rejections) raise the `whatsapp-inbound` heartbeat to `degraded`, and the nightly WhatsApp health report may not report `ready` while that is true. Inbound drop logging carries address kinds and counters only — never bodies, numbers, lids, or message ids.
+- *Source:* Live regression on `feat/local-brain-browser-proof`, session 2026-07-28; `apps/bot/src/whatsapp-lid-identity.ts`, `apps/bot/src/whatsapp-inbound-gate.ts`, `apps/bot/src/whatsapp-inbound-health.ts`
+- *Added:* 2026-07-28
+- *Extends:* R42 (owner self-chat acceptance), R64 (health signals must be counted and surfaced)
+
 ---
 
 ## Fixes log
@@ -431,6 +437,7 @@ R37 makes `pushNotify`/`notifyAll` best-effort so a broken push channel never bl
 | 2026-07-05 | R41 documented dashboard auth but 14 private-data API routes never called the session verifier — CSRF check only | R62 | `requireDashboardSession` added directly to every affected route; new `require-dashboard-session.ts` lib |
 | 2026-07-05 | Outlook calendar write/read paths corrupted event times by the local timezone offset | R63 | `formatZonedNaiveIso` (write) + `parseGraphUtcDateTime` (read) replace unsafe ISO string surgery |
 | 2026-07-05 | Dead ntfy/toast/mail notify pipeline could fail silently indefinitely with no counter or alert | R64 | Per-channel result tracking + `notify-channels` heartbeat surfaced in nightly WhatsApp health report |
+| 2026-07-28 | Genuine owner "Message Yourself" messages dropped because WhatsApp represents the recipient as `@lid` with an empty chat id and `chatIsMe=false` | R65 | LID→phone resolution via `getContactLidAndPhone` behind a bounded TTL cache, accept only on exact owner match, fail closed otherwise, plus a `whatsapp-inbound` health signal the nightly report must respect |
 
 ---
 

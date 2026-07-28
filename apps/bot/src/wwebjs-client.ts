@@ -13,6 +13,9 @@ type WwebMessageWithEnvelope = Message & {
 type WwebChatWithContact = Awaited<ReturnType<Message["getChat"]>> & {
   getContact?: () => Promise<{ isMe?: boolean }>;
 };
+type WwebClientWithLidLookup = WwebjsClientInstance & {
+  getContactLidAndPhone?: (userIds: string[]) => Promise<LidPhoneRecord[]>;
+};
 
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -30,8 +33,23 @@ import {
   type WhatsAppRuntimeEvent,
   withTimeout,
 } from "./whatsapp-health.js";
-import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
-import { WhatsAppEchoGuard, isStartupReplay } from "./whatsapp-echo-guard.js";
+import { normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
+import { WhatsAppEchoGuard } from "./whatsapp-echo-guard.js";
+import {
+  decideInboundAction,
+  type InboundChatIdentity,
+} from "./whatsapp-inbound-gate.js";
+import {
+  InboundRoutingHealth,
+  type InboundDropReason,
+  type InboundRoutingSnapshot,
+} from "./whatsapp-inbound-health.js";
+import {
+  LidPhoneResolver,
+  resolveLidSelfChat,
+  type LidPhoneRecord,
+  type LidSelfChatEnvelope,
+} from "./whatsapp-lid-identity.js";
 import {
   markPresenceUnavailable,
   parsePresenceUnavailableIntervalMs,
@@ -247,7 +265,11 @@ export interface WwebjsOptions {
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
   onQr?: (payload: string) => void | Promise<void>;
   onQrCleared?: () => void | Promise<void>;
+  onInboundHealth?: (snapshot: InboundRoutingSnapshot) => void | Promise<void>;
 }
+
+const INBOUND_HEALTH_EMIT_INTERVAL_MS = 60_000;
+const LID_LOOKUP_TIMEOUT_MS = 8_000;
 
 export class WwebjsClient implements WhatsAppClient {
   private echoGuard = new WhatsAppEchoGuard();
@@ -273,6 +295,21 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
   private lastNonSelfChatNoticeAtMs = 0;
+  private readonly inboundHealth = new InboundRoutingHealth();
+  private readonly lidResolver = new LidPhoneResolver((userIds) => {
+    const client = this.client as WwebClientWithLidLookup;
+    if (typeof client.getContactLidAndPhone !== "function") {
+      return Promise.reject(new Error("getContactLidAndPhone unavailable"));
+    }
+    // Bounded so a wedged browser page cannot stall inbound handling.
+    return withTimeout(
+      client.getContactLidAndPhone(userIds),
+      LID_LOOKUP_TIMEOUT_MS,
+      "WhatsApp LID lookup",
+    );
+  });
+  private lastInboundHealthEmitAtMs = 0;
+  private lastInboundHealthStatus = "";
 
   constructor(private opts: WwebjsOptions) {
     this.healthProbeIntervalMs = opts.healthProbeIntervalMs ?? 60_000;
@@ -364,6 +401,74 @@ export class WwebjsClient implements WhatsAppClient {
     Promise.resolve(this.opts.onStatus?.(safeEvent)).catch((e) => {
       logBotError("[wwebjs] status callback failed", e);
     });
+  }
+
+  private emitInboundHealth(): void {
+    const snapshot = this.inboundHealth.snapshot();
+    const nowMs = Date.now();
+    if (
+      snapshot.status === this.lastInboundHealthStatus &&
+      nowMs - this.lastInboundHealthEmitAtMs < INBOUND_HEALTH_EMIT_INTERVAL_MS
+    ) {
+      return;
+    }
+    this.lastInboundHealthStatus = snapshot.status;
+    this.lastInboundHealthEmitAtMs = nowMs;
+    Promise.resolve(this.opts.onInboundHealth?.(snapshot)).catch((e) => {
+      logBotError("[wwebjs] inbound health callback failed", e);
+    });
+  }
+
+  // Logs address KINDS and counters only - never bodies, numbers, lids, or ids.
+  private async logInboundDrop(
+    reason: InboundDropReason,
+    ctx: { body: string; fromMe: boolean; from: string; to: string; chatId: string; chatIsMe: boolean },
+  ): Promise<void> {
+    if (reason === "startup_replay") {
+      console.log("[wwebjs] dropped: startup replay");
+      return;
+    }
+    if (reason === "duplicate_event") {
+      console.log("[wwebjs] dropped: duplicate event");
+      return;
+    }
+    if (reason === "bot_echo") {
+      console.log(`[wwebjs] dropped: bot echo ${messageMeta(ctx.body)}`);
+      return;
+    }
+    if (reason === "non_owner") {
+      console.log("[wwebjs] dropped: non-owner inbound");
+      return;
+    }
+    if (reason === "lid_identity_mismatch") {
+      console.log("[wwebjs] dropped: LID recipient is not the owner");
+      return;
+    }
+    if (reason === "lid_identity_unresolved") {
+      console.log(
+        `[wwebjs] dropped: owner self-chat LID identity unresolved to=${addressKind(ctx.to)} chat=${addressKind(ctx.chatId)}`,
+      );
+      return;
+    }
+
+    console.log(`[wwebjs] dropped: not self-chat fromMe=${ctx.fromMe} from=${addressKind(ctx.from)} to=${addressKind(ctx.to)} chat=${addressKind(ctx.chatId)} chatIsMe=${ctx.chatIsMe}`);
+    if (
+      shouldSendNonSelfChatDropNotice({
+        body: ctx.body,
+        fromMe: ctx.fromMe,
+        nowMs: Date.now(),
+        lastNoticeAtMs: this.lastNonSelfChatNoticeAtMs,
+        enabled: NON_SELF_CHAT_NOTICE_ENABLED,
+      })
+    ) {
+      this.lastNonSelfChatNoticeAtMs = Date.now();
+      await this.send({
+        to: this.opts.ownerNumber,
+        body: formatNonSelfChatDropNotice(),
+      }).catch((noticeError: unknown) => {
+        logBotError("[wwebjs] non-self chat diagnostic send failed", noticeError);
+      });
+    }
   }
 
   private async markUnavailable(label: string): Promise<void> {
@@ -554,131 +659,109 @@ export class WwebjsClient implements WhatsAppClient {
       try {
         const body = m.body ?? "";
         const envelope = m as WwebMessageWithEnvelope;
-        const fromMe = envelope.fromMe;
+        const fromMe = Boolean(envelope.fromMe);
         const messageId = m.id?._serialized ?? "";
-
-        if (
-          isStartupReplay(
-            typeof m.timestamp === "number" ? m.timestamp : undefined,
-            Boolean(fromMe),
-            this.acceptMessagesAfterMs,
-          )
-        ) {
-          console.log(`[wwebjs] dropped: startup replay id=${messageId}`);
-          return;
-        }
-
-        if (!this.echoGuard.firstSeenMessage(messageId)) {
-          console.log(`[wwebjs] dropped: duplicate event id=${messageId}`);
-          return;
-        }
-
-        if (fromMe && this.echoGuard.isOutgoingEcho(body)) {
-          console.log(`[wwebjs] dropped: bot echo ${messageMeta(body)}`);
-          return;
-        }
 
         // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
         // not when you're typing in conversations with other contacts.
         const fromRaw = envelope.from ?? "";
-        const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = envelope.to ?? "";
         let chatId = "";
         let chatIsMe = false;
-        let chatError: unknown;
-        const readChatIdentity = async () => {
-          const chat = await m.getChat() as WwebChatWithContact;
-          chatId = chat.id?._serialized ?? "";
-          if (typeof chat.getContact === "function") {
-            const contact = await chat.getContact();
-            chatIsMe = contact?.isMe === true;
-          }
-        };
 
-        try {
-          await readChatIdentity();
-        } catch (e) {
-          chatError = e;
-        }
-        for (const retryDelayMs of SELF_CHAT_LOOKUP_RETRY_DELAYS_MS) {
-          if (!shouldRetryChatLookupForSelfChatCandidate({
-            from: fromRaw,
-            fromMe: Boolean(fromMe),
-            to: toRaw,
-            chatId,
-            ownerNumber: this.opts.ownerNumber,
-          })) {
-            break;
-          }
-          await delay(retryDelayMs);
+        const readChatIdentity = async (): Promise<InboundChatIdentity> => {
+          let chatError: unknown;
+          const readChat = async () => {
+            const chat = await m.getChat() as WwebChatWithContact;
+            chatId = chat.id?._serialized ?? "";
+            if (typeof chat.getContact === "function") {
+              const contact = await chat.getContact();
+              chatIsMe = contact?.isMe === true;
+            }
+          };
+
           try {
-            await readChatIdentity();
-            chatError = undefined;
+            await readChat();
           } catch (e) {
             chatError = e;
           }
-        }
-        if (chatError) {
-          if (shouldLogChatLookupError({ body, from: fromRaw, fromMe: Boolean(fromMe), to: toRaw })) {
-            logBotError("[wwebjs] failed to read chat id", chatError);
+          for (const retryDelayMs of SELF_CHAT_LOOKUP_RETRY_DELAYS_MS) {
+            if (!shouldRetryChatLookupForSelfChatCandidate({
+              from: fromRaw,
+              fromMe,
+              to: toRaw,
+              chatId,
+              ownerNumber: this.opts.ownerNumber,
+            })) {
+              break;
+            }
+            await delay(retryDelayMs);
+            try {
+              await readChat();
+              chatError = undefined;
+            } catch (e) {
+              chatError = e;
+            }
           }
-        }
-        let allowedSelfChatIds = await readAllowedSelfChatIds(this.opts.sessionDir);
-        if (
-          shouldRetryChatLookupForSelfChatCandidate({
-            from: fromRaw,
-            fromMe: Boolean(fromMe),
-            to: toRaw,
-            chatId,
-            ownerNumber: this.opts.ownerNumber,
-          }) &&
-          isSelfChatCalibrationPhrase(body)
-        ) {
-          allowedSelfChatIds = await allowSelfChatId(this.opts.sessionDir, toRaw);
-          console.log("[wwebjs] self-chat calibration updated");
-        }
-        if (
-          !isOwnerSelfChat({
-            from: fromRaw,
+          if (chatError) {
+            if (shouldLogChatLookupError({ body, from: fromRaw, fromMe, to: toRaw })) {
+              logBotError("[wwebjs] failed to read chat id", chatError);
+            }
+          }
+          let allowedSelfChatIds = await readAllowedSelfChatIds(this.opts.sessionDir);
+          if (
+            shouldRetryChatLookupForSelfChatCandidate({
+              from: fromRaw,
+              fromMe,
+              to: toRaw,
+              chatId,
+              ownerNumber: this.opts.ownerNumber,
+            }) &&
+            isSelfChatCalibrationPhrase(body)
+          ) {
+            allowedSelfChatIds = await allowSelfChatId(this.opts.sessionDir, toRaw);
+            console.log("[wwebjs] self-chat calibration updated");
+          }
+          return { chatId, chatIsMe, allowedSelfChatIds };
+        };
+
+        const decision = await decideInboundAction(
+          {
+            messageId,
+            body,
+            timestampSeconds: typeof m.timestamp === "number" ? m.timestamp : undefined,
             fromMe,
+            from: fromRaw,
+            to: toRaw,
+            readChatIdentity,
+          },
+          {
+            echoGuard: this.echoGuard,
+            ownerNumber: this.opts.ownerNumber,
+            acceptMessagesAfterMs: this.acceptMessagesAfterMs,
+            onlyOwner: this.opts.onlyOwner,
+            resolveLidSelfChat: (args: LidSelfChatEnvelope) =>
+              resolveLidSelfChat(this.lidResolver, args),
+          },
+        );
+
+        if (decision.action === "drop") {
+          this.inboundHealth.recordDrop(decision.reason);
+          this.emitInboundHealth();
+          await this.logInboundDrop(decision.reason, {
+            body,
+            fromMe,
+            from: fromRaw,
             to: toRaw,
             chatId,
             chatIsMe,
-            ownerNumber: this.opts.ownerNumber,
-            allowedSelfChatIds,
-          })
-        ) {
-          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)} chatIsMe=${chatIsMe}`);
-          if (
-            shouldSendNonSelfChatDropNotice({
-              body,
-              fromMe: Boolean(fromMe),
-              nowMs: Date.now(),
-              lastNoticeAtMs: this.lastNonSelfChatNoticeAtMs,
-              enabled: NON_SELF_CHAT_NOTICE_ENABLED,
-            })
-          ) {
-            this.lastNonSelfChatNoticeAtMs = Date.now();
-            await this.send({
-              to: this.opts.ownerNumber,
-              body: formatNonSelfChatDropNotice(),
-            }).catch((noticeError: unknown) => {
-              logBotError("[wwebjs] non-self chat diagnostic send failed", noticeError);
-            });
-          }
+          });
           return;
         }
 
+        this.inboundHealth.recordAccepted();
+        this.emitInboundHealth();
         console.log(`[wwebjs] inbound: fromMe=${fromMe} ${messageMeta(body)} hasMedia=${m.hasMedia}`);
-
-        if (
-          this.opts.onlyOwner !== false &&
-          fromMe !== true &&
-          from !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)
-        ) {
-          console.log("[wwebjs] dropped: non-owner inbound");
-          return;
-        }
         canSendFailureReply = true;
 
         const inbound: InboundMessage = {

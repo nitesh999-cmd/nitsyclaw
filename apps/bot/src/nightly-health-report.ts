@@ -6,6 +6,8 @@ import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 const CLIENT_STALE_MS = 2 * 60 * 1000;
 const SEND_STALE_MS = 10 * 60 * 1000;
 const LOOP_STALE_MS = 10 * 60 * 1000;
+// Inbound events are sporadic, so freshness here is informational only.
+const INBOUND_STALE_MS = 24 * 60 * 60 * 1000;
 const RUNTIME_STALE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface NightlyHealthReportResult {
@@ -17,11 +19,20 @@ export async function buildNightlyWhatsAppHealthReport(
   deps: Pick<AgentDeps, "db" | "now" | "timezone">,
 ): Promise<NightlyHealthReportResult> {
   const now = deps.now();
-  const [botRuntime, whatsappClient, whatsappSend, whatsappLoopGuard, scheduler, notifyChannels] = await Promise.all([
+  const [
+    botRuntime,
+    whatsappClient,
+    whatsappSend,
+    whatsappLoopGuard,
+    whatsappInbound,
+    scheduler,
+    notifyChannels,
+  ] = await Promise.all([
     getSystemHeartbeat(deps.db, "bot-runtime"),
     getSystemHeartbeat(deps.db, "whatsapp-client"),
     getSystemHeartbeat(deps.db, "whatsapp-send"),
     getSystemHeartbeat(deps.db, "whatsapp-loop-guard"),
+    getSystemHeartbeat(deps.db, "whatsapp-inbound"),
     getSystemHeartbeat(deps.db, "bot-scheduler"),
     getSystemHeartbeat(deps.db, "notify-channels"),
   ]);
@@ -42,10 +53,25 @@ export async function buildNightlyWhatsAppHealthReport(
   const clientFreshness = classifyHeartbeat(whatsappClient, now, CLIENT_STALE_MS);
   const sendFreshness = classifyHeartbeat(whatsappSend, now, SEND_STALE_MS);
   const loopFreshness = classifyHeartbeat(whatsappLoopGuard, now, LOOP_STALE_MS);
+  // Inbound routing: a missing heartbeat just means no inbound traffic has been
+  // classified yet. A degraded one means genuine owner self-chat messages are
+  // failing identity resolution, so the report must not say "ready".
+  const inboundIdentityFailures = Number(
+    heartbeatMetadataText(whatsappInbound, "ownerSelfChatIdentityFailures") ?? 0,
+  );
+  const inboundDegraded =
+    whatsappInbound !== null &&
+    (whatsappInbound.status === "degraded" ||
+      whatsappInbound.status === "error" ||
+      inboundIdentityFailures > 0);
+  const inboundDetail = inboundDegraded
+    ? `owner self-chat identity resolution failing (${inboundIdentityFailures} in a row)`
+    : undefined;
   const status: NightlyHealthReportResult["status"] =
     clientFreshness === "ok" &&
     sendFreshness === "ok" &&
     loopFreshness === "ok" &&
+    !inboundDegraded &&
     !sendError &&
     !loopReason
       ? "ready"
@@ -73,6 +99,7 @@ export async function buildNightlyWhatsAppHealthReport(
       LOOP_STALE_MS,
       loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
     ),
+    heartbeatLine("Inbound routing", whatsappInbound, now, INBOUND_STALE_MS, inboundDetail),
     // FYI only — doesn't affect `status` above. This report already arrives
     // via WhatsApp (the most reliable channel), so a dead ntfy/toast/mail
     // side-channel is worth a note but not itself a WhatsApp-readiness issue.

@@ -2909,3 +2909,17 @@ Verification completed:
 
 Remaining limitation: this proves the browser path against synthetic disposable data only. Owner-only demo still requires local Ollama running with the exact models. Public sale remains blocked by the known multi-user auth and tenant-isolation review gaps.
 
+
+### WhatsApp @lid self-chat regression -- 2026-07-28
+
+Symptom on the live laptop bot: `[wwebjs] dropped: not self-chat fromMe=true from=contact to=lid chat=empty chatIsMe=false`. Root cause chain: WhatsApp Web now addresses owner "Message Yourself" events with an `@lid` recipient; `getChat()` returns no usable chat id for that event, so `chatIsMe` stays false; every R42 envelope rule (`chat === owner`, `to === owner`, `chatIsMe && chatId endsWith @lid`) therefore failed and the owner's own command was dropped. The existing retry + calibration allowlist only papered over it.
+
+Fix (branch `fix/whatsapp-lid-self-chat`, installed whatsapp-web.js verified as 1.34.7):
+
+- `apps/bot/src/whatsapp-lid-identity.ts` -- candidate detection (`lidSelfChatTargets`) plus `LidPhoneResolver` over `client.getContactLidAndPhone` with a bounded TTL cache (10 min, 64 entries) and `resolveLidSelfChat` returning `accepted | rejected_identity | unresolved | not_candidate`. Accept requires every `@lid` endpoint to normalize exactly to `WHATSAPP_OWNER_NUMBER`; lookup errors, empty/malformed payloads, echoed mismatched lids, and other people's numbers all fail closed.
+- `apps/bot/src/whatsapp-inbound-gate.ts` -- the inbound decision sequence (startup replay -> duplicate -> echo -> self-chat/LID -> owner-only) extracted from `wwebjs-client.ts` so it is directly testable. Chat identity is read lazily, so cheap drops still cost no chat lookup, and LID resolution only runs after the plain rules already said no.
+- `apps/bot/src/whatsapp-inbound-health.ts` -- counters-only inbound routing health. Repeated *unresolved* owner self-chat candidates flip the snapshot to `degraded`; a `lid_identity_mismatch` (owner messaging somebody else) is a correct rejection and never raises the alarm.
+- `apps/bot/src/wwebjs-client.ts` -- uses the gate, wraps the LID lookup in an 8 s timeout, records inbound health, and logs address KINDS only. `id=${messageId}` was removed from drop logs because serialized WhatsApp ids embed the chat jid (a phone number).
+- `apps/bot/src/index.ts` + `apps/bot/src/nightly-health-report.ts` -- new `whatsapp-inbound` heartbeat; the nightly report can no longer say `ready` while owner self-chat identity resolution is failing, and prints "owner self-chat identity resolution failing (N in a row)" with no identifiers.
+
+Verification: targeted tests 45/45; `pnpm --filter @nitsyclaw/bot typecheck` pass; `pnpm test` 211 files / 1,104 tests pass; `pnpm lint` 0 errors (6 pre-existing warnings); `pnpm run whatsapp:smoke` 185 tests pass. `pnpm run security:audit` still fails on pre-existing upstream advisories (next and friends) unrelated to this change.

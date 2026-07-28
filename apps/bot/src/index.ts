@@ -67,6 +67,14 @@ async function main() {
         metadata: publicWhatsAppRuntimeMetadata(event),
       }).catch((e) => logBotError("[boot] whatsapp status heartbeat failed", e));
     },
+    onInboundHealth: (snapshot) => {
+      // Counters only - no bodies, numbers, lids, or message ids.
+      void upsertSystemHeartbeat(db, {
+        source: "whatsapp-inbound",
+        status: snapshot.status,
+        metadata: { ...snapshot },
+      }).catch((e) => logBotError("[boot] whatsapp inbound heartbeat failed", e));
+    },
   });
   const whatsapp = new WhatsAppLoopBreaker(rawWhatsapp, {
     onTrip: (incident) => {
