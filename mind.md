@@ -2968,3 +2968,18 @@ SDK/model compatibility, checked rather than assumed: `@anthropic-ai/sdk` 0.95.2
 Verification: `pnpm test` 214 files / 1,161 tests pass; `pnpm -r typecheck` pass; `pnpm build` pass; `pnpm lint` 0 errors (6 pre-existing warnings); `pnpm run ci:whatsapp-replies` 132 tests pass; reply snapshots unchanged. `pnpm run security:audit` and `pnpm run security:semgrep` still fail on pre-existing findings (upstream advisories, and 28 `pnpm-workspace.yaml` policy findings) untouched by this change.
 
 Still open: web search must be enabled for the Claude account in the Console, otherwise every request returns a 400 and the bot reports `provider_disabled`. Nothing here can prove that from code.
+
+### Per-turn server search budget (double-spend fix) -- 2026-07-28
+
+Architecture check before local integration: one owner turn had **two** independent routes to the Anthropic provider, and each carried its own `max_uses`.
+
+1. `router.ts` pre-search -> `deps.liveResearch.research()` -- 5 searches.
+2. The `web_research` client tool inside `runAgent` -> the same researcher instance -- another 5, and `runAgent` allows up to 6 rounds.
+
+Worst case for a single owner message: 5 + (6 x 5) = 35 server searches. The prompt block already told the model not to re-search, but that is advisory text, not an enforced ceiling. Verdict: duplicate provider invocation was possible.
+
+Fix: `packages/shared/src/search/turn-budget.ts` -- `createTurnScopedResearcher(base, maxUses?)` wraps the shared researcher for one turn. Each call receives only the allowance that is left (`research({ maxUses })`, honoured by `makeAnthropicWebResearcher` and clamped so a caller can never raise the configured ceiling). Spend is charged from `searchesUsed`, so failed searches -- which the provider does not bill -- cost nothing. When the budget is exhausted the wrapper returns `max_uses_exceeded` locally and issues no provider request at all. The router builds one wrapper per turn and injects it into `agentDeps.liveResearch`, so pre-search and the client tool share it.
+
+Proof: `packages/shared/test/turn-budget.test.ts` (shared allowance, hard total ceiling across 10 calls, local refusal with zero provider requests, failures not charged, per-call clamping) plus three router integration tests -- exactly one provider request for a normal explicit current-news request; total allowance <= 5 when the model also calls `web_research`; a second in-turn search runs on the leftover 3, never a fresh 5.
+
+Verification: full `pnpm test` 215 files / 1,173 tests pass; bot typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged versus 5965717 (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile, or migration change).

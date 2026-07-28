@@ -67,8 +67,12 @@ export function makeAnthropicWebResearcher(options: AnthropicWebResearcherOption
   return {
     maxUses,
 
-    async research({ query, instructions }): Promise<LiveWebResearchResult> {
+    async research({ query, instructions, maxUses: requestedMaxUses }): Promise<LiveWebResearchResult> {
       lastCheckedAt = now().toISOString();
+      // A caller may spend less than the configured maximum (the per-turn budget
+      // hands over only what is left) but never more.
+      const callMaxUses =
+        requestedMaxUses === undefined ? maxUses : Math.min(maxUses, normalizeMaxUses(requestedMaxUses));
       const trimmed = query.trim();
       if (!trimmed) {
         lastSucceeded = false;
@@ -91,7 +95,7 @@ export function makeAnthropicWebResearcher(options: AnthropicWebResearcherOption
               {
                 type: ANTHROPIC_WEB_SEARCH_TOOL_VERSION,
                 name: "web_search",
-                max_uses: maxUses,
+                max_uses: callMaxUses,
               },
             ],
             messages,

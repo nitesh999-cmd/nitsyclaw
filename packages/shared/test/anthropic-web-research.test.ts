@@ -66,6 +66,26 @@ describe("makeAnthropicWebResearcher", () => {
     ]);
   });
 
+  it("spends a smaller per-call allowance when the turn budget hands one down", async () => {
+    const create = vi.fn(async () => okResponse());
+
+    await researcher(create).research({ query: "news", maxUses: 2 });
+
+    expect(create.mock.calls[0]![0].tools).toEqual([
+      { type: "web_search_20250305", name: "web_search", max_uses: 2 },
+    ]);
+  });
+
+  it("never lets a per-call allowance raise the configured ceiling", async () => {
+    const create = vi.fn(async () => okResponse());
+
+    await researcher(create, 3).research({ query: "news", maxUses: 99 });
+
+    expect(create.mock.calls[0]![0].tools).toEqual([
+      { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+    ]);
+  });
+
   it("never asks for confirmation and never mentions a training cutoff in its instructions", async () => {
     const create = vi.fn(async () => okResponse());
 

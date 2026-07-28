@@ -55,9 +55,20 @@ export interface LiveWebResearchHealth {
   lastFailureCode?: LiveWebResearchFailureCode;
 }
 
+export interface LiveWebResearchRequest {
+  query: string;
+  instructions?: string;
+  /**
+   * Per-call ceiling on server-side searches. Lets a caller spend less than the
+   * configured maximum — used by the per-turn budget to hand each successive
+   * call only what is left of one owner turn's allowance.
+   */
+  maxUses?: number;
+}
+
 export interface LiveWebResearcher {
   readonly maxUses: number;
-  research(args: { query: string; instructions?: string }): Promise<LiveWebResearchResult>;
+  research(args: LiveWebResearchRequest): Promise<LiveWebResearchResult>;
   health(): LiveWebResearchHealth;
 }
 

@@ -10,6 +10,7 @@ export {
   parseWebSearchResponse,
   type LiveWebResearchFailureCode,
   type LiveWebResearchHealth,
+  type LiveWebResearchRequest,
   type LiveWebResearchResult,
   type LiveWebResearchSource,
   type LiveWebResearchStatus,
@@ -28,4 +29,5 @@ export {
   type WebResearchConfig,
   type WebResearchWiring,
 } from "./create-web-research.js";
+export { createTurnScopedResearcher, type TurnScopedResearcher } from "./turn-budget.js";
 export { isExplicitLiveWebResearchRequest } from "./web-research-intent.js";

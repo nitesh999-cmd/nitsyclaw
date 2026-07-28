@@ -134,7 +134,10 @@ describe("Router (integration)", () => {
 
       // The search ran during this turn, without a second round trip to Nitesh.
       expect(research).toHaveBeenCalledTimes(1);
-      expect(research).toHaveBeenCalledWith({ query: "Give me today's world news and 20 current stories" });
+      expect(research).toHaveBeenCalledWith({
+        query: "Give me today's world news and 20 current stories",
+        maxUses: 5,
+      });
       const system = systemPrompts.at(-1)!;
       expect(system).toContain("[LIVE_WEB_RESEARCH_RESULTS]");
       expect(system).toContain("Ceasefire talks resumed in Geneva this morning.");
@@ -175,6 +178,93 @@ describe("Router (integration)", () => {
       expect(replies[0]!.body).toContain("Web search is turned off for this Claude account");
       expect(replies[0]!.body).not.toMatch(/would you like me to search/i);
       expect(wa.sent.some((m) => /ceasefire|headline|according to my/i.test(m.body))).toBe(false);
+    });
+
+    it("issues exactly one provider request for a normal explicit current-news request", async () => {
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Five headlines.",
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/1" }],
+        searchesUsed: 1,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: fakeLlmWithToolCall("reply_to_user", { text: "ack" }),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({
+        id: "x-one-request",
+        from: OWNER,
+        body: "Give me five verified world news headlines from today with sources.",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+
+      expect(research).toHaveBeenCalledTimes(1);
+      expect(research.mock.calls[0]![0].maxUses).toBe(5);
+    });
+
+    it("keeps one owner turn inside a single max_uses budget when the model also calls web_research", async () => {
+      // The pre-search runs first, then the model calls the web_research client
+      // tool in the same turn. Both must draw from ONE allowance of 5 — not 5
+      // each — so the turn can never bill max_uses per provider invocation.
+      const research = vi.fn(async (args: { query: string; maxUses?: number }) => ({
+        status: "ok" as const,
+        answer: `Answer for ${args.query}.`,
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/1" }],
+        // Each request spends everything it was handed.
+        searchesUsed: args.maxUses ?? 0,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: fakeLlmWithToolCall("web_research", { query: "world news follow-up" }),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({
+        id: "x-double-spend",
+        from: OWNER,
+        body: "Give me today's world news and 20 current stories",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+
+      // Pre-search consumed the whole budget, so the tool call was refused
+      // locally and never reached the provider.
+      expect(research).toHaveBeenCalledTimes(1);
+      const totalAllowance = research.mock.calls.reduce((sum, call) => sum + (call[0].maxUses ?? 0), 0);
+      expect(totalAllowance).toBeLessThanOrEqual(5);
+    });
+
+    it("lets a second in-turn search run on the leftover budget, never on a fresh one", async () => {
+      const research = vi.fn(async (args: { query: string; maxUses?: number }) => ({
+        status: "ok" as const,
+        answer: `Answer for ${args.query}.`,
+        sources: [],
+        searchesUsed: 2,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: fakeLlmWithToolCall("web_research", { query: "world news follow-up" }),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({
+        id: "x-leftover",
+        from: OWNER,
+        body: "Give me today's world news and 20 current stories",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+
+      expect(research).toHaveBeenCalledTimes(2);
+      expect(research.mock.calls[0]![0].maxUses).toBe(5);
+      // 2 already spent, so the tool call may only ask for the remaining 3.
+      expect(research.mock.calls[1]![0].maxUses).toBe(3);
     });
 
     it("does not divert requests scoped to the owner's own data", async () => {

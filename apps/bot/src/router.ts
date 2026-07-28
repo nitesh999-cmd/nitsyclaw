@@ -167,9 +167,11 @@ import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
 import {
   buildLiveResearchPromptBlock,
+  createTurnScopedResearcher,
   formatLiveWebResearchUnavailable,
   isExplicitLiveWebResearchRequest,
   type LiveWebResearchResult,
+  type LiveWebResearcher,
 } from "@nitsyclaw/shared/search";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
@@ -389,8 +391,8 @@ export class Router {
    */
   private async runLiveResearchForTurn(
     query: string,
+    researcher: LiveWebResearcher | undefined,
   ): Promise<{ kind: "context"; block: string } | { kind: "unavailable"; message: string }> {
-    const researcher = this.deps.liveResearch;
     if (!researcher) {
       return { kind: "unavailable", message: formatLiveWebResearchUnavailable("not_configured") };
     }
@@ -3025,8 +3027,16 @@ export class Router {
         now: this.deps.now(),
         fallback: this.deps.profile,
       }).catch(() => this.deps.profile);
+      // One owner turn gets ONE server-search budget. The pre-search below and
+      // the `web_research` tool the model may call inside the loop both draw
+      // from this single allowance, so a turn can never bill max_uses per
+      // provider invocation.
+      const turnResearcher = this.deps.liveResearch
+        ? createTurnScopedResearcher(this.deps.liveResearch)
+        : undefined;
       const agentDeps = {
         ...this.deps,
+        liveResearch: turnResearcher,
         profile: promptProfile,
         timezone: promptProfile?.timezone ?? this.deps.timezone,
       };
@@ -3034,7 +3044,7 @@ export class Router {
       // the model gets a chance to reply "would you like me to search?".
       let liveResearchBlock: string | undefined;
       if (isExplicitLiveWebResearchRequest(effectiveText)) {
-        const outcome = await this.runLiveResearchForTurn(effectiveText);
+        const outcome = await this.runLiveResearchForTurn(effectiveText, turnResearcher);
         if (outcome.kind === "unavailable") {
           await this.sendAndPersist(outcome.message);
           await completeCommandJob(this.deps.db, commandJob.id, outcome.message);
