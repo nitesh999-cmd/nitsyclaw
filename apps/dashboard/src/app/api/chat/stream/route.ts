@@ -29,7 +29,7 @@ import {
   OllamaProvider,
 } from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { createWebResearch } from "@nitsyclaw/shared/search";
 import {
   formatPrivateModeActionBlocked,
   formatPrivateModeHelp,
@@ -197,14 +197,21 @@ function buildDashboardDeps(ownerHash: string): { deps: AgentDeps } {
     },
   });
 
+  const webResearch = createWebResearch({
+    anthropicApiKey: apiKey,
+    anthropicModel: model,
+    enabled: process.env.ENABLE_WEB_RESEARCH !== "false",
+    maxUses: Number(process.env.WEB_SEARCH_MAX_USES ?? 5),
+    serperApiKey: process.env.SERPER_API_KEY,
+  });
+
   const deps: AgentDeps = {
     db,
     whatsapp: new NoopWhatsApp(),
     llm,
     transcriber: noopTranscriber,
-    webSearch: process.env.SERPER_API_KEY
-      ? makeSerperSearch(process.env.SERPER_API_KEY)
-      : noopWebSearch,
+    webSearch: webResearch.webSearch,
+    liveResearch: webResearch.researcher,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
     embedder: createPrivacyAwareEmbedder({

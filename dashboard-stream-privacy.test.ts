@@ -2,11 +2,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("dashboard stream privacy", () => {
-  it("keeps streaming chat search-capable when SERPER_API_KEY is configured", () => {
+  it("keeps streaming chat search-capable through the shared web research wiring", () => {
     const route = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
 
     expect(route).toContain('from "@nitsyclaw/shared/search"');
-    expect(route).toContain("makeSerperSearch(process.env.SERPER_API_KEY)");
+    expect(route).toContain("createWebResearch({");
+    // Anthropic server-side search is primary; a pre-existing Serper key still
+    // feeds the legacy webSearch seam.
+    expect(route).toContain("anthropicApiKey: apiKey");
+    expect(route).toContain("serperApiKey: process.env.SERPER_API_KEY");
+    expect(route).toContain("liveResearch: webResearch.researcher");
   });
 
   it("does not stream raw tool input payloads to the browser", () => {

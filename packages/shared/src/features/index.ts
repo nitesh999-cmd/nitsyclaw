@@ -12,6 +12,7 @@ import { registerMorningBrief } from "./04-morning-brief.js";
 import { registerWhatsOnMyPlate } from "./05-whats-on-my-plate.js";
 import { registerMemoryRecall } from "./06-memory-recall.js";
 import { registerScheduleCall } from "./07-schedule-call.js";
+import { registerWebResearch } from "./08-web-research.js";
 import { registerConfirmationRail } from "./09-confirmation-rail.js";
 import { registerReceiptExpense } from "./10-receipt-expense.js";
 import { registerFeatureRequest } from "./11-feature-request.js";
@@ -51,10 +52,10 @@ export function registerAllFeatures(opts: RegisterOpts = { surface: "whatsapp" }
   registerWhatsOnMyPlate(r);
   registerMemoryRecall(r);
   registerScheduleCall(r);
-  // registerWebResearch disabled — replaced by Anthropic server-side web_search_20250305
-  // tool injected directly in LLM client (see apps/bot/src/adapters.ts and
-  // apps/dashboard/src/app/api/chat/route.ts). The stub here returned empty results.
-  // registerWebResearch(r);
+  // web_research runs Anthropic's server-side web search inside its own bounded
+  // request (deps.liveResearch). Keeping it a normal client tool means encrypted
+  // search content never has to survive this loop's plain-text message format.
+  registerWebResearch(r);
   registerConfirmationRail(r);
   registerReceiptExpense(r);
   registerFeatureRequest(r, { surface: opts.surface });

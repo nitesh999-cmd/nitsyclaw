@@ -165,6 +165,12 @@ import { runDailyBuildAgent } from "./build-agent.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
+import {
+  buildLiveResearchPromptBlock,
+  formatLiveWebResearchUnavailable,
+  isExplicitLiveWebResearchRequest,
+  type LiveWebResearchResult,
+} from "@nitsyclaw/shared/search";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
   formatReadyCapabilitiesOneLine,
@@ -368,6 +374,39 @@ export class Router {
     } catch (recordError) {
       logBotError("[router] failed to record command job failure", recordError, { commandJobId: job.id });
     }
+  }
+
+  /**
+   * Runs live web research for a message that already asked for it, before the
+   * agent loop starts. Nitesh asking for news/weather/prices IS the instruction
+   * to search, so the search happens in this same turn and the bot never comes
+   * back with "would you like me to search?".
+   *
+   * On success the results are injected into the loop's system prompt, so the
+   * model can still combine them with other tools (saving a travel location,
+   * appending queue status). On failure the turn ends with one honest message
+   * rather than an answer reconstructed from stale model knowledge.
+   */
+  private async runLiveResearchForTurn(
+    query: string,
+  ): Promise<{ kind: "context"; block: string } | { kind: "unavailable"; message: string }> {
+    const researcher = this.deps.liveResearch;
+    if (!researcher) {
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable("not_configured") };
+    }
+    let result: LiveWebResearchResult;
+    try {
+      result = await researcher.research({ query });
+    } catch (error) {
+      // The researcher maps its own failures, so reaching here means something
+      // unexpected broke. Still no stale-knowledge answer.
+      logBotError("[router] live web research threw", error);
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable("request_failed") };
+    }
+    if (result.status === "unavailable") {
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable(result.failureCode) };
+    }
+    return { kind: "context", block: buildLiveResearchPromptBlock(query, result) };
   }
 
   private async sendFeatureQueueStatus(limit: number): Promise<void> {
@@ -2991,11 +3030,25 @@ export class Router {
         profile: promptProfile,
         timezone: promptProfile?.timezone ?? this.deps.timezone,
       };
+      // An explicit ask for live information searches in this same turn, before
+      // the model gets a chance to reply "would you like me to search?".
+      let liveResearchBlock: string | undefined;
+      if (isExplicitLiveWebResearchRequest(effectiveText)) {
+        const outcome = await this.runLiveResearchForTurn(effectiveText);
+        if (outcome.kind === "unavailable") {
+          await this.sendAndPersist(outcome.message);
+          await completeCommandJob(this.deps.db, commandJob.id, outcome.message);
+          return;
+        }
+        liveResearchBlock = outcome.block;
+      }
       const result = await runAgent({
         userPhone: msg.from,
         userMessage: effectiveText,
         history,
-        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }),
+        systemPrompt: [buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }), liveResearchBlock]
+          .filter(Boolean)
+          .join("\n\n"),
         registry: this.registry,
         deps: agentDeps,
       });

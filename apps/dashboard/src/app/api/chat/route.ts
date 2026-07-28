@@ -48,7 +48,7 @@ import {
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../lib/request-origin";
 import { requireDashboardSession } from "../../../lib/require-dashboard-session";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { createWebResearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
   CalendarClient,
@@ -169,6 +169,14 @@ function buildDashboardDeps(ownerHash: string): AgentDeps {
   const cloudLlm = apiKey ? makeAnthropicLlm(apiKey, model) : undefined;
   const cloudEmbedder = openaiKey ? makeOpenAiEmbedder(openaiKey) : undefined;
 
+  const webResearch = createWebResearch({
+    anthropicApiKey: apiKey,
+    anthropicModel: model,
+    enabled: process.env.ENABLE_WEB_RESEARCH !== "false",
+    maxUses: Number(process.env.WEB_SEARCH_MAX_USES ?? 5),
+    serperApiKey: process.env.SERPER_API_KEY,
+  });
+
   return {
     db,
     whatsapp: new NoopWhatsApp(),
@@ -200,9 +208,8 @@ function buildDashboardDeps(ownerHash: string): AgentDeps {
       },
     }),
     transcriber: noopTranscriber,
-    webSearch: process.env.SERPER_API_KEY
-      ? makeSerperSearch(process.env.SERPER_API_KEY)
-      : noopWebSearch,
+    webSearch: webResearch.webSearch,
+    liveResearch: webResearch.researcher,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
     embedder: createPrivacyAwareEmbedder({ local, cloud: cloudEmbedder }),

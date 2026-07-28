@@ -15,8 +15,28 @@ export interface NightlyHealthReportResult {
   body: string;
 }
 
+/**
+ * Non-secret web research line. Reports the configured/operational/unavailable
+ * state only — never the provider key, the model, or any environment value.
+ */
+export function formatWebResearchHealthLine(deps: Pick<AgentDeps, "liveResearch">): {
+  line: string;
+  unavailable: boolean;
+} {
+  const health = deps.liveResearch?.health();
+  if (!health) return { line: "Web research: not reported", unavailable: false };
+  const detail =
+    health.state === "unavailable" && health.lastFailureCode
+      ? ` - last failure: ${health.lastFailureCode}`
+      : "";
+  return {
+    line: `Web research: ${health.state} (${health.provider}, max ${health.maxUses} searches/request)${detail}`,
+    unavailable: health.state === "unavailable",
+  };
+}
+
 export async function buildNightlyWhatsAppHealthReport(
-  deps: Pick<AgentDeps, "db" | "now" | "timezone">,
+  deps: Pick<AgentDeps, "db" | "now" | "timezone"> & Partial<Pick<AgentDeps, "liveResearch">>,
 ): Promise<NightlyHealthReportResult> {
   const now = deps.now();
   const [
@@ -67,13 +87,17 @@ export async function buildNightlyWhatsAppHealthReport(
   const inboundDetail = inboundDegraded
     ? `owner self-chat identity resolution failing (${inboundIdentityFailures} in a row)`
     : undefined;
+  // Explicit web research is a promised capability, so an unavailable searcher
+  // must stop this report from claiming the system is ready.
+  const webResearch = formatWebResearchHealthLine(deps);
   const status: NightlyHealthReportResult["status"] =
     clientFreshness === "ok" &&
     sendFreshness === "ok" &&
     loopFreshness === "ok" &&
     !inboundDegraded &&
     !sendError &&
-    !loopReason
+    !loopReason &&
+    !webResearch.unavailable
       ? "ready"
       : "needs_attention";
 
@@ -100,6 +124,7 @@ export async function buildNightlyWhatsAppHealthReport(
       loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
     ),
     heartbeatLine("Inbound routing", whatsappInbound, now, INBOUND_STALE_MS, inboundDetail),
+    webResearch.line,
     // FYI only — doesn't affect `status` above. This report already arrives
     // via WhatsApp (the most reliable channel), so a dead ntfy/toast/mail
     // side-channel is worth a note but not itself a WhatsApp-readiness issue.
@@ -125,7 +150,7 @@ export async function buildNightlyWhatsAppHealthReport(
 }
 
 export async function sendNightlyWhatsAppHealthReport(
-  deps: Pick<AgentDeps, "db" | "now" | "timezone" | "whatsapp">,
+  deps: Pick<AgentDeps, "db" | "now" | "timezone" | "whatsapp"> & Partial<Pick<AgentDeps, "liveResearch">>,
   ownerPhone: string,
 ): Promise<NightlyHealthReportResult> {
   const report = await buildNightlyWhatsAppHealthReport(deps);

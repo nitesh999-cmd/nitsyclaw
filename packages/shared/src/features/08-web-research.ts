@@ -1,44 +1,73 @@
-// Feature 8: Web research — "look up X and send me a 3-line summary."
+// Feature 8: Web research — live, cited answers for anything past the model's knowledge.
+//
+// Backed by Anthropic's server-side web search tool (see
+// packages/shared/src/search/anthropic-web-research.ts). The tool never returns
+// encrypted search content, tool ids, or raw API payloads — only prose plus
+// source title/URL pairs.
 
 import { z } from "zod";
+import {
+  formatLiveWebResearchUnavailable,
+  type LiveWebResearchResult,
+} from "../search/live-web-research.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
-const SYSTEM_SUMMARY =
-  "Summarize the supplied search results in exactly three short lines. " +
-  "Each line under 25 words. No preamble, no markdown bullets — just three lines separated by newlines.";
+export interface WebResearchToolOutput {
+  available: boolean;
+  status: LiveWebResearchResult["status"];
+  answer: string;
+  sources: Array<{ title: string; url: string }>;
+  searchesUsed: number;
+  message?: string;
+}
 
-export async function summarizeResults(args: {
-  query: string;
-  results: Array<{ title: string; url: string; snippet: string }>;
-  llm: import("../agent/deps.js").LlmClient;
-}): Promise<string> {
-  if (args.results.length === 0) return "No results found.";
-  const corpus = args.results
-    .slice(0, 5)
-    .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\n${r.url}`)
-    .join("\n\n");
-  const { text } = await args.llm.complete({
-    system: SYSTEM_SUMMARY,
-    messages: [{ role: "user", content: `Query: ${args.query}\n\nResults:\n${corpus}` }],
-    maxTokens: 200,
-  });
-  return text.trim();
+const MAX_SOURCES_RETURNED = 4;
+
+export async function runWebResearch(query: string, ctx: ToolContext): Promise<WebResearchToolOutput> {
+  const researcher = ctx.deps.liveResearch;
+  if (!researcher) {
+    return {
+      available: false,
+      status: "unavailable",
+      answer: "",
+      sources: [],
+      searchesUsed: 0,
+      message: formatLiveWebResearchUnavailable("not_configured"),
+    };
+  }
+
+  const result = await researcher.research({ query });
+  if (result.status === "unavailable") {
+    return {
+      available: false,
+      status: "unavailable",
+      answer: "",
+      sources: [],
+      searchesUsed: result.searchesUsed,
+      message: formatLiveWebResearchUnavailable(result.failureCode),
+    };
+  }
+
+  return {
+    available: true,
+    status: result.status,
+    answer: result.answer,
+    sources: result.sources.slice(0, MAX_SOURCES_RETURNED),
+    searchesUsed: result.searchesUsed,
+    ...(result.status === "no_results"
+      ? { message: "The search returned no usable results. Say so; do not answer from older knowledge." }
+      : {}),
+  };
 }
 
 export function registerWebResearch(registry: ToolRegistry): void {
   registry.register({
     name: "web_research",
-    description: "Search the web for a query and return a 3-line summary plus top 3 source URLs.",
+    description:
+      "Search the live web and return a short answer with source titles and URLs. Use this for news, weather, prices, scores, recent events, or any explicit request to search. Call it immediately — never ask the user for permission first. If it reports available=false, tell the user live search is unavailable and do not answer from older knowledge.",
     inputSchema: z.object({
       query: z.string().min(2),
     }),
-    handler: async (input: { query: string }, ctx: ToolContext) => {
-      const results = await ctx.deps.webSearch.search(input.query);
-      const summary = await summarizeResults({ query: input.query, results, llm: ctx.deps.llm });
-      return {
-        summary,
-        sources: results.slice(0, 3).map((r) => ({ title: r.title, url: r.url })),
-      };
-    },
+    handler: async (input: { query: string }, ctx: ToolContext) => runWebResearch(input.query, ctx),
   });
 }

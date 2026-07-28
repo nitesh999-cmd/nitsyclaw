@@ -381,6 +381,12 @@ WhatsApp @lid self-chat events can arrive with no serialized message id. The rou
 - *Added:* 2026-07-28
 - *Extends:* R65 (@lid self-chat acceptance)
 
+### R67 — Live web research runs in the asked-for turn, through a minimal-query server search, or says it cannot (extends R59)
+An explicit ask for current information — news, headlines, weather, prices, rates, scores, recent events, or "search the web" — is itself the instruction to search. NitsyClaw must search in that same turn and must never reply with a training-cutoff disclaimer or "would you like me to search?". Live search is Anthropic's `web_search_20250305` server tool reached through the existing `ANTHROPIC_API_KEY`, issued as its own bounded request carrying only the search query (never cross-surface history, per R59) with an explicit `max_uses` cap so search charges stay predictable. The server tool must not be appended to `LlmClient.toolStep`: that loop re-serialises turns as plain strings and cannot carry the `encrypted_content` the API requires, so search context would be silently lost. Search results are untrusted third-party text and are fenced as reference data before reaching the model. Only model prose plus source title/URL pairs may leave the search layer — `encrypted_content`, `encrypted_index`, `tool_use_id`, request ids, and raw payloads must never reach logs, storage, or WhatsApp. When search is disabled, unsupported, rate limited, or failing, the bot returns exactly one honest unavailable message and answers nothing from stale model knowledge; no surface may print a placeholder search result that reads like real data. Web research state is reported as a non-secret health signal, and the nightly report may not claim `ready` while it is unavailable.
+- *Source:* Live defect 2026-07-28 ("today's world news" answered with a 2024 cutoff disclaimer and a confirmation question); `packages/shared/src/search/live-web-research.ts`, `packages/shared/src/search/anthropic-web-research.ts`, `apps/bot/src/router.ts`, `apps/bot/src/nightly-health-report.ts`
+- *Added:* 2026-07-28
+- *Extends:* R59 (private history must not be sent to external web search), R64 (health signals must be counted and surfaced)
+
 ---
 
 ## Fixes log
@@ -444,6 +450,7 @@ WhatsApp @lid self-chat events can arrive with no serialized message id. The rou
 | 2026-07-05 | Outlook calendar write/read paths corrupted event times by the local timezone offset | R63 | `formatZonedNaiveIso` (write) + `parseGraphUtcDateTime` (read) replace unsafe ISO string surgery |
 | 2026-07-05 | Dead ntfy/toast/mail notify pipeline could fail silently indefinitely with no counter or alert | R64 | Per-channel result tracking + `notify-channels` heartbeat surfaced in nightly WhatsApp health report |
 | 2026-07-28 | Every id-less WhatsApp message replayed one stale clarification receipt, so clear requests were answered as ambiguous | R66 | Dedupe key and `sourceExternalId` written only for real message ids; in-memory non-identifying replay key keeps duplicate protection |
+| 2026-07-28 | Explicit ask for today's world news answered with a 2024 training-cutoff disclaimer and "would you like me to search?"; the only search path was a server tool injected into a loop that cannot carry `encrypted_content`, and `stubWebSearch` printed a fake "set SERPER_API_KEY" row as data | R67 | Anthropic `web_search_20250305` moved into its own bounded, query-only request behind `deps.liveResearch`; explicit live-info asks search before the agent loop in the same turn; cutoff/permission prompt language removed; stub search deleted; non-secret web research health added to the nightly report |
 | 2026-07-28 | Genuine owner "Message Yourself" messages dropped because WhatsApp represents the recipient as `@lid` with an empty chat id and `chatIsMe=false` | R65 | LID→phone resolution via `getContactLidAndPhone` behind a bounded TTL cache, accept only on exact owner match, fail closed otherwise, plus a `whatsapp-inbound` health signal the nightly report must respect |
 
 ---

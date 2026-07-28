@@ -7,7 +7,7 @@ import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent, sendMailRich } from "./microsoft-graph.js";
 import { logBotError } from "./safe-log.js";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { createWebResearch, type WebResearchWiring } from "@nitsyclaw/shared/search";
 import { logAudit } from "@nitsyclaw/shared/db";
 import {
   OllamaProvider,
@@ -24,7 +24,6 @@ import type {
   ImageAnalyzer,
   LlmClient,
   Transcriber,
-  WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import { hashPhone } from "@nitsyclaw/shared/utils";
 
@@ -104,6 +103,17 @@ export const realEmailSender: EmailSender = {
   },
 };
 
+/**
+ * Collapse the API's stop reasons onto the three the agent loop understands.
+ * Anything that is not a tool call or a length cut-off ends the turn, so a new
+ * stop reason can never be mistaken for "tool_use" and re-enter the loop.
+ */
+export function normalizeStopReason(stopReason: string | null | undefined): "end_turn" | "tool_use" | "max_tokens" {
+  if (stopReason === "tool_use") return "tool_use";
+  if (stopReason === "max_tokens") return "max_tokens";
+  return "end_turn";
+}
+
 export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
   const client = new Anthropic({ apiKey });
   return {
@@ -121,19 +131,16 @@ export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
       return { text };
     },
     async toolStep({ system, messages, tools }) {
-      // Append Anthropic server-side web_search so the model can fetch current
-      // info without us running our own search infra. Free local registry tools
-      // continue to be dispatched in our agent loop; web_search runs server-side
-      // and its results come back inline as part of the assistant message.
-      const allTools = [
-        ...(tools as Anthropic.Tool[]),
-        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-      ] as Anthropic.Tool[];
+      // Client tools only. Live web search is NOT injected here: this loop feeds
+      // tool results back as plain strings, which cannot carry the
+      // `encrypted_content` the API requires when a conversation contains server
+      // search results. Web search runs in its own bounded request behind the
+      // `web_research` client tool instead (deps.liveResearch).
       const resp = await client.messages.create({
         model,
         system,
         max_tokens: 1024,
-        tools: allTools,
+        tools: tools as Anthropic.Tool[],
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
       });
       const toolCalls = resp.content
@@ -147,7 +154,7 @@ export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
         .map((b) => (b as { type: "text"; text: string }).text)
         .join("");
       return {
-        stopReason: (resp.stop_reason ?? "end_turn") as "end_turn" | "tool_use" | "max_tokens",
+        stopReason: normalizeStopReason(resp.stop_reason),
         toolCalls,
         text,
       };
@@ -238,17 +245,23 @@ export function makeAnthropicImageAnalyzer(apiKey: string, model: string): Image
   };
 }
 
-export const stubWebSearch: WebSearcher = {
-  async search(query: string) {
-    return [
-      {
-        title: "Web search not configured - query: " + query,
-        url: "https://example.com",
-        snippet: "Set SERPER_API_KEY in .env.local to enable real web search.",
-      },
-    ];
-  },
-};
+/**
+ * Live web research wiring.
+ *
+ * Anthropic's server-side web search is the primary (and only new) backend — it
+ * reuses ANTHROPIC_API_KEY, so no extra search vendor or key is involved. A
+ * pre-existing SERPER_API_KEY still works as a fallback for installs that have
+ * one. With neither, research reports itself unavailable instead of guessing.
+ */
+export function buildWebResearch(env: BotConfigEnv): WebResearchWiring {
+  return createWebResearch({
+    anthropicApiKey: env.ANTHROPIC_API_KEY,
+    anthropicModel: env.ANTHROPIC_MODEL,
+    enabled: env.ENABLE_WEB_RESEARCH,
+    maxUses: env.WEB_SEARCH_MAX_USES,
+    serperApiKey: env.SERPER_API_KEY,
+  });
+}
 
 
 export const realCalendar: CalendarClient = {
@@ -372,6 +385,7 @@ export interface BotConfigEnv {
   TRANSCRIPTION_MODEL: string;
   SERPER_API_KEY?: string;
   ENABLE_WEB_RESEARCH?: boolean;
+  WEB_SEARCH_MAX_USES?: number;
   TIMEZONE: string;
   HOME_CITY?: string;
   HOME_REGION?: string;
@@ -455,18 +469,14 @@ export function buildAgentDeps(args: {
           throw new Error("Receipt image analysis needs ANTHROPIC_API_KEY; local image analysis is not configured.");
         },
       };
-  const webSearch =
-    args.env.ENABLE_WEB_RESEARCH === false
-      ? noopWebSearch
-      : args.env.SERPER_API_KEY
-        ? makeSerperSearch(args.env.SERPER_API_KEY)
-        : stubWebSearch;
+  const { researcher, webSearch } = buildWebResearch(args.env);
   return {
     db: args.db,
     whatsapp: args.whatsapp,
     llm,
     transcriber,
     webSearch,
+    liveResearch: researcher,
     calendar: realCalendar,
     aggregator: {
       fetchAllEventsToday,

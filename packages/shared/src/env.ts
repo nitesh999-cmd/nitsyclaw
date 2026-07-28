@@ -51,6 +51,9 @@ const envSchema = z.object({
   DAILY_LLM_BUDGET_USD: z.coerce.number().default(5),
   ENABLE_HEARTBEAT: envBoolean.default(true),
   ENABLE_WEB_RESEARCH: envBoolean.default(true),
+  // Hard cap on Anthropic server-side searches per research call, so search
+  // charges stay bounded. Raise deliberately — each search is billed.
+  WEB_SEARCH_MAX_USES: z.coerce.number().int().min(1).max(10).default(5),
   QUIET_HOURS_START: z.string().default("22:00"),
   QUIET_HOURS_END: z.string().default("07:00"),
 });

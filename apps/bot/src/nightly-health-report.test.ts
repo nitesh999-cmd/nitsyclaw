@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { makeAgentDeps } from "@nitsyclaw/shared/../test/helpers.js";
+import { makeAgentDeps, makeFakeLiveResearcher } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
-import { buildNightlyWhatsAppHealthReport, sendNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
+import {
+  buildNightlyWhatsAppHealthReport,
+  formatWebResearchHealthLine,
+  sendNightlyWhatsAppHealthReport,
+} from "./nightly-health-report.js";
 
 describe("nightly WhatsApp health report", () => {
   it("builds a ready report from fresh heartbeats without exposing provider claims", async () => {
@@ -118,7 +122,62 @@ describe("nightly WhatsApp health report", () => {
     expect(report.status).toBe("ready");
     expect(report.body).toContain("Inbound routing: ok");
   });
+
+  it("reports the web research signal without exposing credentials or env values", async () => {
+    const now = new Date("2026-05-17T10:50:00Z");
+    const deps = makeAgentDeps({
+      whatsapp: new MockWhatsAppClient(),
+      now: () => now,
+      timezone: "Australia/Melbourne",
+    });
+    pushHealthyHeartbeats(deps.db.__state, now);
+
+    const report = await buildNightlyWhatsAppHealthReport(deps);
+
+    expect(report.status).toBe("ready");
+    expect(report.body).toContain("Web research: operational (anthropic-web-search, max 5 searches/request)");
+    expect(report.body).not.toMatch(/ANTHROPIC_API_KEY|sk-ant|SERPER/i);
+  });
+
+  it("cannot claim ready while explicit web research is unavailable", async () => {
+    const now = new Date("2026-05-17T10:50:00Z");
+    const deps = makeAgentDeps({
+      whatsapp: new MockWhatsAppClient(),
+      now: () => now,
+      timezone: "Australia/Melbourne",
+      liveResearch: makeFakeLiveResearcher({
+        status: "unavailable",
+        answer: "",
+        sources: [],
+        failureCode: "provider_disabled",
+      }),
+    });
+    pushHealthyHeartbeats(deps.db.__state, now);
+
+    const report = await buildNightlyWhatsAppHealthReport(deps);
+
+    expect(report.status).toBe("needs_attention");
+    expect(report.body).toContain("Web research: unavailable");
+    expect(report.body).toContain("last failure: provider_disabled");
+  });
+
+  it("says web research is not reported when no researcher is wired", () => {
+    expect(formatWebResearchHealthLine({})).toEqual({
+      line: "Web research: not reported",
+      unavailable: false,
+    });
+  });
 });
+
+function pushHealthyHeartbeats(state: { system_heartbeats: unknown[] }, now: Date): void {
+  state.system_heartbeats.push(
+    heartbeat("bot-runtime", "ok", now, { commitShort: "abc1234" }),
+    heartbeat("bot-scheduler", "ok", now),
+    heartbeat("whatsapp-client", "ok", now),
+    heartbeat("whatsapp-send", "ok", now),
+    heartbeat("whatsapp-loop-guard", "ok", now),
+  );
+}
 
 function heartbeat(
   source: string,

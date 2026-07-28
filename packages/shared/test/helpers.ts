@@ -10,6 +10,11 @@ import type {
   Transcriber,
   WebSearcher,
 } from "../src/agent/deps.js";
+import type {
+  LiveWebResearchHealth,
+  LiveWebResearchResult,
+  LiveWebResearcher,
+} from "../src/search/live-web-research.js";
 import type { DB } from "../src/db/client.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 
@@ -310,6 +315,38 @@ export const fakeWebSearch: WebSearcher = {
   },
 };
 
+/** Live-research fake. Defaults to a healthy, cited result. */
+export function makeFakeLiveResearcher(
+  overrides: Partial<LiveWebResearchResult> & { health?: Partial<LiveWebResearchHealth> } = {},
+): LiveWebResearcher {
+  const { health: healthOverride, ...resultOverride } = overrides;
+  const result: LiveWebResearchResult = {
+    status: "ok",
+    answer: "Live answer from search.",
+    sources: [{ title: "Example source", url: "https://example.com/story" }],
+    searchesUsed: 1,
+    ...resultOverride,
+  };
+  return {
+    maxUses: 5,
+    async research() {
+      return result;
+    },
+    health() {
+      return {
+        state: result.status === "unavailable" ? "unavailable" : "operational",
+        provider: "anthropic-web-search",
+        toolVersion: "web_search_20250305",
+        maxUses: 5,
+        ...(result.failureCode ? { lastFailureCode: result.failureCode } : {}),
+        ...healthOverride,
+      };
+    },
+  };
+}
+
+export const fakeLiveResearch: LiveWebResearcher = makeFakeLiveResearcher();
+
 export const fakeCalendar: CalendarClient = {
   async suggestSlots({ window }) {
     return [new Date(window.start.getTime() + 60 * 60 * 1000)];
@@ -346,6 +383,7 @@ export function makeAgentDeps(overrides: Partial<AgentDeps> = {}): AgentDeps {
     llm: fakeLlm,
     transcriber: fakeTranscriber,
     webSearch: fakeWebSearch,
+    liveResearch: fakeLiveResearch,
     calendar: fakeCalendar,
     imageAnalyzer: fakeImageAnalyzer,
     embedder: fakeEmbedder,

@@ -2940,3 +2940,31 @@ Regression tests in `apps/bot/test/router.integration.test.ts`: a clear general 
 Capability gap found while tracing: `SERPER_API_KEY` is not defined in either env file the bot loads, so `buildAgentDeps` wires `stubWebSearch`. Live news/web lookups therefore cannot return real results today even though the system prompt tells the model to use `web_search`. Not fixed here -- it needs an operator decision about a search provider, not a code change.
 
 Verification: `apps/bot/test/router.integration.test.ts` 117 tests pass; `pnpm test` 211 files / 1,107 tests pass; bot typecheck pass; `pnpm lint` 0 errors (6 pre-existing warnings).
+
+### Live web search rebuilt on Anthropic server-side search -- 2026-07-28
+
+Symptom: asked for today's world news and 20 current stories, NitsyClaw replied that its training data ended in 2024, said it *could* use `web_search`, and asked whether it should search. The owner had to answer "Yes please" before anything happened.
+
+Root cause chain:
+
+1. `registerWebResearch` was disabled in `packages/shared/src/features/index.ts`, so the agent loop had **no** search tool of its own.
+2. The only search path was a `web_search_20250305` server tool appended inside `makeAnthropicLlm.toolStep` (`apps/bot/src/adapters.ts`). That injection is structurally unsound for this loop: server search results carry `encrypted_content` that must be echoed back verbatim on later turns, but `runAgent` re-serialises every turn as plain strings, so the search context could never survive a second round. It also violated the spirit of R59 (whole cross-surface history exposed to the search request).
+3. `stopReason` was cast straight from `resp.stop_reason`, so `pause_turn` silently ended the turn with whatever partial text existed.
+4. `deps.webSearch` fell back to `stubWebSearch`, which returned a fabricated row reading "Set SERPER_API_KEY in .env.local" — that string was what the morning brief printed as its weather line.
+
+Fix (branch `fix/anthropic-web-search`):
+
+- `packages/shared/src/search/live-web-research.ts` -- transport-free contract: `LiveWebResearcher`, the response parser, the WhatsApp formatter, the untrusted-fenced prompt block, and the non-secret health shape. The parser reads only text, citation `title`/`url`, and server-tool error codes; `encrypted_content`, `encrypted_index`, and `tool_use_id` are never read, so they cannot reach logs, storage, or WhatsApp.
+- `packages/shared/src/search/anthropic-web-research.ts` -- one research call = one bounded Anthropic request carrying only `web_search_20250305` with `max_uses` (default 5, clamped 1..10), plus up to two `pause_turn` continuations that echo the assistant content back byte-for-byte. Transport errors map to non-secret codes (`provider_disabled`, `unsupported_model`, `rate_limited`, `query_rejected`, `request_failed`); provider messages and request ids stay internal.
+- `packages/shared/src/search/web-research-intent.ts` -- conservative detector for messages that already asked for live information; excludes anything scoped to the owner's own data or to bot internals.
+- Router: on an explicit live-information request the search runs **before** the agent loop in the same turn, and the findings are injected into the system prompt inside an untrusted `[LIVE_WEB_RESEARCH_RESULTS]` fence. The model can still combine them with other tools (travel location, feature-queue status). If research is unavailable the turn ends with one honest message and no stale-knowledge answer.
+- System prompt: the "training cutoff" and "use the web_search tool" lines are gone. It now says call `web_research` immediately, never ask permission, never mention a cutoff, and say plainly when search is unavailable.
+- `web_research` is a normal client tool again, backed by `deps.liveResearch`; only the query string leaves the device, which is what R59 asks for.
+- `stubWebSearch` deleted. With no Anthropic key and no pre-existing Serper key, `webSearch` returns `[]` so the morning brief omits weather instead of printing a placeholder that reads like data.
+- Nightly health: new non-secret `Web research: <state> (anthropic-web-search, max N searches/request)` line. The report cannot say `ready` while web research is unavailable.
+
+SDK/model compatibility, checked rather than assumed: `@anthropic-ai/sdk` 0.95.2 declares `WebSearchTool20250305` and `pause_turn` in `StopReason`; `ANTHROPIC_MODEL` defaults to `claude-sonnet-4-6`. `web_search_20250305` defaults to `allowed_callers: ["direct"]`, so no code-execution provisioning is involved. Newer `web_search_20260209`/`20260318` versions exist but add dynamic filtering and response-inclusion we do not need.
+
+Verification: `pnpm test` 214 files / 1,161 tests pass; `pnpm -r typecheck` pass; `pnpm build` pass; `pnpm lint` 0 errors (6 pre-existing warnings); `pnpm run ci:whatsapp-replies` 132 tests pass; reply snapshots unchanged. `pnpm run security:audit` and `pnpm run security:semgrep` still fail on pre-existing findings (upstream advisories, and 28 `pnpm-workspace.yaml` policy findings) untouched by this change.
+
+Still open: web search must be enabled for the Claude account in the Console, otherwise every request returns a 400 and the bot reports `provider_disabled`. Nothing here can prove that from code.

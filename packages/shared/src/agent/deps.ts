@@ -1,4 +1,5 @@
 import type { DB } from "../db/client.js";
+import type { LiveWebResearcher } from "../search/live-web-research.js";
 import type { WhatsAppClient } from "../whatsapp/client.js";
 
 /**
@@ -11,6 +12,12 @@ export interface AgentDeps {
   llm: LlmClient;
   transcriber: Transcriber;
   webSearch: WebSearcher;
+  /**
+   * Live web research through Anthropic's server-side web search tool.
+   * Optional because some surfaces run without an Anthropic key; when absent the
+   * bot must say so rather than answer current-information questions from memory.
+   */
+  liveResearch?: LiveWebResearcher;
   calendar: CalendarClient;
   aggregator?: AggregatorClient;
   emailDraft?: EmailDraftClient;
