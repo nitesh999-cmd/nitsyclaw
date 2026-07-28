@@ -44,4 +44,9 @@ export {
   isSameResearchNeed,
   type TurnScopedResearcher,
 } from "./turn-budget.js";
+export {
+  applyVerifiedSources,
+  createVerifiedSourceCollector,
+  type VerifiedSourceCollector,
+} from "./verified-sources.js";
 export { isExplicitLiveWebResearchRequest } from "./web-research-intent.js";

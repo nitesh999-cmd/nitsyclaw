@@ -1,5 +1,6 @@
 import type { DB } from "../db/client.js";
 import type { LiveWebResearcher } from "../search/live-web-research.js";
+import type { VerifiedSourceCollector } from "../search/verified-sources.js";
 import type { WhatsAppClient } from "../whatsapp/client.js";
 
 /**
@@ -18,6 +19,13 @@ export interface AgentDeps {
    * bot must say so rather than answer current-information questions from memory.
    */
   liveResearch?: LiveWebResearcher;
+  /**
+   * Verified title/URL pairs recorded during THIS turn. Created per turn and
+   * shared by every delivery path, so a reply written after a search — whether
+   * the router pre-searched or the model called web_research itself — shows
+   * only links that came from a parsed search result.
+   */
+  verifiedSources?: VerifiedSourceCollector;
   calendar: CalendarClient;
   aggregator?: AggregatorClient;
   emailDraft?: EmailDraftClient;

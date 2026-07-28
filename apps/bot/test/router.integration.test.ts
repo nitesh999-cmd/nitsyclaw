@@ -17,6 +17,9 @@ import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 import { generateKey, hashPhone } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
+// makeAgentDeps' fake live research returns exactly one verified pair.
+const ACK_WITH_SOURCES = ["ack", "", "Sources:", "1. Example source", "https://example.com/story"].join("\n");
+
 
 describe("Router (integration)", () => {
   let wa: MockWhatsAppClient;
@@ -587,6 +590,145 @@ describe("Router (integration)", () => {
       expect(wa.sent.at(-1)!.body).not.toContain("Sources:");
     });
 
+    /** Fake model that walks a scripted sequence of tool calls, then answers. */
+    function scriptedLlm(steps: Array<{ name: string; input: Record<string, unknown> }>, finalText = "Done.") {
+      let round = 0;
+      return {
+        async complete() { return { text: "ok" }; },
+        async toolStep() {
+          const step = steps[round++];
+          if (!step) return { stopReason: "end_turn" as const, toolCalls: [], text: finalText };
+          return {
+            stopReason: "tool_use" as const,
+            toolCalls: [{ id: `c${round}`, name: step.name, input: step.input }],
+            text: "",
+          };
+        },
+      };
+    }
+
+    it("rewrites a model-initiated research reply, even though reply_to_user delivers it", async () => {
+      // "Yes please." is not an explicit live-research request, so no pre-search
+      // runs and reply_to_user stays available — the previously open gap.
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Findings.",
+        sources: [
+          { title: "Reuters: World", url: "https://reuters.example.com/world" },
+          { title: "ABC News — AU", url: "https://abc.example.net/au" },
+        ],
+        searchesUsed: 1,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: scriptedLlm([
+          { name: "web_research", input: { query: "world news today" } },
+          {
+            name: "reply_to_user",
+            // Crossed label and a fabricated link.
+            input: { text: "1. Talks resumed — ABC News (https://reuters.example.com/world)\n2. Invented https://made-up.example.com/z" },
+          },
+        ]),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-implicit", from: OWNER, body: "Yes please.", timestamp: new Date(), hasMedia: false });
+
+      expect(research).toHaveBeenCalledTimes(1);
+      const reply = wa.sent.at(-1)!.body;
+      const lines = reply.split("\n");
+      const start = lines.indexOf("Sources:") + 1;
+      expect(lines.slice(start)).toEqual([
+        "1. Reuters: World",
+        "https://reuters.example.com/world",
+        "2. ABC News — AU",
+        "https://abc.example.net/au",
+      ]);
+      expect(reply).not.toContain("made-up.example.com");
+      expect(reply.match(/https:\/\//g)).toHaveLength(2);
+    });
+
+    it("leaves a reply_to_user sent before any research byte-identical", async () => {
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: scriptedLlm([
+          { name: "reply_to_user", input: { text: "Docs are at https://example.com/guide" } },
+        ]),
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-before", from: OWNER, body: "Yes please.", timestamp: new Date(), hasMedia: false });
+
+      expect(wa.sent.at(-1)!.body).toBe("Docs are at https://example.com/guide");
+      expect(wa.sent.some((m) => m.body.includes("Sources:"))).toBe(false);
+    });
+
+    it("does not append sources or strip a URL when research failed", async () => {
+      const research = vi.fn(async () => ({
+        status: "unavailable" as const,
+        answer: "",
+        sources: [],
+        searchesUsed: 0,
+        failureCode: "rate_limited" as const,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: scriptedLlm([
+          { name: "web_research", input: { query: "world news today" } },
+          { name: "reply_to_user", input: { text: "Search failed. Docs are at https://example.com/guide" } },
+        ]),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-failed", from: OWNER, body: "Yes please.", timestamp: new Date(), hasMedia: false });
+
+      expect(wa.sent.at(-1)!.body).toBe("Search failed. Docs are at https://example.com/guide");
+      expect(wa.sent.some((m) => m.body.includes("Sources:"))).toBe(false);
+    });
+
+    it("preserves order and deduplicates across several research calls in one turn", async () => {
+      const pages = [
+        [{ title: "Reuters", url: "https://reuters.example.com/1" }],
+        [
+          { title: "Later label for Reuters", url: "https://reuters.example.com/1" },
+          { title: "Guardian", url: "https://guardian.example.org/2" },
+        ],
+      ];
+      let call = 0;
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Findings.",
+        sources: pages[Math.min(call++, pages.length - 1)]!,
+        searchesUsed: 1,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: scriptedLlm(
+          [
+            { name: "web_research", input: { query: "world news headlines" } },
+            { name: "web_research", input: { query: "melbourne weather forecast tomorrow" } },
+          ],
+          "Here is the summary.",
+        ),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-multi", from: OWNER, body: "Yes please.", timestamp: new Date(), hasMedia: false });
+
+      expect(research).toHaveBeenCalledTimes(2);
+      const lines = wa.sent.at(-1)!.body.split("\n");
+      const start = lines.indexOf("Sources:") + 1;
+      expect(lines.slice(start)).toEqual([
+        "1. Reuters",
+        "https://reuters.example.com/1",
+        "2. Guardian",
+        "https://guardian.example.org/2",
+      ]);
+    });
+
     it("does not divert requests scoped to the owner's own data", async () => {
       const research = vi.fn();
       deps = makeAgentDeps({
@@ -852,7 +994,7 @@ describe("Router (integration)", () => {
       expiresHint: "tomorrow",
     });
     // Live-research replies carry the appended verified source list.
-    expect(wa.sent.some((m) => m.body.startsWith("ack"))).toBe(true);
+    expect(wa.sent.some((m) => m.body === ACK_WITH_SOURCES)).toBe(true);
     expect(wa.sent.some((m) => m.body.startsWith("Location updated:"))).toBe(false);
   });
 
@@ -2394,7 +2536,7 @@ describe("Router (integration)", () => {
     });
     expect(wa.sent.filter((message) => message.body.includes("Saved"))).toHaveLength(0);
     expect(wa.sent.filter((message) => message.body === "Working on it.")).toHaveLength(0);
-    expect(wa.sent.filter((message) => message.body.startsWith("ack"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
   });
 
   it("strips old Saved prefix when replaying an existing approval gate", async () => {
@@ -2462,7 +2604,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.map((message) => message.body)).not.toContain(
       "Who or what do you mean, and what should I do?",
     );
-    expect(wa.sent.filter((message) => message.body.startsWith("ack"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body === ACK_WITH_SOURCES)).toHaveLength(1);
     const created = state.command_jobs.filter((job) => job.id !== "stale-clarification-job");
     expect(created).toHaveLength(1);
     expect(created[0].dedupeKey ?? null).toBeNull();
@@ -2501,7 +2643,7 @@ describe("Router (integration)", () => {
 
     const state = getFakeDbState(deps.db);
     expect(state.command_jobs).toHaveLength(1);
-    expect(wa.sent.filter((message) => message.body.startsWith("ack"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body === ACK_WITH_SOURCES)).toHaveLength(1);
   });
 
   it("ignores replayed WhatsApp events after router restart", async () => {

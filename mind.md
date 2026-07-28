@@ -3053,3 +3053,19 @@ Gating verified, not assumed: `applyVerifiedSources` returns its input untouched
 Five pre-existing fixtures broke, and that was the change doing its job: each used `fakeLlmWithToolCall("reply_to_user", ...)` with a weather or news body -- live-research turns whose delivery mechanism was an assumption, not the behaviour under test (feature-queue append, travel-context save, id-less routing, duplicate execution, voice transcription). They now use a new `fakeLlmWithFinalText` helper, which is what the model actually does when the tool is absent. Three exact-body `=== "ack"` assertions became `startsWith("ack")` because a live-research reply now carries the appended verified source list.
 
 Verification: full `pnpm test` 219 files / 1,243 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 812fb96.
+
+### Turn-scoped verified sources close the model-initiated delivery gap -- 2026-07-29
+
+4e7765f withheld `reply_to_user` on *explicit* live-research turns, but a turn that reached `web_research` on the model's own initiative -- an implicit follow-up such as "Yes please." -- still had the tool available, so its reply bypassed router post-processing entirely. Real path, and the one most likely to carry fabricated or crossed links.
+
+Fix: `createVerifiedSourceCollector()` -- one instance per turn, created in the router and passed through `AgentDeps.verifiedSources`. No module-level state, so concurrent turns cannot see each other's pairs. It dedupes by URL and keeps the first title seen for a URL, so a later, vaguer label cannot displace one already shown.
+
+Both producers feed it: the router seeds it from the pre-search, and `runWebResearch` records on any result passing `hasUsableFindings`. Both consumers read it: `reply_to_user` applies `applyVerifiedSources` immediately before `whatsapp.send` (after the language rewrite, so appended URLs are never re-worded), and the router's `finalText` path uses the same collector. `applyVerifiedSources` moved to shared so one implementation serves both.
+
+Gating is structural: with an empty collector the function returns its input by identity, so ordinary turns and turns following failed or empty research stay byte-identical -- including deliberate answers containing a specific URL.
+
+Router persistence now reproduces what `reply_to_user` actually delivered rather than the model's raw input, so cross-surface history matches the chat. The delivered body is deliberately NOT added to the tool's audit output -- that would put a message body into `audit_log`.
+
+Existing live-research fixtures were tightened from `startsWith("ack")` to exact equality against `ACK_WITH_SOURCES`, so they now assert the precise appended pair rather than just a prefix. The duplicate-event fixture, which is not a live-research turn, asserts exact `"ack"` and therefore proves ordinary replies are untouched.
+
+Verification: full `pnpm test` 220 files / 1,256 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 4e7765f.

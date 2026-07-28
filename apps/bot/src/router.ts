@@ -167,16 +167,16 @@ import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
 import {
+  applyVerifiedSources,
   buildLiveResearchPromptBlock,
   createTurnScopedResearcher,
+  createVerifiedSourceCollector,
   formatLiveWebResearchUnavailable,
   formatLocalDateInstruction,
-  formatSourceList,
   hasUsableFindings,
   isExplicitLiveWebResearchRequest,
   normalizeFailureCode,
   resolveLocalDateContext,
-  stripInlineUrls,
   type LiveWebResearchFailureCode,
   type LiveWebResearchResult,
   type LiveWebResearchSource,
@@ -449,11 +449,7 @@ export class Router {
    * live proof showed.
    */
   private applyVerifiedSources(text: string, sources: LiveWebResearchSource[]): string {
-    if (sources.length === 0) return text;
-    const body = stripInlineUrls(text);
-    const lines = formatSourceList(sources);
-    if (lines.length === 0) return body;
-    return [body, "", "Sources:", ...lines].join("\n").trim();
+    return applyVerifiedSources(text, sources);
   }
 
   /**
@@ -3113,16 +3109,19 @@ export class Router {
       const turnResearcher = this.deps.liveResearch
         ? createTurnScopedResearcher(this.deps.liveResearch)
         : undefined;
+      // One collector per turn, shared by the pre-search, the web_research tool,
+      // and both delivery paths. Never module-level, so turns stay isolated.
+      const turnSources = createVerifiedSourceCollector();
       const agentDeps = {
         ...this.deps,
         liveResearch: turnResearcher,
+        verifiedSources: turnSources,
         profile: promptProfile,
         timezone: promptProfile?.timezone ?? this.deps.timezone,
       };
       // An explicit ask for live information searches in this same turn, before
       // the model gets a chance to reply "would you like me to search?".
       let liveResearchBlock: string | undefined;
-      let verifiedSources: LiveWebResearchSource[] = [];
       if (isExplicitLiveWebResearchRequest(effectiveText)) {
         const outcome = await this.runLiveResearchForTurn(effectiveText, turnResearcher);
         if (outcome.kind === "unavailable") {
@@ -3131,7 +3130,7 @@ export class Router {
           return;
         }
         liveResearchBlock = outcome.block;
-        verifiedSources = outcome.sources;
+        turnSources.record(outcome.sources);
       }
       // reply_to_user sends from inside its own handler, so a reply delivered
       // that way can never be post-processed. Withholding it for live-research
@@ -3153,8 +3152,13 @@ export class Router {
       const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);
       let deliveredText = "";
       if (replyToUserCall) {
-        // The tool already sent via WhatsApp; persist the reply for cross-surface history.
-        const text = sanitizeUserFacingReply((replyToUserCall.input as { text?: string })?.text ?? "");
+        // The tool already sent via WhatsApp; persist what it actually delivered.
+        // It applies the same turn-scoped verified sources before sending, so
+        // reproducing that here keeps history and the chat in step.
+        const text = this.applyVerifiedSources(
+          sanitizeUserFacingReply((replyToUserCall.input as { text?: string })?.text ?? ""),
+          turnSources.list(),
+        );
         deliveredText = text;
         if (text.trim()) {
           try {
@@ -3173,7 +3177,7 @@ export class Router {
       } else if (result.finalText.trim()) {
         // Live-research answers are delivered here, so this is where the verified
         // title/URL pairs replace whatever links the model wrote.
-        const finalText = this.applyVerifiedSources(result.finalText, verifiedSources);
+        const finalText = this.applyVerifiedSources(result.finalText, turnSources.list());
         deliveredText = finalText;
         await this.sendAndPersist(finalText);
       }

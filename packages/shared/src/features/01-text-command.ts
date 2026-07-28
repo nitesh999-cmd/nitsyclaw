@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { detectIntent, type Intent } from "../utils/parse.js";
 import { sanitizeUserFacingReply } from "../utils/reply-safety.js";
+import { applyVerifiedSources } from "../search/verified-sources.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
 export interface TextCommandResult {
@@ -37,9 +38,14 @@ export function registerTextCommand(registry: ToolRegistry): void {
         return { messageId: "suppressed-empty-receipt" };
       }
       const finalBody = await enforceReplyLanguage(body, ctx);
+      // If a search succeeded earlier in this turn, the model's own links are
+      // either duplicates or mispairings. Applied last, after any language
+      // rewrite, so appended URLs are never re-worded. With no verified sources
+      // recorded this returns the text unchanged.
+      const delivered = applyVerifiedSources(finalBody, ctx.deps.verifiedSources?.list() ?? []);
       const out = await ctx.deps.whatsapp.send({
         to: ctx.userPhone,
-        body: finalBody,
+        body: delivered,
       });
       return { messageId: out.id };
     },
