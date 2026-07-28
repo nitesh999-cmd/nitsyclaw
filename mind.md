@@ -3021,3 +3021,23 @@ Deliberately NOT done, per scope: no write retries, no degraded inbound processi
 One pre-existing test was corrected rather than worked around: `dashboard-safe-errors.test.ts` forbade the literal `set(` in `client.ts`, which a Map-keyed cache trips for no security reason. Replaced with assertions of the actual property -- the connection string is never logged (`console.*`) and never interpolated.
 
 Verification: full `pnpm test` 217 files / 1,214 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 96fadbd (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile or migration change).
+
+### Response quality: atomic source pairs + local "today" -- 2026-07-29
+
+Two defects proven by the passing live proof (12/13). The pipeline worked; the presentation did not.
+
+**1. Source labels bound to the wrong domains.** Parsing was already correct -- `collectBtocks` adds `{title, url}` together and dedupes by URL -- but every layer below rendered pairs as a single line, `- Title: url`. A title carrying its own punctuation ("Reuters: World News", "ABC News - AU") makes that shape ambiguous, and the local model, told to "include these titles and URLs", re-emitted them mispaired.
+
+Fix, one renderer used everywhere (`formatSourceList`): each pair occupies two lines -- numbered title, then its own URL -- so a title can never be read as part of a neighbouring link. `sanitizeSourceTitle` flattens newlines/tabs and falls back to the source's *own* hostname when a title is missing. `cleanTitle` in the parser now delegates to it, so parsing, caching, prompt injection and WhatsApp formatting share one implementation.
+
+That alone still trusts the model. The guarantee comes from the router: `applyVerifiedSources` strips every http(s) URL the model wrote (`stripInlineUrls`) and appends the verified pairs verbatim. The prompt block now says explicitly "Do NOT write URLs or your own source list". Result: every displayed link originates from a parsed search result, beside its own title.
+
+**2. "Today" resolved from UTC.** At 02:05 on 29 July AEST (16:05Z on the 28th) the reply said "today, July 28, 2026". Nothing in the prompt or the search instructions told the model what the owner's local day was.
+
+Fix: `resolveLocalDateContext(now, timezone)` (new `local-date.ts`) formats the owner's calendar date via `Intl` with the configured zone -- so it follows AEST/AEDT rather than a fixed offset -- and `formatLocalDateInstruction` pins it: "Treat today ... as that local date, never the UTC date". Passed into the pre-search call, the injected prompt block, and the `web_research` client tool. An unusable timezone falls back to `Australia/Melbourne`, never to UTC, because UTC is the exact failure being prevented.
+
+Privacy routing precedence deliberately unchanged: sensitive history still keeps composition local while the search itself runs in Anthropic.
+
+Known limitation: the verified-source append covers the `finalText` delivery path, which is what live-research turns use. A reply sent through the `reply_to_user` tool is dispatched inside the tool before the router can post-process it, so that path keeps model-written links.
+
+Verification: full `pnpm test` 218 files / 1,233 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 9c08b64.

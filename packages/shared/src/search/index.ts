@@ -5,8 +5,11 @@ export {
   buildLiveResearchPromptBlock,
   formatLiveWebResearchForWhatsApp,
   formatLiveWebResearchUnavailable,
+  formatSourceList,
   hasUsableFindings,
   normalizeFailureCode,
+  sanitizeSourceTitle,
+  stripInlineUrls,
   makeUnavailableResearcher,
   mapSearchErrorCode,
   parseWebSearchResponse,
@@ -31,6 +34,11 @@ export {
   type WebResearchConfig,
   type WebResearchWiring,
 } from "./create-web-research.js";
+export {
+  formatLocalDateInstruction,
+  resolveLocalDateContext,
+  type LocalDateContext,
+} from "./local-date.js";
 export {
   createTurnScopedResearcher,
   isSameResearchNeed,

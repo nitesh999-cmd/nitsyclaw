@@ -12,6 +12,7 @@ import {
   type LiveWebResearchFailureCode,
   type LiveWebResearchResult,
 } from "../search/live-web-research.js";
+import { formatLocalDateInstruction, resolveLocalDateContext } from "../search/local-date.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 
 export interface WebResearchToolOutput {
@@ -45,7 +46,11 @@ export async function runWebResearch(query: string, ctx: ToolContext): Promise<W
     };
   }
 
-  const result = await researcher.research({ query });
+  // "Today" must mean the owner's local day, not the server's UTC day.
+  const result = await researcher.research({
+    query,
+    instructions: formatLocalDateInstruction(resolveLocalDateContext(ctx.now, ctx.timezone)),
+  });
   if (result.status === "unavailable") {
     const failureCode = normalizeFailureCode(result.failureCode);
     return {

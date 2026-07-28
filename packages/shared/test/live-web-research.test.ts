@@ -3,9 +3,11 @@ import {
   buildLiveResearchPromptBlock,
   formatLiveWebResearchForWhatsApp,
   formatLiveWebResearchUnavailable,
+  formatSourceList,
   hasUsableFindings,
   makeUnavailableResearcher,
   normalizeFailureCode,
+  stripInlineUrls,
   mapSearchErrorCode,
   parseWebSearchResponse,
 } from "../src/search/live-web-research.js";
@@ -182,8 +184,9 @@ describe("formatLiveWebResearchForWhatsApp", () => {
 
     expect(body).toContain("Talks resumed this morning.");
     expect(body).toContain("Sources:");
-    expect(body).toContain("- Example headline: https://news.example.com/story");
-    expect(body).toContain("- Second source: https://other.example.com/2");
+    // Two-line pairs: a title can never be read as part of a neighbouring link.
+    expect(body).toContain("1. Example headline\nhttps://news.example.com/story");
+    expect(body).toContain("2. Second source\nhttps://other.example.com/2");
     expect(body).not.toContain("|");
   });
 
@@ -195,7 +198,9 @@ describe("formatLiveWebResearchForWhatsApp", () => {
       searchesUsed: 2,
     });
 
-    expect(body.split("\n").filter((line) => line.startsWith("- "))).toHaveLength(4);
+    // Four pairs = four numbered titles, each followed by its own URL line.
+    expect(body.split("\n").filter((line) => /^\d+\. /.test(line))).toHaveLength(4);
+    expect(body.split("\n").filter((line) => line.startsWith("https://"))).toHaveLength(4);
   });
 
   it("returns one honest unavailable message and never invents news", () => {
@@ -254,7 +259,8 @@ describe("buildLiveResearchPromptBlock", () => {
     expect(block).toContain("[LIVE_WEB_RESEARCH_RESULTS]");
     expect(block).toContain("Searched: today's world news");
     expect(block).toContain("Talks resumed this morning.");
-    expect(block).toContain("- Reuters: https://reuters.example.com/x");
+    expect(block).toContain("1. Reuters\nhttps://reuters.example.com/x");
+    expect(block).toContain("Do NOT write URLs or your own source list");
     expect(block).toContain("Never ask whether you should search");
     expect(block).toContain("Never mention a training cutoff");
     expect(block).toContain("[/LIVE_WEB_RESEARCH_RESULTS]");
@@ -292,7 +298,153 @@ describe("buildLiveResearchPromptBlock", () => {
       searchesUsed: 3,
     });
 
-    expect(block.split("\n").filter((line) => line.startsWith("- "))).toHaveLength(4);
+    expect(block.split("\n").filter((line) => /^\d+\. S\d/.test(line))).toHaveLength(4);
+    expect(block.split("\n").filter((line) => line.startsWith("https://e.example.com/"))).toHaveLength(4);
+  });
+
+  it("carries the local-date instruction so today is the owner's day", () => {
+    const block = buildLiveResearchPromptBlock(
+      "today's world news",
+      { status: "ok", answer: "Answer.", sources: [], searchesUsed: 1 },
+      { localDateInstruction: "Today's date in the user's timezone (Australia/Melbourne) is Wednesday, 29 July 2026 (2026-07-29)." },
+    );
+
+    expect(block).toContain("2026-07-29");
+    expect(block).toContain("Australia/Melbourne");
+  });
+});
+
+describe("source pairing stays atomic", () => {
+  const PAIRS = [
+    { title: "Reuters: World News", url: "https://reuters.example.com/world" },
+    { title: "ABC News — Australia", url: "https://abc.example.net/au" },
+    { title: "The Guardian | Live", url: "https://guardian.example.org/live" },
+  ];
+
+  /** Reads rendered output back into pairs, the way a reader sees it. */
+  function parseRendered(lines: string[]): Array<{ title: string; url: string }> {
+    const out: Array<{ title: string; url: string }> = [];
+    for (let i = 0; i < lines.length; i += 2) {
+      out.push({ title: lines[i]!.replace(/^\d+\.\s*/, ""), url: lines[i + 1]! });
+    }
+    return out;
+  }
+
+  it("keeps each title on its own line with its own URL, even with punctuation in titles", () => {
+    const rendered = parseRendered(formatSourceList(PAIRS));
+
+    expect(rendered).toEqual(PAIRS);
+    for (const pair of rendered) {
+      expect(pair.url).toMatch(/^https:\/\//);
+      expect(pair.title).not.toMatch(/https?:\/\//);
+    }
+  });
+
+  it("survives reordering — pairs move together, never re-bind", () => {
+    const reordered = [PAIRS[2]!, PAIRS[0]!, PAIRS[1]!];
+
+    const rendered = parseRendered(formatSourceList(reordered));
+
+    expect(rendered).toEqual(reordered);
+    // Each title still sits beside the URL it arrived with.
+    for (const original of PAIRS) {
+      const match = rendered.find((r) => r.url === original.url);
+      expect(match?.title).toBe(original.title);
+    }
+  });
+
+  it("deduplicates repeated sources through parsing without crossing pairs", () => {
+    const result = parseWebSearchResponse({
+      content: [
+        { type: "server_tool_use", name: "web_search", input: {} },
+        {
+          type: "web_search_tool_result",
+          tool_use_id: "a",
+          content: [
+            { type: "web_search_result", title: "Reuters", url: "https://a.example.com/1", encrypted_content: "z" },
+            { type: "web_search_result", title: "Reuters", url: "https://a.example.com/1", encrypted_content: "z" },
+            { type: "web_search_result", title: "ABC", url: "https://b.example.com/2", encrypted_content: "z" },
+          ],
+        },
+        {
+          type: "text",
+          text: "Answer.",
+          citations: [
+            { type: "web_search_result_location", title: "Reuters", url: "https://a.example.com/1", cited_text: "x" },
+            { type: "web_search_result_location", title: "Guardian", url: "https://c.example.com/3", cited_text: "y" },
+          ],
+        },
+      ],
+    });
+
+    expect(result.sources).toEqual([
+      { title: "Reuters", url: "https://a.example.com/1" },
+      { title: "ABC", url: "https://b.example.com/2" },
+      { title: "Guardian", url: "https://c.example.com/3" },
+    ]);
+    expect(parseRendered(formatSourceList(result.sources))).toEqual(result.sources);
+  });
+
+  it("falls back to each source's own hostname when a title is missing", () => {
+    const rendered = parseRendered(
+      formatSourceList([
+        { title: "", url: "https://first.example.com/a" },
+        { title: "   ", url: "https://second.example.net/b" },
+        { title: "Real Title", url: "https://third.example.org/c" },
+      ]),
+    );
+
+    expect(rendered[0]).toEqual({ title: "first.example.com", url: "https://first.example.com/a" });
+    expect(rendered[1]).toEqual({ title: "second.example.net", url: "https://second.example.net/b" });
+    expect(rendered[2]).toEqual({ title: "Real Title", url: "https://third.example.org/c" });
+  });
+
+  it("flattens titles that contain newlines so they cannot split a pair", () => {
+    const rendered = formatSourceList([
+      { title: "Broken\nTitle\r\nAcross Lines", url: "https://x.example.com/1" },
+      { title: "Second", url: "https://y.example.com/2" },
+    ]);
+
+    expect(rendered).toEqual([
+      "1. Broken Title Across Lines",
+      "https://x.example.com/1",
+      "2. Second",
+      "https://y.example.com/2",
+    ]);
+  });
+
+  it("renders the WhatsApp reply with every title beside its own URL", () => {
+    const body = formatLiveWebResearchForWhatsApp({
+      status: "ok",
+      answer: "Five headlines follow.",
+      sources: PAIRS,
+      searchesUsed: 1,
+    });
+
+    const lines = body.split("\n");
+    const start = lines.indexOf("Sources:") + 1;
+    expect(parseRendered(lines.slice(start))).toEqual(PAIRS);
+  });
+});
+
+describe("stripInlineUrls", () => {
+  it("removes model-written links so only verified pairs are displayed", () => {
+    const cleaned = stripInlineUrls(
+      "1. Talks resumed (https://wrong.example.com/x) per Reuters https://other.example.net/y\n2. Second item <https://third.example.org/z>",
+    );
+
+    expect(cleaned).not.toMatch(/https?:\/\//);
+    expect(cleaned).toContain("Talks resumed");
+    expect(cleaned).toContain("per Reuters");
+    expect(cleaned).toContain("Second item");
+  });
+
+  it("leaves prose without links untouched apart from trimming", () => {
+    expect(stripInlineUrls("Plain answer with no links.")).toBe("Plain answer with no links.");
+  });
+
+  it("collapses the whitespace a removed link leaves behind", () => {
+    expect(stripInlineUrls("See https://a.example.com/1 , then stop.")).toBe("See, then stop.");
   });
 });
 

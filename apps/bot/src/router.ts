@@ -170,11 +170,16 @@ import {
   buildLiveResearchPromptBlock,
   createTurnScopedResearcher,
   formatLiveWebResearchUnavailable,
+  formatLocalDateInstruction,
+  formatSourceList,
   hasUsableFindings,
   isExplicitLiveWebResearchRequest,
   normalizeFailureCode,
+  resolveLocalDateContext,
+  stripInlineUrls,
   type LiveWebResearchFailureCode,
   type LiveWebResearchResult,
+  type LiveWebResearchSource,
   type TurnScopedResearcher,
 } from "@nitsyclaw/shared/search";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
@@ -396,15 +401,22 @@ export class Router {
   private async runLiveResearchForTurn(
     query: string,
     researcher: TurnScopedResearcher | undefined,
-  ): Promise<{ kind: "context"; block: string } | { kind: "unavailable"; message: string }> {
+  ): Promise<
+    | { kind: "context"; block: string; sources: LiveWebResearchSource[] }
+    | { kind: "unavailable"; message: string }
+  > {
     if (!researcher) {
       await this.auditLiveResearchPresearch(null, "not_configured", 0, 0);
       return { kind: "unavailable", message: formatLiveWebResearchUnavailable("not_configured") };
     }
+    // "Today" is the owner's local day. Without this the model answers from the
+    // UTC date, which is the previous day for the hours after Melbourne midnight.
+    const localDate = resolveLocalDateContext(this.deps.now(), this.deps.timezone);
+    const localDateInstruction = formatLocalDateInstruction(localDate);
     const started = Date.now();
     let result: LiveWebResearchResult;
     try {
-      result = await researcher.research({ query });
+      result = await researcher.research({ query, instructions: localDateInstruction });
     } catch (error) {
       // The researcher maps its own failures, so reaching here means something
       // unexpected broke. Still no stale-knowledge answer.
@@ -421,7 +433,27 @@ export class Router {
       return { kind: "unavailable", message: formatLiveWebResearchUnavailable(failureCode) };
     }
     await this.auditLiveResearchPresearch(result, null, elapsedMs, researcher.remainingThisTurn());
-    return { kind: "context", block: buildLiveResearchPromptBlock(query, result) };
+    return {
+      kind: "context",
+      block: buildLiveResearchPromptBlock(query, result, { localDateInstruction }),
+      sources: result.sources,
+    };
+  }
+
+  /**
+   * Attach the verified source list to a live-research reply.
+   *
+   * Every URL the model wrote is stripped first: the pairs below come straight
+   * from the search result, so anything the model produced is either a
+   * duplicate or a title bound to the wrong link — which is exactly what the
+   * live proof showed.
+   */
+  private applyVerifiedSources(text: string, sources: LiveWebResearchSource[]): string {
+    if (sources.length === 0) return text;
+    const body = stripInlineUrls(text);
+    const lines = formatSourceList(sources);
+    if (lines.length === 0) return body;
+    return [body, "", "Sources:", ...lines].join("\n").trim();
   }
 
   /**
@@ -3090,6 +3122,7 @@ export class Router {
       // An explicit ask for live information searches in this same turn, before
       // the model gets a chance to reply "would you like me to search?".
       let liveResearchBlock: string | undefined;
+      let verifiedSources: LiveWebResearchSource[] = [];
       if (isExplicitLiveWebResearchRequest(effectiveText)) {
         const outcome = await this.runLiveResearchForTurn(effectiveText, turnResearcher);
         if (outcome.kind === "unavailable") {
@@ -3098,6 +3131,7 @@ export class Router {
           return;
         }
         liveResearchBlock = outcome.block;
+        verifiedSources = outcome.sources;
       }
       const result = await runAgent({
         userPhone: msg.from,
@@ -3131,8 +3165,11 @@ export class Router {
           notifyAll(text, { title: "NitsyClaw replied", priority: "default" }, this.deps.db).catch(() => {});
         }
       } else if (result.finalText.trim()) {
-        deliveredText = result.finalText;
-        await this.sendAndPersist(result.finalText);
+        // Live-research answers are delivered here, so this is where the verified
+        // title/URL pairs replace whatever links the model wrote.
+        const finalText = this.applyVerifiedSources(result.finalText, verifiedSources);
+        deliveredText = finalText;
+        await this.sendAndPersist(finalText);
       }
       if (shouldAppendFeatureQueueStatus) {
         try {
