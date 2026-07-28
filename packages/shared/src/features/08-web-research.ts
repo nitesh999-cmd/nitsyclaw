@@ -8,6 +8,8 @@
 import { z } from "zod";
 import {
   formatLiveWebResearchUnavailable,
+  normalizeFailureCode,
+  type LiveWebResearchFailureCode,
   type LiveWebResearchResult,
 } from "../search/live-web-research.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
@@ -18,6 +20,12 @@ export interface WebResearchToolOutput {
   answer: string;
   sources: Array<{ title: string; url: string }>;
   searchesUsed: number;
+  /**
+   * Sanitized failure category, stored in the audit trail so a failed turn can
+   * be diagnosed later without a live repro. Only known internal codes are ever
+   * recorded; anything else collapses to `request_failed`.
+   */
+  failureCode?: LiveWebResearchFailureCode;
   message?: string;
 }
 
@@ -32,19 +40,22 @@ export async function runWebResearch(query: string, ctx: ToolContext): Promise<W
       answer: "",
       sources: [],
       searchesUsed: 0,
+      failureCode: "not_configured",
       message: formatLiveWebResearchUnavailable("not_configured"),
     };
   }
 
   const result = await researcher.research({ query });
   if (result.status === "unavailable") {
+    const failureCode = normalizeFailureCode(result.failureCode);
     return {
       available: false,
       status: "unavailable",
       answer: "",
       sources: [],
       searchesUsed: result.searchesUsed,
-      message: formatLiveWebResearchUnavailable(result.failureCode),
+      failureCode,
+      message: formatLiveWebResearchUnavailable(failureCode),
     };
   }
 

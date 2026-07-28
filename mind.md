@@ -2983,3 +2983,21 @@ Fix: `packages/shared/src/search/turn-budget.ts` -- `createTurnScopedResearcher(
 Proof: `packages/shared/test/turn-budget.test.ts` (shared allowance, hard total ceiling across 10 calls, local refusal with zero provider requests, failures not charged, per-call clamping) plus three router integration tests -- exactly one provider request for a normal explicit current-news request; total allowance <= 5 when the model also calls `web_research`; a second in-turn search runs on the leftover 3, never a fresh 5.
 
 Verification: full `pnpm test` 215 files / 1,173 tests pass; bot typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged versus 5965717 (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile, or migration change).
+
+### Live-research fix proven by the 23:08 failure -- 2026-07-28
+
+Read-only DB correlation of the failed live proof gave four facts: inbound accepted (commandLen 67), one command job `done` (attempts 0, resultLen 207), one `web_research` audit row with `status=unavailable searchesUsed=2 sourceCount=0`, and **every `model_route` row `route=local`**. The reply was model-composed prose (207 chars matches no unavailable template, max 156), so the local Ollama brain answered a live-news question it had no way to answer.
+
+Four defects, four fixes:
+
+1. **Local brain answered a live turn.** `decideModelRoute` gains `requiresLiveWeb`. When set and cloud is available -> `live_web_research_requires_cloud`; cloud unavailable -> `blocked` with reason `live_web_research_cloud_unavailable` and the honest unavailable message. The branch sits **after** the sensitivity checks, so `sensitive_data_stays_local` still wins -- privacy rules unchanged. `local_only` mode is untouched (owner's explicit choice; pre-search still supplies the findings). `createRoutedLlm` derives the flag via `requiresLiveWebAnswer(system, messages)`, which checks the injected `[LIVE_WEB_RESEARCH_RESULTS]` marker as well as the raw request -- the marker is needed because later loop rounds carry synthetic "Tool results:" turns that would otherwise flip the flag off mid-turn.
+
+2. **Pre-search was invisible.** The router now writes one `web_presearch` audit row per attempt: `status`, `available`, `searchesUsed`, `sourceCount`, `answerLen`, sanitized `failureCode`, `elapsedMs`, `remainingBudget`. No query, answer, sources, URLs, titles, provider text, identifiers, or env values. Without this the previous proof could not be diagnosed without a live repro.
+
+3. **Tool failures lost their reason.** `web_research` output now persists `failureCode`, passed through `normalizeFailureCode` -- a whitelist of the ten known internal categories. Anything else, including raw provider strings that can carry request ids, collapses to `request_failed`.
+
+4. **Redundant provider requests.** The turn-scoped researcher caches the first result with usable findings and serves a repeat ask for the same need from cache: zero searches, zero provider requests. `isSameResearchNeed` compares content tokens (stop-words dropped) at a 0.6 overlap threshold, so a restatement reuses while a genuinely different follow-up falls through to the remaining allowance. Only usable results are cached, so an empty-source answer never suppresses a real search.
+
+Also tightened: pre-search success now requires `hasUsableFindings` -- ok status, non-empty prose, **at least one source**. A zero-source result returns the honest unavailable message immediately instead of reaching the model, so no command result can claim success with `sourceCount: 0`.
+
+Verification: full `pnpm test` 215 files / 1,192 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs fb4df2f (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile, or migration change).

@@ -5,6 +5,8 @@ export {
   buildLiveResearchPromptBlock,
   formatLiveWebResearchForWhatsApp,
   formatLiveWebResearchUnavailable,
+  hasUsableFindings,
+  normalizeFailureCode,
   makeUnavailableResearcher,
   mapSearchErrorCode,
   parseWebSearchResponse,
@@ -29,5 +31,9 @@ export {
   type WebResearchConfig,
   type WebResearchWiring,
 } from "./create-web-research.js";
-export { createTurnScopedResearcher, type TurnScopedResearcher } from "./turn-budget.js";
+export {
+  createTurnScopedResearcher,
+  isSameResearchNeed,
+  type TurnScopedResearcher,
+} from "./turn-budget.js";
 export { isExplicitLiveWebResearchRequest } from "./web-research-intent.js";

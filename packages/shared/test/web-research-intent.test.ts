@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { isExplicitLiveWebResearchRequest } from "../src/search/web-research-intent.js";
 
 describe("isExplicitLiveWebResearchRequest", () => {
+  it("detects the exact sanitized live proof request", () => {
+    expect(
+      isExplicitLiveWebResearchRequest("Give me five verified world news headlines from today with sources."),
+    ).toBe(true);
+  });
+
   it("fires on the live defect: an explicit request for today's news", () => {
     expect(isExplicitLiveWebResearchRequest("give me today's world news")).toBe(true);
     expect(

@@ -1,4 +1,6 @@
 import type { Embedder, LlmClient } from "../agent/deps.js";
+import { formatLiveWebResearchUnavailable } from "../search/live-web-research.js";
+import { isExplicitLiveWebResearchRequest } from "../search/web-research-intent.js";
 import { OllamaProvider, OllamaProviderError } from "./ollama-provider.js";
 import type {
   DataSensitivity,
@@ -83,6 +85,15 @@ export function decideModelRoute(input: ModelRoutingInput): ModelRoutingDecision
 
   if (sensitive && cloudApproved && input.cloudAvailable) {
     return decision("cloud", input, requestClass, complexity, sensitivity, "explicit_full_context_cloud_approval", false, approvalRequired);
+  }
+
+  // Live-information turns must be answered by the cloud model: the local brain
+  // cannot search, so routing one here guarantees a stale or invented answer.
+  // Placed after the sensitivity branches above, so privacy still wins.
+  if (input.requiresLiveWeb) {
+    return input.cloudAvailable
+      ? decision("cloud", input, requestClass, complexity, sensitivity, "live_web_research_requires_cloud", false, approvalRequired)
+      : decision("blocked", input, requestClass, complexity, sensitivity, "live_web_research_cloud_unavailable", false, approvalRequired);
   }
 
   if (input.mode === "best_reasoning") {
@@ -181,6 +192,7 @@ export function createRoutedLlm(options: RoutedLlmOptions): LocalBrainLlm {
     outboundText: string,
     localCall: () => Promise<T>,
     cloudCall: (() => Promise<T>) | undefined,
+    requiresLiveWeb = false,
   ): Promise<T> => {
     const health = await healthState();
     const decision = decideModelRoute({
@@ -193,6 +205,7 @@ export function createRoutedLlm(options: RoutedLlmOptions): LocalBrainLlm {
       requestClass: classifyPaRequest(latestMessage),
       complexity: classifyRequestComplexity(latestMessage),
       sensitivity: classifyDataSensitivity(outboundText),
+      requiresLiveWeb,
     });
     lastDecision = decision;
     const started = Date.now();
@@ -236,7 +249,13 @@ export function createRoutedLlm(options: RoutedLlmOptions): LocalBrainLlm {
     },
     async toolStep(args) {
       const message = latestUserMessage(args.messages);
-      return execute(message, sensitivityText(args), () => localClient.toolStep(args), options.cloud ? () => options.cloud!.toolStep({ ...args, system: cloudSafeSystem(args.system) }) : undefined);
+      return execute(
+        message,
+        sensitivityText(args),
+        () => localClient.toolStep(args),
+        options.cloud ? () => options.cloud!.toolStep({ ...args, system: cloudSafeSystem(args.system) }) : undefined,
+        requiresLiveWebAnswer(args.system, args.messages),
+      );
     },
     getLastRoutingDecision: () => lastDecision,
     getRecentRoutingEvents: () => [...events],
@@ -259,6 +278,21 @@ export function createPrivacyAwareEmbedder(options: {
       return [];
     },
   };
+}
+
+/**
+ * True when this turn has to answer from live web results — either the caller
+ * already injected pre-search findings, or the owner's message is itself an
+ * explicit live-information request. The injected marker is checked as well as
+ * the message because later loop rounds carry synthetic "Tool results:" turns,
+ * which would otherwise make the flag flip off mid-turn.
+ */
+export function requiresLiveWebAnswer(
+  system: string,
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+): boolean {
+  if (system.includes("[LIVE_WEB_RESEARCH_RESULTS]")) return true;
+  return isExplicitLiveWebResearchRequest(latestUserMessage(messages));
 }
 
 function latestUserMessage(messages: Array<{ role: "user" | "assistant"; content: string }>): string {
@@ -307,6 +341,9 @@ function errorCode(error: unknown): string {
 }
 
 function blockedMessage(decision: ModelRoutingDecision): string {
+  if (decision.reason === "live_web_research_cloud_unavailable") {
+    return formatLiveWebResearchUnavailable("not_configured");
+  }
   if (decision.reason.includes("sensitive_data")) {
     return "This request contains private information, and the local brain is unavailable. I did not send it to a cloud model. Start Ollama or explicitly approve cloud escalation.";
   }

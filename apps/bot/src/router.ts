@@ -87,6 +87,7 @@ import {
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
   markReminderFired,
+  logAudit,
   recentExpensesBetween,
   recentMessages,
   rescheduleReminder,
@@ -169,9 +170,12 @@ import {
   buildLiveResearchPromptBlock,
   createTurnScopedResearcher,
   formatLiveWebResearchUnavailable,
+  hasUsableFindings,
   isExplicitLiveWebResearchRequest,
+  normalizeFailureCode,
+  type LiveWebResearchFailureCode,
   type LiveWebResearchResult,
-  type LiveWebResearcher,
+  type TurnScopedResearcher,
 } from "@nitsyclaw/shared/search";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
@@ -391,11 +395,13 @@ export class Router {
    */
   private async runLiveResearchForTurn(
     query: string,
-    researcher: LiveWebResearcher | undefined,
+    researcher: TurnScopedResearcher | undefined,
   ): Promise<{ kind: "context"; block: string } | { kind: "unavailable"; message: string }> {
     if (!researcher) {
+      await this.auditLiveResearchPresearch(null, "not_configured", 0, 0);
       return { kind: "unavailable", message: formatLiveWebResearchUnavailable("not_configured") };
     }
+    const started = Date.now();
     let result: LiveWebResearchResult;
     try {
       result = await researcher.research({ query });
@@ -403,12 +409,53 @@ export class Router {
       // The researcher maps its own failures, so reaching here means something
       // unexpected broke. Still no stale-knowledge answer.
       logBotError("[router] live web research threw", error);
+      await this.auditLiveResearchPresearch(null, "request_failed", Date.now() - started, researcher.remainingThisTurn());
       return { kind: "unavailable", message: formatLiveWebResearchUnavailable("request_failed") };
     }
-    if (result.status === "unavailable") {
-      return { kind: "unavailable", message: formatLiveWebResearchUnavailable(result.failureCode) };
+    const elapsedMs = Date.now() - started;
+    // "Usable" means a search actually ran AND produced prose with at least one
+    // source. An empty-source result must never become a confident answer.
+    if (!hasUsableFindings(result)) {
+      const failureCode = normalizeFailureCode(result.failureCode ?? "no_search_performed");
+      await this.auditLiveResearchPresearch(result, failureCode, elapsedMs, researcher.remainingThisTurn());
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable(failureCode) };
     }
+    await this.auditLiveResearchPresearch(result, null, elapsedMs, researcher.remainingThisTurn());
     return { kind: "context", block: buildLiveResearchPromptBlock(query, result) };
+  }
+
+  /**
+   * One privacy-safe audit event per pre-search attempt. Counts, lengths and a
+   * sanitized failure category only — never the query, answer, sources, URLs,
+   * titles, provider text, identifiers, or environment values.
+   */
+  private async auditLiveResearchPresearch(
+    result: LiveWebResearchResult | null,
+    failureCode: LiveWebResearchFailureCode | null,
+    elapsedMs: number,
+    remainingBudget: number,
+  ): Promise<void> {
+    try {
+      await logAudit(this.deps.db, {
+        actor: "agent",
+        tool: "web_presearch",
+        input: { surface: "whatsapp" },
+        output: {
+          status: result?.status ?? "unavailable",
+          available: failureCode === null,
+          searchesUsed: result?.searchesUsed ?? 0,
+          sourceCount: result?.sources.length ?? 0,
+          answerLen: result?.answer.length ?? 0,
+          failureCode,
+          elapsedMs,
+          remainingBudget,
+        },
+        success: failureCode === null,
+        durationMs: elapsedMs,
+      });
+    } catch (error) {
+      logBotError("[router] presearch audit write failed", error);
+    }
   }
 
   private async sendFeatureQueueStatus(limit: number): Promise<void> {

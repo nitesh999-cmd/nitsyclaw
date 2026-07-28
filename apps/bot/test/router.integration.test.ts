@@ -180,6 +180,8 @@ describe("Router (integration)", () => {
       expect(wa.sent.some((m) => /ceasefire|headline|according to my/i.test(m.body))).toBe(false);
     });
 
+    const PROOF = "Give me five verified world news headlines from today with sources.";
+
     it("issues exactly one provider request for a normal explicit current-news request", async () => {
       const research = vi.fn(async () => ({
         status: "ok" as const,
@@ -194,16 +196,134 @@ describe("Router (integration)", () => {
       });
       router = new Router(deps, OWNER);
 
-      await router.handle({
-        id: "x-one-request",
-        from: OWNER,
-        body: "Give me five verified world news headlines from today with sources.",
-        timestamp: new Date(),
-        hasMedia: false,
-      });
+      await router.handle({ id: "x-one-request", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
 
       expect(research).toHaveBeenCalledTimes(1);
       expect(research.mock.calls[0]![0].maxUses).toBe(5);
+    });
+
+    it("reuses the pre-search result when the model asks again, spending no extra searches", async () => {
+      const research = vi.fn(async (args: { query: string; maxUses?: number }) => ({
+        status: "ok" as const,
+        answer: `Answer for ${args.query}.`,
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/1" }],
+        searchesUsed: 1,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        // The model asks for the same live need again inside the loop.
+        llm: fakeLlmWithToolCall("web_research", { query: "world news headlines today with sources" }),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-reuse", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+      // One provider request for the whole turn; the repeat came from the cache.
+      expect(research).toHaveBeenCalledTimes(1);
+      const totalSearches = research.mock.results.length;
+      expect(totalSearches).toBeLessThanOrEqual(5);
+      const toolAudit = getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research");
+      expect(toolAudit).toHaveLength(1);
+      expect((toolAudit[0] as { output: { searchesUsed: number } }).output.searchesUsed).toBe(1);
+    });
+
+    it("writes a privacy-safe pre-search audit event with the required fields", async () => {
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Five headlines.",
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/geneva" }],
+        searchesUsed: 2,
+      }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: fakeLlmWithToolCall("reply_to_user", { text: "ack" }),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-audit", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+      const rows = getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_presearch");
+      expect(rows).toHaveLength(1);
+      const row = rows[0] as { output: Record<string, unknown>; success: boolean; durationMs: number };
+      expect(row.success).toBe(true);
+      expect(row.output).toMatchObject({
+        status: "ok",
+        available: true,
+        searchesUsed: 2,
+        sourceCount: 1,
+        answerLen: "Five headlines.".length,
+        failureCode: null,
+        remainingBudget: 3,
+      });
+      expect(typeof row.output.elapsedMs).toBe("number");
+      // Nothing identifying or quotable may be stored.
+      const serialized = JSON.stringify(row);
+      expect(serialized).not.toContain("Reuters");
+      expect(serialized).not.toContain("reuters.example.com");
+      expect(serialized).not.toContain("Five headlines.");
+      expect(serialized).not.toContain(PROOF);
+      expect(serialized).not.toContain(OWNER);
+    });
+
+    it("records the sanitized failure code and answers once when the provider fails", async () => {
+      const research = vi.fn(async () => ({
+        status: "unavailable" as const,
+        answer: "",
+        sources: [],
+        searchesUsed: 2,
+        failureCode: "rate_limited" as const,
+      }));
+      const localAnswer = vi.fn(async () => ({ stopReason: "end_turn" as const, toolCalls: [], text: "stale invented news" }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: { async complete() { return { text: "ok" }; }, toolStep: localAnswer },
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-fail", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+      // The model is never consulted, so it cannot invent current information.
+      expect(localAnswer).not.toHaveBeenCalled();
+      const replies = wa.sent.filter((m) => m.body.includes("live web results"));
+      expect(replies).toHaveLength(1);
+      expect(replies[0]!.body).toContain("rate limited");
+      expect(wa.sent.some((m) => m.body.includes("stale invented news"))).toBe(false);
+
+      const rows = getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_presearch");
+      expect(rows).toHaveLength(1);
+      expect((rows[0] as { output: Record<string, unknown> }).output).toMatchObject({
+        status: "unavailable",
+        available: false,
+        failureCode: "rate_limited",
+        searchesUsed: 2,
+        sourceCount: 0,
+        answerLen: 0,
+      });
+    });
+
+    it("never claims success when the search returned no sources", async () => {
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Something vague.",
+        sources: [],
+        searchesUsed: 1,
+      }));
+      const model = vi.fn(async () => ({ stopReason: "end_turn" as const, toolCalls: [], text: "here are five headlines" }));
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: { async complete() { return { text: "ok" }; }, toolStep: model },
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-nosource", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+      expect(model).not.toHaveBeenCalled();
+      expect(wa.sent.at(-1)!.body).toContain("live web results");
+      expect(wa.sent.some((m) => m.body.includes("here are five headlines"))).toBe(false);
     });
 
     it("keeps one owner turn inside a single max_uses budget when the model also calls web_research", async () => {
@@ -239,16 +359,17 @@ describe("Router (integration)", () => {
       expect(totalAllowance).toBeLessThanOrEqual(5);
     });
 
-    it("lets a second in-turn search run on the leftover budget, never on a fresh one", async () => {
+    it("lets a genuinely different in-turn search run on the leftover budget, never on a fresh one", async () => {
       const research = vi.fn(async (args: { query: string; maxUses?: number }) => ({
         status: "ok" as const,
         answer: `Answer for ${args.query}.`,
-        sources: [],
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/1" }],
         searchesUsed: 2,
       }));
       deps = makeAgentDeps({
         whatsapp: wa,
-        llm: fakeLlmWithToolCall("web_research", { query: "world news follow-up" }),
+        // A different live need, so the turn cache must not serve it.
+        llm: fakeLlmWithToolCall("web_research", { query: "melbourne weather forecast tomorrow" }),
         liveResearch: { maxUses: 5, research, health: operationalHealth },
       });
       router = new Router(deps, OWNER);

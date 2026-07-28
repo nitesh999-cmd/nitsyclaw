@@ -55,7 +55,34 @@ describe("web_research tool", () => {
 
     expect(out.available).toBe(false);
     expect(out.status).toBe("unavailable");
+    expect(out.failureCode).toBe("rate_limited");
     expect(out.message).toContain("rate limited");
+  });
+
+  it("collapses an unknown provider failure to the generic sanitized code", async () => {
+    const out = await runWebResearch(
+      "today's news",
+      ctx({
+        liveResearch: makeFakeLiveResearcher({
+          status: "unavailable",
+          answer: "",
+          sources: [],
+          // Simulates a code that is not one of the known internal categories.
+          failureCode: "provider said req_abc123 quota for acct 42" as never,
+        }),
+      }),
+    );
+
+    expect(out.failureCode).toBe("request_failed");
+    expect(JSON.stringify(out)).not.toContain("req_abc123");
+    expect(JSON.stringify(out)).not.toContain("acct 42");
+  });
+
+  it("records a sanitized failure code when no researcher is wired", async () => {
+    const toolCtx = ctx();
+    delete toolCtx.deps.liveResearch;
+
+    expect((await runWebResearch("today's news", toolCtx)).failureCode).toBe("not_configured");
   });
 
   it("tells the model to say so when a search returned nothing", async () => {

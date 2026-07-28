@@ -279,6 +279,35 @@ function isSafeSourceUrl(url: string): boolean {
   }
 }
 
+const KNOWN_FAILURE_CODES: readonly LiveWebResearchFailureCode[] = [
+  "not_configured",
+  "disabled_by_config",
+  "provider_disabled",
+  "unsupported_model",
+  "rate_limited",
+  "max_uses_exceeded",
+  "query_rejected",
+  "search_error",
+  "request_failed",
+  "no_search_performed",
+];
+
+/**
+ * Only the known internal categories may be stored or shown. Anything else —
+ * including a raw provider string that could carry request ids or account
+ * details — collapses to the generic code.
+ */
+export function normalizeFailureCode(value: unknown): LiveWebResearchFailureCode {
+  return KNOWN_FAILURE_CODES.includes(value as LiveWebResearchFailureCode)
+    ? (value as LiveWebResearchFailureCode)
+    : "request_failed";
+}
+
+/** A result is usable only when a search ran AND produced prose with at least one source. */
+export function hasUsableFindings(result: LiveWebResearchResult): boolean {
+  return result.status === "ok" && result.answer.trim().length > 0 && result.sources.length > 0;
+}
+
 export function mapSearchErrorCode(errorCode: string): LiveWebResearchFailureCode {
   switch (errorCode) {
     case "too_many_requests":

@@ -16,6 +16,7 @@ import {
   hasExplicitCloudApproval,
   loadTodayFocusEvidence,
   looksLikeStoredPromptInjection,
+  requiresLiveWebAnswer,
   retrieveMemoriesWithLocalEmbeddings,
   runLocalMemoryRetrievalBenchmark,
   runPaEvaluation,
@@ -179,6 +180,86 @@ describe("model router", () => {
     const decision = decideModelRoute({ message: "Send an email to Alex", mode: "auto", localAvailable: true, cloudAvailable: true });
     expect(decision.requiresApproval).toBe(true);
     expect(decision.route).toBe("local");
+  });
+
+  it("forces cloud for a live-information turn instead of the web-blind local brain", () => {
+    const decision = decideModelRoute({
+      message: "Give me five verified world news headlines from today with sources.",
+      mode: "auto", localAvailable: true, cloudAvailable: true, requiresLiveWeb: true,
+    });
+    expect(decision.route).toBe("cloud");
+    expect(decision.reason).toBe("live_web_research_requires_cloud");
+    expect(decision.fallbackAllowed).toBe(false);
+  });
+
+  it("blocks a live-information turn rather than answering it locally when cloud is unavailable", () => {
+    const decision = decideModelRoute({
+      message: "Give me five verified world news headlines from today with sources.",
+      mode: "auto", localAvailable: true, cloudAvailable: false, requiresLiveWeb: true,
+    });
+    expect(decision.route).toBe("blocked");
+    expect(decision.reason).toBe("live_web_research_cloud_unavailable");
+  });
+
+  it("keeps the privacy guard ahead of the live-web rule", () => {
+    const decision = decideModelRoute({
+      message: "What is the latest news about my medical diagnosis",
+      mode: "auto", localAvailable: true, cloudAvailable: true, requiresLiveWeb: true,
+    });
+    expect(decision.route).toBe("local");
+    expect(decision.reason).toBe("sensitive_data_stays_local");
+  });
+
+  it("leaves ordinary non-live turns on the local default", () => {
+    const decision = decideModelRoute({
+      message: "Write me a haiku about rain",
+      mode: "auto", localAvailable: true, cloudAvailable: true,
+    });
+    expect(decision.route).toBe("local");
+    expect(decision.reason).toBe("private_everyday_local_default");
+  });
+
+  it("detects a live-web turn from the injected marker and from the raw request", () => {
+    expect(requiresLiveWebAnswer("base\n\n[LIVE_WEB_RESEARCH_RESULTS]\nx", [
+      { role: "user", content: "Tool results:\n[tool web_research] {...}" },
+    ])).toBe(true);
+    expect(requiresLiveWebAnswer("base", [
+      { role: "user", content: "Give me five verified world news headlines from today with sources." },
+    ])).toBe(true);
+    expect(requiresLiveWebAnswer("base", [
+      { role: "user", content: "remind me to call Mukesh tomorrow" },
+    ])).toBe(false);
+  });
+
+  it("never calls the local model for an explicit live-information turn", async () => {
+    const provider = new OllamaProvider({ fetchFn: makeFetch(), chatModel: "qwen3:8b" });
+    vi.spyOn(provider, "health").mockResolvedValue({ state: "online", baseUrl: provider.baseUrl, chatModel: "qwen3:8b", models: [], checkedAt: new Date().toISOString(), latencyMs: 1 });
+    const localToolStep = vi.fn(async () => ({ stopReason: "end_turn" as const, toolCalls: [], text: "local answer" }));
+    vi.spyOn(provider, "asLlmClient").mockReturnValue({
+      async complete() { return { text: "local" }; },
+      toolStep: localToolStep,
+    });
+    const cloudToolStep = vi.fn(async () => ({ stopReason: "end_turn" as const, toolCalls: [], text: "cloud answer" }));
+    const routed = createRoutedLlm({
+      local: provider,
+      cloud: { async complete() { return { text: "cloud" }; }, toolStep: cloudToolStep },
+      mode: "auto",
+    });
+
+    const out = await routed.toolStep({
+      system: "You are NitsyClaw.\n\n[LIVE_WEB_RESEARCH_RESULTS]\nCeasefire talks resumed.\n[/LIVE_WEB_RESEARCH_RESULTS]",
+      messages: [{ role: "user", content: "Give me five verified world news headlines from today with sources." }],
+      tools: [],
+    });
+
+    expect(localToolStep).not.toHaveBeenCalled();
+    expect(cloudToolStep).toHaveBeenCalledTimes(1);
+    expect(out.text).toBe("cloud answer");
+    expect(routed.getLastRoutingDecision()?.route).toBe("cloud");
+    // Pre-search findings must survive into the cloud answer path.
+    const cloudSystem = cloudToolStep.mock.calls[0]![0].system;
+    expect(cloudSystem).toContain("[LIVE_WEB_RESEARCH_RESULTS]");
+    expect(cloudSystem).toContain("Ceasefire talks resumed.");
   });
 
   it("logs metadata without prompt content", async () => {

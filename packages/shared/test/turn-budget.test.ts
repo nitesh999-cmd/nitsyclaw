@@ -41,8 +41,8 @@ describe("createTurnScopedResearcher", () => {
 
     // Pre-search path.
     await turn.research({ query: "today's world news" });
-    // web_research client-tool path, same turn.
-    await turn.research({ query: "world news sources" });
+    // web_research client-tool path, same turn, genuinely different need.
+    await turn.research({ query: "melbourne weather forecast tomorrow" });
 
     expect(turn.usedThisTurn()).toBe(4);
     expect(turn.remainingThisTurn()).toBe(1);
@@ -111,6 +111,46 @@ describe("createTurnScopedResearcher", () => {
 
     expect(createTurnScopedResearcher(researcher, 50).maxUses).toBe(5);
     expect(createTurnScopedResearcher(researcher, 2).maxUses).toBe(2);
+  });
+
+  it("serves a repeat ask for the same need from the turn cache with zero extra searches", async () => {
+    const { researcher, calls } = baseResearcher(5, () => ok(2));
+    const turn = createTurnScopedResearcher(researcher);
+
+    const first = await turn.research({ query: "Give me five verified world news headlines from today with sources." });
+    const again = await turn.research({ query: "world news headlines today sources" });
+
+    expect(calls).toHaveLength(1);
+    expect(turn.providerRequestsThisTurn()).toBe(1);
+    expect(turn.reusedThisTurn()).toBe(1);
+    expect(turn.usedThisTurn()).toBe(2);
+    expect(again).toEqual(first);
+  });
+
+  it("only caches usable findings, so an empty-source result never suppresses a real search", async () => {
+    const { researcher, calls } = baseResearcher(5, (_a, call) =>
+      call === 1 ? { status: "ok", answer: "Answer.", sources: [], searchesUsed: 1 } : ok(1),
+    );
+    const turn = createTurnScopedResearcher(researcher);
+
+    await turn.research({ query: "world news headlines today" });
+    await turn.research({ query: "world news headlines today" });
+
+    expect(calls).toHaveLength(2);
+    expect(turn.reusedThisTurn()).toBe(0);
+  });
+
+  it("lets a genuinely different follow-up need spend the remaining allowance", async () => {
+    const { researcher, calls } = baseResearcher(5, () => ok(2));
+    const turn = createTurnScopedResearcher(researcher);
+
+    await turn.research({ query: "world news headlines today" });
+    await turn.research({ query: "melbourne weather forecast tomorrow" });
+
+    expect(calls).toHaveLength(2);
+    expect(turn.reusedThisTurn()).toBe(0);
+    expect(calls[1]!.maxUses).toBe(3);
+    expect(turn.usedThisTurn()).toBeLessThanOrEqual(5);
   });
 
   it("passes the underlying health signal straight through", () => {

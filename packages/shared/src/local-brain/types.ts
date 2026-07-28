@@ -122,6 +122,12 @@ export interface ModelRoutingInput {
   requestClass?: PaRequestClass;
   complexity?: RequestComplexity;
   sensitivity?: DataSensitivity;
+  /**
+   * The turn must answer from live web results. The local brain has no web
+   * access, so it can only answer such a turn from stale training data — it is
+   * never an acceptable route here. Privacy rules still take precedence.
+   */
+  requiresLiveWeb?: boolean;
 }
 
 export interface ModelRoutingDecision {

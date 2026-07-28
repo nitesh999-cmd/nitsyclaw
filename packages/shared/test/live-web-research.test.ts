@@ -3,7 +3,9 @@ import {
   buildLiveResearchPromptBlock,
   formatLiveWebResearchForWhatsApp,
   formatLiveWebResearchUnavailable,
+  hasUsableFindings,
   makeUnavailableResearcher,
+  normalizeFailureCode,
   mapSearchErrorCode,
   parseWebSearchResponse,
 } from "../src/search/live-web-research.js";
@@ -291,6 +293,36 @@ describe("buildLiveResearchPromptBlock", () => {
     });
 
     expect(block.split("\n").filter((line) => line.startsWith("- "))).toHaveLength(4);
+  });
+});
+
+describe("normalizeFailureCode", () => {
+  it("passes through every known internal category", () => {
+    for (const code of [
+      "not_configured", "disabled_by_config", "provider_disabled", "unsupported_model",
+      "rate_limited", "max_uses_exceeded", "query_rejected", "search_error",
+      "request_failed", "no_search_performed",
+    ] as const) {
+      expect(normalizeFailureCode(code)).toBe(code);
+    }
+  });
+
+  it("collapses anything else — including raw provider text — to request_failed", () => {
+    expect(normalizeFailureCode("400 web search disabled for org req_abc123")).toBe("request_failed");
+    expect(normalizeFailureCode(undefined)).toBe("request_failed");
+    expect(normalizeFailureCode(null)).toBe("request_failed");
+    expect(normalizeFailureCode({ code: "x" })).toBe("request_failed");
+  });
+});
+
+describe("hasUsableFindings", () => {
+  it("requires prose and at least one source", () => {
+    const base = { status: "ok" as const, answer: "Answer.", sources: [{ title: "S", url: "https://e.example.com" }], searchesUsed: 1 };
+    expect(hasUsableFindings(base)).toBe(true);
+    expect(hasUsableFindings({ ...base, sources: [] })).toBe(false);
+    expect(hasUsableFindings({ ...base, answer: "   " })).toBe(false);
+    expect(hasUsableFindings({ ...base, status: "no_results" })).toBe(false);
+    expect(hasUsableFindings({ ...base, status: "unavailable" })).toBe(false);
   });
 });
 
