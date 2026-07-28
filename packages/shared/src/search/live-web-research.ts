@@ -196,6 +196,7 @@ export function buildLiveResearchPromptBlock(
         // is appended verbatim after the answer, so any URL the model writes is
         // either a duplicate or a mispairing.
         "Sources are listed below as numbered title/URL pairs. Do NOT write URLs or your own source list in your reply — the list below is appended automatically. If you name a source, use its exact title from this list.",
+        "Answer in plain text as your final message; the reply_to_user tool is withheld for this turn.",
         ...formatSourceList(result.sources),
       );
     }

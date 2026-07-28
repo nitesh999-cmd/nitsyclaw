@@ -34,6 +34,22 @@ export class ToolRegistry {
     return Array.from(this.tools.values());
   }
 
+  /**
+   * A copy of this registry with the named tools withheld.
+   *
+   * Lets one turn run without a tool while leaving the shared registry — and
+   * therefore every other turn — untouched. Tool definitions are shared by
+   * reference; only the lookup table differs.
+   */
+  without(...names: string[]): ToolRegistry {
+    const withheld = new Set(names);
+    const copy = new ToolRegistry();
+    for (const tool of this.all()) {
+      if (!withheld.has(tool.name)) copy.register(tool);
+    }
+    return copy;
+  }
+
   /** Convert to Anthropic tool-use schema. */
   toAnthropicTools(): Array<{ name: string; description: string; input_schema: unknown }> {
     return this.all().map((t) => ({

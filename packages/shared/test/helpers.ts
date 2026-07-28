@@ -299,6 +299,21 @@ export function fakeLlmWithToolCall(toolName: string, input: Record<string, unkn
   };
 }
 
+/**
+ * Answers in the loop's final text rather than through a tool. Live-research
+ * turns run with reply_to_user withheld, so this is how the model replies there.
+ */
+export function fakeLlmWithFinalText(text: string): LlmClient {
+  return {
+    async complete() {
+      return { text: "ok" };
+    },
+    async toolStep() {
+      return { stopReason: "end_turn", toolCalls: [], text };
+    },
+  };
+}
+
 export const fakeTranscriber: Transcriber = {
   async transcribe(audio: Buffer) {
     if (audio.byteLength === 0) throw new Error("empty");

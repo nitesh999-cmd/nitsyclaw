@@ -3041,3 +3041,15 @@ Privacy routing precedence deliberately unchanged: sensitive history still keeps
 Known limitation: the verified-source append covers the `finalText` delivery path, which is what live-research turns use. A reply sent through the `reply_to_user` tool is dispatched inside the tool before the router can post-process it, so that path keeps model-written links.
 
 Verification: full `pnpm test` 218 files / 1,233 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 9c08b64.
+
+### Release safety: reply_to_user withheld on live-research turns -- 2026-07-29
+
+Check on 812fb96: could an explicit live-research turn reach `reply_to_user`? **Yes.** `runAgent` was handed the full shared registry on every turn, and `reply_to_user` sends from inside its own handler (`ctx.deps.whatsapp.send`), so the router can never post-process what it delivers. The passing live proof used `finalText` by model choice, not by guarantee -- one different model decision and an unverified, mispaired link ships.
+
+Fix: `ToolRegistry.without(...names)` returns a copy with the named tools withheld, sharing tool definitions by reference and leaving the shared registry untouched. The router builds `turnRegistry = liveResearchBlock ? registry.without("reply_to_user") : registry`, so only live-research turns lose the tool and every such reply must pass through `finalText` -> `applyVerifiedSources`. The injected block now states the tool is withheld for the turn.
+
+Gating verified, not assumed: `applyVerifiedSources` returns its input untouched when `sources` is empty, so `stripInlineUrls` never runs on an ordinary turn. `verifiedSources` is only populated from a pre-search that passed `hasUsableFindings` (ok status, non-empty prose, >= 1 source). Ordinary replies keep their URLs verbatim, including deliberate "what was that page again?" answers.
+
+Five pre-existing fixtures broke, and that was the change doing its job: each used `fakeLlmWithToolCall("reply_to_user", ...)` with a weather or news body -- live-research turns whose delivery mechanism was an assumption, not the behaviour under test (feature-queue append, travel-context save, id-less routing, duplicate execution, voice transcription). They now use a new `fakeLlmWithFinalText` helper, which is what the model actually does when the tool is absent. Three exact-body `=== "ack"` assertions became `startsWith("ack")` because a live-research reply now carries the appended verified source list.
+
+Verification: full `pnpm test` 219 files / 1,243 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 812fb96.

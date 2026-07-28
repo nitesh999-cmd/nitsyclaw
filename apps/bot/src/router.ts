@@ -3133,6 +3133,12 @@ export class Router {
         liveResearchBlock = outcome.block;
         verifiedSources = outcome.sources;
       }
+      // reply_to_user sends from inside its own handler, so a reply delivered
+      // that way can never be post-processed. Withholding it for live-research
+      // turns forces the answer through finalText, where applyVerifiedSources
+      // replaces model-written links with verified title/URL pairs. Ordinary
+      // turns keep the tool — the shared registry is untouched.
+      const turnRegistry = liveResearchBlock ? this.registry.without("reply_to_user") : this.registry;
       const result = await runAgent({
         userPhone: msg.from,
         userMessage: effectiveText,
@@ -3140,7 +3146,7 @@ export class Router {
         systemPrompt: [buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }), liveResearchBlock]
           .filter(Boolean)
           .join("\n\n"),
-        registry: this.registry,
+        registry: turnRegistry,
         deps: agentDeps,
       });
       // The agent should have already replied via reply_to_user; only echo if it didn't.

@@ -8,6 +8,7 @@ import {
   getFakeDbState,
   makeAgentDeps,
   fakeLlmWithToolCall,
+  fakeLlmWithFinalText,
   fakeImageAnalyzer,
   fakeTranscriber,
   makeFakeLiveResearcher,
@@ -475,6 +476,117 @@ describe("Router (integration)", () => {
       expect(system).not.toContain("28 July 2026");
     });
 
+    it("withholds reply_to_user from a live-research turn so the reply must pass through finalText", async () => {
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Findings.",
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/1" }],
+        searchesUsed: 1,
+      }));
+      const offeredTools: string[][] = [];
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: {
+          async complete() { return { text: "ok" }; },
+          async toolStep({ tools }) {
+            offeredTools.push(tools.map((t) => t.name));
+            return { stopReason: "end_turn" as const, toolCalls: [], text: "Answer." };
+          },
+        },
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-no-rtu", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+      expect(offeredTools.at(-1)).not.toContain("reply_to_user");
+      expect(offeredTools.at(-1)).toContain("web_research");
+    });
+
+    it("cannot deliver an unverified reply even if the model insists on reply_to_user", async () => {
+      const research = vi.fn(async () => ({
+        status: "ok" as const,
+        answer: "Findings.",
+        sources: [{ title: "Reuters", url: "https://reuters.example.com/1" }],
+        searchesUsed: 1,
+      }));
+      let round = 0;
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: {
+          async complete() { return { text: "ok" }; },
+          async toolStep() {
+            round += 1;
+            if (round === 1) {
+              return {
+                stopReason: "tool_use" as const,
+                toolCalls: [{ id: "c1", name: "reply_to_user", input: { text: "Bare link https://wrong.example.com/x" } }],
+                text: "",
+              };
+            }
+            return { stopReason: "end_turn" as const, toolCalls: [], text: "Headlines follow." };
+          },
+        },
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({ id: "x-insist", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+      // The withheld tool never ran, so its unverified link was never sent.
+      expect(wa.sent.some((m) => m.body.includes("wrong.example.com"))).toBe(false);
+      const reply = wa.sent.at(-1)!.body;
+      expect(reply).toContain("Headlines follow.");
+      expect(reply).toContain("1. Reuters\nhttps://reuters.example.com/1");
+    });
+
+    it("leaves ordinary turns with reply_to_user and does not strip their URLs", async () => {
+      const research = vi.fn();
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: fakeLlmWithToolCall("reply_to_user", { text: "Docs are at https://example.com/guide" }),
+        liveResearch: { maxUses: 5, research, health: operationalHealth },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({
+        id: "x-ordinary",
+        from: OWNER,
+        body: "where are the setup docs again?",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+
+      expect(research).not.toHaveBeenCalled();
+      // Ordinary reply delivered verbatim by the tool — no stripping, no appended list.
+      expect(wa.sent.at(-1)!.body).toBe("Docs are at https://example.com/guide");
+      expect(wa.sent.some((m) => m.body.includes("Sources:"))).toBe(false);
+    });
+
+    it("leaves a non-research finalText reply and its URLs untouched", async () => {
+      deps = makeAgentDeps({
+        whatsapp: wa,
+        llm: {
+          async complete() { return { text: "ok" }; },
+          async toolStep() {
+            return { stopReason: "end_turn" as const, toolCalls: [], text: "Try https://example.com/guide for that." };
+          },
+        },
+      });
+      router = new Router(deps, OWNER);
+
+      await router.handle({
+        id: "x-plain-url",
+        from: OWNER,
+        body: "what was that setup page again?",
+        timestamp: new Date(),
+        hasMedia: false,
+      });
+
+      expect(wa.sent.at(-1)!.body).toBe("Try https://example.com/guide for that.");
+      expect(wa.sent.at(-1)!.body).not.toContain("Sources:");
+    });
+
     it("does not divert requests scoped to the owner's own data", async () => {
       const research = vi.fn();
       deps = makeAgentDeps({
@@ -664,7 +776,7 @@ describe("Router (integration)", () => {
   it("appends live feature queue status when a normal question also asks what is pending", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
-      llm: fakeLlmWithToolCall("reply_to_user", { text: "Weather answer from the model." }),
+      llm: fakeLlmWithFinalText("Weather answer from the model."),
     });
     router = new Router(deps, OWNER);
     const state = getFakeDbState(deps.db);
@@ -719,6 +831,9 @@ describe("Router (integration)", () => {
   });
 
   it("saves travel context and still answers combined travel/weather requests", async () => {
+    // Weather is a live-research turn, where reply_to_user is withheld.
+    deps = makeAgentDeps({ whatsapp: wa, llm: fakeLlmWithFinalText("ack") });
+    router = new Router(deps, OWNER);
     await router.handle({
       id: "x-travel-weather",
       from: OWNER,
@@ -736,7 +851,8 @@ describe("Router (integration)", () => {
       timezone: "Australia/Sydney",
       expiresHint: "tomorrow",
     });
-    expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
+    // Live-research replies carry the appended verified source list.
+    expect(wa.sent.some((m) => m.body.startsWith("ack"))).toBe(true);
     expect(wa.sent.some((m) => m.body.startsWith("Location updated:"))).toBe(false);
   });
 
@@ -2278,7 +2394,7 @@ describe("Router (integration)", () => {
     });
     expect(wa.sent.filter((message) => message.body.includes("Saved"))).toHaveLength(0);
     expect(wa.sent.filter((message) => message.body === "Working on it.")).toHaveLength(0);
-    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.startsWith("ack"))).toHaveLength(1);
   });
 
   it("strips old Saved prefix when replaying an existing approval gate", async () => {
@@ -2315,6 +2431,9 @@ describe("Router (integration)", () => {
     // Live defect: @lid self-chat events arrive with no serialized id, so every
     // message shared the dedupe key "whatsapp:" and replayed one stored
     // clarification receipt instead of being answered.
+    // News is a live-research turn, where reply_to_user is withheld.
+    deps = makeAgentDeps({ whatsapp: wa, llm: fakeLlmWithFinalText("ack") });
+    router = new Router(deps, OWNER);
     const state = getFakeDbState(deps.db);
     state.command_jobs.push({
       id: "stale-clarification-job",
@@ -2343,7 +2462,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.map((message) => message.body)).not.toContain(
       "Who or what do you mean, and what should I do?",
     );
-    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.startsWith("ack"))).toHaveLength(1);
     const created = state.command_jobs.filter((job) => job.id !== "stale-clarification-job");
     expect(created).toHaveLength(1);
     expect(created[0].dedupeKey ?? null).toBeNull();
@@ -2366,6 +2485,9 @@ describe("Router (integration)", () => {
   });
 
   it("still executes an id-less message once when WhatsApp delivers it twice", async () => {
+    // News is a live-research turn, where reply_to_user is withheld.
+    deps = makeAgentDeps({ whatsapp: wa, llm: fakeLlmWithFinalText("ack") });
+    router = new Router(deps, OWNER);
     const inbound = {
       id: "",
       from: OWNER,
@@ -2379,7 +2501,7 @@ describe("Router (integration)", () => {
 
     const state = getFakeDbState(deps.db);
     expect(state.command_jobs).toHaveLength(1);
-    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.startsWith("ack"))).toHaveLength(1);
   });
 
   it("ignores replayed WhatsApp events after router restart", async () => {
@@ -2756,7 +2878,7 @@ describe("Router (integration)", () => {
           return "check the weather tomorrow";
         },
       },
-      llm: fakeLlmWithToolCall("reply_to_user", { text: "Weather checked." }),
+      llm: fakeLlmWithFinalText("Weather checked."),
     });
     router = new Router(deps, OWNER);
 
