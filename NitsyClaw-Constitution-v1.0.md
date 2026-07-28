@@ -375,6 +375,12 @@ WhatsApp now delivers genuine "Message Yourself" events with `to=<id>@lid`, an e
 - *Added:* 2026-07-28
 - *Extends:* R42 (owner self-chat acceptance), R64 (health signals must be counted and surfaced)
 
+### R66 — A missing external message id must never become a dedupe key (extends R65)
+WhatsApp @lid self-chat events can arrive with no serialized message id. The router built its command-job dedupe key as `whatsapp:${msg.id}` unconditionally, so every id-less message produced the same key, `whatsapp:`. The first such message (2026-07-16) stored a `needs_clarification` job under that key; from then on every id-less message matched it, hit the gate-replay branch, and replied with that one stored receipt — before persisting the inbound turn, before intent analysis, before the agent. A clear request was therefore misreported as ambiguous, with no error and no new job row. Dedupe keys and `sourceExternalId` are now written only when a real message id exists; without one the turn is routed normally. Duplicate protection is preserved through an in-memory replay key derived from a truncated SHA-256 of second-resolution timestamp, media type, and body — never stored, logged, or used as a database key.
+- *Source:* Live regression 2026-07-28 20:04; `apps/bot/src/router.ts` (`whatsAppExternalId`, `inboundReplayKey`)
+- *Added:* 2026-07-28
+- *Extends:* R65 (@lid self-chat acceptance)
+
 ---
 
 ## Fixes log
@@ -437,6 +443,7 @@ WhatsApp now delivers genuine "Message Yourself" events with `to=<id>@lid`, an e
 | 2026-07-05 | R41 documented dashboard auth but 14 private-data API routes never called the session verifier — CSRF check only | R62 | `requireDashboardSession` added directly to every affected route; new `require-dashboard-session.ts` lib |
 | 2026-07-05 | Outlook calendar write/read paths corrupted event times by the local timezone offset | R63 | `formatZonedNaiveIso` (write) + `parseGraphUtcDateTime` (read) replace unsafe ISO string surgery |
 | 2026-07-05 | Dead ntfy/toast/mail notify pipeline could fail silently indefinitely with no counter or alert | R64 | Per-channel result tracking + `notify-channels` heartbeat surfaced in nightly WhatsApp health report |
+| 2026-07-28 | Every id-less WhatsApp message replayed one stale clarification receipt, so clear requests were answered as ambiguous | R66 | Dedupe key and `sourceExternalId` written only for real message ids; in-memory non-identifying replay key keeps duplicate protection |
 | 2026-07-28 | Genuine owner "Message Yourself" messages dropped because WhatsApp represents the recipient as `@lid` with an empty chat id and `chatIsMe=false` | R65 | LID→phone resolution via `getContactLidAndPhone` behind a bounded TTL cache, accept only on exact owner match, fail closed otherwise, plus a `whatsapp-inbound` health signal the nightly report must respect |
 
 ---

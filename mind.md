@@ -2923,3 +2923,20 @@ Fix (branch `fix/whatsapp-lid-self-chat`, installed whatsapp-web.js verified as 
 - `apps/bot/src/index.ts` + `apps/bot/src/nightly-health-report.ts` -- new `whatsapp-inbound` heartbeat; the nightly report can no longer say `ready` while owner self-chat identity resolution is failing, and prints "owner self-chat identity resolution failing (N in a row)" with no identifiers.
 
 Verification: targeted tests 45/45; `pnpm --filter @nitsyclaw/bot typecheck` pass; `pnpm test` 211 files / 1,104 tests pass; `pnpm lint` 0 errors (6 pre-existing warnings); `pnpm run whatsapp:smoke` 185 tests pass. `pnpm run security:audit` still fails on pre-existing upstream advisories (next and friends) unrelated to this change.
+
+### Stale command-job replay on id-less WhatsApp events -- 2026-07-28
+
+Symptom: after the @lid transport fix, an accepted 73-char owner request came back with the same 46-char reply as `proof test`. Root cause chain, proved read-only from the database, not guessed:
+
+1. `wwebjs-client.ts` sets `id: m.id?._serialized ?? ""`. WhatsApp `@lid` self-chat events carry no serialized id, so `msg.id` is `""`.
+2. `Router.handle` built `dedupeKey = whatsapp:${msg.id}` unconditionally, so every id-less message keyed on the literal `whatsapp:`.
+3. On 2026-07-16 one id-less message stored a job under that key with status `needs_clarification` and receipt `Who or what do you mean, and what should I do?` (46 chars, from `analyzePersonalPaIntent` -> `vague_risky_reference`).
+4. Every later id-less message matched that row, hit `isGateReplay` and returned the stored receipt -- before persisting the inbound turn, before intent analysis, before the agent. Hence no new `command_jobs` rows (newest was 2026-07-16), no errors, and identical replies. `messages` shows exactly two outbound rows today (09:33 and 10:04) and no inbound rows, which matches an early return above the persist step.
+
+Fix: dedupe key and `sourceExternalId` are written only when a real message id exists (`whatsAppExternalId`); otherwise the turn routes normally. Duplicate protection for id-less turns now uses `inboundReplayKey` -- truncated SHA-256 over second-resolution timestamp, media type, and body, held in memory only, never stored, logged, or used as a database key. The poisoned 2026-07-16 row was left untouched; nothing looks it up any more.
+
+Regression tests in `apps/bot/test/router.integration.test.ts`: a clear general request with no message id and a stale `whatsapp:` clarification job present must be routed and answered, never replayed; an id-less message must not write a bare `whatsapp:` dedupe key; a doubly-delivered id-less message must execute once.
+
+Capability gap found while tracing: `SERPER_API_KEY` is not defined in either env file the bot loads, so `buildAgentDeps` wires `stubWebSearch`. Live news/web lookups therefore cannot return real results today even though the system prompt tells the model to use `web_search`. Not fixed here -- it needs an operator decision about a search provider, not a code change.
+
+Verification: `apps/bot/test/router.integration.test.ts` 117 tests pass; `pnpm test` 211 files / 1,107 tests pass; bot typecheck pass; `pnpm lint` 0 errors (6 pre-existing warnings).

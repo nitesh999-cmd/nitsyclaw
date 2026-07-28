@@ -1,6 +1,7 @@
 // Inbound message router. Owns the fast-path intent detection and dispatch
 // to the agent loop.
 
+import { createHash } from "node:crypto";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { formatDriveConnectorStatusForWhatsApp, getDriveConnectorStatus } from "@nitsyclaw/shared/integrations/drive-connector";
@@ -337,13 +338,17 @@ export class Router {
     allowAgentClarification: boolean,
     opts: { maxAttempts?: number } = {},
   ): Promise<CommandJob> {
+    // WhatsApp @lid self-chat events can arrive with no serialized message id.
+    // An empty id must never become a dedupe key: every such message would
+    // collide on "whatsapp:" and replay the first job's receipt forever.
+    const externalId = whatsAppExternalId(msg);
     return createCommandJob(this.deps.db, {
       source: "whatsapp",
       ownerHash: hashPhone(this.ownerPhone),
       command,
       sourceMessageId: persistedId,
-      sourceExternalId: msg.id,
-      dedupeKey: `whatsapp:${msg.id}`,
+      sourceExternalId: externalId || undefined,
+      dedupeKey: externalId ? `whatsapp:${externalId}` : undefined,
       allowAgentClarification,
       maxAttempts: opts.maxAttempts,
     });
@@ -2109,14 +2114,22 @@ export class Router {
 
   async handle(msg: InboundMessage): Promise<void> {
     if (msg.from !== this.ownerPhone) return; // R2 — only owner
-    const dedupeKey = `whatsapp:${msg.id}`;
-    const existingCommandJob = await getCommandJobByDedupeKey(this.deps.db, dedupeKey);
+    // Only a real WhatsApp message id can identify a previous job. Without one
+    // (seen on @lid self-chat events) every message would share the key
+    // "whatsapp:" and replay the first stored receipt instead of being routed.
+    const externalId = whatsAppExternalId(msg);
+    const existingCommandJob = externalId
+      ? await getCommandJobByDedupeKey(this.deps.db, `whatsapp:${externalId}`)
+      : null;
     if (existingCommandJob && isGateReplay(existingCommandJob.status)) {
       await this.sendAndPersistBestEffort(formatCommandReceiptForWhatsApp(existingCommandJob.receiptText), "command gate replay");
       return;
     }
     if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
-    if (!this.rememberExternalMessageId(msg.id)) return;
+    // Duplicate protection still applies when the id is missing: fall back to a
+    // non-identifying digest of this turn so message/message_create pairs and
+    // provider replays run exactly once.
+    if (!this.rememberExternalMessageId(externalId || inboundReplayKey(msg))) return;
 
     const initialPrivateMode = parsePrivateModeInput(msg.body);
     if (initialPrivateMode) {
@@ -3201,6 +3214,23 @@ function confirmationActionLabel(action: string): string {
     default:
       return "Pending actions";
   }
+}
+
+export function whatsAppExternalId(msg: Pick<InboundMessage, "id">): string {
+  return (msg.id ?? "").trim();
+}
+
+/**
+ * Stable, non-identifying replay key for inbound turns WhatsApp delivered
+ * without a serialized message id. In-memory duplicate protection only - it is
+ * never stored, logged, or used as a database dedupe key.
+ */
+export function inboundReplayKey(msg: Pick<InboundMessage, "body" | "timestamp" | "mediaType">): string {
+  const seconds = Math.floor((msg.timestamp?.getTime() ?? 0) / 1000);
+  return `noid:${createHash("sha256")
+    .update(`${seconds}|${msg.mediaType ?? "text"}|${msg.body ?? ""}`)
+    .digest("hex")
+    .slice(0, 32)}`;
 }
 
 function isTerminalReplay(status: CommandJob["status"]): boolean {

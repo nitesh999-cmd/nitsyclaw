@@ -1901,6 +1901,77 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toBe("Needs your approval before I act.");
   });
 
+  it("routes a clear general request even when WhatsApp sends no message id and a stale clarification job exists", async () => {
+    // Live defect: @lid self-chat events arrive with no serialized id, so every
+    // message shared the dedupe key "whatsapp:" and replayed one stored
+    // clarification receipt instead of being answered.
+    const state = getFakeDbState(deps.db);
+    state.command_jobs.push({
+      id: "stale-clarification-job",
+      source: "whatsapp",
+      ownerHash: hashPhone(OWNER),
+      command: "sort that out for them",
+      status: "needs_clarification",
+      riskLevel: "safe",
+      receiptText: "Who or what do you mean, and what should I do?",
+      attempts: 0,
+      maxAttempts: 3,
+      dedupeKey: "whatsapp:",
+      sourceExternalId: "",
+      createdAt: new Date("2026-07-16T05:23:38.830Z"),
+      updatedAt: new Date("2026-07-16T05:23:38.830Z"),
+    });
+
+    await router.handle({
+      id: "",
+      from: OWNER,
+      body: "Give me a summary of today's world news and list 20 news items I should know about.",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    expect(wa.sent.map((message) => message.body)).not.toContain(
+      "Who or what do you mean, and what should I do?",
+    );
+    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+    const created = state.command_jobs.filter((job) => job.id !== "stale-clarification-job");
+    expect(created).toHaveLength(1);
+    expect(created[0].dedupeKey ?? null).toBeNull();
+    expect(created[0].status).toBe("done");
+  });
+
+  it("never writes a bare whatsapp: dedupe key when the message id is missing", async () => {
+    await router.handle({
+      id: "   ",
+      from: OWNER,
+      body: "Research better electricity plans for Melbourne.",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(state.command_jobs[0].dedupeKey ?? null).toBeNull();
+    expect(state.command_jobs[0].sourceExternalId ?? null).toBeNull();
+  });
+
+  it("still executes an id-less message once when WhatsApp delivers it twice", async () => {
+    const inbound = {
+      id: "",
+      from: OWNER,
+      body: "Give me a summary of today's world news and list 20 news items I should know about.",
+      timestamp: new Date("2026-07-28T10:04:00.000Z"),
+      hasMedia: false,
+    };
+
+    await router.handle(inbound);
+    await router.handle({ ...inbound });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body === "ack")).toHaveLength(1);
+  });
+
   it("ignores replayed WhatsApp events after router restart", async () => {
     const inbound = {
       id: "x-replayed-status",
