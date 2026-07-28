@@ -3001,3 +3001,23 @@ Four defects, four fixes:
 Also tightened: pre-search success now requires `hasUsableFindings` -- ok status, non-empty prose, **at least one source**. A zero-source result returns the honest unavailable message immediately instead of reaching the model, so no command result can claim success with `sourceCount: 0`.
 
 Verification: full `pnpm test` 215 files / 1,192 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs fb4df2f (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile, or migration change).
+
+### Database observability + client lifecycle hardening -- 2026-07-29
+
+Fallout from the 23:08/00:08 proof failures. Neither defect was in web research; both made the real failure hard to see or easy to repeat.
+
+**1. SQLSTATE was structurally unreachable.** Drizzle wraps driver failures as `Failed query: <sql>` and hangs the driver error -- the object carrying `code` -- off `cause`. `formatSafeLogError` read only `error.name` and `error.message`, never `cause`, and `redactAuditString` truncates at 160 chars, which the SQL alone exhausts. The 25006 (`read_only_sql_transaction`) that broke proof #2 therefore never appeared in any log; it took a read-only DB correlation plus a `pg_settings` provenance query to find.
+
+Fix: `extractSqlState` walks the `cause` chain (depth 5, cycle-guarded) and validates against the real Postgres SQLSTATE **class** set, not a bare five-character shape -- otherwise Node codes like `EPIPE` and `EBUSY` would be reported as database states. The code is prefixed **after** redaction and truncation (`[sqlstate:25006] ...`) so a long message can never push it out. `stripQueryAndConnectionText` removes SQL text, bound params, and any `postgres://` DSN before redaction, so the added visibility costs no privacy.
+
+**2. `getDb` never cached when given an explicit URL.** `getDb(url)` skipped the cache read *and* the cache write, so every call with a URL built another pool. `apps/bot/src/index.ts` always passes one. One call today, so one pool -- but any second call would have silently doubled them. Fix: cache keyed by exact connection string (key used for lookup only, never logged or returned), so repeated calls share a pool and different URLs stay isolated.
+
+**3. No client shutdown.** Added idempotent `closeDb()`: clears the map *before* awaiting any close, so concurrent or repeated calls cannot double-close; individual failures are swallowed so a dead socket cannot block exit. Wired into the existing SIGINT/SIGTERM handler, including the failure branch.
+
+Limitation stated in code and here: **a forced `Stop-Process -Force` / SIGKILL cannot run any cleanup.** The swaps during both live proofs used exactly that, which is why server-side connections were left for the server to reap. Graceful shutdown covers signals only.
+
+Deliberately NOT done, per scope: no write retries, no degraded inbound processing (rejected earlier -- `command_jobs` backs dedupe, replay protection and exactly-once reply, and all of it needs the same failing write path), no connection-mode change, no schema, migration, dependency or environment change.
+
+One pre-existing test was corrected rather than worked around: `dashboard-safe-errors.test.ts` forbade the literal `set(` in `client.ts`, which a Map-keyed cache trips for no security reason. Replaced with assertions of the actual property -- the connection string is never logged (`console.*`) and never interpolated.
+
+Verification: full `pnpm test` 217 files / 1,214 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 96fadbd (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile or migration change).

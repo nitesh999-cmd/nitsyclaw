@@ -3,6 +3,7 @@
 
 import { loadEnv } from "@nitsyclaw/shared";
 import {
+  closeDb,
   getDb,
   insertFeatureRequest,
   listPendingFeatureRequests,
@@ -199,6 +200,10 @@ async function main() {
   }
 
   let shuttingDown = false;
+  // NOTE: this path only runs on a graceful signal. A forced termination
+  // (Stop-Process -Force / SIGKILL) cannot run any cleanup, so database sockets
+  // are left for the server to reap — that is a property of forced kills, not
+  // something this handler can cover.
   const shutdown = async (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
@@ -207,9 +212,12 @@ async function main() {
       clearInterval(loopGuardHeartbeatInterval);
       await monitoredWhatsapp.destroy();
       qrRecoveryServer?.close();
+      await closeDb();
       process.exit(0);
     } catch (e) {
       logBotError("[boot] shutdown failed", e);
+      // Still try to release database sockets before leaving.
+      await closeDb().catch(() => undefined);
       process.exit(1);
     }
   };

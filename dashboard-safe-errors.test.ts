@@ -80,6 +80,11 @@ describe("dashboard safe user-facing errors", () => {
 
     expect(source).toContain("DATABASE_URL is required to construct DB client");
     expect(source).not.toContain("process.env.DATABASE_URL=");
-    expect(source).not.toContain("set(");
+    // The previous guard forbade the literal "set(", which a Map-keyed client
+    // cache trips for no security reason. These assert the property that
+    // actually matters: the connection string is never logged or interpolated.
+    expect(source).not.toMatch(/console\.(log|error|warn|info|debug)/);
+    expect(source).not.toMatch(/\$\{\s*connectionString\s*\}/);
+    expect(source).not.toMatch(/\$\{\s*url\s*\}/);
   });
 });
