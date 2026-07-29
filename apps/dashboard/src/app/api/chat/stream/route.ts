@@ -26,6 +26,7 @@ import {
   createRoutedLlm,
   hasExplicitCloudApproval,
   localBrainModeFromEnv,
+  buildModelRouteAuditPayload,
   OllamaProvider,
 } from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
@@ -124,7 +125,7 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
   };
 }
 
-function buildDashboardDeps(ownerHash: string): { deps: AgentDeps } {
+function buildDashboardDeps(): { deps: AgentDeps } {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -175,24 +176,12 @@ function buildDashboardDeps(ownerHash: string): { deps: AgentDeps } {
     mode: localBrainModeFromEnv(),
     explicitCloudApproval: hasExplicitCloudApproval,
     telemetry: async (event) => {
+      // Payload is built from the routing event alone, so no owner-linked
+      // value can reach it. Row ownership elsewhere is untouched.
       await logAudit(db, {
         actor: "model-router",
         tool: "model_route",
-        input: {
-          mode: event.mode,
-          requestClass: event.requestClass,
-          sensitivity: event.sensitivity,
-          ownerHash,
-        },
-        output: {
-          route: event.route,
-          model: event.model,
-          reasonCode: event.reasonCode,
-          fallback: event.fallback,
-        },
-        success: event.success,
-        durationMs: event.latencyMs,
-        error: event.errorCode,
+        ...buildModelRouteAuditPayload(event),
       });
     },
   });
@@ -289,7 +278,7 @@ export async function POST(req: Request) {
       });
     }
     try {
-      const { deps } = buildDashboardDeps(ownerHash);
+      const { deps } = buildDashboardDeps();
       const promptProfile = await resolvePromptProfileFromContext(deps.db, {
         userPhone: ownerPhone,
         now: deps.now(),
@@ -329,7 +318,7 @@ export async function POST(req: Request) {
       });
     }
     try {
-      const { deps } = buildDashboardDeps(ownerHash);
+      const { deps } = buildDashboardDeps();
       const commandJob = await createCommandJob(deps.db, {
         source: "dashboard",
         ownerHash,
@@ -370,7 +359,7 @@ export async function POST(req: Request) {
 
   let built: { deps: AgentDeps };
   try {
-    built = buildDashboardDeps(ownerHash);
+    built = buildDashboardDeps();
   } catch (e: unknown) {
     const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });

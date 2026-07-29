@@ -19,6 +19,7 @@ import {
   createRoutedLlm,
   hasExplicitCloudApproval,
   localBrainModeFromEnv,
+  buildModelRouteAuditPayload,
   OllamaProvider,
 } from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
@@ -160,7 +161,7 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
   };
 }
 
-function buildDashboardDeps(ownerHash: string): AgentDeps {
+function buildDashboardDeps(): AgentDeps {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -186,24 +187,12 @@ function buildDashboardDeps(ownerHash: string): AgentDeps {
       mode: localBrainModeFromEnv(),
       explicitCloudApproval: hasExplicitCloudApproval,
       telemetry: async (event) => {
+        // Payload is built from the routing event alone, so no owner-linked
+        // value can reach it. Row ownership elsewhere is untouched.
         await logAudit(db, {
           actor: "model-router",
           tool: "model_route",
-          input: {
-            mode: event.mode,
-            requestClass: event.requestClass,
-            sensitivity: event.sensitivity,
-            ownerHash,
-          },
-          output: {
-            route: event.route,
-            model: event.model,
-            reasonCode: event.reasonCode,
-            fallback: event.fallback,
-          },
-          success: event.success,
-          durationMs: event.latencyMs,
-          error: event.errorCode,
+          ...buildModelRouteAuditPayload(event),
         });
       },
     }),
@@ -259,7 +248,7 @@ export async function POST(req: Request) {
 
   try {
     const { ownerPhone, ownerHash } = getOwnerIdentity();
-    const deps = buildDashboardDeps(ownerHash);
+    const deps = buildDashboardDeps();
     const registry = registerAllFeatures({ surface: "dashboard" });
     const privateMode = parsePrivateModeInput(last.content, parsedBody.body.privateMode);
     if (privateMode) {

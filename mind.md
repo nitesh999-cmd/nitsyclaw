@@ -3167,3 +3167,19 @@ The vocabulary contains exactly one entry, `provider_throttled` -- the only code
 Rejecting a code never suppresses the rest of the record: an out-of-vocabulary code still yields a valid `errorClass` and, where present, the validated SQLSTATE. `TOOL_ERROR_CLASSES` is unchanged, SQLSTATE handling is unchanged, and runtime error strings, model-visible tool errors and operational logging are untouched.
 
 Verification: focused suite 24 tests; agent + router suites 211; full `pnpm test` 223 files / 1,314 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs c1b0281.
+
+### ownerHash removed from model_route audit payloads -- 2026-07-29
+
+The ec130bb live proof surfaced the last owner-linked value in durable audit storage: `model_route` input carried `ownerHash`.
+
+**Diagnosis.** `hashPhone(WHATSAPP_OWNER_NUMBER)` was computed *inside* the telemetry callback in `apps/bot/src/adapters.ts` and used for nothing but the audit payload. It was never passed to `decideModelRoute`, never used for privacy classification, model selection or fallback. Two dashboard producers did the same with the request's `ownerHash`. Crucially, `audit_log` has no owner or tenant column -- `id, actor, tool, input, output, success, error, duration_ms, created_at` -- and a repo-wide search found no consumer reading `ownerHash` out of an audit row, so nothing depended on it for authorization or isolation.
+
+**Fix.** `buildModelRouteAuditPayload(event)` in `local-brain/telemetry-audit.ts` is now the single shape all three producers persist. It is built from the routing event alone, and the event type carries no owner, tenant, account, session or request identifier -- so an owner-linked value cannot reach the payload even when a caller has one in scope. Fields are copied explicitly rather than spread, so a future event field cannot silently start being written.
+
+Input is exactly `mode, reason, requestClass, sensitivity`; output exactly `route, model, fallback`. The bounded routing code moves to the `error` column instead of sitting in the output JSON, and is omitted entirely on success. The dashboard producers previously diverged (no `reason` in input, `reasonCode` in output); all three now emit one shape, which is what an event type should mean.
+
+**Row ownership untouched.** In the dashboard, `ownerHash` remains load-bearing for `fromNumber`, `requestedBy`, `privateOwnerTenant()` and cross-surface history scoping. Only the now-unused `buildDashboardDeps(ownerHash)` parameter was dropped, because inside that function the value served the audit payload and nothing else.
+
+**Static audit-producer inventory** (source only, no database access) is recorded in the commit message. One finding beyond this scope: `apps/dashboard/src/app/api/chat/stream/route.ts` runs its own inline agent loop and still persists `call.input` and raw tool output verbatim -- the same defect R76 fixed in the shared loop. It is a dashboard-surface issue, out of scope for this ownerHash correction, and is reported rather than silently widened.
+
+Verification: focused 10 tests; audit/error/router/local-brain suites 275; full `pnpm test` 224 files / 1,324 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs ec130bb.

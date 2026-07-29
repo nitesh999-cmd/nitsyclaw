@@ -14,6 +14,7 @@ import {
   createPrivacyAwareEmbedder,
   createRoutedLlm,
   hasExplicitCloudApproval,
+  buildModelRouteAuditPayload,
   type LocalBrainMode,
 } from "@nitsyclaw/shared/local-brain";
 import type {
@@ -25,7 +26,6 @@ import type {
   LlmClient,
   Transcriber,
 } from "@nitsyclaw/shared/agent";
-import { hashPhone } from "@nitsyclaw/shared/utils";
 
 /** RFC 2047 encoded-word for header values containing non-ASCII (e.g. "Café invoice"). */
 function encodeHeaderValue(value: string): string {
@@ -435,26 +435,9 @@ export function buildAgentDeps(args: {
     mode: args.env.NITSYCLAW_MODEL_MODE ?? "auto",
     explicitCloudApproval: hasExplicitCloudApproval,
     telemetry: async (event) => {
-      const ownerHash = args.env.WHATSAPP_OWNER_NUMBER ? hashPhone(args.env.WHATSAPP_OWNER_NUMBER) : undefined;
-      await logAudit(args.db, {
-        actor: "agent",
-        tool: "model_route",
-        input: {
-          mode: event.mode,
-          reason: event.reasonCode,
-          requestClass: event.requestClass,
-          sensitivity: event.sensitivity,
-          ...(ownerHash ? { ownerHash } : {}),
-        },
-        output: {
-          route: event.route,
-          model: event.model,
-          fallback: event.fallback,
-          errorCode: event.errorCode,
-        },
-        success: event.success,
-        durationMs: event.latencyMs,
-      });
+      // Payload built from the routing event alone — no owner-linked value can
+      // reach durable storage.
+      await logAudit(args.db, { actor: "agent", tool: "model_route", ...buildModelRouteAuditPayload(event) });
     },
   });
   const transcriber = args.env.OPENAI_API_KEY
