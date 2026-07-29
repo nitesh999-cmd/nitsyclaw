@@ -3084,3 +3084,22 @@ Verification: full `pnpm test` 220 files / 1,256 tests pass; typecheck pass; bui
 - One audit row, `tool: "web_research_fallback"`, whose output keys are exactly `fallbackType`, `sourceCount`, `answerLen`, `searchesUsed`, `elapsedMs`, `timeoutCode` -- asserted by key set, not by spot checks. Input is `{}`.
 
 Verification: full `pnpm test` 220 files / 1,264 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 8c4dc1d.
+
+### Headline-to-source relationships, and WhatsApp bold -- 2026-07-29
+
+The e5528b5 live proof passed every pipeline check but the visible reply exposed a defect the mechanics could not catch.
+
+**Diagnosis.** R70 guarantees a *title* stays with its *own URL*. Nothing bound a *headline* to a source that supports it. `applyVerifiedSources` stripped the model's links and appended a flat list of every verified pair, capped at `MAX_WHATSAPP_SOURCES = 4` -- hence three headlines followed by four sources, two of which (an NPR section front, a Euronews bulletin) mapped to no delivered item. Section fronts are legitimate search results; nothing filtered them. Separately, the model emitted markdown `**bold**`; WhatsApp uses single asterisks and `sanitizeUserFacingReply` only strips noisy lines, so `**` rendered literally.
+
+**Fix** -- new `headline-answer.ts`, used by both delivery paths:
+
+- The prompts now ask for `1. <headline> SOURCE: <exact source title>`. Citing by *title* rather than by index works identically for the pre-search answer and for local composition, since both see the same verified pair set.
+- `parseHeadlineAnswer` binds each cited headline to the pair whose title it named (normalised match, then containment). A citation matching nothing is dropped **with its headline** -- delivering a headline without a supporting link would recreate the defect.
+- `formatHeadlineAnswerForWhatsApp` renders each headline immediately above its own source and URL. There is no trailing list, so an uncited source cannot be delivered.
+- `isGenericIndexUrl` / `selectCitableSources` withhold section fronts and homepages whenever a real article exists, both from the prompt's source list and from citation matching.
+- `toWhatsAppText` converts `**x**`/`***x***` to `*x*`, `__x__` to `_x_`, and removes stray `**`.
+- No citations parsed -> previous behaviour (prose + pair list). No verified sources -> text returned by identity, so ordinary turns stay byte-identical.
+
+`formatLiveWebResearchForWhatsApp` now delegates to `applyVerifiedSources`, so the typed-timeout fallback obeys the same guarantee. That creates an ESM cycle between `live-web-research.ts` and `verified-sources.ts`; both sides export only hoisted function declarations and neither runs the other at module init, so it resolves cleanly -- verified by the full suite rather than assumed.
+
+Verification: full `pnpm test` 221 files / 1,281 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs e5528b5.

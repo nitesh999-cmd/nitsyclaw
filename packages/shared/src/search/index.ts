@@ -49,4 +49,15 @@ export {
   createVerifiedSourceCollector,
   type VerifiedSourceCollector,
 } from "./verified-sources.js";
+export {
+  extractIntro,
+  formatHeadlineAnswerForWhatsApp,
+  headlineCitationInstruction,
+  isGenericIndexUrl,
+  parseHeadlineAnswer,
+  selectCitableSources,
+  toWhatsAppText,
+  type HeadlineAnswer,
+  type HeadlineItem,
+} from "./headline-answer.js";
 export { isExplicitLiveWebResearchRequest } from "./web-research-intent.js";

@@ -16,6 +16,7 @@ import {
   type LiveWebResearcher,
   type RawResponseLike,
 } from "./live-web-research.js";
+import { headlineCitationInstruction } from "./headline-answer.js";
 import type { WebSearcher } from "../agent/deps.js";
 
 /** Bound on paused-turn continuations, so a stuck turn can never loop forever. */
@@ -27,6 +28,7 @@ const RESEARCH_SYSTEM_PROMPT = [
   "Never ask the user whether you should search; the search has already been authorised.",
   "Never mention a training cutoff. If the search results do not answer the question, say so plainly.",
   "Reply in compact plain text suitable for WhatsApp: no markdown tables, no headings, short lines.",
+  headlineCitationInstruction(),
 ].join(" ");
 
 /** Minimal shape of the Messages API call, so tests can inject a fake. */

@@ -782,6 +782,43 @@ describe("Router (integration)", () => {
         expect(state.messages.filter((m) => m.direction === "out")).toHaveLength(1);
       });
 
+      it("obeys the headline-to-source relationship guarantee on the fallback path", async () => {
+        const articleA = { title: "Profile News", url: "https://profile.example.com/story-a" };
+        const articleB = { title: "Reuters: World", url: "https://reuters.example.com/story-b" };
+        const indexPage = { title: "NPR World", url: "https://npr.example.org/world" };
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(timeoutError()),
+          liveResearch: {
+            maxUses: 5,
+            research: vi.fn(async () => ({
+              status: "ok" as const,
+              answer: [
+                "**Two headlines for 29 July 2026.**",
+                "1. Talks resumed in Geneva SOURCE: Profile News",
+                "2. Markets closed higher SOURCE: Reuters: World",
+              ].join("\n"),
+              sources: [articleA, articleB, indexPage],
+              searchesUsed: 1,
+            })),
+            health: operationalHealth,
+          },
+        });
+        router = new Router(deps, OWNER);
+
+        await router.handle({ id: "x-fb-rel", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+        const reply = wa.sent.at(-1)!.body;
+        // One source per headline, each beside its own headline.
+        expect(reply).toContain("1. Talks resumed in Geneva\nProfile News\nhttps://profile.example.com/story-a");
+        expect(reply).toContain("2. Markets closed higher\nReuters: World\nhttps://reuters.example.com/story-b");
+        // Uncited index page never delivered; no flat source list; no literal **.
+        expect(reply).not.toContain("npr.example.org");
+        expect(reply).not.toContain("Sources:");
+        expect(reply).not.toContain("**");
+        expect(reply.match(/https:\/\//g)).toHaveLength(2);
+      });
+
       it("records one sanitized audit event with only the approved fields", async () => {
         deps = makeAgentDeps({
           whatsapp: wa,

@@ -9,6 +9,9 @@
 // `tool_use_id`, request ids, or raw API payloads. Only model prose plus source
 // title/URL pairs leave this module.
 
+import { headlineCitationInstruction, selectCitableSources } from "./headline-answer.js";
+import { applyVerifiedSources } from "./verified-sources.js";
+
 /** Tool version we pin to. Basic search, direct caller, supported on Claude 4+ models. */
 export const ANTHROPIC_WEB_SEARCH_TOOL_VERSION = "web_search_20250305";
 
@@ -160,7 +163,9 @@ export function formatLiveWebResearchForWhatsApp(result: LiveWebResearchResult):
     return "I searched the web but found nothing usable for that. I won't fill the gap with older knowledge.";
   }
   if (result.sources.length === 0) return answer;
-  return [stripInlineUrls(answer), "", "Sources:", ...formatSourceList(result.sources)].join("\n");
+  // The timeout fallback delivers this text, so it must obey the same
+  // headline-to-source relationship guarantee as a locally composed reply.
+  return applyVerifiedSources(answer, result.sources);
 }
 
 /**
@@ -195,9 +200,12 @@ export function buildLiveResearchPromptBlock(
         // The reply must not carry model-written links: a verified source list
         // is appended verbatim after the answer, so any URL the model writes is
         // either a duplicate or a mispairing.
-        "Sources are listed below as numbered title/URL pairs. Do NOT write URLs or your own source list in your reply — the list below is appended automatically. If you name a source, use its exact title from this list.",
+        "Sources are listed below as numbered title/URL pairs. Do NOT write URLs or your own source list in your reply — each source is attached automatically to the item that cites it.",
+        headlineCitationInstruction(),
         "Answer in plain text as your final message; the reply_to_user tool is withheld for this turn.",
-        ...formatSourceList(result.sources),
+        // Section fronts are withheld when real articles exist, so they cannot
+        // be cited as support for a specific headline.
+        ...formatSourceList(selectCitableSources(result.sources)),
       );
     }
   }

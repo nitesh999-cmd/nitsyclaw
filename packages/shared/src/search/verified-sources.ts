@@ -10,6 +10,12 @@
 // module-level state, so concurrent turns cannot see each other's sources.
 
 import { formatSourceList, stripInlineUrls, type LiveWebResearchSource } from "./live-web-research.js";
+import {
+  extractIntro,
+  formatHeadlineAnswerForWhatsApp,
+  parseHeadlineAnswer,
+  toWhatsAppText,
+} from "./headline-answer.js";
 
 export interface VerifiedSourceCollector {
   /** Record pairs from a successful search. Order is preserved; URLs deduplicate. */
@@ -50,7 +56,18 @@ export function createVerifiedSourceCollector(
  */
 export function applyVerifiedSources(text: string, sources: readonly LiveWebResearchSource[]): string {
   if (sources.length === 0) return text;
+
+  // Preferred shape: the model cited a source title per headline, so each item
+  // can be rendered beside the one source that supports it and nothing else is
+  // appended.
+  const answer = parseHeadlineAnswer(text, sources);
+  if (answer.items.length > 0) {
+    return formatHeadlineAnswerForWhatsApp(answer, extractIntro(text));
+  }
+
+  // No citations to bind. Fall back to prose plus the verified pair list rather
+  // than inventing a relationship that was never stated.
   const lines = formatSourceList([...sources]);
   if (lines.length === 0) return text;
-  return [stripInlineUrls(text), "", "Sources:", ...lines].join("\n").trim();
+  return [toWhatsAppText(stripInlineUrls(text)), "", "Sources:", ...lines].join("\n").trim();
 }
