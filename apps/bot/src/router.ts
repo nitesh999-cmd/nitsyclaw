@@ -16,6 +16,7 @@ import {
   loadTodayFocusEvidence,
   localBrainModeFromEnv,
   OllamaProvider,
+  OllamaProviderError,
   type FocusEvidence,
 } from "@nitsyclaw/shared/local-brain";
 import { detectIntent } from "@nitsyclaw/shared/utils";
@@ -72,7 +73,7 @@ import {
   resolvePromptProfileFromContext,
   summarizeFeatureQueueStatus,
 } from "@nitsyclaw/shared/features";
-import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
+import type { InboundMessage, WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 import {
   cancelReminder,
   getLatestPendingConfirmation,
@@ -171,6 +172,7 @@ import {
   buildLiveResearchPromptBlock,
   createTurnScopedResearcher,
   createVerifiedSourceCollector,
+  formatLiveWebResearchForWhatsApp,
   formatLiveWebResearchUnavailable,
   formatLocalDateInstruction,
   hasUsableFindings,
@@ -248,6 +250,28 @@ const BILL_REMINDER_CONTEXT_TTL_MS = 10 * 60 * 1000;
 const BILL_REMINDER_CONTEXT_OPEN = "[bill-reminder-context:v1]";
 const BILL_REMINDER_CONTEXT_CLOSE = "[/bill-reminder-context:v1]";
 const pendingBillRemindersByOwner = new Map<string, PendingBillReminderContext>();
+
+/**
+ * Wraps a WhatsApp client for one turn and counts sends made through it.
+ * Used to prove nothing has already been delivered before a fallback reply.
+ */
+interface CountingWhatsAppClient extends WhatsAppClient {
+  sentCount(): number;
+}
+
+function countingWhatsAppClient(inner: WhatsAppClient): CountingWhatsAppClient {
+  let sent = 0;
+  return {
+    ready: () => inner.ready(),
+    onMessage: (handler) => inner.onMessage(handler),
+    destroy: () => inner.destroy(),
+    send: async (args) => {
+      sent += 1;
+      return inner.send(args);
+    },
+    sentCount: () => sent,
+  };
+}
 
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
@@ -402,7 +426,7 @@ export class Router {
     query: string,
     researcher: TurnScopedResearcher | undefined,
   ): Promise<
-    | { kind: "context"; block: string; sources: LiveWebResearchSource[] }
+    | { kind: "context"; block: string; sources: LiveWebResearchSource[]; result: LiveWebResearchResult }
     | { kind: "unavailable"; message: string }
   > {
     if (!researcher) {
@@ -437,7 +461,43 @@ export class Router {
       kind: "context",
       block: buildLiveResearchPromptBlock(query, result, { localDateInstruction }),
       sources: result.sources,
+      // Kept so a local composition timeout can still deliver this already
+      // successful, already cited answer without touching any provider again.
+      result,
     };
+  }
+
+  /**
+   * One sanitized audit event for a verified-source fallback delivery.
+   * Counts, lengths and a failure code only — never the query, answer, titles,
+   * URLs, message body, identifiers, request ids, or provider payloads.
+   */
+  private async auditLiveResearchFallback(args: {
+    sourceCount: number;
+    answerLen: number;
+    searchesUsed: number;
+    elapsedMs: number;
+    timeoutCode: string;
+  }): Promise<void> {
+    try {
+      await logAudit(this.deps.db, {
+        actor: "agent",
+        tool: "web_research_fallback",
+        input: {},
+        output: {
+          fallbackType: "verified_presearch_answer",
+          sourceCount: args.sourceCount,
+          answerLen: args.answerLen,
+          searchesUsed: args.searchesUsed,
+          elapsedMs: args.elapsedMs,
+          timeoutCode: args.timeoutCode,
+        },
+        success: true,
+        durationMs: args.elapsedMs,
+      });
+    } catch (error) {
+      logBotError("[router] fallback audit write failed", error);
+    }
   }
 
   /**
@@ -3112,8 +3172,12 @@ export class Router {
       // One collector per turn, shared by the pre-search, the web_research tool,
       // and both delivery paths. Never module-level, so turns stay isolated.
       const turnSources = createVerifiedSourceCollector();
+      // Counts sends made by tools during the loop, so a turn that already
+      // replied can never be followed by a fallback reply.
+      const turnWhatsApp = countingWhatsAppClient(this.deps.whatsapp);
       const agentDeps = {
         ...this.deps,
+        whatsapp: turnWhatsApp,
         liveResearch: turnResearcher,
         verifiedSources: turnSources,
         profile: promptProfile,
@@ -3122,6 +3186,7 @@ export class Router {
       // An explicit ask for live information searches in this same turn, before
       // the model gets a chance to reply "would you like me to search?".
       let liveResearchBlock: string | undefined;
+      let liveResearchFallback: LiveWebResearchResult | undefined;
       if (isExplicitLiveWebResearchRequest(effectiveText)) {
         const outcome = await this.runLiveResearchForTurn(effectiveText, turnResearcher);
         if (outcome.kind === "unavailable") {
@@ -3131,6 +3196,9 @@ export class Router {
         }
         liveResearchBlock = outcome.block;
         turnSources.record(outcome.sources);
+        // Only a pre-search that passed hasUsableFindings reaches here, so the
+        // fallback is eligible exactly when a cited answer already exists.
+        liveResearchFallback = outcome.result;
       }
       // reply_to_user sends from inside its own handler, so a reply delivered
       // that way can never be post-processed. Withholding it for live-research
@@ -3138,16 +3206,40 @@ export class Router {
       // replaces model-written links with verified title/URL pairs. Ordinary
       // turns keep the tool — the shared registry is untouched.
       const turnRegistry = liveResearchBlock ? this.registry.without("reply_to_user") : this.registry;
-      const result = await runAgent({
-        userPhone: msg.from,
-        userMessage: effectiveText,
-        history,
-        systemPrompt: [buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }), liveResearchBlock]
-          .filter(Boolean)
-          .join("\n\n"),
-        registry: turnRegistry,
-        deps: agentDeps,
-      });
+      const agentStartedAt = Date.now();
+      let result: Awaited<ReturnType<typeof runAgent>>;
+      try {
+        result = await runAgent({
+          userPhone: msg.from,
+          userMessage: effectiveText,
+          history,
+          systemPrompt: [buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }), liveResearchBlock]
+            .filter(Boolean)
+            .join("\n\n"),
+          registry: turnRegistry,
+          deps: agentDeps,
+        });
+      } catch (error) {
+        // Local composition timed out, but the search already succeeded. Deliver
+        // that cited answer rather than a generic failure. Typed check only —
+        // database, Anthropic, tool and validation errors fall through, and no
+        // provider is called or retried here.
+        const timedOut = error instanceof OllamaProviderError && error.code === "timeout";
+        if (!timedOut || !liveResearchFallback || turnWhatsApp.sentCount() > 0) throw error;
+
+        const reply = formatLiveWebResearchForWhatsApp(liveResearchFallback);
+        await this.sendAndPersist(reply);
+        await this.auditLiveResearchFallback({
+          sourceCount: liveResearchFallback.sources.length,
+          answerLen: liveResearchFallback.answer.length,
+          searchesUsed: liveResearchFallback.searchesUsed,
+          elapsedMs: Date.now() - agentStartedAt,
+          timeoutCode: error.code,
+        });
+        // Completed normally, so a WhatsApp redelivery cannot run it again.
+        await completeCommandJob(this.deps.db, commandJob.id, reply);
+        return;
+      }
       // The agent should have already replied via reply_to_user; only echo if it didn't.
       const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);
       let deliveredText = "";

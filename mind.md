@@ -3069,3 +3069,18 @@ Router persistence now reproduces what `reply_to_user` actually delivered rather
 Existing live-research fixtures were tightened from `startsWith("ack")` to exact equality against `ACK_WITH_SOURCES`, so they now assert the precise appended pair rather than just a prefix. The duplicate-event fixture, which is not a live-research turn, asserts exact `"ack"` and therefore proves ordinary replies are untouched.
 
 Verification: full `pnpm test` 220 files / 1,256 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 4e7765f.
+
+### Correction: OLLAMA_TIMEOUT_MS is per call, and the verified-source fallback -- 2026-07-29
+
+**Correction first.** My benchmark report claimed "three rounds would exceed 45 s". That was wrong. `fetchResponse` builds `linkedAbort(options.signal, options.timeoutMs ?? this.requestTimeoutMs)` **inside** the per-attempt loop, and `chat()` goes through it once per HTTP request. So `OLLAMA_TIMEOUT_MS` bounds **each `OllamaProvider.chat()` call**, not the agent loop. Six loop rounds each get a fresh 45 s; the loop itself is unbounded in wall-clock terms. Multi-round cost therefore does not explain the 11:38 timeout, and the benchmark numbers (cold 18.9 s, warm 2.8 s at 13,810 prompt tokens) say a single call has ample headroom on an idle machine. The true cause of that one timeout remains unproven -- contention is the leading hypothesis, not a finding. Timeout value unchanged.
+
+**Fallback implemented.** When explicit pre-search has already succeeded and local composition then times out, the turn now delivers the answer that already exists rather than a generic failure.
+
+- Eligibility is structural: `liveResearchFallback` is assigned only on the `kind: "context"` branch, which is reachable only after `hasUsableFindings` passed. No pre-search, empty findings, or zero sources -> the existing unavailable path runs and the fallback is never armed.
+- The catch is typed: `error instanceof OllamaProviderError && error.code === "timeout"`. No string matching. Database, Anthropic, tool, validation, `offline`, `model_missing`, `bad_response` and `cancelled` all rethrow unchanged.
+- Delivery reuses `formatLiveWebResearchForWhatsApp`, so the atomic pairs and the Melbourne-dated answer come through the existing shared renderer. No provider is called again and Ollama is not retried.
+- `countingWhatsAppClient` wraps the client for the turn, so a turn where a tool already sent something can never be followed by a fallback reply. (`reply_to_user` is withheld on these turns anyway per R71; the counter covers every other sending tool.)
+- The job is completed normally with the delivered text, so WhatsApp redelivery hits the completed-job path instead of re-executing.
+- One audit row, `tool: "web_research_fallback"`, whose output keys are exactly `fallbackType`, `sourceCount`, `answerLen`, `searchesUsed`, `elapsedMs`, `timeoutCode` -- asserted by key set, not by spot checks. Input is `{}`.
+
+Verification: full `pnpm test` 220 files / 1,264 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 8c4dc1d.

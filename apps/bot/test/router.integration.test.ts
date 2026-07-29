@@ -14,6 +14,7 @@ import {
   makeFakeLiveResearcher,
 } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
+import { OllamaProviderError } from "@nitsyclaw/shared/local-brain";
 import { generateKey, hashPhone } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
@@ -727,6 +728,208 @@ describe("Router (integration)", () => {
         "2. Guardian",
         "https://guardian.example.org/2",
       ]);
+    });
+
+    describe("local composition timeout fallback", () => {
+      const SOURCES = [
+        { title: "Reuters: World", url: "https://reuters.example.com/world" },
+        { title: "ABC News — AU", url: "https://abc.example.net/au" },
+      ];
+      const okResearch = () => ({
+        status: "ok" as const,
+        answer: "Three headlines for 29 July 2026 in Melbourne.",
+        sources: SOURCES,
+        searchesUsed: 1,
+      });
+      const timeoutError = () => new OllamaProviderError("Ollama request timed out.", "timeout", true);
+      const llmThatTimesOut = (error: Error) => ({
+        async complete() { return { text: "ok" }; },
+        async toolStep(): Promise<never> { throw error; },
+      });
+
+      it("delivers the verified pre-search answer and completes the job", async () => {
+        const research = vi.fn(async () => okResearch());
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(timeoutError()),
+          liveResearch: { maxUses: 5, research, health: operationalHealth },
+        });
+        router = new Router(deps, OWNER);
+
+        await router.handle({ id: "x-fb", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+        // Exactly one outbound, carrying the already-cited answer.
+        expect(wa.sent).toHaveLength(1);
+        const reply = wa.sent[0]!.body;
+        expect(reply).toContain("Three headlines for 29 July 2026 in Melbourne.");
+        expect(reply).not.toContain("backend error");
+
+        // Only verified pairs, through the shared renderer.
+        const lines = reply.split("\n");
+        expect(lines.slice(lines.indexOf("Sources:") + 1)).toEqual([
+          "1. Reuters: World",
+          "https://reuters.example.com/world",
+          "2. ABC News — AU",
+          "https://abc.example.net/au",
+        ]);
+
+        // One provider request, no Ollama retry, job completed, reply persisted.
+        expect(research).toHaveBeenCalledTimes(1);
+        const state = getFakeDbState(deps.db);
+        expect(state.command_jobs).toHaveLength(1);
+        expect(state.command_jobs[0]!.status).toBe("done");
+        expect(state.command_jobs[0]!.resultText).toBe(reply);
+        expect(state.messages.filter((m) => m.direction === "out")).toHaveLength(1);
+      });
+
+      it("records one sanitized audit event with only the approved fields", async () => {
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(timeoutError()),
+          liveResearch: { maxUses: 5, research: vi.fn(async () => okResearch()), health: operationalHealth },
+        });
+        router = new Router(deps, OWNER);
+
+        await router.handle({ id: "x-fb-audit", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+        const rows = getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research_fallback");
+        expect(rows).toHaveLength(1);
+        const row = rows[0] as { output: Record<string, unknown>; input: Record<string, unknown> };
+        expect(Object.keys(row.output).sort()).toEqual([
+          "answerLen", "elapsedMs", "fallbackType", "searchesUsed", "sourceCount", "timeoutCode",
+        ]);
+        expect(row.output).toMatchObject({
+          fallbackType: "verified_presearch_answer",
+          sourceCount: 2,
+          searchesUsed: 1,
+          timeoutCode: "timeout",
+        });
+        expect(row.input).toEqual({});
+
+        const serialized = JSON.stringify(row);
+        expect(serialized).not.toContain("Reuters");
+        expect(serialized).not.toContain("reuters.example.com");
+        expect(serialized).not.toContain("Three headlines");
+        expect(serialized).not.toContain(PROOF);
+        expect(serialized).not.toContain(OWNER);
+      });
+
+      it("does not activate when pre-search produced no usable findings", async () => {
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(timeoutError()),
+          liveResearch: {
+            maxUses: 5,
+            research: vi.fn(async () => ({ status: "ok" as const, answer: "x", sources: [], searchesUsed: 1 })),
+            health: operationalHealth,
+          },
+        });
+        router = new Router(deps, OWNER);
+
+        await router.handle({ id: "x-fb-none", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false });
+
+        // Existing unavailable behaviour, not a fallback.
+        expect(wa.sent.at(-1)!.body).toContain("live web results");
+        expect(getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research_fallback")).toHaveLength(0);
+      });
+
+      it("keeps the existing error path for a non-live-research Ollama timeout", async () => {
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(timeoutError()),
+        });
+        router = new Router(deps, OWNER);
+
+        // Existing behaviour: the error propagates to the WhatsApp layer,
+        // which logs it and sends the generic failure reply.
+        await expect(router.handle({
+          id: "x-fb-plain",
+          from: OWNER,
+          body: "what was that setup page again?",
+          timestamp: new Date(),
+          hasMedia: false,
+        })).rejects.toThrow();
+
+        expect(wa.sent.some((m) => m.body.includes("Sources:"))).toBe(false);
+        expect(getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research_fallback")).toHaveLength(0);
+      });
+
+      it("does not activate for an unrelated Ollama error class", async () => {
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(new OllamaProviderError("Ollama is unavailable.", "offline", true)),
+          liveResearch: { maxUses: 5, research: vi.fn(async () => okResearch()), health: operationalHealth },
+        });
+        router = new Router(deps, OWNER);
+
+        await expect(router.handle({ id: "x-fb-offline", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false }))
+          .rejects.toThrow();
+
+        expect(wa.sent.some((m) => m.body.includes("Sources:"))).toBe(false);
+        expect(getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research_fallback")).toHaveLength(0);
+      });
+
+      it("does not activate for a non-Ollama error", async () => {
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(new Error("Failed query: insert into messages")),
+          liveResearch: { maxUses: 5, research: vi.fn(async () => okResearch()), health: operationalHealth },
+        });
+        router = new Router(deps, OWNER);
+
+        await expect(router.handle({ id: "x-fb-db", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false }))
+          .rejects.toThrow();
+
+        expect(wa.sent.some((m) => m.body.includes("Sources:"))).toBe(false);
+        expect(getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research_fallback")).toHaveLength(0);
+      });
+
+      it("never follows an already-delivered reply with a fallback reply", async () => {
+        let round = 0;
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: {
+            async complete() { return { text: "ok" }; },
+            async toolStep() {
+              round += 1;
+              if (round === 1) {
+                return {
+                  stopReason: "tool_use" as const,
+                  toolCalls: [{ id: "c1", name: "send_morning_brief_now", input: {} }],
+                  text: "",
+                };
+              }
+              throw timeoutError();
+            },
+          },
+          liveResearch: { maxUses: 5, research: vi.fn(async () => okResearch()), health: operationalHealth },
+        });
+        router = new Router(deps, OWNER);
+
+        await router.handle({ id: "x-fb-sent", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false }).catch(() => {});
+
+        // A tool already delivered, so no fallback reply may follow it.
+        expect(wa.sent.filter((m) => m.body.includes("Sources:"))).toHaveLength(0);
+        expect(getFakeDbState(deps.db).audit_log.filter((r) => r.tool === "web_research_fallback")).toHaveLength(0);
+      });
+
+      it("executes a redelivered fallback turn at most once", async () => {
+        const research = vi.fn(async () => okResearch());
+        deps = makeAgentDeps({
+          whatsapp: wa,
+          llm: llmThatTimesOut(timeoutError()),
+          liveResearch: { maxUses: 5, research, health: operationalHealth },
+        });
+        router = new Router(deps, OWNER);
+        const inbound = { id: "x-fb-dup", from: OWNER, body: PROOF, timestamp: new Date(), hasMedia: false };
+
+        await router.handle({ ...inbound });
+        await router.handle({ ...inbound });
+
+        expect(getFakeDbState(deps.db).command_jobs).toHaveLength(1);
+        expect(wa.sent.filter((m) => m.body.includes("Sources:"))).toHaveLength(1);
+        expect(research).toHaveBeenCalledTimes(1);
+      });
     });
 
     it("does not divert requests scoped to the owner's own data", async () => {
