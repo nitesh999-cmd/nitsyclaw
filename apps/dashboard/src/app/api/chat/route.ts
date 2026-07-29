@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
+import { auditModelRoute, getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import {
   createPrivacyAwareEmbedder,
@@ -189,11 +189,7 @@ function buildDashboardDeps(): AgentDeps {
       telemetry: async (event) => {
         // Payload is built from the routing event alone, so no owner-linked
         // value can reach it. Row ownership elsewhere is untouched.
-        await logAudit(db, {
-          actor: "model-router",
-          tool: "model_route",
-          ...buildModelRouteAuditPayload(event),
-        });
+        await logAudit(db, auditModelRoute(buildModelRouteAuditPayload(event)));
       },
     }),
     transcriber: noopTranscriber,

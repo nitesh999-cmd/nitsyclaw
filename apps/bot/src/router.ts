@@ -94,6 +94,8 @@ import {
   rescheduleReminder,
   setConfirmationStatus,
   updateMessageMetadata,
+  auditWebPresearch,
+  auditWebResearchFallback,
 } from "@nitsyclaw/shared/db";
 import {
   completeCommandJob,
@@ -482,21 +484,16 @@ export class Router {
     timeoutCode: string;
   }): Promise<void> {
     try {
-      await logAudit(this.deps.db, {
-        actor: "agent",
-        tool: "web_research_fallback",
-        input: {},
-        output: {
-          fallbackType: "verified_presearch_answer",
+      await logAudit(
+        this.deps.db,
+        auditWebResearchFallback({
           sourceCount: args.sourceCount,
           answerLen: args.answerLen,
           searchesUsed: args.searchesUsed,
           elapsedMs: args.elapsedMs,
           timeoutCode: args.timeoutCode,
-        },
-        success: true,
-        durationMs: args.elapsedMs,
-      });
+        }),
+      );
     } catch (error) {
       logBotError("[router] fallback audit write failed", error);
     }
@@ -531,11 +528,10 @@ export class Router {
     remainingBudget: number,
   ): Promise<void> {
     try {
-      await logAudit(this.deps.db, {
-        actor: "agent",
-        tool: "web_presearch",
-        input: { surface: "whatsapp" },
-        output: {
+      await logAudit(
+        this.deps.db,
+        auditWebPresearch({
+          surface: "whatsapp",
           status: result?.status ?? "unavailable",
           available: failureCode === null,
           searchesUsed: result?.searchesUsed ?? 0,
@@ -544,10 +540,8 @@ export class Router {
           failureCode,
           elapsedMs,
           remainingBudget,
-        },
-        success: failureCode === null,
-        durationMs: elapsedMs,
-      });
+        }),
+      );
     } catch (error) {
       logBotError("[router] presearch audit write failed", error);
     }

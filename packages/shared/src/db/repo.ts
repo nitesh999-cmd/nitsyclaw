@@ -6,6 +6,7 @@ import {
   requireTenantContext,
   type TenantContext,
 } from "../tenancy.js";
+import type { SafeAuditEntry } from "./audit-contract.js";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -602,23 +603,23 @@ export async function claimSystemNotification(
       : Number((rows as { rowCount?: number }).rowCount ?? 0) > 0;
 }
 
-export async function logAudit(
-  db: DB,
-  entry: {
-    actor: string;
-    tool: string;
-    input?: Record<string, unknown>;
-    output?: Record<string, unknown>;
-    success: boolean;
-    error?: string;
-    durationMs?: number;
-  },
-) {
+/**
+ * The only path to `audit_log`.
+ *
+ * The parameter type is branded, so a caller cannot pass an object literal
+ * assembled from runtime data: every row is shaped by a builder in
+ * `audit-contract.ts` that copies approved fields individually. The sanitizer
+ * below remains as a second layer of defence, not as the first one.
+ */
+export async function logAudit(db: DB, entry: SafeAuditEntry) {
   await db.insert(auditLog).values({
-    ...entry,
+    actor: entry.actor,
+    tool: entry.tool,
     input: sanitizeAuditPayload(entry.input),
     output: sanitizeAuditPayload(entry.output),
+    success: entry.success,
     error: entry.error ? redactAuditString(entry.error) : undefined,
+    durationMs: entry.durationMs,
   });
 }
 

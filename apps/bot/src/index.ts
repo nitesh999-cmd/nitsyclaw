@@ -10,6 +10,7 @@ import {
   logAudit,
   upsertSystemHeartbeat,
   type DB,
+  auditLoopBreaker,
 } from "@nitsyclaw/shared/db";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { WwebjsClient } from "./wwebjs-client.js";
@@ -85,14 +86,11 @@ async function main() {
         status: "paused",
         metadata: { ...incident },
       }).catch((e) => logBotError("[boot] loop guard heartbeat failed", e));
-      void logAudit(db, {
-        actor: "system",
-        tool: "whatsapp_loop_breaker",
-        input: { ...incident },
-        output: { action: incident.resetAt ? "cooldown_whatsapp_replies" : "paused_whatsapp_replies" },
-        success: false,
-        error: incident.reason,
-      }).catch((e) => logBotError("[boot] loop guard audit failed", e));
+      // The runtime `incident.reason` still drives cooldown, the operational log
+      // and feature-request dedupe. Only a closed code derived from it is
+      // persisted: the send-burst branch interpolates live counters into prose.
+      void logAudit(db, auditLoopBreaker(incident))
+        .catch((e) => logBotError("[boot] loop guard audit failed", e));
       void queueLoopBreakerFeatureRequest(db, incident)
         .catch((e) => logBotError("[boot] loop guard feature request failed", e));
       pushNotify(

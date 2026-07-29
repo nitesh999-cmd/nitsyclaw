@@ -19,8 +19,22 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage, insertFeatureRequest, logAudit, redactAuditString } from "@nitsyclaw/shared/db";
-import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import {
+  auditModelRoute,
+  auditToolFailure,
+  auditToolSuccess,
+  auditUnknownTool,
+  getDb,
+  insertMessage,
+  insertFeatureRequest,
+  logAudit,
+} from "@nitsyclaw/shared/db";
+import {
+  buildSystemPrompt,
+  classifyToolError,
+  loadCrossSurfaceHistory,
+  projectForAudit,
+} from "@nitsyclaw/shared/agent";
 import {
   createPrivacyAwareEmbedder,
   createRoutedLlm,
@@ -74,10 +88,6 @@ const NO_STORE = { "Cache-Control": "no-store" };
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : undefined;
-}
-
-function safeToolError(error: unknown): string {
-  return redactAuditString(error instanceof Error ? error.message : `${error}`);
 }
 
 class NoopWhatsApp implements WhatsAppClient {
@@ -178,11 +188,7 @@ function buildDashboardDeps(): { deps: AgentDeps } {
     telemetry: async (event) => {
       // Payload is built from the routing event alone, so no owner-linked
       // value can reach it. Row ownership elsewhere is untouched.
-      await logAudit(db, {
-        actor: "model-router",
-        tool: "model_route",
-        ...buildModelRouteAuditPayload(event),
-      });
+      await logAudit(db, auditModelRoute(buildModelRouteAuditPayload(event)));
     },
   });
 
@@ -445,6 +451,9 @@ export async function POST(req: Request) {
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
               toolResultParts.push(`[tool ${call.name}] error: Tool unavailable.`);
               send({ type: "tool_result", name: call.name, success: false, error: "Tool unavailable." });
+              // Same treatment as the shared loop: the attempt is recorded under
+              // a fixed token, without the model-supplied name or call input.
+              await logAudit(deps.db, auditUnknownTool());
               continue;
             }
             try {
@@ -459,27 +468,29 @@ export async function POST(req: Request) {
               toolCalls.push({ name: call.name, input: call.input, output: out, success: true });
               toolResultParts.push(`[tool ${call.name}] ${JSON.stringify(out)}`);
               send({ type: "tool_result", name: call.name, success: true });
-              await logAudit(deps.db, {
-                actor: "agent",
-                tool: call.name,
-                input: call.input as Record<string, unknown>,
-                output: out as Record<string, unknown>,
-                success: true,
-                durationMs: Date.now() - started,
-              });
+              // The complete result stays in `toolCalls` and in the streamed
+              // reply; only the tool's own projection is persisted.
+              await logAudit(
+                deps.db,
+                auditToolSuccess({
+                  tool: tool.name,
+                  projected: projectForAudit(tool, call.input, out),
+                  durationMs: Date.now() - started,
+                }),
+              );
             } catch (e) {
-              const err = safeToolError(e);
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
               toolResultParts.push(`[tool ${call.name}] error: Tool failed.`);
               send({ type: "tool_result", name: call.name, success: false, error: "Tool failed." });
-              await logAudit(deps.db, {
-                actor: "agent",
-                tool: call.name,
-                input: call.input as Record<string, unknown>,
-                success: false,
-                error: err,
-                durationMs: Date.now() - started,
-              });
+              await logAudit(
+                deps.db,
+                auditToolFailure({
+                  tool: tool.name,
+                  projectedInput: projectForAudit(tool, call.input, undefined).input,
+                  errorAudit: classifyToolError(tool.errorProjection, call.input, e),
+                  durationMs: Date.now() - started,
+                }),
+              );
             }
           }
           messages.push({ role: "assistant", content: resp.text });

@@ -7,6 +7,8 @@ import {
   listPendingFeatureRequests,
   logAudit,
   setFeatureRequestStatus,
+  auditOperatorDecision,
+  auditOperatorVerify,
 } from "@nitsyclaw/shared/db";
 import {
   buildOperatorRunPlan,
@@ -78,13 +80,15 @@ async function main() {
     if (!updated) {
       throw new Error(`operator job ${job.id} was not updated; it may have been claimed or removed`);
     }
-    await logAudit(db, {
-      actor: "operator-runner",
-      tool: "operator_runner.reject",
-      input: { jobId: job.id },
-      output: { decision: plan.decision, nextStatus: plan.nextStatus },
-      success: true,
-    });
+    await logAudit(
+      db,
+      auditOperatorDecision({
+        event: "reject",
+        jobId: job.id,
+        decision: plan.decision,
+        nextStatus: plan.nextStatus,
+      }),
+    );
     await appendAgentRunLog({
       operation: "operator_runner.reject",
       jobId: job.id,
@@ -110,13 +114,16 @@ async function main() {
   if (!updated) {
     throw new Error(`operator job ${job.id} was not updated; it may have been claimed or removed`);
   }
-  await logAudit(db, {
-    actor: "operator-runner",
-    tool: "operator_runner.claim",
-    input: { jobId: job.id },
-    output: { decision: plan.decision, nextStatus: plan.nextStatus, commandCount: plan.commands.length },
-    success: true,
-  });
+  await logAudit(
+    db,
+    auditOperatorDecision({
+      event: "claim",
+      jobId: job.id,
+      decision: plan.decision,
+      nextStatus: plan.nextStatus,
+      commandCount: plan.commands.length,
+    }),
+  );
   await appendAgentRunLog({
     operation: "operator_runner.claim",
     jobId: job.id,
@@ -138,20 +145,19 @@ async function main() {
       expectedStatus: "in_progress",
       implementationNotes: `${plan.note}\n${summary}`,
     });
-    await logAudit(db, {
-      actor: "operator-runner",
-      tool: "operator_runner.verify",
-      input: { jobId: job.id, commandCount: plan.commands.length },
-      output: {
+    // The failing command text, the report path and the failure summary are all
+    // free text or filesystem detail. They stay in the run log; the audit row
+    // records only that a command failed.
+    await logAudit(
+      db,
+      auditOperatorVerify({
+        jobId: job.id,
+        commandCount: plan.commands.length,
         success: run.success,
-        failedCommand: run.failedCommand ?? null,
-        reportPath,
+        hasFailedCommand: run.failedCommand != null,
         durationMs: run.durationMs,
-      },
-      success: run.success,
-      error: run.success ? undefined : run.failureSummary,
-      durationMs: run.durationMs,
-    });
+      }),
+    );
     await appendAgentRunLog({
       operation: "operator_runner.verify",
       jobId: job.id,

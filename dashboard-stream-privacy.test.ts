@@ -25,8 +25,12 @@ describe("dashboard stream privacy", () => {
     const route = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
 
     expect(route).toContain('throw new Error("Invalid tool input")');
-    expect(route).toContain("safeToolError");
-    expect(route).toContain("redactAuditString");
+    // Error text no longer reaches the audit row at all: the stream loop now
+    // classifies failures through the same machinery as the shared agent loop.
+    expect(route).toContain("classifyToolError(tool.errorProjection, call.input, e)");
+    expect(route).toContain("auditToolFailure({");
+    expect(route).not.toContain("safeToolError");
+    expect(route).not.toContain("redactAuditString");
     expect(route).toContain('toolResultParts.push(`[tool ${call.name}] error: Tool failed.`)');
     expect(route).toContain('toolResultParts.push(`[tool ${call.name}] error: Tool unavailable.`)');
     expect(route).not.toContain("parsed.error.message");

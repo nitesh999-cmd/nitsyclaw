@@ -8,7 +8,7 @@ import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent, sendMailRich } from "./microsoft-graph.js";
 import { logBotError } from "./safe-log.js";
 import { createWebResearch, type WebResearchWiring } from "@nitsyclaw/shared/search";
-import { logAudit } from "@nitsyclaw/shared/db";
+import { auditModelRoute, logAudit } from "@nitsyclaw/shared/db";
 import {
   OllamaProvider,
   createPrivacyAwareEmbedder,
@@ -437,7 +437,7 @@ export function buildAgentDeps(args: {
     telemetry: async (event) => {
       // Payload built from the routing event alone — no owner-linked value can
       // reach durable storage.
-      await logAudit(args.db, { actor: "agent", tool: "model_route", ...buildModelRouteAuditPayload(event) });
+      await logAudit(args.db, auditModelRoute(buildModelRouteAuditPayload(event)));
     },
   });
   const transcriber = args.env.OPENAI_API_KEY

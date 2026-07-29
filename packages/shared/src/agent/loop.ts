@@ -1,6 +1,7 @@
+import { auditToolFailure, auditToolSuccess, auditUnknownTool } from "../db/audit-contract.js";
 import { logAudit, redactAuditString } from "../db/repo.js";
 import type { AgentDeps } from "./deps.js";
-import { classifyToolError, DEFAULT_TOOL_ERROR_CLASS } from "./tool-error.js";
+import { classifyToolError } from "./tool-error.js";
 import type { ToolContext, ToolDefinition, ToolRegistry } from "./tools.js";
 
 /**
@@ -11,7 +12,7 @@ import type { ToolContext, ToolDefinition, ToolRegistry } from "./tools.js";
  * tool without a projection records nothing, so a new or third-party tool can
  * never leak an arbitrary object into durable storage.
  */
-function projectForAudit(
+export function projectForAudit(
   tool: ToolDefinition | undefined,
   input: unknown,
   output: unknown,
@@ -92,14 +93,7 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
         // Unknown tool: nothing is known to be safe, so nothing is persisted.
         // `err` still reaches the model and the caller; only the audit row is
         // reduced to a structured class.
-        await logAudit(args.deps.db, {
-          actor: "agent",
-          tool: call.name,
-          input: {},
-          output: { errorClass: "unknown_tool" },
-          success: false,
-          error: "unknown_tool",
-        });
+        await logAudit(args.deps.db, auditUnknownTool());
         continue;
       }
       try {
@@ -108,31 +102,29 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
         const out = await tool.handler(parsed.data, ctx);
         calls.push({ name: call.name, input: call.input, output: out, success: true });
         toolResultParts.push(`[tool ${call.name}] ${formatToolResultText(out)}`);
-        const audited = projectForAudit(tool, call.input, out);
-        await logAudit(args.deps.db, {
-          actor: "agent",
-          tool: call.name,
-          input: audited.input,
-          output: audited.output,
-          success: true,
-          durationMs: Date.now() - started,
-        });
+        await logAudit(
+          args.deps.db,
+          auditToolSuccess({
+            tool: tool.name,
+            projected: projectForAudit(tool, call.input, out),
+            durationMs: Date.now() - started,
+          }),
+        );
       } catch (e) {
         const err = formatToolErrorText(e);
         calls.push({ name: call.name, input: call.input, output: null, success: false, error: err });
         toolResultParts.push(`[tool ${call.name}] error: ${err}`);
         // `err` is sanitized free text: fine for the model and the operational
         // log, never for durable storage. Only structured metadata persists.
-        const errorAudit = classifyToolError(tool.errorProjection, call.input, e);
-        await logAudit(args.deps.db, {
-          actor: "agent",
-          tool: call.name,
-          input: projectForAudit(tool, call.input, undefined).input,
-          output: { ...errorAudit },
-          success: false,
-          error: errorAudit.errorClass ?? DEFAULT_TOOL_ERROR_CLASS,
-          durationMs: Date.now() - started,
-        });
+        await logAudit(
+          args.deps.db,
+          auditToolFailure({
+            tool: tool.name,
+            projectedInput: projectForAudit(tool, call.input, undefined).input,
+            errorAudit: classifyToolError(tool.errorProjection, call.input, e),
+            durationMs: Date.now() - started,
+          }),
+        );
       }
     }
     // Feed results back as a synthetic user turn so the model can react.

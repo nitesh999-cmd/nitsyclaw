@@ -450,12 +450,20 @@ An error message is free text and routinely carries prose, URLs, queries, recall
 - *Added:* 2026-07-29
 - *Extends:* R76 (runtime and audit data are different objects), R69 (log diagnostics without content)
 
+
+### R78 — One fail-closed contract guards every durable audit write (extends R76, R77)
+`audit_log` has exactly one writer, `logAudit`, and it accepts only a branded `SafeAuditEntry`. That brand cannot be produced by an object literal, so no caller can hand raw runtime data to the persistence boundary: every row is shaped by a contract builder that copies approved fields individually and never spreads a raw object. A field is persisted because it is a proven boolean, number, timestamp, closed enum, or non-owner operational identifier — never because it looked harmless. Durable input and output default to empty; silence is the safe state. A model-supplied tool name is not persisted verbatim; an unknown tool is recorded under a fixed token with no name, no call input and no error prose. Every surface that runs an agent loop — the shared `runAgent` loop and the dashboard stream loop alike — uses the same `projectForAudit` and the same structured error classification, so a tool without an `auditProjection` persists empty input and output in both. A second competing projection system is not permitted: new events extend the contract rather than bypassing it. Enforcement is both compile-time (the brand) and static (a source inventory test that fails if any writer skips a builder or passes raw runtime data). The escape hatch is a literal `as SafeAuditEntry` cast, which is greppable, test-banned, and requires review.
+- *Source:* Static inventory after 5431d9c — the dashboard stream inline loop persisted raw `call.input` and raw tool output, and `whatsapp_loop_breaker` wrote `incident.reason` free text into both the audit input and the error column; `packages/shared/src/db/audit-contract.ts`, `packages/shared/src/db/repo.ts`
+- *Added:* 2026-07-30
+- *Extends:* R76 (runtime and audit data are different objects), R77 (errors persist as structured metadata)
+
 ---
 
 ## Fixes log
 
 | Date | What broke / decision | Rule(s) | Resolution |
 |---|---|---|---|
+| 2026-07-30 | Four durable-audit leaks survived R76/R77 because each producer shaped its own row: the dashboard stream inline loop persisted raw `call.input` and raw tool output, `whatsapp_loop_breaker` wrote `incident.reason` free text (with live counters) into audit input and the error column, `operator_runner.verify` persisted the failing command, report path and failure summary, and `operator_runner.complete` persisted operator-supplied commit and deployment strings | R78 | Single branded `SafeAuditEntry` accepted by `logAudit`; eleven contract builders in `db/audit-contract.ts`; all 16 writers converted; both agent loops share `projectForAudit` and `classifyToolError`; source-inventory and forbidden-token regression tests |
 | 2026-04-25 | Project naming collision discovered during research | R1 | Codename retained internally; rename gate added before any public surface |
 | 2026-04-25 | Idea bloat risk identified during pre-mortem | R7 | Tier+effort tagging required on every idea, P0 cap of 10 |
 | 2026-04-25 | State divergence risk between WhatsApp and Dashboard | R5 | Single Postgres source of truth mandated |
