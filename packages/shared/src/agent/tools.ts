@@ -1,6 +1,7 @@
 // Tool registry. Each P0 feature exposes one or more tools to Claude.
 
 import { z } from "zod";
+import type { ToolErrorProjection } from "./tool-error.js";
 
 /**
  * What a tool is willing to have written to the durable audit trail.
@@ -26,6 +27,12 @@ export interface ToolDefinition<I extends z.ZodTypeAny = z.ZodTypeAny> {
    * tool records an empty input and output — never an arbitrary object.
    */
   auditProjection?: (io: { input: unknown; output: unknown }) => ToolAuditProjection;
+  /**
+   * Optional classification of a failure into persistable metadata. Values are
+   * allowlisted; anything else, or a throwing projection, records the generic
+   * class. The tool's thrown error itself is never persisted.
+   */
+  errorProjection?: (io: { input: unknown; error: unknown }) => ToolErrorProjection;
 }
 
 export interface ToolContext {

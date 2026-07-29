@@ -3138,3 +3138,20 @@ That inventory matters: the leak was **never limited to web_research**. Five oth
 One existing test asserted `auditText` contained `"[redacted"`. With nothing persisted there is no payload to redact, so it now asserts every audit row has empty input and output -- a stronger guarantee than the redaction it replaced.
 
 Verification: full `pnpm test` 222 files / 1,290 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs bc7da5b.
+
+### Free-text error channel closed -- 2026-07-29
+
+752f50f narrowed tool *success* payloads but left `formatToolErrorText` output going straight into `audit_log.error`.
+
+**Diagnosis.** That string served three consumers: `calls[]` (returned to the router), `toolResultParts` (fed back to the model), and `logAudit({ error })` (durable). Only the third was the leak. `redactAuditString` catches emails, phones and token-shaped strings by pattern, but not prose, URLs, query text, recalled memory, SQL, LIDs, request ids or addresses -- all of which a driver or tool message routinely carries.
+
+**Fix.** New `agent/tool-error.ts`:
+
+- `TOOL_ERROR_CLASSES` allowlist with `tool_error` as the default for anything unclassified.
+- `ToolDefinition.errorProjection?` lets a tool claim a class and a short code. Codes must match `^[a-z][a-z0-9_]{0,39}$`, which structurally cannot hold prose, a URL or SQL. Anything outside the allowlists, or a throwing projection, degrades to the generic class.
+- `extractSqlState` moved here from `apps/bot/src/safe-log.ts` so there is one implementation; safe-log imports and re-exports it, leaving console logging byte-identical. A validated SQLSTATE persists as a bare code, never with the SQL around it.
+- The loop now persists `output: { errorClass, errorCode?, sqlState? }` and sets the `error` column to the class token. Unknown tools record `unknown_tool` with an empty input.
+
+Runtime is untouched: the sanitized string still reaches the model and the caller, so retries, user-facing failures and operational logs behave exactly as before. That separation is the whole point -- detailed sanitized text in the log, structured metadata in durable storage.
+
+Verification: full `pnpm test` 223 files / 1,304 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 752f50f. The full suite passed *before* the new tests were added too, which confirms no existing behaviour depended on the free-text audit value.
