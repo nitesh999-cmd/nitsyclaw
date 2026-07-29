@@ -13,6 +13,8 @@ import {
   profileContext,
   reminders,
   systemHeartbeats,
+  auditDataDelete,
+  safeAuditValues,
 } from "@nitsyclaw/shared/db";
 import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
 import { eq } from "drizzle-orm";
@@ -128,14 +130,18 @@ export async function POST(req: Request) {
         deleted.auditLog = (await tx.delete(auditLog).returning({ id: auditLog.id })).length;
       }
 
-      await tx.insert(auditLog).values({
-        actor: "user",
-        tool: "data_delete",
-        input: { scope, exportSnapshotId: scope === "everything" ? exportSnapshotId : undefined },
-        output: { deleted },
-        success: true,
-        durationMs: Date.now() - started,
-      });
+      // Written inside the erasure transaction, so the receipt lands with the
+      // deletion or not at all — but still shaped by the shared audit contract.
+      await tx.insert(auditLog).values(
+        safeAuditValues(
+          auditDataDelete({
+            scope,
+            exportSnapshotId: scope === "everything" ? exportSnapshotId : undefined,
+            deleted,
+            durationMs: Date.now() - started,
+          }),
+        ),
+      );
 
       return deleted;
     });

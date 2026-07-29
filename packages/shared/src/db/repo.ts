@@ -612,7 +612,18 @@ export async function claimSystemNotification(
  * below remains as a second layer of defence, not as the first one.
  */
 export async function logAudit(db: DB, entry: SafeAuditEntry) {
-  await db.insert(auditLog).values({
+  await db.insert(auditLog).values(safeAuditValues(entry));
+}
+
+/**
+ * The insert values for a contract-built entry.
+ *
+ * Exported for the one writer that must insert inside an existing transaction
+ * rather than on its own connection — it still cannot assemble a row by hand,
+ * because it can only obtain a `SafeAuditEntry` from a contract builder.
+ */
+export function safeAuditValues(entry: SafeAuditEntry) {
+  return {
     actor: entry.actor,
     tool: entry.tool,
     input: sanitizeAuditPayload(entry.input),
@@ -620,7 +631,7 @@ export async function logAudit(db: DB, entry: SafeAuditEntry) {
     success: entry.success,
     error: entry.error ? redactAuditString(entry.error) : undefined,
     durationMs: entry.durationMs,
-  });
+  };
 }
 
 const SENSITIVE_KEY_RE = /(token|secret|password|credential|authorization|cookie|body|content|message|email|phone|number|address|location|transcript|payload|refresh|access)/i;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
+  auditDataDelete,
   auditLoopBreaker,
   auditModelRoute,
   auditOperatorComplete,
@@ -341,6 +342,49 @@ describe("whatsapp_recovery_action audit entry", () => {
 
 // ---------------------------------------------------------------------------
 
+describe("data_delete audit entry", () => {
+  const SNAPSHOT = "3f7a1c2e-9b04-4d61-8f2a-5c6d7e8f9a0b";
+
+  it("persists the scope, a validated snapshot id and row counts only", () => {
+    const entry = auditDataDelete({
+      scope: "everything",
+      exportSnapshotId: SNAPSHOT,
+      deleted: { memories: 412, messages: 9310, auditLog: 53 },
+      durationMs: 640,
+    });
+
+    expect(entry.input).toEqual({ scope: "everything", exportSnapshotId: SNAPSHOT });
+    expect(entry.output).toEqual({ deleted: { memories: 412, messages: 9310, auditLog: 53 } });
+    expect(entry.actor).toBe("user");
+  });
+
+  it("drops a snapshot id supplied off a form field that is not a snapshot id", () => {
+    for (const value of HOSTILE) {
+      const entry = auditDataDelete({
+        scope: "everything",
+        exportSnapshotId: value,
+        deleted: {},
+        durationMs: 1,
+      });
+      expect(entry.input).toEqual({ scope: "everything" });
+      containsHostile(entry, "data_delete snapshot");
+    }
+  });
+
+  it("keeps only numeric row counts, never a value smuggled into the tally", () => {
+    const entry = auditDataDelete({
+      scope: "memories",
+      deleted: { memories: 3, leaked: HOSTILE[10], alsoLeaked: { body: HOSTILE[1] } },
+      durationMs: 5,
+    });
+
+    expect(entry.output).toEqual({ deleted: { memories: 3 } });
+    containsHostile(entry, "data_delete counts");
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 describe("operator_runner audit entries", () => {
   const JOB_ID = "3f7a1c2e-9b04-4d61-8f2a-5c6d7e8f9a0b";
 
@@ -428,6 +472,7 @@ const APPROVED_BUILDERS = [
   "auditOperatorDecision",
   "auditOperatorVerify",
   "auditOperatorComplete",
+  "auditDataDelete",
 ];
 
 /**
@@ -465,19 +510,29 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Every `logAudit(` call site, with the argument text that follows it. */
+/**
+ * Every audit write in the repository, with the argument text that follows it.
+ *
+ * Two forms exist: the usual `logAudit(db, entry)`, and a direct
+ * `insert(auditLog)` for the one writer that must land inside an existing
+ * transaction. Both are scanned, so a direct insert cannot quietly become a
+ * second, unguarded path.
+ */
 function auditCallSites(): Array<{ file: string; call: string }> {
   const sites: Array<{ file: string; call: string }> = [];
   for (const root of SCAN_ROOTS) {
     for (const file of sourceFiles(root)) {
       const src = readFileSync(file, "utf8");
-      let index = src.indexOf("logAudit(");
-      while (index !== -1) {
-        // The persistence boundary's own definition is not a call site.
-        if (!/export async function $/.test(src.slice(Math.max(0, index - 40), index))) {
-          sites.push({ file, call: src.slice(index, index + 500) });
+      for (const marker of ["logAudit(", "insert(auditLog)"]) {
+        let index = src.indexOf(marker);
+        while (index !== -1) {
+          // The persistence boundary's own definition and body are not call sites.
+          const isBoundary =
+            /export async function $/.test(src.slice(Math.max(0, index - 40), index)) ||
+            file.endsWith(join("db", "repo.ts"));
+          if (!isBoundary) sites.push({ file, call: src.slice(index, index + 500) });
+          index = src.indexOf(marker, index + 1);
         }
-        index = src.indexOf("logAudit(", index + 1);
       }
     }
   }
@@ -488,7 +543,9 @@ describe("audit_log writer inventory", () => {
   it("finds every writer in the repository", () => {
     const sites = auditCallSites();
     // A guard against the scan silently matching nothing.
-    expect(sites.length).toBeGreaterThanOrEqual(14);
+    expect(sites.length).toBeGreaterThanOrEqual(15);
+    // Including the one that inserts directly inside a transaction.
+    expect(sites.some((site) => site.call.startsWith("insert(auditLog)"))).toBe(true);
   });
 
   it("every writer builds its payload with an approved contract builder", () => {

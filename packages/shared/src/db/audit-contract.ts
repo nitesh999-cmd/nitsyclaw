@@ -273,6 +273,46 @@ export function auditRecoveryAction(args: { action: string; durationMs: number }
 }
 
 // ---------------------------------------------------------------------------
+// data_delete
+// ---------------------------------------------------------------------------
+
+/**
+ * Erasure receipt: how much was removed, not what was in it.
+ *
+ * `scope` is rejected before this point unless `parseScope` recognised it.
+ * `exportSnapshotId` arrives straight off a form field, so it is persisted only
+ * when it matches the snapshot id shape and dropped otherwise. Row counts are
+ * copied one key at a time, and a key survives only if its value is a number.
+ */
+export function auditDataDelete(args: {
+  scope: string;
+  exportSnapshotId?: string;
+  deleted: Record<string, unknown>;
+  durationMs: number;
+}): SafeAuditEntry {
+  const counts: Record<string, number> = {};
+  for (const [table, value] of Object.entries(args.deleted)) {
+    const count = finiteNumber(value);
+    if (count !== undefined) counts[table] = count;
+  }
+  const snapshotId =
+    typeof args.exportSnapshotId === "string" && UUID_RE.test(args.exportSnapshotId)
+      ? args.exportSnapshotId.toLowerCase()
+      : undefined;
+  return seal({
+    actor: "user",
+    tool: "data_delete",
+    input: {
+      scope: args.scope,
+      ...(snapshotId ? { exportSnapshotId: snapshotId } : {}),
+    },
+    output: { deleted: counts },
+    success: true,
+    ...(finiteNumber(args.durationMs) === undefined ? {} : { durationMs: args.durationMs }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // operator_runner.*
 // ---------------------------------------------------------------------------
 

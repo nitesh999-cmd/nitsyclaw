@@ -3202,4 +3202,6 @@ Two pre-existing tests pinned strings that moved into the contract (`tool: "what
 
 Runtime behaviour, model-visible tool results, user-facing replies, operational logging, row ownership, tenant scoping and authorization filters are untouched. No schema, migration or dependency change.
 
-Verification: focused boundary suite 27 tests; full `pnpm test` 225 files / 1,351 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security identical to 5431d9c at 28 audit / 28 semgrep findings.
+**A seventeenth writer bypassed `logAudit` entirely.** `apps/dashboard/src/app/api/data/delete/route.ts` writes its erasure receipt with `tx.insert(auditLog)` directly, because the row must land inside the deletion transaction. It persisted a request-supplied `exportSnapshotId` off a form field and spread the whole `deleted` tally. It now builds through `auditDataDelete(...)` and inserts via `safeAuditValues(...)`, keeping the transaction while gaining the contract: the snapshot id survives only if it matches the snapshot id shape, and row counts are copied one key at a time with any non-numeric value dropped. The inventory test scans `insert(auditLog)` as well as `logAudit(`, so a direct insert cannot quietly become a second unguarded path again.
+
+Verification: focused boundary suite 30 tests; full `pnpm test` 225 files / 1,354 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security identical to 5431d9c at 28 audit / 28 semgrep findings.
