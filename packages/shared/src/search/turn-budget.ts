@@ -99,6 +99,7 @@ export function createTurnScopedResearcher(base: LiveWebResearcher, maxUses?: nu
           status: "unavailable",
           answer: "",
           sources: [],
+          claims: [],
           searchesUsed: 0,
           failureCode: "max_uses_exceeded",
         };

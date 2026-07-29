@@ -42,7 +42,11 @@ export function registerTextCommand(registry: ToolRegistry): void {
       // either duplicates or mispairings. Applied last, after any language
       // rewrite, so appended URLs are never re-worded. With no verified sources
       // recorded this returns the text unchanged.
-      const delivered = applyVerifiedSources(finalBody, ctx.deps.verifiedSources?.list() ?? []);
+      const delivered = applyVerifiedSources(
+        finalBody,
+        ctx.deps.verifiedSources?.list() ?? [],
+        ctx.deps.verifiedSources?.claims() ?? [],
+      );
       const out = await ctx.deps.whatsapp.send({
         to: ctx.userPhone,
         body: delivered,

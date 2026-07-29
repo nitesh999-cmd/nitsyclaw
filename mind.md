@@ -3103,3 +3103,22 @@ The e5528b5 live proof passed every pipeline check but the visible reply exposed
 `formatLiveWebResearchForWhatsApp` now delegates to `applyVerifiedSources`, so the typed-timeout fallback obeys the same guarantee. That creates an ESM cycle between `live-web-research.ts` and `verified-sources.ts`; both sides export only hoisted function declarations and neither runs the other at module init, so it resolves cleanly -- verified by the full suite rather than assumed.
 
 Verification: full `pnpm test` 221 files / 1,281 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs e5528b5.
+
+### Provider citations replace model-asserted support -- 2026-07-29
+
+5a9fec1 made the model cite by source title. Two blockers remained, both real: a missing SOURCE marker silently fell back to the old flat list, and matching a title only proves the title exists in the verified set -- it never proves the page supports that headline.
+
+**Diagnosis.** The SDK types answer it. `TextBlock` carries `citations: TextCitation[] | null`, and `CitationsWebSearchResultLocation` carries `{ cited_text, title, url }`. **The provider attaches citations to the specific text span they support.** `collectBlocks` was concatenating every text block into one string and flattening citations into a single global `sources` array -- that is exactly where the provider's relationship was destroyed. Nothing downstream could recover it, so both previous designs were reconstructing by guesswork.
+
+**Fix.** `LiveWebResearchClaim { text, citations }` preserves each span with the citations the provider attached to it. Delivery is built from claims only:
+
+- `buildCitedAnswer(claims, requested)` keeps a claim only if the provider cited it, trims to N, and flags `partial` when fewer than N are supported.
+- `formatCitedAnswerForWhatsApp` renders each item above its own citations, so only cited sources appear and an unused search result cannot be delivered. A partial answer says how many were verified rather than padding from model knowledge.
+- Nothing consults SOURCE text, titles, indices, or URL shape. `isGenericIndexUrl`/`selectCitableSources` are **deleted**: a section front is now deliverable precisely when the provider cited it for that claim, which is the correct test.
+- A missing marker, a wrong citation, an invented title, or malformed local output all reach the same place -- the native cited result -- because the local model's text is never the source of items.
+
+`hasUsableFindings` deliberately stays source-based: a search with results but no citations is still a successful search, it just yields no verified items. Conflating the two made 36 fixtures fail and would have reported real searches as unavailable.
+
+**Cycle removed** by extracting leaves: `types.ts` (types only) and `source-format.ts` (renderers) sit under `cited-answer.ts`, `live-web-research.ts` and `verified-sources.ts`. A test walks the search module graph and asserts no runtime cycle remains, ignoring erased type-only imports.
+
+Verification: full `pnpm test` 221 files / 1,283 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 5a9fec1.

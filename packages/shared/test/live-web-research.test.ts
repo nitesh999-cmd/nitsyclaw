@@ -260,7 +260,7 @@ describe("buildLiveResearchPromptBlock", () => {
     expect(block).toContain("Searched: today's world news");
     expect(block).toContain("Talks resumed this morning.");
     expect(block).toContain("1. Reuters\nhttps://reuters.example.com/x");
-    expect(block).toContain("Do NOT write URLs or your own source list");
+    expect(block).toContain("Do NOT write URLs, source names, or your own source list");
     expect(block).toContain("Never ask whether you should search");
     expect(block).toContain("Never mention a training cutoff");
     expect(block).toContain("[/LIVE_WEB_RESEARCH_RESULTS]");
@@ -488,6 +488,7 @@ describe("makeUnavailableResearcher", () => {
       status: "unavailable",
       answer: "",
       sources: [],
+      claims: [],
       searchesUsed: 0,
       failureCode: "disabled_by_config",
     });

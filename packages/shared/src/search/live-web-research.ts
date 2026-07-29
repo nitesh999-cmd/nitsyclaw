@@ -2,15 +2,44 @@
 //
 // The only supported live-research backend is Anthropic's server-side web
 // search tool, reached through the ANTHROPIC_API_KEY the product already uses.
-// This file holds the transport-free parts: the interface, the response parser,
-// the WhatsApp-safe formatter, and the non-secret health signal.
+// This file holds the transport-free parts: the response parser, the prompt
+// block, and the honest unavailable messages.
 //
 // Nothing here ever surfaces `encrypted_content`, `encrypted_index`,
-// `tool_use_id`, request ids, or raw API payloads. Only model prose plus source
-// title/URL pairs leave this module.
+// `tool_use_id`, request ids, or raw API payloads.
 
-import { headlineCitationInstruction, selectCitableSources } from "./headline-answer.js";
-import { applyVerifiedSources } from "./verified-sources.js";
+import { formatSourceList, isSafeSourceUrl, sanitizeSourceTitle, stripInlineUrls, toWhatsAppText } from "./source-format.js";
+import { buildCitedAnswer, formatCitedAnswerForWhatsApp } from "./cited-answer.js";
+import type {
+  LiveWebResearchCitation,
+  LiveWebResearchClaim,
+  LiveWebResearchFailureCode,
+  LiveWebResearchResult,
+  LiveWebResearchSource,
+  RawResponseLike,
+} from "./types.js";
+
+export {
+  MAX_WHATSAPP_SOURCES,
+  formatSourceList,
+  isSafeSourceUrl,
+  sanitizeSourceTitle,
+  stripInlineUrls,
+  toWhatsAppText,
+} from "./source-format.js";
+
+export type {
+  LiveWebResearchStatus,
+  LiveWebResearchFailureCode,
+  LiveWebResearchSource,
+  LiveWebResearchCitation,
+  LiveWebResearchClaim,
+  LiveWebResearchResult,
+  LiveWebResearchHealth,
+  LiveWebResearchRequest,
+  LiveWebResearcher,
+  RawResponseLike,
+} from "./types.js";
 
 /** Tool version we pin to. Basic search, direct caller, supported on Claude 4+ models. */
 export const ANTHROPIC_WEB_SEARCH_TOOL_VERSION = "web_search_20250305";
@@ -18,67 +47,9 @@ export const ANTHROPIC_WEB_SEARCH_TOOL_VERSION = "web_search_20250305";
 /** Default bound on server-side searches per research call, so charges stay predictable. */
 export const DEFAULT_WEB_SEARCH_MAX_USES = 5;
 
-export type LiveWebResearchStatus = "ok" | "no_results" | "unavailable";
-
-export type LiveWebResearchFailureCode =
-  | "not_configured"
-  | "disabled_by_config"
-  | "provider_disabled"
-  | "unsupported_model"
-  | "rate_limited"
-  | "max_uses_exceeded"
-  | "query_rejected"
-  | "search_error"
-  | "request_failed"
-  | "no_search_performed";
-
-export interface LiveWebResearchSource {
-  title: string;
-  url: string;
-}
-
-export interface LiveWebResearchResult {
-  status: LiveWebResearchStatus;
-  /** Model prose. Empty when status is "unavailable". */
-  answer: string;
-  sources: LiveWebResearchSource[];
-  /** Number of server-side searches the model actually ran. */
-  searchesUsed: number;
-  failureCode?: LiveWebResearchFailureCode;
-}
-
-export interface LiveWebResearchHealth {
-  state: "operational" | "configured" | "unavailable";
-  provider: "anthropic-web-search";
-  toolVersion: string;
-  maxUses: number;
-  /** ISO timestamp of the last research attempt, if any. */
-  lastCheckedAt?: string;
-  /** Non-secret failure code from the last failed attempt, if any. */
-  lastFailureCode?: LiveWebResearchFailureCode;
-}
-
-export interface LiveWebResearchRequest {
-  query: string;
-  instructions?: string;
-  /**
-   * Per-call ceiling on server-side searches. Lets a caller spend less than the
-   * configured maximum — used by the per-turn budget to hand each successive
-   * call only what is left of one owner turn's allowance.
-   */
-  maxUses?: number;
-}
-
-export interface LiveWebResearcher {
-  readonly maxUses: number;
-  research(args: LiveWebResearchRequest): Promise<LiveWebResearchResult>;
-  health(): LiveWebResearchHealth;
-}
-
 /** Single honest message shown when live research cannot run. Never claims search worked. */
 export function formatLiveWebResearchUnavailable(failureCode?: LiveWebResearchFailureCode): string {
-  const reason = unavailableReason(failureCode);
-  return `I can't get live web results right now, so I won't guess from older knowledge. ${reason}`;
+  return `I can't get live web results right now, so I won't guess from older knowledge. ${unavailableReason(failureCode)}`;
 }
 
 function unavailableReason(failureCode?: LiveWebResearchFailureCode): string {
@@ -106,66 +77,28 @@ function unavailableReason(failureCode?: LiveWebResearchFailureCode): string {
   }
 }
 
-const MAX_WHATSAPP_SOURCES = 4;
-
 /**
- * The single renderer for source pairs, used by the WhatsApp reply, the prompt
- * block, and the router's canonical append.
+ * WhatsApp-safe rendering built from the provider's own citations.
  *
- * Each pair occupies two lines — title, then its own URL — so a title
- * containing ": " or a dash can never be read as belonging to a neighbouring
- * link. The live proof showed source labels attached to other domains precisely
- * because a single-line "Title: url" shape is ambiguous once titles carry
- * their own punctuation.
+ * Used by the timeout fallback and by any surface delivering a research result
+ * directly, so both obey the same claim-to-citation relationship.
  */
-export function formatSourceList(sources: LiveWebResearchSource[], limit = MAX_WHATSAPP_SOURCES): string[] {
-  return sources.slice(0, limit).flatMap((source, index) => [
-    `${index + 1}. ${sanitizeSourceTitle(source.title, source.url)}`,
-    source.url,
-  ]);
-}
-
-/** Collapse anything that could break a title out of its own line. */
-export function sanitizeSourceTitle(title: string, url: string): string {
-  const cleaned = title.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
-  if (cleaned) return cleaned.slice(0, 120);
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "source";
-  }
-}
-
-/**
- * Remove http(s) URLs from model-written prose.
- *
- * The canonical source list is appended separately, so any URL the model wrote
- * itself is either a duplicate or a mispairing. Dropping them means every
- * displayed link comes from a verified pair.
- */
-export function stripInlineUrls(text: string): string {
-  return text
-    .replace(/\(\s*https?:\/\/[^\s)]+\s*\)/gi, "")
-    .replace(/<\s*https?:\/\/[^\s>]+\s*>/gi, "")
-    .replace(/https?:\/\/[^\s<>()[\]]+/gi, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/[ \t]+([,.;:])/g, "$1")
-    .replace(/[ \t]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-/** WhatsApp-safe rendering: prose, then atomic source pairs. No markdown tables, no tool internals. */
-export function formatLiveWebResearchForWhatsApp(result: LiveWebResearchResult): string {
+export function formatLiveWebResearchForWhatsApp(
+  result: LiveWebResearchResult,
+  requestedItems?: number,
+): string {
   if (result.status === "unavailable") return formatLiveWebResearchUnavailable(result.failureCode);
   const answer = result.answer.trim();
   if (result.status === "no_results" || !answer) {
     return "I searched the web but found nothing usable for that. I won't fill the gap with older knowledge.";
   }
+  if ((result.claims ?? []).length > 0) {
+    return formatCitedAnswerForWhatsApp(buildCitedAnswer(result.claims, requestedItems));
+  }
+  // Search succeeded but the provider cited nothing: show the pairs without
+  // claiming item-level support.
   if (result.sources.length === 0) return answer;
-  // The timeout fallback delivers this text, so it must obey the same
-  // headline-to-source relationship guarantee as a locally composed reply.
-  return applyVerifiedSources(answer, result.sources);
+  return [toWhatsAppText(stripInlineUrls(answer)), "", "Sources:", ...formatSourceList(result.sources)].join("\n").trim();
 }
 
 /**
@@ -173,6 +106,10 @@ export function formatLiveWebResearchForWhatsApp(result: LiveWebResearchResult):
  *
  * Search results are untrusted third-party text, so the block is fenced and
  * explicitly labelled as reference data — the same treatment memory recall gets.
+ *
+ * The model is told not to write links or its own source list: delivery is built
+ * from the provider's citations, so nothing the model writes can establish
+ * support for a claim.
  */
 export function buildLiveResearchPromptBlock(
   query: string,
@@ -188,6 +125,7 @@ export function buildLiveResearchPromptBlock(
   ];
   if (opts.localDateInstruction) lines.push(opts.localDateInstruction);
   lines.push(`Searched: ${query.replace(/\s+/g, " ").trim().slice(0, 300)}`);
+
   if (result.status === "no_results" || !result.answer.trim()) {
     lines.push(
       "Result: the search returned nothing usable.",
@@ -197,15 +135,11 @@ export function buildLiveResearchPromptBlock(
     lines.push("Findings:", result.answer.trim());
     if (result.sources.length > 0) {
       lines.push(
-        // The reply must not carry model-written links: a verified source list
-        // is appended verbatim after the answer, so any URL the model writes is
-        // either a duplicate or a mispairing.
-        "Sources are listed below as numbered title/URL pairs. Do NOT write URLs or your own source list in your reply — each source is attached automatically to the item that cites it.",
-        headlineCitationInstruction(),
+        "The verified findings and their sources are attached automatically from the search provider's own citations.",
+        "Do NOT write URLs, source names, or your own source list. Do NOT use ** or markdown formatting.",
         "Answer in plain text as your final message; the reply_to_user tool is withheld for this turn.",
-        // Section fronts are withheld when real articles exist, so they cannot
-        // be cited as support for a specific headline.
-        ...formatSourceList(selectCitableSources(result.sources)),
+        "Sources already verified for this turn (reference only — you must not cite or re-attach them yourself):",
+        ...formatSourceList(result.sources),
       );
     }
   }
@@ -213,25 +147,20 @@ export function buildLiveResearchPromptBlock(
   return lines.join("\n");
 }
 
-/**
- * Minimal structural shape of an Anthropic message response. Declared locally so
- * the parser can be unit-tested without the SDK or a network call.
- */
-export interface RawResponseLike {
-  stop_reason?: string | null;
-  content?: unknown;
-}
-
 interface ParsedBlocks {
   text: string;
+  claims: LiveWebResearchClaim[];
   sources: LiveWebResearchSource[];
   searchesUsed: number;
   searchErrorCode?: string;
 }
 
 /**
- * Extract the safe parts of an Anthropic response that used server-side web search.
- * Deliberately reads only `text`, citation `title`/`url`, and server tool error codes.
+ * Extract the safe parts of an Anthropic response that used server-side web
+ * search, preserving the provider's per-span citations.
+ *
+ * Deliberately reads only `text`, citation `title`/`url`/`cited_text`, and
+ * server tool error codes.
  */
 export function parseWebSearchResponse(response: RawResponseLike): LiveWebResearchResult {
   const parsed = collectBlocks(response.content);
@@ -240,29 +169,25 @@ export function parseWebSearchResponse(response: RawResponseLike): LiveWebResear
       status: "unavailable",
       answer: "",
       sources: [],
+      claims: [],
       searchesUsed: parsed.searchesUsed,
       failureCode: mapSearchErrorCode(parsed.searchErrorCode),
     };
   }
   if (parsed.searchesUsed === 0) {
-    return {
-      status: "unavailable",
-      answer: "",
-      sources: [],
-      searchesUsed: 0,
-      failureCode: "no_search_performed",
-    };
+    return { status: "unavailable", answer: "", sources: [], claims: [], searchesUsed: 0, failureCode: "no_search_performed" };
   }
   const answer = parsed.text.trim();
   if (!answer) {
-    return { status: "no_results", answer: "", sources: parsed.sources, searchesUsed: parsed.searchesUsed };
+    return { status: "no_results", answer: "", sources: parsed.sources, claims: [], searchesUsed: parsed.searchesUsed };
   }
-  return { status: "ok", answer, sources: parsed.sources, searchesUsed: parsed.searchesUsed };
+  return { status: "ok", answer, sources: parsed.sources, claims: parsed.claims, searchesUsed: parsed.searchesUsed };
 }
 
 function collectBlocks(content: unknown): ParsedBlocks {
   const blocks = Array.isArray(content) ? content : [];
   const textParts: string[] = [];
+  const claims: LiveWebResearchClaim[] = [];
   const sources: LiveWebResearchSource[] = [];
   const seenUrls = new Set<string>();
   let searchesUsed = 0;
@@ -272,7 +197,7 @@ function collectBlocks(content: unknown): ParsedBlocks {
     if (typeof url !== "string" || !isSafeSourceUrl(url)) return;
     if (seenUrls.has(url)) return;
     seenUrls.add(url);
-    sources.push({ title: cleanTitle(title, url), url });
+    sources.push({ title: sanitizeSourceTitle(typeof title === "string" ? title : "", url), url });
   };
 
   for (const raw of blocks) {
@@ -280,13 +205,27 @@ function collectBlocks(content: unknown): ParsedBlocks {
     const block = raw as Record<string, unknown>;
     switch (block.type) {
       case "text": {
-        if (typeof block.text === "string") textParts.push(block.text);
+        const text = typeof block.text === "string" ? block.text : "";
+        if (text) textParts.push(text);
         const citations = Array.isArray(block.citations) ? block.citations : [];
+        const blockCitations: LiveWebResearchCitation[] = [];
         for (const citation of citations) {
           if (!citation || typeof citation !== "object") continue;
           const cite = citation as Record<string, unknown>;
           if (cite.type !== "web_search_result_location") continue;
-          addSource(cite.title, cite.url);
+          const url = cite.url;
+          if (typeof url !== "string" || !isSafeSourceUrl(url)) continue;
+          blockCitations.push({
+            title: sanitizeSourceTitle(typeof cite.title === "string" ? cite.title : "", url),
+            url,
+            citedText: typeof cite.cited_text === "string" ? cite.cited_text : "",
+          });
+          addSource(cite.title, url);
+        }
+        // The provider attached these citations to THIS span. Keeping them
+        // together is the only mechanical proof of support we have.
+        if (text.trim() && blockCitations.length > 0) {
+          claims.push({ text, citations: blockCitations });
         }
         break;
       }
@@ -303,7 +242,7 @@ function collectBlocks(content: unknown): ParsedBlocks {
           }
           break;
         }
-        // Successful results carry `encrypted_content`, which is deliberately ignored.
+        // Successful results carry `encrypted_content`, deliberately ignored.
         for (const item of Array.isArray(inner) ? inner : []) {
           if (!item || typeof item !== "object") continue;
           const resultBlock = item as Record<string, unknown>;
@@ -317,40 +256,19 @@ function collectBlocks(content: unknown): ParsedBlocks {
     }
   }
 
-  return { text: textParts.join(""), sources, searchesUsed, searchErrorCode };
-}
-
-function cleanTitle(title: unknown, url: string): string {
-  return sanitizeSourceTitle(typeof title === "string" ? title : "", url);
-}
-
-/** Only http(s) links reach the user — no data:, javascript:, or file: URLs. */
-function isSafeSourceUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
+  return { text: textParts.join(""), claims, sources, searchesUsed, searchErrorCode };
 }
 
 const KNOWN_FAILURE_CODES: readonly LiveWebResearchFailureCode[] = [
-  "not_configured",
-  "disabled_by_config",
-  "provider_disabled",
-  "unsupported_model",
-  "rate_limited",
-  "max_uses_exceeded",
-  "query_rejected",
-  "search_error",
-  "request_failed",
-  "no_search_performed",
+  "not_configured", "disabled_by_config", "provider_disabled", "unsupported_model",
+  "rate_limited", "max_uses_exceeded", "query_rejected", "search_error",
+  "request_failed", "no_search_performed",
 ];
 
 /**
  * Only the known internal categories may be stored or shown. Anything else —
- * including a raw provider string that could carry request ids or account
- * details — collapses to the generic code.
+ * including a raw provider string that could carry request ids — collapses to
+ * the generic code.
  */
 export function normalizeFailureCode(value: unknown): LiveWebResearchFailureCode {
   return KNOWN_FAILURE_CODES.includes(value as LiveWebResearchFailureCode)
@@ -358,7 +276,13 @@ export function normalizeFailureCode(value: unknown): LiveWebResearchFailureCode
     : "request_failed";
 }
 
-/** A result is usable only when a search ran AND produced prose with at least one source. */
+/**
+ * Usable means a search ran and produced prose with at least one source.
+ *
+ * Deliberately distinct from deliverability: an item is only *delivered* when
+ * the provider cited it (see buildCitedAnswer). A result with sources but no
+ * citations is still a successful search — it just yields no verified items.
+ */
 export function hasUsableFindings(result: LiveWebResearchResult): boolean {
   return result.status === "ok" && result.answer.trim().length > 0 && result.sources.length > 0;
 }
@@ -382,11 +306,11 @@ export function mapSearchErrorCode(errorCode: string): LiveWebResearchFailureCod
 /** Researcher used when no live backend is configured. Always honest, never fabricates. */
 export function makeUnavailableResearcher(
   failureCode: LiveWebResearchFailureCode = "not_configured",
-): LiveWebResearcher {
+): import("./types.js").LiveWebResearcher {
   return {
     maxUses: 0,
     async research() {
-      return { status: "unavailable", answer: "", sources: [], searchesUsed: 0, failureCode };
+      return { status: "unavailable", answer: "", sources: [], claims: [], searchesUsed: 0, failureCode };
     },
     health() {
       return {

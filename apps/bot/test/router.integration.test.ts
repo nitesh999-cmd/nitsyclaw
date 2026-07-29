@@ -793,11 +793,12 @@ describe("Router (integration)", () => {
             maxUses: 5,
             research: vi.fn(async () => ({
               status: "ok" as const,
-              answer: [
-                "**Two headlines for 29 July 2026.**",
-                "1. Talks resumed in Geneva SOURCE: Profile News",
-                "2. Markets closed higher SOURCE: Reuters: World",
-              ].join("\n"),
+              answer: "Two headlines for 29 July 2026.",
+              // Provider-attached citations are the only proof of support.
+              claims: [
+                { text: "Talks resumed in Geneva", citations: [{ ...articleA, citedText: "Talks resumed" }] },
+                { text: "Markets closed higher", citations: [{ ...articleB, citedText: "Markets rose" }] },
+              ],
               sources: [articleA, articleB, indexPage],
               searchesUsed: 1,
             })),

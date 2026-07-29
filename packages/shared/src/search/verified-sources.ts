@@ -9,15 +9,15 @@
 // One instance is created per turn and passed through AgentDeps. There is no
 // module-level state, so concurrent turns cannot see each other's sources.
 
-import { formatSourceList, stripInlineUrls, type LiveWebResearchSource } from "./live-web-research.js";
-import {
-  extractIntro,
-  formatHeadlineAnswerForWhatsApp,
-  parseHeadlineAnswer,
-  toWhatsAppText,
-} from "./headline-answer.js";
+import { formatSourceList, stripInlineUrls, toWhatsAppText } from "./source-format.js";
+import { buildCitedAnswer, formatCitedAnswerForWhatsApp } from "./cited-answer.js";
+import type { LiveWebResearchClaim, LiveWebResearchSource } from "./types.js";
 
 export interface VerifiedSourceCollector {
+  /** Record provider claims with their native citations. */
+  recordClaims(claims: readonly LiveWebResearchClaim[]): void;
+  /** Claims recorded so far, in provider order. */
+  claims(): LiveWebResearchClaim[];
   /** Record pairs from a successful search. Order is preserved; URLs deduplicate. */
   record(sources: readonly LiveWebResearchSource[]): void;
   /** Pairs recorded so far, in the order they were first seen. */
@@ -29,6 +29,7 @@ export function createVerifiedSourceCollector(
   initial: readonly LiveWebResearchSource[] = [],
 ): VerifiedSourceCollector {
   const byUrl = new Map<string, LiveWebResearchSource>();
+  const recordedClaims: LiveWebResearchClaim[] = [];
 
   const record = (sources: readonly LiveWebResearchSource[]): void => {
     for (const source of sources) {
@@ -43,6 +44,12 @@ export function createVerifiedSourceCollector(
 
   return {
     record,
+    recordClaims: (claims) => {
+      // Tolerate an absent list: a provider result without citations is valid,
+      // it simply yields no deliverable items.
+      for (const claim of claims ?? []) if (claim?.citations?.length) recordedClaims.push(claim);
+    },
+    claims: () => [...recordedClaims],
     list: () => [...byUrl.values()],
     hasAny: () => byUrl.size > 0,
   };
@@ -54,19 +61,20 @@ export function createVerifiedSourceCollector(
  * With no verified sources the text is returned untouched — an ordinary reply,
  * or one following failed or empty research, must stay byte-identical.
  */
-export function applyVerifiedSources(text: string, sources: readonly LiveWebResearchSource[]): string {
-  if (sources.length === 0) return text;
-
-  // Preferred shape: the model cited a source title per headline, so each item
-  // can be rendered beside the one source that supports it and nothing else is
-  // appended.
-  const answer = parseHeadlineAnswer(text, sources);
-  if (answer.items.length > 0) {
-    return formatHeadlineAnswerForWhatsApp(answer, extractIntro(text));
+export function applyVerifiedSources(
+  text: string,
+  sources: readonly LiveWebResearchSource[],
+  claims: readonly LiveWebResearchClaim[] = [],
+  requestedItems?: number,
+): string {
+  // Provider citations are the only proof of support, so a turn that has them
+  // is always rendered from them — never from anything the local model wrote.
+  if (claims.length > 0) {
+    return formatCitedAnswerForWhatsApp(buildCitedAnswer(claims, requestedItems));
   }
-
-  // No citations to bind. Fall back to prose plus the verified pair list rather
-  // than inventing a relationship that was never stated.
+  if (sources.length === 0) return text;
+  // No citations at all (e.g. a one-line weather lookup): prose plus the
+  // verified pair list, with no claim of item-level support.
   const lines = formatSourceList([...sources]);
   if (lines.length === 0) return text;
   return [toWhatsAppText(stripInlineUrls(text)), "", "Sources:", ...lines].join("\n").trim();

@@ -173,6 +173,7 @@ import {
   createTurnScopedResearcher,
   createVerifiedSourceCollector,
   formatLiveWebResearchForWhatsApp,
+  parseRequestedItemCount,
   formatLiveWebResearchUnavailable,
   formatLocalDateInstruction,
   hasUsableFindings,
@@ -180,6 +181,7 @@ import {
   normalizeFailureCode,
   resolveLocalDateContext,
   type LiveWebResearchFailureCode,
+  type LiveWebResearchClaim,
   type LiveWebResearchResult,
   type LiveWebResearchSource,
   type TurnScopedResearcher,
@@ -508,8 +510,13 @@ export class Router {
    * duplicate or a title bound to the wrong link — which is exactly what the
    * live proof showed.
    */
-  private applyVerifiedSources(text: string, sources: LiveWebResearchSource[]): string {
-    return applyVerifiedSources(text, sources);
+  private applyVerifiedSources(
+    text: string,
+    sources: LiveWebResearchSource[],
+    claims: LiveWebResearchClaim[] = [],
+    requestedItems?: number,
+  ): string {
+    return applyVerifiedSources(text, sources, claims, requestedItems);
   }
 
   /**
@@ -3196,6 +3203,7 @@ export class Router {
         }
         liveResearchBlock = outcome.block;
         turnSources.record(outcome.sources);
+        turnSources.recordClaims(outcome.result.claims);
         // Only a pre-search that passed hasUsableFindings reaches here, so the
         // fallback is eligible exactly when a cited answer already exists.
         liveResearchFallback = outcome.result;
@@ -3227,7 +3235,7 @@ export class Router {
         const timedOut = error instanceof OllamaProviderError && error.code === "timeout";
         if (!timedOut || !liveResearchFallback || turnWhatsApp.sentCount() > 0) throw error;
 
-        const reply = formatLiveWebResearchForWhatsApp(liveResearchFallback);
+        const reply = formatLiveWebResearchForWhatsApp(liveResearchFallback, parseRequestedItemCount(effectiveText));
         await this.sendAndPersist(reply);
         await this.auditLiveResearchFallback({
           sourceCount: liveResearchFallback.sources.length,
@@ -3250,6 +3258,8 @@ export class Router {
         const text = this.applyVerifiedSources(
           sanitizeUserFacingReply((replyToUserCall.input as { text?: string })?.text ?? ""),
           turnSources.list(),
+          turnSources.claims(),
+          parseRequestedItemCount(effectiveText),
         );
         deliveredText = text;
         if (text.trim()) {
@@ -3269,7 +3279,12 @@ export class Router {
       } else if (result.finalText.trim()) {
         // Live-research answers are delivered here, so this is where the verified
         // title/URL pairs replace whatever links the model wrote.
-        const finalText = this.applyVerifiedSources(result.finalText, turnSources.list());
+        const finalText = this.applyVerifiedSources(
+          result.finalText,
+          turnSources.list(),
+          turnSources.claims(),
+          parseRequestedItemCount(effectiveText),
+        );
         deliveredText = finalText;
         await this.sendAndPersist(finalText);
       }

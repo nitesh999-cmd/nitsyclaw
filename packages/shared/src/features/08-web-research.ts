@@ -67,7 +67,10 @@ export async function runWebResearch(query: string, ctx: ToolContext): Promise<W
 
   // Record the pairs for this turn so whichever path delivers the reply can
   // replace model-written links with links that were actually searched.
-  if (hasUsableFindings(result)) ctx.deps.verifiedSources?.record(result.sources);
+  if (hasUsableFindings(result)) {
+    ctx.deps.verifiedSources?.record(result.sources);
+    ctx.deps.verifiedSources?.recordClaims(result.claims);
+  }
 
   return {
     available: true,

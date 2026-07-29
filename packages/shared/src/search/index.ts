@@ -18,6 +18,8 @@ export {
   type LiveWebResearchRequest,
   type LiveWebResearchResult,
   type LiveWebResearchSource,
+  type LiveWebResearchCitation,
+  type LiveWebResearchClaim,
   type LiveWebResearchStatus,
   type LiveWebResearcher,
   type RawResponseLike,
@@ -50,14 +52,10 @@ export {
   type VerifiedSourceCollector,
 } from "./verified-sources.js";
 export {
-  extractIntro,
-  formatHeadlineAnswerForWhatsApp,
-  headlineCitationInstruction,
-  isGenericIndexUrl,
-  parseHeadlineAnswer,
-  selectCitableSources,
-  toWhatsAppText,
-  type HeadlineAnswer,
-  type HeadlineItem,
-} from "./headline-answer.js";
+  buildCitedAnswer,
+  formatCitedAnswerForWhatsApp,
+  parseRequestedItemCount,
+  type CitedAnswer,
+  type CitedItem,
+} from "./cited-answer.js";
 export { isExplicitLiveWebResearchRequest } from "./web-research-intent.js";
