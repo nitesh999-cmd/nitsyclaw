@@ -2,11 +2,30 @@
 
 import { z } from "zod";
 
+/**
+ * What a tool is willing to have written to the durable audit trail.
+ *
+ * Runtime results and persisted records are deliberately different objects: the
+ * agent and the verified-source collector need the complete result in memory,
+ * while `audit_log` must hold only non-identifying scalars. A tool opts in by
+ * projecting; without a projection nothing is persisted.
+ */
+export interface ToolAuditProjection {
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+}
+
 export interface ToolDefinition<I extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   description: string;
   inputSchema: I;
   handler: (input: z.infer<I>, ctx: ToolContext) => Promise<unknown>;
+  /**
+   * Optional narrowing of what reaches `audit_log`. Receives the runtime input
+   * and output and returns only the fields safe to persist. Omit it and the
+   * tool records an empty input and output — never an arbitrary object.
+   */
+  auditProjection?: (io: { input: unknown; output: unknown }) => ToolAuditProjection;
 }
 
 export interface ToolContext {

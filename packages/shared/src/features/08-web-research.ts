@@ -93,5 +93,23 @@ export function registerWebResearch(registry: ToolRegistry): void {
       query: z.string().min(2),
     }),
     handler: async (input: { query: string }, ctx: ToolContext) => runWebResearch(input.query, ctx),
+    // The handler's full result — answer, sources, claims, citations — stays in
+    // memory for the agent and the verified-source collector. Only these
+    // scalars are persisted. The query is deliberately absent: it is derived
+    // from the owner's message.
+    auditProjection: ({ output }) => {
+      const result = (output ?? {}) as Partial<WebResearchToolOutput>;
+      return {
+        input: {},
+        output: {
+          status: result.status ?? null,
+          available: result.available ?? null,
+          searchesUsed: result.searchesUsed ?? 0,
+          sourceCount: Array.isArray(result.sources) ? result.sources.length : 0,
+          answerLen: typeof result.answer === "string" ? result.answer.length : 0,
+          failureCode: result.failureCode ?? null,
+        },
+      };
+    },
   });
 }

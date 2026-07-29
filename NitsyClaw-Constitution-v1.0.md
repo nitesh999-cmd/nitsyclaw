@@ -436,6 +436,13 @@ Anthropic's web search attaches citations to the specific text span they support
 - *Added:* 2026-07-29
 - *Extends:* R74 (item-level source relationships), R70 (atomic pairs)
 
+
+### R76 — Runtime tool data and persisted audit data are different objects (extends R52)
+A tool's return value serves the agent in memory; `audit_log` serves diagnosis and must hold only non-identifying scalars. The two must never be the same object. Tools declare what may be persisted through an explicit audit projection; without one, the loop records an empty input and an empty output rather than an arbitrary payload, and a projection that throws degrades to empty rather than leaking. Handlers keep returning their complete results unchanged — narrowing happens at the persistence boundary, never by weakening what the model or the verified-source collector receives. Persisted audit records must never contain answer text, claim text, cited text, source titles, URLs, tool queries, message bodies, phone numbers, LIDs, request identifiers, encrypted content, or credentials. Purpose-built sanitized events such as `web_presearch` and `web_research_fallback` keep their approved shapes.
+- *Source:* Live proof 2026-07-29 at bc7da5b, condition 15 — `audit_log` held answer text, titles and URLs from six different tools since 2026-04-26; `packages/shared/src/agent/loop.ts`, `packages/shared/src/agent/tools.ts`
+- *Added:* 2026-07-29
+- *Extends:* R52 (public errors are safe, raw errors are logs only), R69 (log diagnostics without content)
+
 ---
 
 ## Fixes log
@@ -500,6 +507,7 @@ Anthropic's web search attaches citations to the specific text span they support
 | 2026-07-05 | Dead ntfy/toast/mail notify pipeline could fail silently indefinitely with no counter or alert | R64 | Per-channel result tracking + `notify-channels` heartbeat surfaced in nightly WhatsApp health report |
 | 2026-07-28 | Every id-less WhatsApp message replayed one stale clarification receipt, so clear requests were answered as ambiguous | R66 | Dedupe key and `sourceExternalId` written only for real message ids; in-memory non-identifying replay key keeps duplicate protection |
 | 2026-07-28 | Explicit ask for today's world news answered with a 2024 training-cutoff disclaimer and "would you like me to search?"; the only search path was a server tool injected into a loop that cannot carry `encrypted_content`, and `stubWebSearch` printed a fake "set SERPER_API_KEY" row as data | R67 | Anthropic `web_search_20250305` moved into its own bounded, query-only request behind `deps.liveResearch`; explicit live-info asks search before the agent loop in the same turn; cutoff/permission prompt language removed; stub search deleted; non-secret web research health added to the nightly report |
+| 2026-07-29 | `audit_log` persisted tool answer text, source titles, URLs and queries — from six tools, not just `web_research`, since 2026-04-26 | R76 | Runtime and audit payloads split via `ToolDefinition.auditProjection`; loop defaults to empty input/output; `web_research` declares six approved scalars; 53 pre-existing rows inventoried read-only, none altered |
 | 2026-07-29 | Model-asserted source titles could not prove that a page supported a headline, and a missing marker fell back to the old flat list | R75 | Provider `TextBlock` citations preserved as `LiveWebResearchClaim`; items built from cited claims only; honest partial answers; leaf modules `types.ts`/`source-format.ts` remove the import cycle |
 | 2026-07-29 | Live proof passed the pipeline but delivered three headlines with four appended sources, two mapping to no item, and literal `**` in the WhatsApp body | R74 | Model cites by exact source title; `parseHeadlineAnswer` binds each item to its own verified pair and renders the source beside it; uncited and index-page sources are never delivered; `toWhatsAppText` fixes bold |
 | 2026-07-29 | A successful pre-search was thrown away when local composition hit an Ollama timeout, and the owner got a generic backend error instead of the cited answer that already existed | R73 | Typed `code === "timeout"` fallback delivers the verified pre-search answer through the shared renderer; job completed normally; one sanitized audit row. Also corrected: `OLLAMA_TIMEOUT_MS` is per `chat()` call, not per agent loop |

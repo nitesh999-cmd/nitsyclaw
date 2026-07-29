@@ -3122,3 +3122,19 @@ Verification: full `pnpm test` 221 files / 1,281 tests pass; typecheck pass; bui
 **Cycle removed** by extracting leaves: `types.ts` (types only) and `source-format.ts` (renderers) sit under `cited-answer.ts`, `live-web-research.ts` and `verified-sources.ts`. A test walks the search module graph and asserts no runtime cycle remains, ignoring erased type-only imports.
 
 Verification: full `pnpm test` 221 files / 1,283 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 5a9fec1.
+
+### Runtime data and audit data separated -- 2026-07-29
+
+The bc7da5b live proof passed 13/15. Condition 15 failed: `audit_log` held answer text, source titles and URLs.
+
+**Diagnosis.** `runAgent` persisted the tool call verbatim -- `input: call.input`, `output: out` -- in all three branches (unknown tool, success, error). Runtime and persistence shared one object, so any tool returning rich data wrote that data to durable storage. `web_research` legitimately returns answer, sources, claims and citations; the agent and the collector need all of it. The defect was never the tool's return value, it was that the same object was persisted.
+
+**Fix.** `ToolDefinition.auditProjection?` lets a tool declare what may be persisted; `projectForAudit` in the loop applies it. **Default is empty input and empty output** -- a tool without a projection records nothing, so a new or third-party tool cannot leak an arbitrary object. A throwing projection also degrades to empty rather than leaking or failing the turn. `web_research` declares the six approved scalars (`status`, `available`, `searchesUsed`, `sourceCount`, `answerLen`, `failureCode`) with an empty input, so the query never persists. Handler return values are untouched.
+
+**Read-only inventory of pre-existing rows** (nothing updated or deleted): 53 affected of 348 total, 2026-04-26 to 2026-07-29, across six event types -- `web_research`, `recall_memory`, `search_conversation_history`, `search_gmail_inbox`, `spotify_search_tracks`, `analyze_life_admin_intake`. Categories present: urls, answerText, claimText, sourceTitles, queryText. Absent: citedText, messageBody, phoneLike, lid, requestIds, credentials, encryptedContent.
+
+That inventory matters: the leak was **never limited to web_research**. Five other tools were writing recalled memories, Gmail results, conversation history and intake text into `audit_log`, and had been since April. The empty default closes all of them at once, which is why defaulting to empty is the right call rather than projecting each tool individually.
+
+One existing test asserted `auditText` contained `"[redacted"`. With nothing persisted there is no payload to redact, so it now asserts every audit row has empty input and output -- a stronger guarantee than the redaction it replaced.
+
+Verification: full `pnpm test` 222 files / 1,290 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs bc7da5b.
