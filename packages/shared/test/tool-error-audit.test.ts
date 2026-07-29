@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { runAgent } from "../src/agent/loop.js";
 import { ToolRegistry } from "../src/agent/tools.js";
-import { classifyToolError, extractSqlState, TOOL_ERROR_CLASSES } from "../src/agent/tool-error.js";
+import {
+  AUDIT_TOOL_ERROR_CODES,
+  classifyToolError,
+  extractSqlState,
+  TOOL_ERROR_CLASSES,
+} from "../src/agent/tool-error.js";
 import { registerWebResearch } from "../src/features/08-web-research.js";
 import { createVerifiedSourceCollector } from "../src/search/verified-sources.js";
 import { makeAgentDeps, makeFakeLiveResearcher } from "./helpers.js";
@@ -176,8 +181,8 @@ describe("classifyToolError", () => {
     }
   });
 
-  it("rejects codes that could carry free text", () => {
-    for (const code of ["has space", "Has-Caps", "https://x.example.com", "a".repeat(41), ""]) {
+  it("rejects any code outside the closed vocabulary", () => {
+    for (const code of ["has space", "Has-Caps", "https://x.example.com", "a".repeat(41), "", "provider_throttle"]) {
       expect(classifyToolError(() => ({ errorCode: code }), {}, new Error("x")).errorCode).toBeUndefined();
     }
   });
@@ -192,6 +197,91 @@ describe("classifyToolError", () => {
   it("ignores Node runtime codes that merely look like SQLSTATEs", () => {
     expect(extractSqlState(Object.assign(new Error("x"), { code: "EPIPE" }))).toBeUndefined();
     expect(extractSqlState(Object.assign(new Error("x"), { code: "EBUSY" }))).toBeUndefined();
+  });
+});
+
+describe("closed error-code vocabulary", () => {
+  const code = (value: unknown) =>
+    classifyToolError(() => ({ errorClass: "provider_error", errorCode: value as string }), {}, new Error("x")).errorCode;
+
+  it("accepts every allowlisted code", () => {
+    expect(AUDIT_TOOL_ERROR_CODES.length).toBeGreaterThan(0);
+    for (const allowed of AUDIT_TOOL_ERROR_CODES) {
+      expect(code(allowed), allowed).toBe(allowed);
+    }
+  });
+
+  it("rejects a shape-valid but non-allowlisted identifier", () => {
+    expect(code("customer_abc123")).toBeUndefined();
+  });
+
+  it("rejects a shape-valid secret-shaped name", () => {
+    expect(code("memory_secret_token")).toBeUndefined();
+  });
+
+  it("rejects a 40-character lowercase token that is not allowlisted", () => {
+    const token = "a".repeat(40);
+    expect(token).toMatch(/^[a-z][a-z0-9_]{0,39}$/);
+    expect(code(token)).toBeUndefined();
+  });
+
+  it("rejects URL, SQL, identifier, contact, address, query and credential shaped values", () => {
+    const hostile = [
+      "https://profile.example.com/story-a",
+      "insert into messages values ($1)",
+      "req_abc123",
+      "12345@lid",
+      "+61430008008",
+      "nitesh@example.com",
+      "123 Example Street Melbourne",
+      "world news today",
+      "sk-ant-secret",
+      "Bearer sk_live_1234567890",
+    ];
+    for (const value of hostile) {
+      expect(code(value), value).toBeUndefined();
+    }
+  });
+
+  it("rejects non-string and malformed values", () => {
+    for (const value of [undefined, null, 42, {}, [], true, ""]) {
+      expect(code(value)).toBeUndefined();
+    }
+  });
+
+  it("degrades to the bare generic class when a projection throws", () => {
+    const audit = classifyToolError(() => { throw new Error(HOSTILE_MESSAGE); }, {}, new Error("plain"));
+
+    expect(audit).toEqual({ errorClass: "tool_error" });
+    expect(audit.errorCode).toBeUndefined();
+  });
+
+  it("keeps a rejected code from suppressing a valid class or SQLSTATE", () => {
+    const audit = classifyToolError(
+      () => ({ errorClass: "database_error", errorCode: "customer_abc123" }),
+      {},
+      hostileError(),
+    );
+
+    expect(audit).toEqual({ errorClass: "database_error", sqlState: "25006" });
+  });
+
+  it("retains a validated SQLSTATE without SQL or driver text", () => {
+    const audit = classifyToolError(undefined, {}, hostileError());
+
+    expect(audit.sqlState).toBe("25006");
+    const serialized = JSON.stringify(audit);
+    for (const needle of FORBIDDEN) {
+      expect(serialized, needle).not.toContain(needle);
+    }
+  });
+
+  it("does not accept EPIPE or EBUSY as a SQLSTATE", () => {
+    for (const runtimeCode of ["EPIPE", "EBUSY"]) {
+      expect(extractSqlState(Object.assign(new Error("x"), { code: runtimeCode }))).toBeUndefined();
+      expect(classifyToolError(undefined, {}, Object.assign(new Error("x"), { code: runtimeCode })))
+        .toEqual({ errorClass: "tool_error" });
+    }
   });
 });
 

@@ -3155,3 +3155,15 @@ Verification: full `pnpm test` 222 files / 1,290 tests pass; typecheck pass; bui
 Runtime is untouched: the sanitized string still reaches the model and the caller, so retries, user-facing failures and operational logs behave exactly as before. That separation is the whole point -- detailed sanitized text in the log, structured metadata in durable storage.
 
 Verification: full `pnpm test` 223 files / 1,304 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 752f50f. The full suite passed *before* the new tests were added too, which confirms no existing behaviour depended on the free-text audit value.
+
+### Error codes moved to a closed vocabulary -- 2026-07-29
+
+c1b0281 stopped free-text error messages reaching `audit_log`, but `errorCode` was still admitted by shape alone: `^[a-z][a-z0-9_]{0,39}$`. That is structural validation, not an allowlist. `customer_abc123` and `memory_secret_token` both satisfy it while carrying an identifier or a secret name, so durable audit metadata was not actually drawn from an approved vocabulary.
+
+Fix: `AUDIT_TOOL_ERROR_CODES` is a closed `as const` list, `AuditToolErrorCode` is derived from it, `ToolErrorAudit.errorCode` is typed to that union, and `allowedCode` now tests exact membership. The regex is deleted, so no value is persisted merely because it looks harmless.
+
+The vocabulary contains exactly one entry, `provider_throttled` -- the only code any existing contract or test declares. No production tool currently sets `errorProjection`, so inventing codes for providers that might exist later would be speculation; adding one requires a source change and review, which is the control the requirement asks for.
+
+Rejecting a code never suppresses the rest of the record: an out-of-vocabulary code still yields a valid `errorClass` and, where present, the validated SQLSTATE. `TOOL_ERROR_CLASSES` is unchanged, SQLSTATE handling is unchanged, and runtime error strings, model-visible tool errors and operational logging are untouched.
+
+Verification: focused suite 24 tests; agent + router suites 211; full `pnpm test` 223 files / 1,314 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs c1b0281.

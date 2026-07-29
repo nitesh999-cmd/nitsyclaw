@@ -23,6 +23,23 @@ export const TOOL_ERROR_CLASSES = [
 
 export type ToolErrorClass = (typeof TOOL_ERROR_CLASSES)[number];
 
+/**
+ * Closed vocabulary of durable error codes.
+ *
+ * A shape check is not enough: `customer_abc123` and `memory_secret_token` both
+ * satisfy any reasonable regex while carrying an identifier or a secret name.
+ * Only exact members of this list are persisted, so adding a code requires a
+ * source change and review — which is the point.
+ *
+ * Deliberately minimal. Codes are added when a real tool declares one, not in
+ * advance for providers that might exist later.
+ */
+export const AUDIT_TOOL_ERROR_CODES = [
+  "provider_throttled",
+] as const;
+
+export type AuditToolErrorCode = (typeof AUDIT_TOOL_ERROR_CODES)[number];
+
 /** The safe default for any unclassified failure. */
 export const DEFAULT_TOOL_ERROR_CLASS: ToolErrorClass = "tool_error";
 
@@ -32,7 +49,7 @@ export const DEFAULT_TOOL_ERROR_CLASS: ToolErrorClass = "tool_error";
  */
 export interface ToolErrorAudit {
   errorClass: ToolErrorClass;
-  errorCode?: string;
+  errorCode?: AuditToolErrorCode;
   sqlState?: string;
 }
 
@@ -74,15 +91,18 @@ export function extractSqlState(error: unknown): string | undefined {
   return undefined;
 }
 
-/** Short machine token: lowercase, underscores, bounded. Cannot carry prose, a URL, or SQL. */
-const ERROR_CODE_SHAPE = /^[a-z][a-z0-9_]{0,39}$/;
-
 function allowedClass(value: unknown): ToolErrorClass | undefined {
   return TOOL_ERROR_CLASSES.includes(value as ToolErrorClass) ? (value as ToolErrorClass) : undefined;
 }
 
-function allowedCode(value: unknown): string | undefined {
-  return typeof value === "string" && ERROR_CODE_SHAPE.test(value) ? value : undefined;
+/**
+ * Exact membership only. A value is persisted because it is on the list, never
+ * because it looks harmless.
+ */
+function allowedCode(value: unknown): AuditToolErrorCode | undefined {
+  return AUDIT_TOOL_ERROR_CODES.includes(value as AuditToolErrorCode)
+    ? (value as AuditToolErrorCode)
+    : undefined;
 }
 
 export interface ToolErrorProjection {
