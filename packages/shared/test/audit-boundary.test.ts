@@ -343,30 +343,32 @@ describe("whatsapp_recovery_action audit entry", () => {
 // ---------------------------------------------------------------------------
 
 describe("data_delete audit entry", () => {
-  const SNAPSHOT = "3f7a1c2e-9b04-4d61-8f2a-5c6d7e8f9a0b";
-
-  it("persists the scope, a validated snapshot id and row counts only", () => {
+  it("persists the scope, the export-gate flag and row counts only", () => {
     const entry = auditDataDelete({
       scope: "everything",
-      exportSnapshotId: SNAPSHOT,
+      hasExportSnapshot: true,
       deleted: { memories: 412, messages: 9310, auditLog: 53 },
       durationMs: 640,
     });
 
-    expect(entry.input).toEqual({ scope: "everything", exportSnapshotId: SNAPSHOT });
+    expect(entry.input).toEqual({ scope: "everything", hasExportSnapshot: true });
     expect(entry.output).toEqual({ deleted: { memories: 412, messages: 9310, auditLog: 53 } });
     expect(entry.actor).toBe("user");
   });
 
-  it("drops a snapshot id supplied off a form field that is not a snapshot id", () => {
+  it("accepts no snapshot identifier at all, hostile or otherwise", () => {
+    // The contract dropped the parameter: an export snapshot id is
+    // request-supplied, no consumer reads it, and the receipt only needs to
+    // know the export gate was satisfied. See audit-string-provenance.test.ts.
     for (const value of HOSTILE) {
       const entry = auditDataDelete({
         scope: "everything",
-        exportSnapshotId: value,
+        hasExportSnapshot: true,
         deleted: {},
         durationMs: 1,
+        ...({ exportSnapshotId: value } as Record<string, unknown>),
       });
-      expect(entry.input).toEqual({ scope: "everything" });
+      expect(entry.input).toEqual({ scope: "everything", hasExportSnapshot: true });
       containsHostile(entry, "data_delete snapshot");
     }
   });
@@ -374,6 +376,7 @@ describe("data_delete audit entry", () => {
   it("keeps only numeric row counts, never a value smuggled into the tally", () => {
     const entry = auditDataDelete({
       scope: "memories",
+      hasExportSnapshot: false,
       deleted: { memories: 3, leaked: HOSTILE[10], alsoLeaked: { body: HOSTILE[1] } },
       durationMs: 5,
     });

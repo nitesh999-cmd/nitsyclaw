@@ -78,12 +78,14 @@ export async function POST(req: Request) {
     return redirectToSettings(req, { deleteError: "confirm", scope });
   }
 
+  // Hoisted so the erasure receipt can record that the export-before-delete
+  // gate was satisfied without persisting the snapshot identifier itself.
+  let verifiedExportProof = false;
   if (scope === "everything") {
     const expectedPassword = process.env.NITSYCLAW_DASHBOARD_PASSWORD ?? "";
     if (!expectedPassword || !constantTimeEqual(currentPassword, expectedPassword)) {
       return redirectToSettings(req, { deleteError: "reauth", scope });
     }
-    let verifiedExportProof = false;
     try {
       verifiedExportProof = Boolean(verifyExportProof({
         proof: exportProof,
@@ -136,7 +138,7 @@ export async function POST(req: Request) {
         safeAuditValues(
           auditDataDelete({
             scope,
-            exportSnapshotId: scope === "everything" ? exportSnapshotId : undefined,
+            hasExportSnapshot: verifiedExportProof,
             deleted,
             durationMs: Date.now() - started,
           }),

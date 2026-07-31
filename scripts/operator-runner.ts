@@ -195,6 +195,14 @@ const PHONE_RE = /(?:\+?\d[\s().-]?){8,}\d/g;
 const TOKEN_RE = /\b(?:(?:sk|pk)_(?:live|test)_[A-Za-z0-9._-]{8,}|(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,})\b/g;
 const POSTGRES_URL_RE = /\bpostgres(?:ql)?:\/\/\S+/gi;
 
+/**
+ * Matches the local alias used by the connector status helpers in
+ * `packages/shared/src/integrations/*`. It was referenced here without ever
+ * being declared: `tsx` strips types without checking them, so the error only
+ * surfaced once this file came under `tsc` via `scripts/tsconfig.json`.
+ */
+type EnvLike = Record<string, string | undefined>;
+
 export function formatOperatorQueueDoctorReport(env: EnvLike = process.env): string {
   const databaseReady = Boolean(env.DATABASE_URL?.trim());
   const railwayReady = Boolean(env.RAILWAY_TOKEN?.trim());
