@@ -1,5 +1,5 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
-import { auditLog, confirmations, getDb, memories } from "@nitsyclaw/shared/db";
+import { and, desc, eq, gt } from "drizzle-orm";
+import { confirmations, getDb, memories } from "@nitsyclaw/shared/db";
 import {
   localBrainModeFromEnv,
   looksLikeStoredPromptInjection,
@@ -18,6 +18,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/** Neutral state shown when no routing decision can be attributed to this owner. */
+export const ROUTE_TELEMETRY_UNAVAILABLE = "Owner-scoped routing telemetry is unavailable";
+
 interface LocalBrainData {
   health: OllamaHealth;
   approvals: Array<{ id: string; action: string }>;
@@ -28,21 +31,38 @@ interface LocalBrainData {
   browserProof?: BrowserProofData["browserProof"];
 }
 
+/**
+ * No durable model_route row can be attributed to an owner.
+ *
+ * This page used to select the newest model_route audit row, filtering it by
+ * an owner-hash key read out of the audit input payload as JSON. 5431d9c
+ * correctly removed that key from model_route payloads, so the predicate can
+ * never match again, and it must not be reintroduced: audit_log is classified
+ * `global_operational` with `scopeColumn: null` in `TENANT_TABLE_BOUNDARIES`,
+ * so it has no owner or tenant column to filter on either.
+ *
+ * Dropping the predicate and keeping the query would read the newest
+ * model_route row written by anyone and present it as this owner's routing
+ * decision. That is exactly the substitution this must not make, so the query
+ * is removed rather than widened and the UI states plainly that owner-scoped
+ * routing telemetry is unavailable.
+ *
+ * The remaining routing signals on this page do not depend on it: provider
+ * health, chat model, latency and model count come from `provider.health()`,
+ * and the privacy mode from `localBrainModeFromEnv()`. The browser-proof
+ * fixture supplies its own in-process routing decision and is unaffected.
+ */
 async function loadLocalBrain(provider: OllamaProvider, health: OllamaHealth): Promise<LocalBrainData> {
   assertPublicSaleTenantBoundaries();
   const { ownerHash } = getOwnerIdentity();
   const db = getDb();
-  const [memoryRows, approvalRows, routeRows] = await Promise.all([
+  const [memoryRows, approvalRows] = await Promise.all([
     db.select().from(memories).where(eq(memories.ownerHash, ownerHash)).orderBy(desc(memories.createdAt)).limit(20),
     db.select().from(confirmations).where(and(
       eq(confirmations.ownerHash, ownerHash),
       eq(confirmations.status, "pending"),
       gt(confirmations.expiresAt, new Date()),
     )).orderBy(desc(confirmations.createdAt)).limit(5),
-    db.select().from(auditLog).where(and(
-      eq(auditLog.tool, "model_route"),
-      sql`${auditLog.input}->>'ownerHash' = ${ownerHash}`,
-    )).orderBy(desc(auditLog.createdAt)).limit(1),
   ]);
   let retrieved: RetrievedLocalMemory[] = [];
   let retrievalNote = "Install and configure a local embedding model to retrieve memory semantically.";
@@ -61,7 +81,10 @@ async function loadLocalBrain(provider: OllamaProvider, health: OllamaHealth): P
     }
   }
   const excludedCount = memoryRows.filter((row) => looksLikeStoredPromptInjection(row.content)).length;
-  return { health, approvals: approvalRows, route: routeRows[0] ?? null, retrieved, retrievalNote, excludedCount };
+  // `route` stays null on the real path: see the note above. Only the
+  // browser-proof fixture, which builds a routing decision in-process for a
+  // synthetic owner, ever supplies one.
+  return { health, approvals: approvalRows, route: null, retrieved, retrievalNote, excludedCount };
 }
 
 function emptyData(reason: string, health?: OllamaHealth): LocalBrainData {
@@ -99,8 +122,10 @@ export default async function LocalBrainPage() {
   } catch (error) {
     data = emptyData(error instanceof Error ? error.message : "Local Brain data could not be loaded.", health);
   }
-  const route = textField(data.route?.output, "route") ?? "No route recorded yet";
-  const reason = textField(data.route?.output, "reasonCode") ?? "Send a request to record a routing decision";
+  // Fail closed: with no owner-scoped routing source, the tiles say so rather
+  // than falling back to the newest row written by anyone.
+  const route = textField(data.route?.output, "route") ?? ROUTE_TELEMETRY_UNAVAILABLE;
+  const reason = textField(data.route?.output, "reasonCode") ?? ROUTE_TELEMETRY_UNAVAILABLE;
   const stateTone = data.health.state === "online"
     ? "border-emerald-800 bg-emerald-950/30 text-emerald-200"
     : data.health.state === "degraded"
@@ -164,13 +189,19 @@ export default async function LocalBrainPage() {
         </div>
 
         <div className="grid gap-4">
-          <section className="nc-section">
+          <section className="nc-section" data-testid="local-brain-route-telemetry">
             <div className="nc-eyebrow">Why this model?</div>
             <h2 className="mt-2 text-xl font-semibold text-slate-100">{reason.replaceAll("_", " ")}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               The router considers request type, sensitivity, complexity, model availability, and explicit cloud approval. It records only safe labels and timing, not your prompt.
             </p>
-            {data.route ? <p className="mt-3 text-xs text-slate-500">Last route latency: {data.route.durationMs ?? 0} ms</p> : null}
+            {data.route ? (
+              <p className="mt-3 text-xs text-slate-500">Last route latency: {data.route.durationMs ?? 0} ms</p>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">
+                Routing decisions are recorded without an owner or tenant identifier, so none can be attributed to your account. Provider health above is live.
+              </p>
+            )}
           </section>
 
           <section className="nc-section" data-testid="local-brain-approvals">
