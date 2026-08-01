@@ -71,6 +71,26 @@ if (-not (Test-LocalWhatsAppAllowed)) {
     exit 0
 }
 
+# Local brain readiness before the bot starts. Best effort by design: a private
+# turn needs Ollama, but reminders, calendar and every other non-model path must
+# still work if it cannot start, so a failure is logged as degraded and the bot
+# launch below proceeds unchanged. Never starts a second server and never kills
+# a healthy one - see scripts/ensure-ollama.ps1 for the exit-code contract.
+try {
+    & powershell -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden `
+        -File "$root\scripts\ensure-ollama.ps1" | Out-Null
+    $ollamaCode = $LASTEXITCODE
+} catch {
+    $ollamaCode = 1
+}
+if ($ollamaCode -eq 0) {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: ollama ready" |
+        Out-File -Append "$logDir\launcher.log"
+} else {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: ollama degraded code=$ollamaCode; starting bot anyway" |
+        Out-File -Append "$logDir\launcher.log"
+}
+
 $dev = @(Get-BotDevProcesses)
 if ($dev.Count -gt 0) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] launch-bot: stopping dev/watch bot before production start" |

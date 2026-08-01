@@ -131,6 +131,23 @@ if (-not (Test-LocalWhatsAppAllowed)) {
     exit 0
 }
 
+# Local brain recovery, once per normal cycle. If Ollama is healthy this is a
+# single loopback probe and nothing else happens; if it exited, the helper
+# starts exactly one replacement. Deliberately isolated from every bot rule
+# below: an Ollama failure is logged and ignored, and must never stop, restart
+# or delay an otherwise healthy WhatsApp bot.
+try {
+    & powershell -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden `
+        -File "$root\scripts\ensure-ollama.ps1" | Out-Null
+    $ollamaCode = $LASTEXITCODE
+} catch {
+    $ollamaCode = 1
+}
+if ($ollamaCode -ne 0) {
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: ollama degraded code=$ollamaCode; bot recovery unaffected" |
+        Out-File -Append "$logDir\broom.log"
+}
+
 if ($bot.Count -eq 0) {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] broom: bot dead -> launch-bot.ps1" |
         Out-File -Append "$logDir\broom.log"
