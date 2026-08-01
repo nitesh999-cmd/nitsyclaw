@@ -47,6 +47,13 @@ const envSchema = z.object({
   WHATSAPP_OWNER_NUMBER: z.string().min(1),
   NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS: z.coerce.number().min(0).max(3_600_000).default(60_000),
   NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS: z.coerce.number().min(30_000).max(900_000).default(240_000),
+  // Which machine may own the WhatsApp session. Deliberately optional with no
+  // default: the laptop launcher stays authorized by NITSYCLAW_ALLOW_LOCAL_WHATSAPP
+  // exactly as before, so nothing existing has to be reconfigured. Railway
+  // refuses to start WhatsApp unless this is exactly "railway" - enforced in
+  // apps/bot/src/whatsapp-runtime-guard.ts, which reads process.env directly so
+  // the decision lands before any client, Chromium or session access.
+  NITSYCLAW_WHATSAPP_RUNTIME_OWNER: z.enum(["laptop", "railway"]).optional(),
   ENCRYPTION_KEY: encryptionKey,
   DAILY_LLM_BUDGET_USD: z.coerce.number().default(5),
   ENABLE_HEARTBEAT: envBoolean.default(true),

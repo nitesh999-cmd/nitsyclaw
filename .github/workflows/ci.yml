@@ -66,10 +66,21 @@ jobs:
         env:
           NODE_ENV: test
 
+  # Railway is an explicit opt-in WhatsApp runtime, not the default.
+  #
+  # The laptop launcher currently owns the WhatsApp session. This job talks to a
+  # Railway deployment and runs a live WhatsApp smoke, so it must not run while
+  # the laptop is the runtime: a second client on one session forces a re-pair.
+  #
+  # Gated on the repository variable NITSYCLAW_WHATSAPP_RUNTIME_OWNER, matching
+  # the env var the bot's runtime guard enforces. Unset, or anything other than
+  # the exact string 'railway', and this job skips cleanly; no other job is
+  # affected. Setting it to 'railway' after a reviewed migration restores the
+  # existing Railway smoke capability unchanged.
   whatsapp-production-smoke:
     runs-on: ubuntu-latest
     needs: test
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.NITSYCLAW_WHATSAPP_RUNTIME_OWNER == 'railway'
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: 14a48d9f-310a-446f-9350-77a28ebdc239

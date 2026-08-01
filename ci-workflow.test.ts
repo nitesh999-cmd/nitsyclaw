@@ -119,4 +119,72 @@ describe("GitHub Actions CI workflow", () => {
     expect(workflow).toContain("Run OWASP ZAP baseline");
     expect(workflow).toContain("zap-report.html");
   });
+
+  // ---------------------------------------------------------------------
+  // WhatsApp runtime ownership: Railway is explicit opt-in, laptop is default
+  // ---------------------------------------------------------------------
+
+  /**
+   * The `if:` line belonging to one job, or "" when it has none.
+   *
+   * The body is bounded at the next top-level job key, otherwise a job without
+   * an `if:` silently inherits the next job's condition and the assertion
+   * becomes meaningless.
+   */
+  function jobCondition(job: string): string {
+    const start = workflow.indexOf(`\n  ${job}:\n`);
+    expect(start, `job ${job} not found`).toBeGreaterThan(-1);
+    const rest = workflow.slice(start + 1);
+    const nextJob = rest.slice(1).search(/\n {2}[a-z][a-z0-9-]*:\n/);
+    const body = nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
+    const line = body.split("\n").find((l) => l.trim().startsWith("if:"));
+    return line?.trim() ?? "";
+  }
+
+  it("job condition helper is bounded to a single job", () => {
+    // e2e genuinely has no `if:`; proving that keeps the ungated-jobs test honest.
+    expect(jobCondition("e2e")).toBe("");
+    expect(jobCondition("whatsapp-production-smoke")).toContain("vars.");
+  });
+
+  it("skips the Railway WhatsApp smoke job unless ownership is explicitly railway", () => {
+    const condition = jobCondition("whatsapp-production-smoke");
+
+    // Gated on the repository variable, matching the bot's runtime guard.
+    expect(condition).toContain("vars.NITSYCLAW_WHATSAPP_RUNTIME_OWNER == 'railway'");
+    // The pre-existing branch and event gates are retained, not replaced.
+    expect(condition).toContain("github.ref == 'refs/heads/main'");
+    expect(condition).toContain("github.event_name == 'push'");
+    expect(condition).toContain("github.event_name == 'workflow_dispatch'");
+    // An unset repository variable evaluates to '' and cannot equal 'railway',
+    // so the default state is a clean skip.
+    expect(condition).not.toContain("!=");
+    expect(condition).not.toContain("contains(");
+  });
+
+  it("keeps the Railway smoke capability available for a deliberate migration", () => {
+    // The job body is unchanged: setting the variable to 'railway' restores it.
+    expect(workflow).toContain("whatsapp-production-smoke:");
+    expect(workflow).toContain("./scripts/whatsapp-production-smoke.ps1");
+    expect(workflow).toContain("./scripts/railway-wait-for-commit.ps1");
+    expect(workflow).toContain("./scripts/railway-deploy-watchdog.ps1");
+    expect(workflow).toContain("pnpm exec tsx scripts/ci-railway-token-gate.ts");
+  });
+
+  it("leaves the normal test, e2e, security, browser and Vercel jobs ungated by ownership", () => {
+    for (const job of ["test", "e2e", "security", "zap-baseline"]) {
+      expect(jobCondition(job), `${job} must not be ownership-gated`).not.toContain(
+        "NITSYCLAW_WHATSAPP_RUNTIME_OWNER",
+      );
+    }
+    // Vercel keeps its original branch/event gate only.
+    const vercel = jobCondition("vercel-build");
+    expect(vercel).toContain("github.ref == 'refs/heads/main'");
+    expect(vercel).not.toContain("NITSYCLAW_WHATSAPP_RUNTIME_OWNER");
+  });
+
+  it("gates only the Railway smoke job on ownership", () => {
+    const occurrences = workflow.split("vars.NITSYCLAW_WHATSAPP_RUNTIME_OWNER").length - 1;
+    expect(occurrences).toBe(1);
+  });
 });
