@@ -21,7 +21,7 @@ export interface WhatsAppOutboundDeliveryEvidence {
 }
 
 export interface WhatsAppSubmissionMessage {
-  id?: { _serialized?: string };
+  id?: { _serialized?: string; toString?: () => string };
   ack?: number;
 }
 
@@ -104,7 +104,11 @@ function withDeadline<T>(
 }
 
 function messageId(message: WhatsAppSubmissionMessage | undefined): string {
-  return message?.id?._serialized?.trim() ?? "";
+  const serialized = message?.id?._serialized?.trim() ?? "";
+  if (serialized) return serialized;
+  if (typeof message?.id?.toString !== "function") return "";
+  const stringified = message.id.toString().trim();
+  return stringified && stringified !== "[object Object]" ? stringified : "";
 }
 
 export async function submitWhatsAppMessageWithServerAck(

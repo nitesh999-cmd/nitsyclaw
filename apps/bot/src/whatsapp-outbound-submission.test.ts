@@ -65,6 +65,22 @@ describe("submitWhatsAppMessageWithServerAck", () => {
     }]);
   });
 
+  it("accepts the current WhatsApp Web message-key toString representation", async () => {
+    const client = new FakeWhatsAppClient({
+      id: { toString: () => "true_owner@c.us_CURRENT-ID" },
+      ack: 1,
+    });
+
+    await expect(submitWhatsAppMessageWithServerAck(client, {
+      target: "owner@c.us",
+      body: "sanitized test body",
+    })).resolves.toEqual({
+      id: "true_owner@c.us_CURRENT-ID",
+      ack: 1,
+      delivery: "server_submitted",
+    });
+  });
+
   it("rejects local client acceptance without a real message ID", async () => {
     const client = new FakeWhatsAppClient({ ack: 0 });
     const submission = submitWhatsAppMessageWithServerAck(client, {
@@ -73,6 +89,17 @@ describe("submitWhatsAppMessageWithServerAck", () => {
     });
 
     await expect(submission).rejects.toMatchObject<Partial<WhatsAppOutboundSubmissionError>>({
+      code: "message_id_missing",
+    });
+  });
+
+  it("does not treat the default object string as a message ID", async () => {
+    const client = new FakeWhatsAppClient({ id: {}, ack: 1 });
+
+    await expect(submitWhatsAppMessageWithServerAck(client, {
+      target: "owner@c.us",
+      body: "sanitized test body",
+    })).rejects.toMatchObject<Partial<WhatsAppOutboundSubmissionError>>({
       code: "message_id_missing",
     });
   });
