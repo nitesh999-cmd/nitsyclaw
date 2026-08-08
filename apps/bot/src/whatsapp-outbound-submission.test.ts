@@ -189,6 +189,27 @@ describe("WhatsAppOutboundAckCoordinator", () => {
     })).resolves.toMatchObject({ id: "msg-early", ack: 1 });
   });
 
+  it("uses an exact pre-resolution message_create correlation when the send result omits its ID", async () => {
+    const client = new FakeWhatsAppClient();
+    const coordinator = new WhatsAppOutboundAckCoordinator();
+    coordinator.attach(client);
+    client.sendImpl = async (_target, body) => {
+      client.emit("message_create", projectedMessage("msg-created-first", OWNER, 0, { body }));
+      client.emit("message_ack", projectedMessage("msg-created-first"), 3);
+      await flush();
+      return { to: OWNER, fromMe: true, ack: 0 };
+    };
+
+    await expect(coordinator.submit(client, {
+      target: OWNER,
+      body: "sanitized fixture created first",
+    })).resolves.toEqual({
+      id: "msg-created-first",
+      ack: 3,
+      delivery: "device_acknowledged",
+    });
+  });
+
   it("correlates an ACK immediately after sendMessage resolves", async () => {
     const client = new FakeWhatsAppClient(projectedMessage("msg-after"));
     const coordinator = new WhatsAppOutboundAckCoordinator();

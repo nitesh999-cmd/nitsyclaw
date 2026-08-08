@@ -296,6 +296,7 @@ export class WhatsAppOutboundAckCoordinator {
   private sendChain: Promise<void> = Promise.resolve();
   private attachedClient?: WhatsAppSubmissionClient;
   private activeAttemptId = "";
+  private readonly observedCorrelations = new Map<string, { id: string; recipient: string }>();
   private readonly waiters = new Map<string, AckWaiter>();
   private readonly onAck = (message: WhatsAppSubmissionMessage, ack: number): void => {
     void this.observeAck(message, ack).catch(() => {
@@ -421,6 +422,7 @@ export class WhatsAppOutboundAckCoordinator {
       }
       attempt.messageIdHash = idHash;
       attempt.actualRecipientHash = recipientHash;
+      this.observedCorrelations.set(attempt.attemptId, { id, recipient });
       this.consumeEarlyAck(attempt);
     }
     await this.persist();
@@ -541,7 +543,8 @@ export class WhatsAppOutboundAckCoordinator {
         ),
       );
       attempt.clientAccepted = true;
-      const id = normalizeWhatsAppMessageId(sent?.id);
+      const observedCorrelation = this.observedCorrelations.get(attemptId);
+      const id = normalizeWhatsAppMessageId(sent?.id) || observedCorrelation?.id || "";
       if (!id) {
         await this.persist();
         throw new WhatsAppOutboundSubmissionError(
@@ -549,7 +552,7 @@ export class WhatsAppOutboundAckCoordinator {
           "WhatsApp accepted the local message model without returning a real message ID.",
         );
       }
-      const recipient = normalizeWhatsAppMessageRecipient(sent);
+      const recipient = normalizeWhatsAppMessageRecipient(sent) || observedCorrelation?.recipient || "";
       if (!recipient) {
         await this.persist();
         throw new WhatsAppOutboundSubmissionError(
@@ -583,6 +586,7 @@ export class WhatsAppOutboundAckCoordinator {
         delivery: ack >= WHATSAPP_ACK_DEVICE ? "device_acknowledged" : "server_submitted",
       };
     } finally {
+      this.observedCorrelations.delete(attemptId);
       if (this.activeAttemptId === attemptId) this.activeAttemptId = "";
     }
   }
