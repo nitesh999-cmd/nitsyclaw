@@ -20,6 +20,7 @@ import {
 } from "./whatsapp-health.js";
 import { WhatsAppLoopBreaker } from "./whatsapp-loop-breaker.js";
 import { WhatsAppSendMonitor } from "./whatsapp-send-monitor.js";
+import { WhatsAppHeartbeatAckStateStore } from "./whatsapp-outbound-ack-store.js";
 import { buildAgentDeps } from "./adapters.js";
 import { Router } from "./router.js";
 import { startScheduler } from "./scheduler.js";
@@ -57,6 +58,7 @@ async function main() {
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
     presenceUnavailableIntervalMs: env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS,
     initializeTimeoutMs: env.NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS,
+    outboundAckStore: new WhatsAppHeartbeatAckStateStore(db),
     onQr: (payload) => qrRecovery.setQr(payload),
     onQrCleared: () => qrRecovery.clearQr(),
     onStatus: (event) => {

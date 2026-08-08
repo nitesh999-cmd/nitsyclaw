@@ -62,7 +62,8 @@ import {
   readAllowedSelfChatIds,
 } from "./whatsapp-self-chat-calibration.js";
 import {
-  submitWhatsAppMessageWithServerAck,
+  WhatsAppOutboundAckCoordinator,
+  type WhatsAppOutboundAckStateStore,
   type WhatsAppSubmissionClient,
 } from "./whatsapp-outbound-submission.js";
 
@@ -302,6 +303,7 @@ export interface WwebjsOptions {
   presenceUnavailableIntervalMs?: number;
   sendSubmissionTimeoutMs?: number;
   sendAckTimeoutMs?: number;
+  outboundAckStore?: WhatsAppOutboundAckStateStore;
   healthFilePath?: string;
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
   onQr?: (payload: string) => void | Promise<void>;
@@ -337,6 +339,7 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly sendAckTimeoutMs: number;
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
+  private readonly outboundAckCoordinator: WhatsAppOutboundAckCoordinator;
   private lastNonSelfChatNoticeAtMs = 0;
   private readonly inboundHealth = new InboundRoutingHealth();
   private readonly lidResolver = new LidPhoneResolver((userIds) => {
@@ -366,6 +369,9 @@ export class WwebjsClient implements WhatsAppClient {
     this.sendSubmissionTimeoutMs = opts.sendSubmissionTimeoutMs ?? 45_000;
     this.sendAckTimeoutMs = opts.sendAckTimeoutMs ?? 45_000;
     this.healthFilePath = opts.healthFilePath ?? defaultHealthFilePath();
+    this.outboundAckCoordinator = new WhatsAppOutboundAckCoordinator({
+      store: opts.outboundAckStore,
+    });
     this.readyPromise = this.newReadyPromise();
 
     this.puppeteerOpts = {
@@ -655,6 +661,12 @@ export class WwebjsClient implements WhatsAppClient {
   private wireEvents(generation: number): void {
     const isCurrentGeneration = () => generation === this.generation && !this.stopped;
 
+    // Attach durable ACK and local-echo observation before this generation can
+    // become ready or accept an outbound submission.
+    this.outboundAckCoordinator.attach(
+      this.client as unknown as WhatsAppSubmissionClient,
+    );
+
     this.client.on("qr", (qr: string) => {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] QR code received - scan with your phone");
@@ -866,7 +878,7 @@ export class WwebjsClient implements WhatsAppClient {
     const client = this.client;
     try {
       this.echoGuard.rememberOutgoing(body);
-      const sent = await submitWhatsAppMessageWithServerAck(
+      const sent = await this.outboundAckCoordinator.submit(
         client as unknown as WhatsAppSubmissionClient,
         {
           target,
@@ -898,6 +910,7 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.healthProbe) clearInterval(this.healthProbe);
     if (this.presenceUnavailableProbe) clearInterval(this.presenceUnavailableProbe);
     if (this.readyWatchdog) clearTimeout(this.readyWatchdog);
+    this.outboundAckCoordinator.detach();
     this.client.removeAllListeners();
     await this.markUnavailable("WhatsApp presence before destroy");
     await this.client.destroy();
