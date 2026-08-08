@@ -12,6 +12,7 @@ import {
   fakeTranscriber,
 } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
+import type { LlmClient } from "@nitsyclaw/shared/agent";
 import { generateKey, hashPhone } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
@@ -181,22 +182,89 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
-  it("suppresses a model-generated saved/working receipt in the default agent loop", async () => {
+  it("records a local-model timeout as a terminal WhatsApp job without automatic replay", async () => {
+    const timeoutLlm: LlmClient = {
+      async complete() {
+        return { text: "unused" };
+      },
+      async toolStep() {
+        throw Object.assign(new Error("Ollama request timed out."), {
+          name: "OllamaProviderError",
+          code: "timeout",
+        });
+      },
+    };
+    deps = makeAgentDeps({ whatsapp: wa, llm: timeoutLlm });
+    router = new Router(deps, OWNER);
+
+    await expect(router.handle({
+      id: "x-local-timeout",
+      from: OWNER,
+      body: "Explain my private note",
+      timestamp: new Date(),
+      hasMedia: false,
+    })).rejects.toThrow("Ollama request timed out");
+
+    const job = getFakeDbState(deps.db).command_jobs[0];
+    expect(job).toMatchObject({
+      sourceExternalId: "x-local-timeout",
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
+      nextRunAt: null,
+    });
+    expect(wa.sent).toHaveLength(0);
+  });
+
+  it("fails visibly when the model returns no usable answer", async () => {
+    const emptyLlm: LlmClient = {
+      async complete() {
+        return { text: "" };
+      },
+      async toolStep() {
+        return { stopReason: "end_turn", toolCalls: [], text: "   " };
+      },
+    };
+    deps = makeAgentDeps({ whatsapp: wa, llm: emptyLlm });
+    router = new Router(deps, OWNER);
+
+    await expect(router.handle({
+      id: "x-empty-response",
+      from: OWNER,
+      body: "Summarise this private item",
+      timestamp: new Date(),
+      hasMedia: false,
+    })).rejects.toMatchObject({ name: "EmptyAgentResponseError", code: "empty_response" });
+
+    expect(getFakeDbState(deps.db).command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-empty-response",
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
+    });
+  });
+
+  it("rejects a model-generated saved/working receipt as an empty visible answer", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
       llm: fakeLlmWithToolCall("reply_to_user", { text: "Saved. Working on it." }),
     });
     router = new Router(deps, OWNER);
 
-    await router.handle({
+    await expect(router.handle({
       id: "x-model-receipt",
       from: OWNER,
       body: "Hi",
       timestamp: new Date(),
       hasMedia: false,
-    });
+    })).rejects.toMatchObject({ name: "EmptyAgentResponseError" });
 
     expect(wa.sent).toHaveLength(0);
+    expect(getFakeDbState(deps.db).command_jobs[0]).toMatchObject({
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
+    });
   });
 
   it("answers next moves from the live feature queue without the model loop", async () => {
@@ -1994,7 +2062,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(1);
   });
 
-  it("retries replayed WhatsApp status after a partial send failure", async () => {
+  it("does not automatically replay a WhatsApp status after a partial send failure", async () => {
     let sends = 0;
     wa.send = async (message) => {
       sends += 1;
@@ -2018,10 +2086,12 @@ describe("Router (integration)", () => {
     expect(state.command_jobs).toHaveLength(1);
     expect(state.command_jobs[0]).toMatchObject({
       sourceExternalId: "x-replayed-status-after-failure",
-      status: "done",
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
     });
     expect(wa.sent.some((message) => message.body.includes("Couldn't load the current status"))).toBe(true);
-    expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(0);
   });
 
   it("does not replay a resolved confirmation after router restart", async () => {

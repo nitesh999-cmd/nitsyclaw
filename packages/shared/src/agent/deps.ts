@@ -21,7 +21,17 @@ export interface AgentDeps {
   now: () => Date;
   timezone: string;
   profile?: UserProfile;
+  /**
+   * Runs optional background model work without competing with an active
+   * user-facing model call. Bot runtimes wire this; tests and dashboard
+   * surfaces may omit it.
+   */
+  runBackgroundLlmJob?<T>(job: (llm: LlmClient) => Promise<T>): Promise<BackgroundLlmJobResult<T>>;
 }
+
+export type BackgroundLlmJobResult<T> =
+  | { status: "completed"; value: T }
+  | { status: "busy" };
 
 export interface UserProfile {
   homeLocation?: string;

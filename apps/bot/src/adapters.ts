@@ -27,6 +27,7 @@ import type {
   WebSearcher,
 } from "@nitsyclaw/shared/agent";
 import { hashPhone } from "@nitsyclaw/shared/utils";
+import { createLlmWorkCoordinator } from "./llm-work-coordinator.js";
 
 /** RFC 2047 encoded-word for header values containing non-ASCII (e.g. "Café invoice"). */
 function encodeHeaderValue(value: string): string {
@@ -415,7 +416,7 @@ export function buildAgentDeps(args: {
     contextWindow: args.env.OLLAMA_CONTEXT_LIMIT,
     think: args.env.OLLAMA_THINK,
   });
-  const llm = createRoutedLlm({
+  const routedLlm = createRoutedLlm({
     local: ollama,
     cloud: cloudLlm,
     mode: args.env.NITSYCLAW_MODEL_MODE ?? "auto",
@@ -443,6 +444,7 @@ export function buildAgentDeps(args: {
       });
     },
   });
+  const llmWork = createLlmWorkCoordinator(routedLlm);
   const transcriber = args.env.OPENAI_API_KEY
     ? makeOpenAiTranscriber(args.env.OPENAI_API_KEY, args.env.TRANSCRIPTION_MODEL)
     : { async transcribe() { throw new Error("OPENAI_API_KEY not set"); } };
@@ -464,7 +466,8 @@ export function buildAgentDeps(args: {
   return {
     db: args.db,
     whatsapp: args.whatsapp,
-    llm,
+    llm: llmWork.interactive,
+    runBackgroundLlmJob: (job) => llmWork.runBackground(job),
     transcriber,
     webSearch,
     calendar: realCalendar,

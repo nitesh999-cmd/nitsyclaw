@@ -165,6 +165,11 @@ import { runDailyBuildAgent } from "./build-agent.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
+import { EmptyAgentResponseError } from "./request-failure.js";
+import {
+  classifyWhatsAppHealthSignal,
+  requiresWhatsAppAttention,
+} from "./whatsapp-health-classification.js";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
   formatReadyCapabilitiesOneLine,
@@ -350,7 +355,11 @@ export class Router {
       sourceExternalId: externalId || undefined,
       dedupeKey: externalId ? `whatsapp:${externalId}` : undefined,
       allowAgentClarification,
-      maxAttempts: opts.maxAttempts,
+      // A WhatsApp reply may already have reached the self-chat when the
+      // process loses its acknowledgement. Automatic replay would risk a
+      // duplicate visible action, so foreground messages fail terminally and
+      // require an explicit user retry.
+      maxAttempts: opts.maxAttempts ?? 1,
     });
   }
 
@@ -1338,9 +1347,7 @@ export class Router {
       getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
     ]);
     const runtime = buildBotRuntimeMetadata(process.env, now);
-    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
-      ?? heartbeatMetadataText(botRuntime, "commit")
-      ?? runtime.commitShort;
+    const deployedCommit = runtimeCommitLabel(botRuntime, runtime.commitShort);
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
@@ -1357,7 +1364,7 @@ export class Router {
       loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
     );
     const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
-      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      whatsappSendNeedsAttention(whatsappSend, now) ||
       Boolean(sendError || loopReason || whatsappClientIssue);
 
     return formatWhatsAppReplyShape({
@@ -1443,9 +1450,7 @@ export class Router {
       getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
     ]);
     const runtime = buildBotRuntimeMetadata(process.env, now);
-    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
-      ?? heartbeatMetadataText(botRuntime, "commit")
-      ?? runtime.commitShort;
+    const deployedCommit = runtimeCommitLabel(botRuntime, runtime.commitShort);
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
@@ -1472,7 +1477,7 @@ export class Router {
     );
     const needsAttention = !persistence.ok ||
       classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
-      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      whatsappSendNeedsAttention(whatsappSend, now) ||
       Boolean(sendError || loopReason || whatsappClientIssue);
 
     if (!detail) {
@@ -1658,9 +1663,7 @@ export class Router {
     ]);
 
     const runtime = buildBotRuntimeMetadata(process.env, now);
-    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
-      ?? heartbeatMetadataText(botRuntime, "commit")
-      ?? runtime.commitShort;
+    const deployedCommit = runtimeCommitLabel(botRuntime, runtime.commitShort);
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
@@ -1670,7 +1673,7 @@ export class Router {
     const queueSummary = summarizeFeatureQueueStatus({ pending: pendingQueue, limit: 3 });
     const nextQueue = queueSummary.recommendedNext ?? queueSummary.quickWins[0] ?? queueSummary.topPending[0];
     const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
-      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      whatsappSendNeedsAttention(whatsappSend, now) ||
       Boolean(loopReason || sendError || whatsappClientIssue || recentFailures.length);
 
     return formatWhatsAppReplyShape({
@@ -3024,6 +3027,9 @@ export class Router {
         deliveredText = result.finalText;
         await this.sendAndPersist(result.finalText);
       }
+      if (!deliveredText.trim()) {
+        throw new EmptyAgentResponseError();
+      }
       if (shouldAppendFeatureQueueStatus) {
         try {
           await this.sendFeatureQueueStatus(5);
@@ -3168,11 +3174,27 @@ function heartbeatLine(
   staleAfterMs: number,
   detail?: string,
 ): string {
-  const freshness = classifyHeartbeat(heartbeat, now, staleAfterMs);
-  if (!heartbeat) return `${label}: missing`;
+  const state = classifyWhatsAppHealthSignal({
+    heartbeat,
+    now,
+    staleAfterMs,
+    kind: label === "WhatsApp send" || label === "Inbound routing" || label === "Notify channels"
+      ? "event"
+      : "periodic",
+  });
+  if (!heartbeat) return `${label}: not tested`;
   const ageSeconds = Math.max(0, Math.round((now.getTime() - heartbeat.lastSeenAt.getTime()) / 1000));
   const suffix = detail ? ` - ${detail}` : "";
-  return `${label}: ${heartbeat.status} (${freshness}, ${ageSeconds}s ago)${suffix}`;
+  return `${label}: ${heartbeat.status} (${state}, ${ageSeconds}s ago)${suffix}`;
+}
+
+function whatsappSendNeedsAttention(heartbeat: SystemHeartbeat | null, now: Date): boolean {
+  return requiresWhatsAppAttention(classifyWhatsAppHealthSignal({
+    heartbeat,
+    now,
+    staleAfterMs: 10 * 60 * 1000,
+    kind: "event",
+  }));
 }
 
 function whatsappClientRecoveryHint(heartbeat: SystemHeartbeat | null): string | null {
@@ -3195,6 +3217,13 @@ function heartbeatMetadataText(heartbeat: SystemHeartbeat | null, key: string): 
   const value = (metadata as Record<string, unknown>)[key];
   if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
   return String(value).slice(0, 160);
+}
+
+function runtimeCommitLabel(heartbeat: SystemHeartbeat | null, detectedCommit: string): string {
+  const recorded = heartbeatMetadataText(heartbeat, "commitShort")
+    ?? heartbeatMetadataText(heartbeat, "commit");
+  if (recorded && !["unknown", "unavailable"].includes(recorded.toLowerCase())) return recorded;
+  return detectedCommit;
 }
 
 function confirmationNeedsExplicitId(action: string): boolean {

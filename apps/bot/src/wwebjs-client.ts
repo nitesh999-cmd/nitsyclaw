@@ -2,6 +2,7 @@
 // This is the ONLY file that imports whatsapp-web.js (Constitution R16).
 
 import wweb from "whatsapp-web.js";
+import { randomUUID } from "node:crypto";
 const { Client, LocalAuth } = wweb;
 type WwebjsClientInstance = InstanceType<typeof Client>;
 type Message = wweb.Message;
@@ -64,8 +65,6 @@ import {
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
   : ["--no-sandbox", "--disable-setuid-sandbox", "--single-process", "--no-zygote", "--disable-dev-shm-usage"];
-const WHATSAPP_HANDLER_FAILURE_REPLY =
-  "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
 const CHROMIUM_SINGLETON_LOCK_FILES = new Set(["SingletonLock", "SingletonSocket", "SingletonCookie"]);
 const CHROMIUM_CACHE_DIRS = new Set([
   "blob_storage",
@@ -184,6 +183,50 @@ export function isMissingSendAckError(error: unknown): boolean {
 
 export function prepareOutboundBodyForWhatsApp(body: string): string {
   return sanitizeUserFacingReply(body);
+}
+
+export function createWhatsAppCorrelationId(
+  createId: () => string = randomUUID,
+): string {
+  return `NC-${createId().replace(/[^a-f0-9]/gi, "").slice(0, 8).toUpperCase() || "ERROR"}`;
+}
+
+export function formatWhatsAppHandlerFailure(error: unknown, correlationId: string): string {
+  const value = error as { name?: unknown; code?: unknown; message?: unknown } | null;
+  const name = typeof value?.name === "string" ? value.name.toLowerCase() : "";
+  const code = typeof value?.code === "string" ? value.code.toLowerCase() : "";
+  const message = typeof value?.message === "string" ? value.message.toLowerCase() : "";
+  const isLocalProvider = name.includes("ollama") || code.startsWith("ollama_");
+  const ref = `NC-${correlationId
+    .replace(/^NC-/i, "")
+    .replace(/[^a-f0-9]/gi, "")
+    .slice(0, 8)
+    .toUpperCase() || "ERROR"}`;
+
+  if (isLocalProvider && (code === "timeout" || code === "ollama_timeout" || /timed? out|timeout/.test(message))) {
+    return `The local model timed out before I could answer. Nothing was sent to a cloud model, and I did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (
+    isLocalProvider &&
+    (code === "offline" ||
+      code === "model_missing" ||
+      /unavailable|offline|econnrefused|model.+not.+(?:found|installed)/.test(message))
+  ) {
+    return `The local model is unavailable, so I could not answer. Nothing was sent to a cloud model, and I did not retry automatically. Check local model health, then try again. Ref: ${ref}`;
+  }
+  if (code === "empty_response" || name === "emptyagentresponseerror") {
+    return `The backend returned no usable answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (code === "auth" || /\b401\b|unauthori[sz]ed|authentication|invalid api key/.test(message)) {
+    return `The configured provider rejected authentication. I logged it and did not retry automatically. Check provider setup before retrying. Ref: ${ref}`;
+  }
+  if (code === "tool_failure" || name.includes("tool")) {
+    return `A backend tool step failed before I could answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (code === "timeout" || /timed? out|timeout/.test(message)) {
+    return `A backend step timed out before I could answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  return `I hit a backend error before I could finish. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
 }
 
 export function shouldSendNonSelfChatDropNotice(args: {
@@ -475,12 +518,16 @@ export class WwebjsClient implements WhatsAppClient {
     await markPresenceUnavailable(this.client, Math.min(this.healthProbeTimeoutMs, 2_000), label);
   }
 
-  private async sendHandlerFailureReply(canSendFailureReply: boolean): Promise<void> {
+  private async sendHandlerFailureReply(
+    canSendFailureReply: boolean,
+    error: unknown,
+    correlationId: string,
+  ): Promise<void> {
     if (!canSendFailureReply) return;
     try {
       await this.send({
         to: this.opts.ownerNumber,
-        body: WHATSAPP_HANDLER_FAILURE_REPLY,
+        body: formatWhatsAppHandlerFailure(error, correlationId),
       });
     } catch (fallbackError) {
       logBotError("[wwebjs] handler failure fallback send failed", fallbackError);
@@ -790,8 +837,9 @@ export class WwebjsClient implements WhatsAppClient {
         };
         for (const h of this.handlers) await h(inbound);
       } catch (e) {
-        logBotError("[wwebjs] handler error", e);
-        await this.sendHandlerFailureReply(canSendFailureReply);
+        const correlationId = createWhatsAppCorrelationId();
+        logBotError(`[wwebjs] handler error ref=${correlationId}`, e);
+        await this.sendHandlerFailureReply(canSendFailureReply, e, correlationId);
       }
     };
 

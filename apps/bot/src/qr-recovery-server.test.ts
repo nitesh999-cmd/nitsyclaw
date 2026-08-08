@@ -3,6 +3,7 @@ import { once } from "node:events";
 import {
   QrRecoveryController,
   readQrRecoveryWindow,
+  resolveQrRecoveryHost,
   safeTokenEquals,
   startQrRecoveryServer,
 } from "./qr-recovery-server";
@@ -11,6 +12,12 @@ const TOKEN = "0123456789abcdef0123456789abcdef";
 const NOW = new Date("2026-05-14T00:00:00.000Z");
 
 describe("QR recovery server", () => {
+  test("binds local runtimes to loopback and Railway runtimes to all interfaces", () => {
+    expect(resolveQrRecoveryHost({})).toBe("127.0.0.1");
+    expect(resolveQrRecoveryHost({ RAILWAY_ENVIRONMENT_ID: "production" })).toBe("0.0.0.0");
+    expect(resolveQrRecoveryHost({ NITSYCLAW_HTTP_HOST: "127.0.0.2" })).toBe("127.0.0.2");
+  });
+
   test("requires both a strong token and a short future recovery window", () => {
     expect(readQrRecoveryWindow({}, NOW)).toMatchObject({
       enabled: false,

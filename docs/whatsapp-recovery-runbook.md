@@ -146,3 +146,16 @@ Then send `proof test` or `hi` from the phone.
 | `/healthz` is `ok`, `/health` says `ready:false` | HTTP alive, WhatsApp not linked | QR recovery needed |
 | Railway CLI `Unauthorized` | Local Railway auth expired | Run `pnpm run railway:login` |
 | Deploy stuck in queued/building | Railway is still processing | Wait or inspect logs; do not stack deploys |
+| A private answer times out near a five-minute boundary | Interactive and background local-model work may have competed | Confirm the model-route audit and entity-extraction timing; do not enable cloud fallback |
+
+## Local Runtime Health Semantics
+
+- `healthy`: a periodic check or event was observed inside its expected window.
+- `idle`: the last event succeeded but no newer event was expected. An old successful send is idle, not stale.
+- `stale`: a periodic heartbeat missed its expected interval.
+- `degraded`: the component is running with a known impairment or recovery state.
+- `failed`: the last checked operation failed.
+- `not tested`: there is no evidence for the check yet.
+- `not applicable`: the check does not apply to the configured runtime.
+
+Outbound failure alerts use a persistent 30-minute cooldown per failure class, so a process restart does not create an alert storm. A later successful send produces one separate recovery notification. Alert text and claim metadata contain no message body, phone number, or raw provider error.

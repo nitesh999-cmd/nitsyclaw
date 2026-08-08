@@ -9,6 +9,8 @@ import {
   readAllowedSelfChatIds,
 } from "./whatsapp-self-chat-calibration.js";
 import {
+  createWhatsAppCorrelationId,
+  formatWhatsAppHandlerFailure,
   formatNonSelfChatDropNotice,
   isMissingSendAckError,
   prepareOutboundBodyForWhatsApp,
@@ -18,6 +20,42 @@ import {
   shouldRetryChatLookupForSelfChatCandidate,
   shouldSendNonSelfChatDropNotice,
 } from "./wwebjs-client.js";
+
+describe("WhatsApp handler failures", () => {
+  it("returns an actionable timeout without leaking the raw error", () => {
+    const error = Object.assign(
+      new Error("Ollama request timed out for nitesh@example.com sk_live_secret123456789"),
+      { name: "OllamaProviderError", code: "timeout" },
+    );
+    const reply = formatWhatsAppHandlerFailure(error, "aabbccdd");
+
+    expect(reply).toContain("local model timed out");
+    expect(reply).toContain("Nothing was sent to a cloud model");
+    expect(reply).toContain("did not retry automatically");
+    expect(reply).toContain("Ref: NC-AABBCCDD");
+    expect(reply).not.toContain("nitesh@example.com");
+    expect(reply).not.toContain("sk_live");
+  });
+
+  it.each([
+    [Object.assign(new Error("ECONNREFUSED"), { name: "OllamaProviderError", code: "offline" }), "local model is unavailable"],
+    [Object.assign(new Error("blank"), { code: "empty_response" }), "no usable answer"],
+    [new Error("401 invalid api key secret-value"), "rejected authentication"],
+    [Object.assign(new Error("tool exploded with private-value"), { code: "tool_failure" }), "backend tool step failed"],
+    [new Error("database query timed out with private-value"), "backend step timed out"],
+    [new Error("backend exploded with private-value"), "backend error"],
+  ])("classifies failures without returning internals", (error, expected) => {
+    const reply = formatWhatsAppHandlerFailure(error, "11223344");
+    expect(reply).toContain(expected);
+    expect(reply).toContain("Ref: NC-11223344");
+    expect(reply).not.toContain("secret-value");
+    expect(reply).not.toContain("private-value");
+  });
+
+  it("creates a compact sanitized correlation id", () => {
+    expect(createWhatsAppCorrelationId(() => "aa-bb_cc!!dd")).toBe("NC-AABBCCDD");
+  });
+});
 
 describe("resolveWebVersionCache", () => {
   it("does not hard-pin a stale WhatsApp Web version by default", () => {

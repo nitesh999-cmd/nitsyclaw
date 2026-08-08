@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InboundMessage, OutboundMessage, WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 import { pushNotify } from "@nitsyclaw/shared/notify";
-import { upsertSystemHeartbeat } from "@nitsyclaw/shared/db";
+import {
+  claimSystemNotification,
+  getSystemHeartbeat,
+  upsertSystemHeartbeat,
+} from "@nitsyclaw/shared/db";
 import { WhatsAppSendMonitor } from "./whatsapp-send-monitor.js";
 
 vi.mock("@nitsyclaw/shared/notify", () => ({
@@ -14,6 +18,8 @@ vi.mock("@nitsyclaw/shared/db", () => ({
     .replace(/(?:\+?\d[\s().-]?){8,}\d/g, "[redacted:phone]")
     .replace(/\b(?:(?:sk|pk)_(?:live|test)_[A-Za-z0-9._-]{8,}|(?:sk|pk|ghp|xox[baprs]?|ya29|eyJ)[A-Za-z0-9._-]{12,})\b/g, "[redacted:token]"),
   sanitizeAuditPayload: (value: unknown) => value,
+  claimSystemNotification: vi.fn(async () => true),
+  getSystemHeartbeat: vi.fn(async () => null),
   upsertSystemHeartbeat: vi.fn(async () => {}),
 }));
 
@@ -85,22 +91,27 @@ describe("WhatsAppSendMonitor", () => {
         status: "error",
         metadata: expect.objectContaining({
           at: "2026-05-07T01:02:03.000Z",
-          error: expect.stringContaining("[redacted:email]"),
+          error: "send_failed",
         }),
       }),
     );
     expect(pushNotify).toHaveBeenCalledWith(
-      expect.stringContaining("[redacted:email]"),
+      "WhatsApp outbound delivery failed. Check WhatsApp health before retrying.",
       expect.objectContaining({
         title: "NitsyClaw WhatsApp send failed",
         priority: "urgent",
       }),
     );
     expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("nitesh@example.com");
+    expect(JSON.stringify(vi.mocked(claimSystemNotification).mock.calls)).not.toContain("nitesh@example.com");
     expect(JSON.stringify(vi.mocked(pushNotify).mock.calls)).not.toContain("sk_live");
   });
 
   it("rate-limits repeated urgent send-failure pushes while still recording heartbeats", async () => {
+    vi.mocked(claimSystemNotification)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
     const inner = new FakeWhatsApp();
     inner.failure = new Error("Protocol error (Runtime.callFunctionOn): Target closed");
     let nowMs = new Date("2026-05-07T01:02:03.000Z").getTime();
@@ -120,6 +131,53 @@ describe("WhatsAppSendMonitor", () => {
     expect(upsertSystemHeartbeat).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps failure dedupe across monitor restarts through the persistent claim", async () => {
+    vi.mocked(claimSystemNotification)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const firstInner = new FakeWhatsApp();
+    firstInner.failure = new Error("Target closed");
+    const secondInner = new FakeWhatsApp();
+    secondInner.failure = new Error("Target closed");
+
+    await expect(new WhatsAppSendMonitor(firstInner, { db: {} as never }).send({
+      to: "+61430008008",
+      body: "one",
+    })).rejects.toThrow("Target closed");
+    await expect(new WhatsAppSendMonitor(secondInner, { db: {} as never }).send({
+      to: "+61430008008",
+      body: "two",
+    })).rejects.toThrow("Target closed");
+
+    expect(pushNotify).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends one recovery notification on the error-to-ok state change", async () => {
+    vi.mocked(getSystemHeartbeat).mockResolvedValueOnce({
+      id: "heartbeat-1",
+      source: "whatsapp-send",
+      status: "error",
+      lastSeenAt: new Date("2026-05-07T01:00:00.000Z"),
+      metadata: { error: "browser_closed" },
+      updatedAt: new Date("2026-05-07T01:00:00.000Z"),
+    });
+    const monitor = new WhatsAppSendMonitor(new FakeWhatsApp(), {
+      db: {} as never,
+      now: () => new Date("2026-05-07T01:02:03.000Z"),
+    });
+
+    await monitor.send({ to: "+61430008008", body: "health proof" });
+
+    expect(claimSystemNotification).toHaveBeenCalledWith({}, expect.objectContaining({
+      source: "whatsapp-send-alert:recovery",
+      fingerprint: "recovery:browser_closed",
+    }));
+    expect(pushNotify).toHaveBeenCalledWith(
+      "WhatsApp outbound delivery recovered after a recorded failure.",
+      expect.objectContaining({ title: "NitsyClaw WhatsApp recovered" }),
+    );
+  });
+
   it("suppresses noisy saved/working receipts before they reach WhatsApp", async () => {
     const inner = new FakeWhatsApp();
     const monitor = new WhatsAppSendMonitor(inner, {
@@ -135,7 +193,7 @@ describe("WhatsAppSendMonitor", () => {
     expect(upsertSystemHeartbeat).toHaveBeenCalledWith(
       {},
       expect.objectContaining({
-        source: "whatsapp-send",
+        source: "whatsapp-send-suppressed",
         status: "ok",
         metadata: {
           at: "2026-05-07T01:02:03.000Z",

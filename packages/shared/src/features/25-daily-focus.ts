@@ -1,8 +1,9 @@
 // Feature 25: Daily Focus Theme.
 //
-// Pick ONE thing per day. Morning brief proposes candidates via
+// Pick ONE thing per day. Candidates can be recorded via
 // `propose_daily_focus`; user replies with their choice via `pick_daily_focus`;
-// evening close-out or self-report fires `mark_daily_focus_done`.
+// evening close-out or self-report fires `mark_daily_focus_done`. The current
+// scheduled morning brief does not automatically invent or persist a ONE.
 //
 // Read path is `get_today_focus` — used by other features (drift detector,
 // evening digest) without needing a tool call.
@@ -155,6 +156,7 @@ export function registerDailyFocus(registry: ToolRegistry): void {
 
 export type FocusCloseOutState =
   | "no_focus_set"
+  | "focus_selection_missing"
   | "focus_completed"
   | "focus_open";
 
@@ -163,6 +165,7 @@ export interface FocusCloseOutResult {
   delivered: boolean;
   forDate: string;
   chosenText: string | null;
+  required: boolean;
 }
 
 /**
@@ -186,14 +189,23 @@ export async function runFocusEveningCloseOut(
 
   let body: string;
   let state: FocusCloseOutState;
+  let required: boolean;
 
-  if (!row || !row.chosenText) {
+  if (!row || (row.candidates.length === 0 && !row.chosenText)) {
     state = "no_focus_set";
+    required = false;
     body =
       `Evening check — no ONE was set for ${forDate}.\n` +
-      `That's OK. Pick one tomorrow morning when the brief arrives.`;
+      `No ONE was required today. Send "today focus" tomorrow if you want help choosing one; I won't invent or carry one forward.`;
+  } else if (!row.chosenText) {
+    state = "focus_selection_missing";
+    required = true;
+    body =
+      `Evening check — ONE choices were recorded for ${forDate}, but none was selected.\n` +
+      `I didn't choose or carry one forward. Pick the exact item tomorrow if you want it set.`;
   } else if (row.completedAt) {
     state = "focus_completed";
+    required = true;
     body =
       `Evening check — today's ONE: ${row.chosenText}\n` +
       `Marked done. Good day.`;
@@ -204,15 +216,16 @@ export async function runFocusEveningCloseOut(
     // say what happened in plain language instead; the agent routes that to
     // mark_daily_focus_done like any other message.
     state = "focus_open";
+    required = true;
     body =
       `Evening check — today's ONE: ${row.chosenText}\n` +
-      `Did you ship it? Tell me and I'll mark it done — or just let it carry into tomorrow.`;
+      `Did you ship it? Tell me and I'll mark it done. Otherwise it stays unfinished today; I won't roll it forward automatically.`;
   }
 
   try {
     await whatsapp.send({ to: ownerPhone, body });
-    return { state, delivered: true, forDate, chosenText: row?.chosenText ?? null };
+    return { state, delivered: true, forDate, chosenText: row?.chosenText ?? null, required };
   } catch {
-    return { state, delivered: false, forDate, chosenText: row?.chosenText ?? null };
+    return { state, delivered: false, forDate, chosenText: row?.chosenText ?? null, required };
   }
 }

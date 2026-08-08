@@ -161,7 +161,9 @@ test.describe("dashboard routes render", () => {
     await expect(page.getByTestId("incident-timeline")).toBeVisible();
     await expect(page.getByTestId("admin-observability").getByText("Queue age")).toBeVisible();
     await expect(page.getByText("Production SLOs")).toBeVisible();
-    await expect(page.getByText("Incident timeline")).toBeVisible();
+    await expect(
+      page.getByTestId("incident-timeline").getByText("Incident timeline", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByTestId("ops-slo-dashboard").getByText("Failed tool rate")).toBeVisible();
     await expect(page.getByTestId("ops-slo-dashboard").getByText("Live smoke status")).toBeVisible();
     await expect(page.getByText("Route failures")).toBeVisible();
