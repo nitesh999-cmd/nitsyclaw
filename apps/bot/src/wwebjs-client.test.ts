@@ -12,7 +12,6 @@ import {
   createWhatsAppCorrelationId,
   formatWhatsAppHandlerFailure,
   formatNonSelfChatDropNotice,
-  isMissingSendAckError,
   prepareOutboundBodyForWhatsApp,
   pruneChromiumCacheDirs,
   resolveWebVersionCache,
@@ -87,20 +86,6 @@ describe("resolveWebVersionCache", () => {
         process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = previous;
       }
     }
-  });
-});
-
-describe("isMissingSendAckError", () => {
-  it("recognizes the whatsapp-web.js missing send acknowledgement crash", () => {
-    expect(
-      isMissingSendAckError(new TypeError("Cannot read properties of undefined (reading 'id')")),
-    ).toBe(true);
-  });
-
-  it("does not hide real browser target closure errors", () => {
-    const error = new Error("Protocol error (Runtime.callFunctionOn): Target closed");
-    error.name = "TargetCloseError";
-    expect(isMissingSendAckError(error)).toBe(false);
   });
 });
 

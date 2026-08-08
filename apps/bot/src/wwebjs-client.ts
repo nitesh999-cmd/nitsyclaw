@@ -61,6 +61,10 @@ import {
   isSelfChatCalibrationPhrase,
   readAllowedSelfChatIds,
 } from "./whatsapp-self-chat-calibration.js";
+import {
+  submitWhatsAppMessageWithServerAck,
+  type WhatsAppSubmissionClient,
+} from "./whatsapp-outbound-submission.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
@@ -171,14 +175,6 @@ export function resolveWebVersionCache(): { type: "remote"; remotePath: string }
   const remotePath = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH?.trim();
   if (!remotePath) return undefined;
   return { type: "remote", remotePath };
-}
-
-export function isMissingSendAckError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return (
-    error.name === "TypeError" &&
-    /Cannot read properties of undefined \(reading 'id'\)/i.test(error.message)
-  );
 }
 
 export function prepareOutboundBodyForWhatsApp(body: string): string {
@@ -304,6 +300,8 @@ export interface WwebjsOptions {
   restartBackoffMs?: number;
   maxConsecutiveHealthFailures?: number;
   presenceUnavailableIntervalMs?: number;
+  sendSubmissionTimeoutMs?: number;
+  sendAckTimeoutMs?: number;
   healthFilePath?: string;
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
   onQr?: (payload: string) => void | Promise<void>;
@@ -335,6 +333,8 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly restartBackoffMs: number;
   private readonly maxConsecutiveHealthFailures: number;
   private readonly presenceUnavailableIntervalMs: number;
+  private readonly sendSubmissionTimeoutMs: number;
+  private readonly sendAckTimeoutMs: number;
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
   private lastNonSelfChatNoticeAtMs = 0;
@@ -363,6 +363,8 @@ export class WwebjsClient implements WhatsAppClient {
     this.presenceUnavailableIntervalMs = parsePresenceUnavailableIntervalMs(
       opts.presenceUnavailableIntervalMs,
     );
+    this.sendSubmissionTimeoutMs = opts.sendSubmissionTimeoutMs ?? 45_000;
+    this.sendAckTimeoutMs = opts.sendAckTimeoutMs ?? 45_000;
     this.healthFilePath = opts.healthFilePath ?? defaultHealthFilePath();
     this.readyPromise = this.newReadyPromise();
 
@@ -851,7 +853,11 @@ export class WwebjsClient implements WhatsAppClient {
     return this.readyPromise;
   }
 
-  async send(msg: OutboundMessage): Promise<{ id: string }> {
+  async send(msg: OutboundMessage): Promise<{
+    id: string;
+    ack?: number;
+    delivery?: "server_submitted" | "device_acknowledged";
+  }> {
     const body = prepareOutboundBodyForWhatsApp(msg.body);
     if (!body) return { id: "suppressed-noisy-receipt" };
     const target = msg.to.includes("@") ? msg.to : `${msg.to}@c.us`;
@@ -860,23 +866,23 @@ export class WwebjsClient implements WhatsAppClient {
     const client = this.client;
     try {
       this.echoGuard.rememberOutgoing(body);
-      const sent = await client.sendMessage(target, body);
+      const sent = await submitWhatsAppMessageWithServerAck(
+        client as unknown as WhatsAppSubmissionClient,
+        {
+          target,
+          body,
+          submissionTimeoutMs: this.sendSubmissionTimeoutMs,
+          ackTimeoutMs: this.sendAckTimeoutMs,
+        },
+      );
+      console.log(`[wwebjs] outbound: id=present ack=${sent.ack} delivery=${sent.delivery}`);
       void markPresenceUnavailable(
         client,
         Math.min(this.healthProbeTimeoutMs, 2_000),
         "WhatsApp presence after send",
       );
-      return { id: sent.id?._serialized ?? "" };
+      return sent;
     } catch (e) {
-      if (isMissingSendAckError(e)) {
-        console.warn("[wwebjs] send ack missing after WhatsApp send; treating as sent without message id");
-        void markPresenceUnavailable(
-          client,
-          Math.min(this.healthProbeTimeoutMs, 2_000),
-          "WhatsApp presence after missing send ack",
-        );
-        return { id: "unknown-send-ack" };
-      }
       void this.restart(safeRestartReason("send failed", e));
       throw e;
     }
