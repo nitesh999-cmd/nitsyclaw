@@ -10,13 +10,25 @@ import type { PromptProfile, Surface } from "../agent/system-prompt.js";
 import { hashPhone } from "../utils/crypto.js";
 import type { DB } from "../db/client.js";
 import type { ProfileContext } from "../db/schema.js";
+import type { VoicePreferences, VoiceReplyMode, VoiceLanguage } from "../voice/types.js";
 
 const CURRENT_LOCATION_KEY = "current_location";
 const HOME_LOCATION_KEY = "home_location";
 const TIMEZONE_KEY = "timezone";
 const DEFAULT_CURRENCY_KEY = "default_currency";
 const REPLY_LANGUAGE_KEY = "reply_language";
+const VOICE_REPLY_MODE_KEY = "voice_reply_mode";
+const VOICE_REPLY_LANGUAGE_KEY = "voice_reply_language";
+const VOICE_REPLY_BRIEF_KEY = "voice_reply_brief";
 const PEOPLE_MEMORY_PREFIX = "people_memory:";
+
+type ProfilePreferenceKey =
+  | "timezone"
+  | "default_currency"
+  | "reply_language"
+  | "voice_reply_mode"
+  | "voice_reply_language"
+  | "voice_reply_brief";
 
 function cleanOneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
@@ -130,7 +142,7 @@ async function setHomeLocation(
 
 async function setProfilePreference(
   input: {
-    key: "timezone" | "default_currency" | "reply_language";
+    key: ProfilePreferenceKey;
     value: string;
   },
   ctx: ToolContext,
@@ -330,9 +342,16 @@ export function registerPersonalContext(registry: ToolRegistry): void {
   registry.register({
     name: "set_profile_preference",
     description:
-      "Save stable assistant preferences such as timezone, default currency, or reply language. Use when the user explicitly corrects these preferences.",
+      "Save stable assistant preferences such as timezone, default currency, reply language, or WhatsApp voice reply mode. Use only when the user explicitly changes a preference.",
     inputSchema: z.object({
-      key: z.enum(["timezone", "default_currency", "reply_language"]),
+      key: z.enum([
+        "timezone",
+        "default_currency",
+        "reply_language",
+        "voice_reply_mode",
+        "voice_reply_language",
+        "voice_reply_brief",
+      ]),
       value: z.string().min(2),
     }),
     handler: setProfilePreference,
@@ -396,6 +415,9 @@ export const personalContextInternals = {
   TIMEZONE_KEY,
   DEFAULT_CURRENCY_KEY,
   REPLY_LANGUAGE_KEY,
+  VOICE_REPLY_MODE_KEY,
+  VOICE_REPLY_LANGUAGE_KEY,
+  VOICE_REPLY_BRIEF_KEY,
   PEOPLE_MEMORY_PREFIX,
 };
 
@@ -454,7 +476,7 @@ function isFresh(row: ProfileContext | undefined, now: Date): boolean {
   return Boolean(row && (!row.expiresAt || row.expiresAt.getTime() > now.getTime()));
 }
 
-function preferenceStorageKey(key: "timezone" | "default_currency" | "reply_language"): string {
+function preferenceStorageKey(key: ProfilePreferenceKey): string {
   switch (key) {
     case "timezone":
       return TIMEZONE_KEY;
@@ -462,10 +484,16 @@ function preferenceStorageKey(key: "timezone" | "default_currency" | "reply_lang
       return DEFAULT_CURRENCY_KEY;
     case "reply_language":
       return REPLY_LANGUAGE_KEY;
+    case "voice_reply_mode":
+      return VOICE_REPLY_MODE_KEY;
+    case "voice_reply_language":
+      return VOICE_REPLY_LANGUAGE_KEY;
+    case "voice_reply_brief":
+      return VOICE_REPLY_BRIEF_KEY;
   }
 }
 
-function cleanPreferenceValue(key: "timezone" | "default_currency" | "reply_language", value: string): string {
+function cleanPreferenceValue(key: ProfilePreferenceKey, value: string): string {
   const cleaned = cleanOneLine(value);
   if (key === "default_currency") {
     const upper = cleaned.toUpperCase();
@@ -473,5 +501,64 @@ function cleanPreferenceValue(key: "timezone" | "default_currency" | "reply_lang
     return upper;
   }
   if (key === "reply_language") return cleaned.slice(0, 40);
+  if (key === "voice_reply_mode") {
+    const mode = cleaned.toLowerCase();
+    if (!(["text", "voice", "automatic"] as const).includes(mode as VoiceReplyMode)) {
+      throw new Error("voice_reply_mode must be text, voice, or automatic");
+    }
+    return mode;
+  }
+  if (key === "voice_reply_language") {
+    const language = cleaned.toLowerCase();
+    if (!["preserve", "english", "hindi", "hinglish", "mixed"].includes(language)) {
+      throw new Error("voice_reply_language must preserve, english, hindi, hinglish, or mixed");
+    }
+    return language;
+  }
+  if (key === "voice_reply_brief") {
+    const brief = cleaned.toLowerCase();
+    if (!["true", "false"].includes(brief)) throw new Error("voice_reply_brief must be true or false");
+    return brief;
+  }
   return cleaned.slice(0, 80);
+}
+
+export async function getVoicePreferences(db: DB, ownerHash: string): Promise<VoicePreferences> {
+  const rows = await listProfileContextForOwner(db, ownerHash, 100);
+  const byKey = new Map(rows.map((row) => [row.key, row]));
+  const mode = readPreferenceRow(byKey.get(VOICE_REPLY_MODE_KEY));
+  const language = readPreferenceRow(byKey.get(VOICE_REPLY_LANGUAGE_KEY));
+  const brief = readPreferenceRow(byKey.get(VOICE_REPLY_BRIEF_KEY));
+  return {
+    mode: mode === "text" || mode === "voice" || mode === "automatic" ? mode : "automatic",
+    language:
+      language === "english" || language === "hindi" || language === "hinglish" || language === "mixed"
+        ? language
+        : "preserve",
+    brief: brief === "true",
+  };
+}
+
+export async function saveVoicePreference(
+  db: DB,
+  args: {
+    ownerHash: string;
+    key: "mode" | "language" | "brief";
+    value: VoiceReplyMode | VoiceLanguage | "preserve" | boolean;
+    now?: Date;
+  },
+): Promise<VoicePreferences> {
+  const key = args.key === "mode"
+    ? VOICE_REPLY_MODE_KEY
+    : args.key === "language"
+      ? VOICE_REPLY_LANGUAGE_KEY
+      : VOICE_REPLY_BRIEF_KEY;
+  await upsertProfileContext(db, {
+    ownerHash: args.ownerHash,
+    key,
+    value: { value: String(args.value), setAt: (args.now ?? new Date()).toISOString() },
+    source: "manual",
+    sensitivity: "personal",
+  });
+  return getVoicePreferences(db, args.ownerHash);
 }

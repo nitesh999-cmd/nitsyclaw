@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import type {
   InboundMessage,
   OutboundMessage,
+  OutboundSendResult,
   WhatsAppClient,
 } from "@nitsyclaw/shared/whatsapp";
 import { pushNotify } from "@nitsyclaw/shared/notify";
@@ -43,9 +45,9 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
     return this.inner.ready();
   }
 
-  async send(msg: OutboundMessage): Promise<{ id: string }> {
-    const body = sanitizeUserFacingReply(msg.body);
-    if (!body) {
+  async send(msg: OutboundMessage): Promise<OutboundSendResult> {
+    const body = msg.media ? "" : sanitizeUserFacingReply(msg.body);
+    if (!body && !msg.media) {
       await upsertSystemHeartbeat(this.opts.db, {
         // Suppression is not delivery evidence and must never clear a real
         // outbound failure or make the send path appear healthy.
@@ -69,7 +71,9 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
         status: "ok",
         metadata: {
           at: this.now().toISOString(),
-          lastMessageId: result.id,
+          lastMessageIdHash: hashOperationalId(result.id),
+          ...(result.ack !== undefined ? { ack: result.ack } : {}),
+          ...(result.delivery ? { delivery: result.delivery } : {}),
         },
       }).catch((heartbeatError) => {
         logBotError("[whatsapp-send-monitor] failed to clear send heartbeat", heartbeatError);
@@ -154,6 +158,11 @@ export class WhatsAppSendMonitor implements WhatsAppClient {
   destroy(): Promise<void> {
     return this.inner.destroy();
   }
+}
+
+function hashOperationalId(value: string): string {
+  // Message identifiers are correlators, not dashboard content.
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
 export function classifySendFailure(error: unknown): string {

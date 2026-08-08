@@ -18,7 +18,35 @@ import {
   shouldLogChatLookupError,
   shouldRetryChatLookupForSelfChatCandidate,
   shouldSendNonSelfChatDropNotice,
+  wwebjsVoiceMediaInternals,
 } from "./wwebjs-client.js";
+
+describe("WhatsApp native voice media boundary", () => {
+  it("accepts only reviewed Ogg Opus media and converts it to MessageMedia", () => {
+    const converted = wwebjsVoiceMediaInternals.toReviewedWwebVoiceMedia({
+      kind: "voice",
+      data: Buffer.from("OggSvalidated"),
+      mimetype: "audio/ogg; codecs=opus",
+      filename: "nitsyclaw-reply.ogg",
+    });
+    expect(converted.mimetype).toBe("audio/ogg");
+    expect(Buffer.from(converted.data, "base64").toString("ascii", 0, 4)).toBe("OggS");
+  });
+
+  it.each([
+    { kind: "voice" as const, data: Buffer.from("bad"), mimetype: "audio/ogg; codecs=opus", filename: "reply.ogg" },
+    { kind: "voice" as const, data: Buffer.from("OggSok"), mimetype: "audio/mpeg", filename: "reply.ogg" },
+    { kind: "voice" as const, data: Buffer.from("OggSok"), mimetype: "audio/ogg; codecs=opus", filename: "../reply.ogg" },
+    { kind: "voice" as const, data: Buffer.alloc(2 * 1024 * 1024 + 1, 1), mimetype: "audio/ogg; codecs=opus", filename: "reply.ogg" },
+  ])("rejects invalid generated media before submission", (media) => {
+    expect(() => wwebjsVoiceMediaInternals.toReviewedWwebVoiceMedia(media)).toThrow(/transport boundary/);
+  });
+
+  it("calculates decoded base64 size before allocating a voice buffer", () => {
+    expect(wwebjsVoiceMediaInternals.estimatedBase64Bytes("TQ==")).toBe(1);
+    expect(wwebjsVoiceMediaInternals.estimatedBase64Bytes("TWE=")).toBe(2);
+  });
+});
 
 describe("WhatsApp handler failures", () => {
   it("returns an actionable timeout without leaking the raw error", () => {

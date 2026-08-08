@@ -7,6 +7,7 @@ import {
   insertFeatureRequest,
   listPendingFeatureRequests,
   logAudit,
+  recoverInterruptedVoiceCommandJobs,
   upsertSystemHeartbeat,
   type DB,
 } from "@nitsyclaw/shared/db";
@@ -29,6 +30,8 @@ import { logBotError } from "./safe-log.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { QrRecoveryController, startQrRecoveryServer } from "./qr-recovery-server.js";
 import { assertWhatsAppRuntimeAllowed } from "./whatsapp-runtime-guard.js";
+import { WhatsAppVoiceReplyClient } from "./whatsapp-voice-reply.js";
+import { hashPhone } from "@nitsyclaw/shared/utils";
 
 loadBotDotenv();
 
@@ -40,6 +43,13 @@ async function main() {
     `[boot] NitsyClaw bot starting (TZ=${env.TIMEZONE}, platform=${runtimeMetadata.platform}, runtime=${runtimeMetadata.runtimeId}, commit=${runtimeMetadata.commitShort})`,
   );
   const db = getDb(env.DATABASE_URL ?? env.DATABASE_URL_DIRECT);
+  const recoveredVoiceJobs = await recoverInterruptedVoiceCommandJobs(
+    db,
+    hashPhone(env.WHATSAPP_OWNER_NUMBER),
+  );
+  if (recoveredVoiceJobs > 0) {
+    console.log(`[boot] marked ${recoveredVoiceJobs} interrupted voice job(s) failed without replay`);
+  }
   await upsertSystemHeartbeat(db, {
     source: "bot-runtime",
     status: "starting",
@@ -122,7 +132,6 @@ async function main() {
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
       ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
       OPENAI_API_KEY: env.OPENAI_API_KEY,
-      TRANSCRIPTION_MODEL: env.TRANSCRIPTION_MODEL,
       SERPER_API_KEY: env.SERPER_API_KEY,
       ENABLE_WEB_RESEARCH: env.ENABLE_WEB_RESEARCH,
       TIMEZONE: env.TIMEZONE,
@@ -148,10 +157,17 @@ async function main() {
     whatsapp: monitoredWhatsapp,
   });
 
-  const router = new Router(deps, env.WHATSAPP_OWNER_NUMBER);
-  monitoredWhatsapp.onMessage(async (m) => router.handle(m));
+  const ownerWhatsapp = new WhatsAppVoiceReplyClient(monitoredWhatsapp, {
+    db,
+    ownerNumber: env.WHATSAPP_OWNER_NUMBER,
+    speechSynthesizer: deps.speechSynthesizer,
+  });
+  deps.whatsapp = ownerWhatsapp;
 
-  await monitoredWhatsapp.ready();
+  const router = new Router(deps, env.WHATSAPP_OWNER_NUMBER);
+  ownerWhatsapp.onMessage(async (m) => router.handle(m));
+
+  await ownerWhatsapp.ready();
   await upsertSystemHeartbeat(db, {
     source: "bot-runtime",
     status: "ok",
@@ -206,7 +222,7 @@ async function main() {
     console.log(`[boot] shutting down (${signal})`);
     try {
       clearInterval(loopGuardHeartbeatInterval);
-      await monitoredWhatsapp.destroy();
+      await ownerWhatsapp.destroy();
       qrRecoveryServer?.close();
       process.exit(0);
     } catch (e) {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { InboundMessage, OutboundMessage, WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
+import type { InboundMessage, OutboundMessage, OutboundSendResult, WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import {
   claimSystemNotification,
@@ -27,13 +27,14 @@ class FakeWhatsApp implements WhatsAppClient {
   readonly handlers: Array<(msg: InboundMessage) => Promise<void> | void> = [];
   sent: OutboundMessage[] = [];
   failure: Error | null = null;
+  result: OutboundSendResult = { id: "sent-1" };
 
   async ready() {}
 
   async send(msg: OutboundMessage) {
     if (this.failure) throw this.failure;
     this.sent.push(msg);
-    return { id: "sent-1" };
+    return this.result;
   }
 
   onMessage(handler: (msg: InboundMessage) => Promise<void> | void) {
@@ -65,13 +66,38 @@ describe("WhatsAppSendMonitor", () => {
         status: "ok",
         metadata: {
           at: "2026-05-07T01:02:03.000Z",
-          lastMessageId: "sent-1",
+          lastMessageIdHash: expect.stringMatching(/^[a-f0-9]{16}$/),
         },
       }),
     );
     expect(pushNotify).not.toHaveBeenCalled();
     expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("+61430008008");
     expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("hello");
+  });
+
+  it("forwards bodyless native voice media and preserves exact ACK evidence", async () => {
+    const inner = new FakeWhatsApp();
+    inner.result = { id: "voice-id", ack: 2, delivery: "device_acknowledged" };
+    const monitor = new WhatsAppSendMonitor(inner, {
+      db: {} as never,
+      now: () => new Date("2026-08-09T00:00:00.000Z"),
+    });
+    const media = {
+      data: Buffer.from("OggSsynthetic"),
+      mimetype: "audio/ogg; codecs=opus",
+      filename: "nitsyclaw-reply.ogg",
+      kind: "voice" as const,
+    };
+
+    await expect(monitor.send({ to: "+61430008008", body: "", media }))
+      .resolves.toEqual(inner.result);
+    expect(inner.sent).toEqual([{ to: "+61430008008", body: "", media }]);
+    expect(upsertSystemHeartbeat).toHaveBeenCalledWith({}, expect.objectContaining({
+      source: "whatsapp-send",
+      status: "ok",
+      metadata: expect.objectContaining({ ack: 2, delivery: "device_acknowledged" }),
+    }));
+    expect(JSON.stringify(vi.mocked(upsertSystemHeartbeat).mock.calls)).not.toContain("voice-id");
   });
 
   it("records redacted failure telemetry and rethrows the send error", async () => {

@@ -59,8 +59,8 @@ type WhatsAppCreateListener = (message: WhatsAppSubmissionMessage) => void;
 export interface WhatsAppSubmissionClient {
   sendMessage(
     target: string,
-    body: string,
-    options: { waitUntilMsgSent: true },
+    content: unknown,
+    options: { waitUntilMsgSent: true; sendAudioAsVoice?: boolean },
   ): Promise<WhatsAppSubmissionMessage | undefined>;
   on(event: "message_ack", listener: WhatsAppAckListener): unknown;
   on(event: "message_create", listener: WhatsAppCreateListener): unknown;
@@ -506,6 +506,8 @@ export class WhatsAppOutboundAckCoordinator {
     args: {
       target: string;
       body: string;
+      content?: unknown;
+      sendOptions?: { sendAudioAsVoice?: boolean };
       submissionTimeoutMs?: number;
       ackTimeoutMs?: number;
     },
@@ -535,7 +537,10 @@ export class WhatsAppOutboundAckCoordinator {
     await this.persist();
     try {
       const sent = await withDeadline(
-        client.sendMessage(args.target, args.body, { waitUntilMsgSent: true }),
+        client.sendMessage(args.target, args.content ?? args.body, {
+          waitUntilMsgSent: true,
+          ...args.sendOptions,
+        }),
         submissionTimeoutMs,
         () => new WhatsAppOutboundSubmissionError(
           "submission_timeout",
@@ -596,6 +601,8 @@ export class WhatsAppOutboundAckCoordinator {
     args: {
       target: string;
       body: string;
+      content?: unknown;
+      sendOptions?: { sendAudioAsVoice?: boolean };
       submissionTimeoutMs?: number;
       ackTimeoutMs?: number;
     },
@@ -620,6 +627,8 @@ export function submitWhatsAppMessageWithServerAck(
   args: {
     target: string;
     body: string;
+    content?: unknown;
+    sendOptions?: { sendAudioAsVoice?: boolean };
     submissionTimeoutMs?: number;
     ackTimeoutMs?: number;
   },

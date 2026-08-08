@@ -3,13 +3,14 @@
 
 import wweb from "whatsapp-web.js";
 import { randomUUID } from "node:crypto";
-const { Client, LocalAuth } = wweb;
+const { Client, LocalAuth, MessageMedia } = wweb;
 type WwebjsClientInstance = InstanceType<typeof Client>;
 type Message = wweb.Message;
 type WwebMessageWithEnvelope = Message & {
   fromMe?: boolean;
   from?: string;
   to?: string;
+  _data?: { size?: number; duration?: number };
 };
 type WwebChatWithContact = Awaited<ReturnType<Message["getChat"]>> & {
   getContact?: () => Promise<{ isMe?: boolean }>;
@@ -313,6 +314,8 @@ export interface WwebjsOptions {
 
 const INBOUND_HEALTH_EMIT_INTERVAL_MS = 60_000;
 const LID_LOOKUP_TIMEOUT_MS = 8_000;
+const MAX_INBOUND_VOICE_BYTES = 8 * 1024 * 1024;
+const MAX_OUTBOUND_VOICE_BYTES = 2 * 1024 * 1024;
 
 export class WwebjsClient implements WhatsAppClient {
   private echoGuard = new WhatsAppEchoGuard();
@@ -831,6 +834,8 @@ export class WwebjsClient implements WhatsAppClient {
           body,
           timestamp: new Date((m.timestamp ?? Date.now() / 1000) * 1000),
           hasMedia: m.hasMedia,
+          mediaSizeBytes: Number.isFinite(Number(envelope._data?.size)) ? Number(envelope._data?.size) : undefined,
+          mediaDurationSeconds: Number.isFinite(Number(envelope._data?.duration)) ? Number(envelope._data?.duration) : undefined,
           mediaType: m.hasMedia
             ? (m.type === "ptt" || m.type === "audio")
               ? "voice"
@@ -841,6 +846,12 @@ export class WwebjsClient implements WhatsAppClient {
           downloadMedia: m.hasMedia
             ? async () => {
                 const media = await m.downloadMedia();
+                if (m.type === "ptt" || m.type === "audio") {
+                  const estimatedBytes = estimatedBase64Bytes(media.data);
+                  if (estimatedBytes > MAX_INBOUND_VOICE_BYTES) {
+                    throw new Error("Inbound voice media exceeded the 8 MB decoded safety limit.");
+                  }
+                }
                 return {
                   data: Buffer.from(media.data, "base64"),
                   mimetype: media.mimetype,
@@ -870,19 +881,25 @@ export class WwebjsClient implements WhatsAppClient {
     ack?: number;
     delivery?: "server_submitted" | "device_acknowledged";
   }> {
-    const body = prepareOutboundBodyForWhatsApp(msg.body);
-    if (!body) return { id: "suppressed-noisy-receipt" };
+    const body = msg.media ? "" : prepareOutboundBodyForWhatsApp(msg.body);
+    if (!body && !msg.media) return { id: "suppressed-noisy-receipt" };
     const target = msg.to.includes("@") ? msg.to : `${msg.to}@c.us`;
+    if (normalizeWhatsAppOwnerId(target) !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)) {
+      throw new Error("WhatsApp outbound recipient failed the owner-only transport boundary.");
+    }
     if (this.restarting) await this.restarting;
     await this.ready();
     const client = this.client;
     try {
-      this.echoGuard.rememberOutgoing(body);
+      if (body) this.echoGuard.rememberOutgoing(body);
+      const content = msg.media ? toReviewedWwebVoiceMedia(msg.media) : body;
       const sent = await this.outboundAckCoordinator.submit(
         client as unknown as WhatsAppSubmissionClient,
         {
           target,
           body,
+          content,
+          sendOptions: msg.media ? { sendAudioAsVoice: true } : undefined,
           submissionTimeoutMs: this.sendSubmissionTimeoutMs,
           ackTimeoutMs: this.sendAckTimeoutMs,
         },
@@ -916,3 +933,24 @@ export class WwebjsClient implements WhatsAppClient {
     await this.client.destroy();
   }
 }
+
+function estimatedBase64Bytes(value: string): number {
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor(value.length * 3 / 4) - padding);
+}
+
+function toReviewedWwebVoiceMedia(media: NonNullable<OutboundMessage["media"]>) {
+  if (
+    media.kind !== "voice" ||
+    media.mimetype.toLowerCase() !== "audio/ogg; codecs=opus" ||
+    media.data.byteLength === 0 ||
+    media.data.byteLength > MAX_OUTBOUND_VOICE_BYTES ||
+    media.data.toString("ascii", 0, 4) !== "OggS" ||
+    !/^[a-z0-9][a-z0-9._-]{0,80}\.ogg$/i.test(media.filename)
+  ) {
+    throw new Error("Generated voice media failed the WhatsApp transport boundary.");
+  }
+  return new MessageMedia("audio/ogg", media.data.toString("base64"), media.filename);
+}
+
+export const wwebjsVoiceMediaInternals = { estimatedBase64Bytes, toReviewedWwebVoiceMedia };

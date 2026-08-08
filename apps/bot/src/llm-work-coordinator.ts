@@ -5,6 +5,8 @@ import type {
 
 export interface LlmWorkCoordinator {
   interactive: LlmClient;
+  /** Serialize other local GPU/CPU model work with interactive Ollama calls. */
+  runInteractiveResource<T>(job: () => Promise<T>): Promise<T>;
   runBackground<T>(job: (llm: LlmClient) => Promise<T>): Promise<BackgroundLlmJobResult<T>>;
   state(): { active: "interactive" | "background" | null; waitingInteractive: number };
 }
@@ -53,6 +55,7 @@ export function createLlmWorkCoordinator(inner: LlmClient): LlmWorkCoordinator {
 
   return {
     interactive,
+    runInteractiveResource: runInteractive,
     async runBackground<T>(job: (llm: LlmClient) => Promise<T>): Promise<BackgroundLlmJobResult<T>> {
       if (active !== null || interactiveWaiters.length > 0) return { status: "busy" };
       active = "background";

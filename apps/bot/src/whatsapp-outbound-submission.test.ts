@@ -47,11 +47,15 @@ function stringKeyMessage(
 }
 
 class FakeWhatsAppClient extends EventEmitter implements WhatsAppSubmissionClient {
-  readonly calls: Array<{ target: string; body: string; options: { waitUntilMsgSent: true } }> = [];
+  readonly calls: Array<{
+    target: string;
+    content: unknown;
+    options: { waitUntilMsgSent: true; sendAudioAsVoice?: boolean };
+  }> = [];
   sendImpl: (
     target: string,
-    body: string,
-    options: { waitUntilMsgSent: true },
+    content: unknown,
+    options: { waitUntilMsgSent: true; sendAudioAsVoice?: boolean },
   ) => Promise<WhatsAppSubmissionMessage | undefined>;
 
   constructor(result: WhatsAppSubmissionMessage | undefined = undefined) {
@@ -61,11 +65,11 @@ class FakeWhatsAppClient extends EventEmitter implements WhatsAppSubmissionClien
 
   async sendMessage(
     target: string,
-    body: string,
-    options: { waitUntilMsgSent: true },
+    content: unknown,
+    options: { waitUntilMsgSent: true; sendAudioAsVoice?: boolean },
   ): Promise<WhatsAppSubmissionMessage | undefined> {
-    this.calls.push({ target, body, options });
-    return this.sendImpl(target, body, options);
+    this.calls.push({ target, content, options });
+    return this.sendImpl(target, content, options);
   }
 }
 
@@ -154,6 +158,29 @@ describe("WhatsAppOutboundAckCoordinator", () => {
       ackTimeoutMs: 500,
     })).resolves.toMatchObject({ id: "msg-before", ack: 1, delivery: "server_submitted" });
     expect(client.calls[0]?.options).toEqual({ waitUntilMsgSent: true });
+  });
+
+  it("preserves exact media voice options while correlating the media ACK", async () => {
+    const media = { mimetype: "audio/ogg; codecs=opus", data: "T2dnUw==", filename: "reply.ogg" };
+    const client = new FakeWhatsAppClient();
+    const coordinator = new WhatsAppOutboundAckCoordinator();
+    coordinator.attach(client);
+    client.sendImpl = async (target, content, options) => {
+      expect(target).toBe(OWNER);
+      expect(content).toBe(media);
+      expect(options).toEqual({ waitUntilMsgSent: true, sendAudioAsVoice: true });
+      client.emit("message_ack", projectedMessage("msg-media", OWNER), 1);
+      return projectedMessage("msg-media", OWNER);
+    };
+
+    await expect(coordinator.submit(client, {
+      target: OWNER,
+      body: "",
+      content: media,
+      sendOptions: { sendAudioAsVoice: true },
+      ackTimeoutMs: 500,
+    })).resolves.toMatchObject({ id: "msg-media", ack: 1, delivery: "server_submitted" });
+    expect(client.calls).toHaveLength(1);
   });
 
   it("fails closed without submitting when pending state cannot be persisted", async () => {

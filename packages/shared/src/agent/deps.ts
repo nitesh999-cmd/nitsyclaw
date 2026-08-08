@@ -1,5 +1,11 @@
 import type { DB } from "../db/client.js";
 import type { WhatsAppClient } from "../whatsapp/client.js";
+import type {
+  SpeechSynthesisRequest,
+  SpeechSynthesisResult,
+  TranscriptionRequestOptions,
+  TranscriptionResult,
+} from "../voice/types.js";
 
 /**
  * Dependencies a feature/tool needs. Injected, never imported globally.
@@ -10,6 +16,7 @@ export interface AgentDeps {
   whatsapp: WhatsAppClient;
   llm: LlmClient;
   transcriber: Transcriber;
+  speechSynthesizer?: SpeechSynthesizer;
   webSearch: WebSearcher;
   calendar: CalendarClient;
   aggregator?: AggregatorClient;
@@ -62,7 +69,15 @@ export interface LlmClient {
 }
 
 export interface Transcriber {
-  transcribe(audio: Buffer, mimetype: string): Promise<string>;
+  transcribe(
+    audio: Buffer,
+    mimetype: string,
+    options?: TranscriptionRequestOptions,
+  ): Promise<TranscriptionResult>;
+}
+
+export interface SpeechSynthesizer {
+  synthesize(request: SpeechSynthesisRequest): Promise<SpeechSynthesisResult>;
 }
 
 export interface WebSearcher {

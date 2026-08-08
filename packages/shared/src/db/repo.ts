@@ -1,6 +1,6 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
-import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, lt, lte, ne, sql } from "drizzle-orm";
 import {
   assertPublicSaleTenantBoundaries,
   requireTenantContext,
@@ -51,7 +51,7 @@ export async function insertMessage(db: DB, m: NewMessage) {
   return row!;
 }
 
-export async function updateMessageTranscript(db: DB, id: string, transcript: string) {
+export async function updateMessageTranscript(db: DB, id: string, transcript: string | null) {
   await db.update(messages).set({ transcript }).where(eq(messages.id, id));
 }
 
@@ -82,6 +82,149 @@ export async function insertMemory(db: DB, tenant: TenantContext, m: NewMemory) 
   const context = guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db.insert(memories).values({ ...m, ownerHash: context.ownerHash }).returning();
   return row!;
+}
+
+export async function mergeMessageMetadata(
+  db: DB,
+  id: string,
+  patch: Record<string, unknown>,
+) {
+  const [current] = await db
+    .select({ metadata: messages.metadata })
+    .from(messages)
+    .where(eq(messages.id, id))
+    .limit(1);
+  if (!current) return false;
+  await db
+    .update(messages)
+    .set({ metadata: { ...(current.metadata ?? {}), ...patch } })
+    .where(eq(messages.id, id));
+  return true;
+}
+
+export async function mergeVoiceMessageMetadata(
+  db: DB,
+  id: string,
+  voicePatch: Record<string, unknown>,
+) {
+  const [current] = await db
+    .select({ metadata: messages.metadata })
+    .from(messages)
+    .where(eq(messages.id, id))
+    .limit(1);
+  if (!current) return false;
+  const metadata = current.metadata ?? {};
+  const currentVoice = metadata.voice && typeof metadata.voice === "object" && !Array.isArray(metadata.voice)
+    ? metadata.voice as Record<string, unknown>
+    : {};
+  await db
+    .update(messages)
+    .set({ metadata: { ...metadata, voice: { ...currentVoice, ...voicePatch } } })
+    .where(eq(messages.id, id));
+  return true;
+}
+
+export async function getLatestVoiceTranscript(
+  db: DB,
+  ownerHash: string,
+  opts: { excludeMessageId?: string } = {},
+) {
+  const [row] = await db
+    .select({
+      id: messages.id,
+      transcript: messages.transcript,
+      metadata: messages.metadata,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(and(
+      eq(messages.fromNumber, ownerHash),
+      eq(messages.mediaType, "voice"),
+      isNotNull(messages.transcript),
+      ...(opts.excludeMessageId ? [ne(messages.id, opts.excludeMessageId)] : []),
+    ))
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function getCommandJobBySourceMessageId(db: DB, sourceMessageId: string): Promise<CommandJob | null> {
+  const [row] = await db
+    .select()
+    .from(commandJobs)
+    .where(eq(commandJobs.sourceMessageId, sourceMessageId))
+    .orderBy(desc(commandJobs.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function clearVoiceTranscript(
+  db: DB,
+  args: { ownerHash: string; messageId: string },
+): Promise<{ cleared: boolean; deletedMemories: number }> {
+  const [row] = await db
+    .select({ id: messages.id, metadata: messages.metadata })
+    .from(messages)
+    .where(and(
+      eq(messages.id, args.messageId),
+      eq(messages.fromNumber, args.ownerHash),
+      eq(messages.mediaType, "voice"),
+    ))
+    .limit(1);
+  if (!row) return { cleared: false, deletedMemories: 0 };
+
+  await db
+    .update(messages)
+    .set({
+      transcript: null,
+      mediaPath: null,
+      metadata: {
+        ...(row.metadata ?? {}),
+        voice: { status: "deleted", deletedAt: new Date().toISOString() },
+      },
+    })
+    .where(eq(messages.id, row.id));
+  const deleted = await db
+    .delete(memories)
+    .where(and(eq(memories.ownerHash, args.ownerHash), eq(memories.sourceMessageId, row.id)))
+    .returning({ id: memories.id });
+  return { cleared: true, deletedMemories: deleted.length };
+}
+
+export async function recoverInterruptedVoiceCommandJobs(
+  db: DB,
+  ownerHash: string,
+): Promise<number> {
+  const voiceRows = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(and(eq(messages.fromNumber, ownerHash), eq(messages.mediaType, "voice")));
+  if (voiceRows.length === 0) return 0;
+  const voiceIds = new Set(voiceRows.map((row) => row.id));
+  const working = await db
+    .select({ id: commandJobs.id, sourceMessageId: commandJobs.sourceMessageId })
+    .from(commandJobs)
+    .where(and(eq(commandJobs.ownerHash, ownerHash), eq(commandJobs.status, "working")));
+  const interrupted = working.filter((job) => job.sourceMessageId && voiceIds.has(job.sourceMessageId));
+  let recovered = 0;
+  for (const job of interrupted) {
+    const rows = await db
+      .update(commandJobs)
+      .set({
+        status: "failed",
+        error: "Voice request interrupted by process restart; not replayed automatically.",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(commandJobs.id, job.id),
+        eq(commandJobs.ownerHash, ownerHash),
+        eq(commandJobs.status, "working"),
+      ))
+      .returning({ id: commandJobs.id });
+    recovered += rows.length;
+  }
+  return recovered;
 }
 
 /**

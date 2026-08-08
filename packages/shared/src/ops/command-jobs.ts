@@ -124,6 +124,7 @@ export async function refreshCommandJobIntent(
   id: string,
   command: string,
   allowAgentClarification: boolean,
+  opts: { storedCommand?: string } = {},
 ): Promise<CommandJob> {
   const intent = analyzePersonalPaIntent(command);
   const riskLevel = intent.kind === "approval_required" ? "approval_required" : "safe";
@@ -141,7 +142,7 @@ export async function refreshCommandJobIntent(
       : intent.userFacingText;
 
   return updateCommandJob(db, id, {
-    command: command.trim(),
+    command: (opts.storedCommand ?? command).trim(),
     status,
     riskLevel,
     receiptText,
