@@ -55,6 +55,32 @@ No daily-focus row, candidates, or chosen ONE existed for 7 August. Therefore no
 - Make ONE close-out wording truthful and prohibit fabricated selection or automatic roll-forward.
 - Bind the local recovery/health listener to loopback by default while preserving Railway's required all-interface binding.
 
-## Activation boundary
+## Historical activation boundary
 
-This repair is code-only until the local bot runtime is explicitly restarted on the repaired commit. No deployment, push, runtime restart, provider change, or live WhatsApp proof was performed as part of the incident repair.
+Immediately after the incident repair, the change was code-only pending an explicitly approved local restart and owner self-chat test. No deployment, push, provider change, or non-owner message was part of that repair stage. The later closure evidence below supersedes the code-only delivery status.
+
+## Closure evidence - 8 August 2026
+
+**Status: PASS for owner-only local use.**
+
+- The repaired local bot was restarted and remained healthy on the follow-up repair commit `70e9211`.
+- Exactly one separately approved owner-only ACK test was submitted from the local runtime. No other recipient was contacted.
+- Sanitized telemetry for that exact outbound message and recipient recorded client acceptance, local self-echo, creation of a real WhatsApp message ID, ACK progression to `3`, no ACK deadline expiry, and no late ACK.
+- The ACK was correlated by the exact normalized outbound message ID and recipient. Local self-echo was recorded separately and was not treated as delivery proof.
+- The owner subsequently confirmed phone visibility with `ACK TEST VISIBLE`. This provides the required user-visible confirmation independently of the automated ACK telemetry.
+- The live observation exposed an ID-less `sendMessage` resolution even though `message_create` had already supplied the exact ID and recipient. Commit `70e9211` repaired that false-negative path while preserving exact ID-and-recipient correlation, duplicate prevention, loop protection, and fail-closed behavior.
+
+The delivery incident is closed as **PASS** for the private owner-only local self-chat configuration. This does not establish delivery behavior for other recipients, multi-user use, a deployed environment, or a public release.
+
+## Closure verification
+
+- ACK telemetry, persistence, and harness regression tests: 35 passed.
+- Complete WhatsApp release gate: passed, including receipt guard, smoke, capability, and reply-shape suites.
+- Complete applicable unit and integration suite: 217 files and 1,163 tests passed.
+- Typecheck: passed.
+- Lint: passed with zero errors and five pre-existing warnings.
+- No additional WhatsApp message was sent for evidence closure. No push, deployment, merge, or OAuth change was performed.
+
+## Remaining non-delivery risk
+
+Concurrent local processes can overwrite the persisted latest-attempt telemetry snapshot through last-writer-wins heartbeat persistence. The exact ACK evidence above was captured before that overwrite and phone visibility was independently confirmed, so this does not negate the owner-only delivery PASS. Durable multi-process historical ACK retention remains conditional and must be repaired before the telemetry file is treated as a standalone audit log.
