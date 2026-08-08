@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-07-05 (full-codebase bug hunt + fix batch -- P0 dashboard auth, Outlook timezone corruption, session 61)
+> Updated: 2026-08-09 (owner-only local WhatsApp voice intelligence)
 
 ---
 
@@ -27,7 +27,8 @@ One-line pitch: "Text or voice-note NitsyClaw on WhatsApp. It does the work. The
 | Monorepo | pnpm workspaces |
 | WhatsApp | whatsapp-web.js + LocalAuth (Path B — personal, single-recipient) |
 | LLM | Anthropic Claude Sonnet 4.6 |
-| Voice (input) | OpenAI Whisper API |
+| Voice (input) | Owner-only preview: local Handy 0.9.4 + allowlisted Nemotron 3.5 ASR 0.6B Q8; quality gate not passed; no cloud fallback |
+| Voice (output) | Owner-only preview: local Windows SAPI bridge -> validated Ogg Opus; Hindi TTS approval-gated |
 | DB | Supabase Postgres + pgvector |
 | ORM | Drizzle |
 | Dashboard | Next.js 16.2.6 + Tailwind + shadcn-flavored components |
@@ -2940,3 +2941,15 @@ Regression tests in `apps/bot/test/router.integration.test.ts`: a clear general 
 Capability gap found while tracing: `SERPER_API_KEY` is not defined in either env file the bot loads, so `buildAgentDeps` wires `stubWebSearch`. Live news/web lookups therefore cannot return real results today even though the system prompt tells the model to use `web_search`. Not fixed here -- it needs an operator decision about a search provider, not a code change.
 
 Verification: `apps/bot/test/router.integration.test.ts` 117 tests pass; `pnpm test` 211 files / 1,107 tests pass; bot typecheck pass; `pnpm lint` 0 errors (6 pre-existing warnings).
+
+### Owner-only local WhatsApp voice intelligence -- 2026-08-09
+
+Historical recovery showed that voice input was introduced at `4ea85bc` through OpenAI Whisper and was never intentionally removed. Replay, multilingual, and voice-memo routing followed, but there was never a native voice-output implementation. Sanitized database aggregates confirmed 42 inbound voice messages and 41 transcripts without reading their content. The cloud-key dependency and stale product documentation made voice appear unavailable.
+
+The restored path is local and fail-closed: verified owner self-chat -> persisted/deduplicated voice job -> strict MIME/container/codec/size/duration/channel/sample-rate boundary -> private temp -> FFmpeg 16 kHz mono PCM -> installed Handy 0.9.4 with allowlisted Nemotron 3.5 ASR Q8 -> untrusted transcript -> the exact typed-message authorization pipeline. Voice/text owner turns are serialized, and ASR/TTS/Ollama/embedding work shares the local coordinator.
+
+Reply modes (`text`, `voice`, `automatic`) and language/brief preferences use existing encrypted owner profile context. Local SAPI provides an owner-only English/romanized-Hinglish bridge and is converted to validated native Ogg Opus. Hindi/Devanagari TTS remains blocked until a local model is explicitly approved. No OpenAI or other cloud voice fallback exists.
+
+Raw and generated media are temporary only; transcripts remain encrypted, are not automatically promoted to memory, can be shown/deleted/corrected by the owner, and never enter raw logs. Native voice sends use `sendAudioAsVoice` through exact-ID/recipient ACK correlation. Self-echo is not delivery proof and ambiguous post-submission errors are never automatically retried.
+
+Full architecture, budgets, data lifecycle, owner commands, evaluation thresholds, licence review, and live-proof gate are in `docs/whatsapp-voice-intelligence.md`.
