@@ -573,6 +573,11 @@ export async function claimSystemNotification(
   },
 ): Promise<boolean> {
   const cooldownCutoff = new Date(args.now.getTime() - args.cooldownMs);
+  // Raw drizzle sql parameters bypass the timestamp column encoder. postgres-js
+  // rejects Date objects at runtime, so bind explicit ISO strings and cast them
+  // in PostgreSQL instead.
+  const nowIso = args.now.toISOString();
+  const cooldownCutoffIso = cooldownCutoff.toISOString();
   const metadata = JSON.stringify({
     ...(args.metadata ?? {}),
     fingerprint: args.fingerprint,
@@ -582,7 +587,7 @@ export async function claimSystemNotification(
 
   const rows = await db.execute(sql`
     INSERT INTO system_heartbeats (source, status, last_seen_at, metadata, updated_at)
-    VALUES (${args.source}, 'ok', ${args.now}, ${metadata}::jsonb, NOW())
+    VALUES (${args.source}, 'ok', ${nowIso}::timestamptz, ${metadata}::jsonb, NOW())
     ON CONFLICT (source)
     DO UPDATE SET
       status = 'ok',
@@ -591,7 +596,7 @@ export async function claimSystemNotification(
       updated_at = NOW()
     WHERE
       COALESCE(system_heartbeats.metadata->>'fingerprint', '') <> ${args.fingerprint}
-      OR COALESCE((system_heartbeats.metadata->>'notifiedAt')::timestamptz, 'epoch'::timestamptz) <= ${cooldownCutoff}
+      OR COALESCE((system_heartbeats.metadata->>'notifiedAt')::timestamptz, 'epoch'::timestamptz) <= ${cooldownCutoffIso}::timestamptz
     RETURNING source
   `);
 
