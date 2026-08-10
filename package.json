@@ -26,6 +26,8 @@
     "local-brain:controlled-demo": "tsx scripts/local-brain-controlled-demo.ts",
     "local-brain:browser-proof": "tsx scripts/local-brain-browser-proof.ts",
     "voice:eval-local": "tsx scripts/voice-local-eval.ts",
+    "voice:eval-local-v2": "tsx scripts/voice-eval/run-voice-smoke-v2.ts",
+    "voice:verify-v2-freeze": "tsx scripts/voice-eval/verify-v2-freeze.ts",
     "voice:test": "vitest run packages/shared/test/02-voice-capture.test.ts packages/shared/test/voice-policy.test.ts packages/shared/test/voice-restart.test.ts apps/bot/src/local-voice-transcriber.test.ts apps/bot/src/local-speech-synthesizer.test.ts apps/bot/src/whatsapp-voice-reply.test.ts apps/bot/src/whatsapp-send-monitor.test.ts apps/bot/src/wwebjs-client.test.ts apps/bot/src/whatsapp-outbound-submission.test.ts apps/bot/test/router.integration.test.ts",
     "release:wait-railway": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-wait-for-commit.ps1",
     "release:whatsapp-full": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
