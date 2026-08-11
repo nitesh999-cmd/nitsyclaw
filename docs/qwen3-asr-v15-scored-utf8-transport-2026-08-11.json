@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.5-SCORED-UTF8-EVIDENCE-1",
+  "attemptId": "qwen3-asr-v15-fixed-cuda-0-scored-two-case",
+  "modelChildCount": 1,
+  "retryCount": 0,
+  "environmentControls": {
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8"
+  },
+  "unrelatedEnvironmentValuesRecorded": false,
+  "parentDecoder": {
+    "encoding": "utf-8",
+    "fatal": true
+  },
+  "pythonStreams": {
+    "encoding": "utf-8",
+    "errors": "strict"
+  },
+  "jsonEnsureAscii": false,
+  "stdout": {
+    "bytes": 1737,
+    "sha256": "ff5af81a3bab148027def3c04674bb5796c382cd9407f6a91dcdd210d67a5591",
+    "base64": "eyJiYWNrZW5kIjogInRyYW5zZm9ybWVycyIsICJjYXNlcyI6IFt7ImNhc2VJZCI6ICJlbmdsaXNoLXNvbGFyLWF1IiwgImxhdGVuY3lNcyI6IDMxOTUsICJtb2RlbExhbmd1YWdlIjogIkVuZ2xpc2giLCAicHJvdmlkZXJDb25maWRlbmNlIjogbnVsbCwgInJhd1RyYW5zY3JpcHQiOiAiUGxlYXNlIGNhbGwgUmFqIFNoYXJtYSBpbiBNZWxib3VybmUgdG9tb3Jyb3cgYXQgMzozMCBwLm0uIGFib3V0IHRoZSAxMCBraWxvd2F0dCBGcm9uaXVzIHNvbGFyIGludmVydGVyLiJ9LCB7ImNhc2VJZCI6ICJoaW5nbGlzaC1idXNpbmVzcyIsICJsYXRlbmN5TXMiOiA0Nzc2LCAibW9kZWxMYW5ndWFnZSI6ICJIaW5kaSIsICJwcm92aWRlckNvbmZpZGVuY2UiOiBudWxsLCAicmF3VHJhbnNjcmlwdCI6ICLgpJXgpLIg4KS44KWB4KSs4KS5IOCksOCkteCkvyDgpJXgpYsg4KS44KS/4KSh4KSo4KWAIOCkruClh+CkgiDgpJXgpYngpLIg4KSV4KSw4KSo4KS+IOCklOCksCDgpJ/gpYfgpLjgpY3gpLLgpL4g4KSq4KS+4KS14KSw4KS14KWB4KSyIOCkpeCljeCksOClgCDgpJXgpL4g4KSV4KWN4KS14KWL4KSfIDE1IOCkquCksOCkuOClh+CkguCknyDgpKHgpL/gpLjgpY3gpJXgpL7gpIngpILgpJ8g4KSV4KWHIOCkuOCkvuCkpSDgpJrgpYfgpJUg4KSV4KSw4KSo4KS+4KWkIn1dLCAiY2xlYW51cCI6IHsiY3VkYUFsbG9jYXRlZEJ5dGVzIjogOTU2ODI1NiwgImN1ZGFSZXNlcnZlZEJ5dGVzIjogMzQ1NjEwNjQ5Nn0sICJjb25maWRlbmNlVGVsZW1ldHJ5IjogInVuYXZhaWxhYmxlIiwgImRldmljZSI6ICJjdWRhOjAiLCAiZHR5cGUiOiAidG9yY2guYmZsb2F0MTYiLCAiZWxhcHNlZE1zIjogMjI2MTUsICJsb2FkTXMiOiAzNzM2LCAibG9jYWxGaWxlc09ubHkiOiB0cnVlLCAibW9kZSI6ICJzY29yZWQiLCAibW9kZWxSZXZpc2lvbiI6ICI3Mjc4ZTFlNzBmZTIwNmYxMTY3MTA5NmZmZGQzODA2MTE3MWRkNmU1IiwgIm1vZGVsV2VpZ2h0U2hhMjU2IjogeyJtb2RlbC0wMDAwMS1vZi0wMDAwMi5zYWZldGVuc29ycyI6ICJhNGNkMWYxYTA0ZDkwYjc1N2RjN2Y3ZGQyNjI1NGU2OWEwMTNiMTllODBlZmU1OTBhODNjNmEzYmRlODYwOGQ2IiwgIm1vZGVsLTAwMDAyLW9mLTAwMDAyLnNhZmV0ZW5zb3JzIjogIjZlMGI5ZDllMDllMmUwMjM4ZTdlZjNjYzhhNDg0YWIzODdlOTFiOTBmMTkwMGJlZGY4OGJjOTJkNzkyOWNjZmMifSwgIm5ldHdvcmtQb2xpY3kiOiB7ImhmSHViT2ZmbGluZSI6IHRydWUsICJrZXJuZWxGaXJld2FsbFJ1bGUiOiBmYWxzZSwgInB5dGhvblNvY2tldEFjY2VzcyI6ICJkZW5pZWQtYmVmb3JlLXRoaXJkLXBhcnR5LWltcG9ydHMiLCAidHJhbnNmb3JtZXJzT2ZmbGluZSI6IHRydWV9LCAicHJvdmlkZXJDb25maWRlbmNlIjogbnVsbCwgInJlc291cmNlcyI6IHsiY3VkYUFsbG9jYXRlZEJ5dGVzIjogNDA5MTgzMjgzMiwgImN1ZGFEZXZpY2UiOiAiTlZJRElBIEdlRm9yY2UgUlRYIDQwNjAiLCAiY3VkYVBlYWtBbGxvY2F0ZWRCeXRlcyI6IDQ2OTg0NDk0MDgsICJjdWRhUGVha1Jlc2VydmVkQnl0ZXMiOiA0NzMxMTc0OTEyLCAiY3VkYVJlc2VydmVkQnl0ZXMiOiA0NzMxMTc0OTEyLCAicHJvY2Vzc1BlYWtSc3NCeXRlcyI6IDUyMzM5OTE2ODAsICJwcm9jZXNzUnNzQnl0ZXMiOiAyMjUxNTIyMDQ4fSwgInNjaGVtYVZlcnNpb24iOiAiTklUU1lDTEFXLVFXRU4zLUFTUi1BREFQVEVSLVYxLjEiLCAic3RhdHVzIjogIm9rIiwgInRydXN0UmVtb3RlQ29kZSI6IGZhbHNlfQ0K",
+    "exactRawBytesRetained": true,
+    "strictUtf8Decode": "PASS"
+  },
+  "parsedJsonSha256": "17791cbb070440a608b928ff994b61c811bf53fa799899dc8969d827a4823f8b",
+  "parsedPayload": {
+    "backend": "transformers",
+    "cases": [
+      {
+        "caseId": "english-solar-au",
+        "latencyMs": 3195,
+        "modelLanguage": "English",
+        "providerConfidence": null,
+        "rawTranscript": "Please call Raj Sharma in Melbourne tomorrow at 3:30 p.m. about the 10 kilowatt Fronius solar inverter."
+      },
+      {
+        "caseId": "hinglish-business",
+        "latencyMs": 4776,
+        "modelLanguage": "Hindi",
+        "providerConfidence": null,
+        "rawTranscript": "कल सुबह रवि को सिडनी में कॉल करना और टेस्ला पावरवुल थ्री का क्वोट 15 परसेंट डिस्काउंट के साथ चेक करना।"
+      }
+    ],
+    "cleanup": {
+      "cudaAllocatedBytes": 9568256,
+      "cudaReservedBytes": 3456106496
+    },
+    "confidenceTelemetry": "unavailable",
+    "device": "cuda:0",
+    "dtype": "torch.bfloat16",
+    "elapsedMs": 22615,
+    "loadMs": 3736,
+    "localFilesOnly": true,
+    "mode": "scored",
+    "modelRevision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+    "modelWeightSha256": {
+      "model-00001-of-00002.safetensors": "a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6",
+      "model-00002-of-00002.safetensors": "6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc"
+    },
+    "networkPolicy": {
+      "hfHubOffline": true,
+      "kernelFirewallRule": false,
+      "pythonSocketAccess": "denied-before-third-party-imports",
+      "transformersOffline": true
+    },
+    "providerConfidence": null,
+    "resources": {
+      "cudaAllocatedBytes": 4091832832,
+      "cudaDevice": "NVIDIA GeForce RTX 4060",
+      "cudaPeakAllocatedBytes": 4698449408,
+      "cudaPeakReservedBytes": 4731174912,
+      "cudaReservedBytes": 4731174912,
+      "processPeakRssBytes": 5233991680,
+      "processRssBytes": 2251522048
+    },
+    "schemaVersion": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1",
+    "status": "ok",
+    "trustRemoteCode": false
+  },
+  "rawTranscripts": [
+    {
+      "caseId": "english-solar-au",
+      "rawTranscript": "Please call Raj Sharma in Melbourne tomorrow at 3:30 p.m. about the 10 kilowatt Fronius solar inverter."
+    },
+    {
+      "caseId": "hinglish-business",
+      "rawTranscript": "कल सुबह रवि को सिडनी में कॉल करना और टेस्ला पावरवुल थ्री का क्वोट 15 परसेंट डिस्काउंट के साथ चेक करना।"
+    }
+  ],
+  "processOutcome": "SUCCESS",
+  "exitCode": 0
+}
