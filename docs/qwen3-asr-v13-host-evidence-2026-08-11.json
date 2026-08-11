@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.3-HOST-EVIDENCE-1",
+  "date": "2026-08-11",
+  "timezone": "Australia/Sydney",
+  "branch": "codex/whatsapp-voice-intelligence",
+  "startingCommit": "af2a4de10011578ff65a4b4a6ae52168fb37e554",
+  "frozenLaunchCommit": "13712ae88a82e67cbed59b454ef9bf3e605bf359",
+  "diagnosticVerdict": "FAIL",
+  "voiceReleaseVerdict": "NO_GO",
+  "singleChildInvocationConsumed": true,
+  "secondAttemptPerformed": false,
+  "scorerExecuted": false,
+  "causalClassification": {
+    "kind": "windows_stdout_encoding",
+    "exceptionClass": "UnicodeEncodeError",
+    "encoding": "cp1252",
+    "firstCausalSite": "scripts/voice-eval/qwen3-asr-adapter.py:281",
+    "frozenBehaviour": "json.dumps ensure_ascii=false followed by print",
+    "missingChildEnvironment": [
+      "PYTHONUTF8=1",
+      "PYTHONIOENCODING=utf-8"
+    ],
+    "checkpointLoadReached": true,
+    "generationReached": true,
+    "payloadOutputReached": true,
+    "transcriptPersisted": false,
+    "qualityVerdictPermitted": false
+  },
+  "windows": {
+    "v13HinglishDiagnostic": {
+      "localStart": "2026-08-11T19:37:26.777+10:00",
+      "localEnd": "2026-08-11T19:37:46.365+10:00",
+      "inspectionWindowStart": "2026-08-11T19:36:30+10:00",
+      "inspectionWindowEnd": "2026-08-11T19:38:30+10:00",
+      "applicationEventsTotal": 0,
+      "relevantApplicationEvents": 0,
+      "systemEventsTotal": 0,
+      "relevantSystemEvents": 0,
+      "reliabilityRecords": 0,
+      "werDirectoryItems": 0,
+      "applicationRecordIdBefore": 822918,
+      "applicationRecordIdAfter": 822918,
+      "systemRecordIdBefore": 141356,
+      "systemRecordIdAfter": 141356,
+      "classification": "no correlated Windows, WER, Reliability Monitor, NVIDIA, OOM, access-violation or termination event"
+    }
+  },
+  "resources": {
+    "preflight": {
+      "ramTotalBytes": 67756871680,
+      "ramFreeBytes": 34586296320,
+      "parentRssBytes": 99770368,
+      "gpuName": "NVIDIA GeForce RTX 4060",
+      "gpuTotalMiB": 8188,
+      "gpuUsedMiB": 2441,
+      "gpuFreeMiB": 5516,
+      "driverVersion": "610.74",
+      "perProcessGpuMemoryAvailableUnderWddm": false
+    },
+    "child": {
+      "processId": 37020,
+      "resourceSamples": 21,
+      "peakRamBytesObserved": 4894720,
+      "peakRamInterpretation": "not a reliable process peak because the sample conflicts with completed checkpoint loading",
+      "peakGpuMemoryBytes": null,
+      "peakGpuInterpretation": "unavailable under the current WDDM nvidia-smi process telemetry",
+      "checkpointLoadReached": true,
+      "generationReached": true,
+      "stdoutBytes": 0,
+      "stderrBytes": 1425
+    },
+    "postflight": {
+      "ramFreeBytes": 34662944768,
+      "gpuUsedMiB": 2548,
+      "gpuFreeMiB": 5409,
+      "exactPidAlive": false,
+      "exactPidGpuRow": false,
+      "privateTempDirectories": 0,
+      "runningEvidenceFilePresent": false
+    }
+  },
+  "network": {
+    "kernelFirewallRule": false,
+    "pythonSocketAccess": "denied-before-third-party-imports",
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "nonLoopbackTcpConnectionsObservedForExactPid": 0
+  },
+  "evidenceSha256": {
+    "v13Preflight": "8764db7876f2a248edbd130d058573c9ce4ffc600ad1874e606821c33c090b30",
+    "v13Process": "ea5741580b12e9e88688cd67675baa269cfd986cff9f4cb5a2124bf1c2acb0de",
+    "v13StderrDecodedUtf8": "214a0eb8eb1556e4aeb5a99bdb670170769cf330f57e4e148c3284fe7d0d9f47",
+    "v13StaticFreeze": "c53745abbfede49c9d4a899916a42d1f466ebba084ba5bb7e5f5cb8701d8ca0f",
+    "v13FrozenAggregate": "0f2c460dbf70b23b6193ba70ff3f3772dede0783ef78f3797d2e46fb55fedddb",
+    "parentV11FrozenAggregate": "df1b768004fae59a3a2633deb0b311a41848ffaab9df98c95f26901d0fbe4d2a"
+  }
+}
