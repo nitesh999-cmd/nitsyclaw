@@ -1,11 +1,12 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
-import { and, asc, desc, eq, gte, isNotNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import {
   assertPublicSaleTenantBoundaries,
   requireTenantContext,
   type TenantContext,
 } from "../tenancy.js";
+import { isEncryptedString } from "../utils/crypto.js";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -23,6 +24,8 @@ import {
   dailyFocus,
   snoozes,
   entities,
+  verifiedVoiceContacts,
+  verifiedVoiceProducts,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -38,12 +41,18 @@ import {
   type SystemHeartbeat,
   type CommandJob,
   type EntityKind,
+  type NewVerifiedVoiceContactRecord,
+  type NewVerifiedVoiceProductRecord,
 } from "./schema.js";
 
 function guardUnscopedCustomerDataAccess(tenant: TenantContext) {
   const context = requireTenantContext(tenant);
   assertPublicSaleTenantBoundaries();
   return context;
+}
+
+function assertVoiceDirectoryHash(label: string, value: string): void {
+  if (!/^[a-f0-9]{64}$/u.test(value)) throw new Error(`${label} must be a SHA-256 hex digest`);
 }
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -636,6 +645,60 @@ export async function pruneExpiredConfirmations(db: DB, tenant: TenantContext, n
     .where(and(eq(confirmations.ownerHash, context.ownerHash), eq(confirmations.status, "pending"), lt(confirmations.expiresAt, now)))
     .returning({ id: confirmations.id });
   return rows.length;
+}
+
+export async function insertVerifiedVoiceContact(
+  db: DB,
+  tenant: TenantContext,
+  input: Omit<NewVerifiedVoiceContactRecord, "ownerHash">,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  if (!isEncryptedString(input.displayNameCiphertext)
+    || !isEncryptedString(input.aliasesCiphertext)
+    || !isEncryptedString(input.destinationCiphertext)) {
+    throw new Error("verified voice contact identity fields must be encrypted");
+  }
+  assertVoiceDirectoryHash("destinationHash", input.destinationHash);
+  assertVoiceDirectoryHash("verificationEvidenceHash", input.verificationEvidenceHash);
+  if (input.aliasHashes.length === 0) throw new Error("verified voice contact requires at least one alias hash");
+  for (const aliasHash of input.aliasHashes) assertVoiceDirectoryHash("aliasHash", aliasHash);
+  const [row] = await db
+    .insert(verifiedVoiceContacts)
+    .values({ ...input, ownerHash: context.ownerHash })
+    .returning();
+  return row!;
+}
+
+export async function listVerifiedVoiceContacts(db: DB, tenant: TenantContext) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  return db
+    .select()
+    .from(verifiedVoiceContacts)
+    .where(and(eq(verifiedVoiceContacts.ownerHash, context.ownerHash), isNull(verifiedVoiceContacts.revokedAt)))
+    .orderBy(asc(verifiedVoiceContacts.verifiedAt));
+}
+
+export async function insertVerifiedVoiceProduct(
+  db: DB,
+  tenant: TenantContext,
+  input: Omit<NewVerifiedVoiceProductRecord, "ownerHash">,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceDirectoryHash("verificationEvidenceHash", input.verificationEvidenceHash);
+  const [row] = await db
+    .insert(verifiedVoiceProducts)
+    .values({ ...input, ownerHash: context.ownerHash })
+    .returning();
+  return row!;
+}
+
+export async function listVerifiedVoiceProducts(db: DB, tenant: TenantContext) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  return db
+    .select()
+    .from(verifiedVoiceProducts)
+    .where(and(eq(verifiedVoiceProducts.ownerHash, context.ownerHash), isNull(verifiedVoiceProducts.revokedAt)))
+    .orderBy(asc(verifiedVoiceProducts.brand), asc(verifiedVoiceProducts.model));
 }
 
 export async function upsertSystemHeartbeat(

@@ -297,6 +297,66 @@ export const profileContext = pgTable(
 );
 
 /**
+ * Owner-approved contact identities for exact voice recipient resolution.
+ * Destinations, display names, and aliases are encrypted by the caller.
+ * Alias hashes support audited equality checks without storing identity text.
+ */
+export const verifiedVoiceContacts = pgTable(
+  "verified_voice_contacts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull(),
+    displayNameCiphertext: text("display_name_ciphertext").notNull(),
+    channel: text("channel", { enum: ["whatsapp", "sms", "email", "phone"] }).notNull(),
+    destinationCiphertext: text("destination_ciphertext").notNull(),
+    destinationHash: text("destination_hash").notNull(),
+    maskedDestination: text("masked_destination").notNull(),
+    aliasesCiphertext: text("aliases_ciphertext").notNull(),
+    aliasHashes: jsonb("alias_hashes").$type<string[]>().notNull(),
+    verificationMethod: text("verification_method", { enum: ["owner_text", "owner_import_review"] }).notNull(),
+    verificationEvidenceHash: text("verification_evidence_hash").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerActiveIdx: index("verified_voice_contacts_owner_active_idx").on(t.ownerHash, t.revokedAt),
+    ownerDestinationUniqueIdx: uniqueIndex("verified_voice_contacts_owner_destination_unique_idx").on(
+      t.ownerHash,
+      t.channel,
+      t.destinationHash,
+    ),
+  }),
+);
+
+/** Owner-approved product catalogue for exact brand/model voice resolution. */
+export const verifiedVoiceProducts = pgTable(
+  "verified_voice_products",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull(),
+    canonicalKey: text("canonical_key").notNull(),
+    brand: text("brand").notNull(),
+    model: text("model").notNull(),
+    aliases: jsonb("aliases").$type<string[]>().notNull(),
+    verificationMethod: text("verification_method", { enum: ["owner_text", "owner_import_review"] }).notNull(),
+    verificationEvidenceHash: text("verification_evidence_hash").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerActiveIdx: index("verified_voice_products_owner_active_idx").on(t.ownerHash, t.revokedAt),
+    ownerCanonicalUniqueIdx: uniqueIndex("verified_voice_products_owner_canonical_unique_idx").on(
+      t.ownerHash,
+      t.canonicalKey,
+    ),
+  }),
+);
+
+/**
  * OAuth/API accounts connected by the owner.
  * Tokens are encrypted by caller before insert/update.
  */
@@ -406,6 +466,10 @@ export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
 export type ProfileContext = typeof profileContext.$inferSelect;
 export type NewProfileContext = typeof profileContext.$inferInsert;
+export type VerifiedVoiceContactRecord = typeof verifiedVoiceContacts.$inferSelect;
+export type NewVerifiedVoiceContactRecord = typeof verifiedVoiceContacts.$inferInsert;
+export type VerifiedVoiceProductRecord = typeof verifiedVoiceProducts.$inferSelect;
+export type NewVerifiedVoiceProductRecord = typeof verifiedVoiceProducts.$inferInsert;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;

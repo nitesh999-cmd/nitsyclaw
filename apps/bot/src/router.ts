@@ -85,6 +85,8 @@ import {
   getConnectedAccount,
   getCommandJobBySourceMessageId,
   getLatestVoiceTranscript,
+  listVerifiedVoiceContacts,
+  listVerifiedVoiceProducts,
   getSystemHeartbeat,
   listRecentCommandJobs,
   listPendingReminders,
@@ -105,6 +107,7 @@ import {
   createCommandJob,
   getCommandJobByDedupeKey,
   markCommandJobWorking,
+  holdCommandJobForVoiceVerification,
   refreshCommandJobIntent,
   recordCommandJobFailure,
   snoozeCommandJob,
@@ -132,6 +135,8 @@ import {
   parseVoicePreferenceCommand,
   coerceTranscriptionResult,
   voiceAuthorityNeedsClarification,
+  verifyVoiceTranscript,
+  formatVoiceVerifierBlock,
   type TranscriptionResult,
 } from "@nitsyclaw/shared/voice";
 import { notifyAll } from "./notify-all.js";
@@ -2399,6 +2404,83 @@ export class Router {
             : "I heard an action inside quoted or background speech. Was that your instruction, or something you were quoting?";
           await this.completeWhatsAppCommandJob(commandJob, reply);
           await this.sendAndPersist(reply, { deliveryPreference: "text" });
+          return;
+        }
+        const tenant = this.tenant();
+        const [contactRows, productRows] = await Promise.all([
+          listVerifiedVoiceContacts(this.deps.db, tenant).catch((error) => {
+            logBotError("[router] verified voice contacts unavailable", error);
+            return [];
+          }),
+          listVerifiedVoiceProducts(this.deps.db, tenant).catch((error) => {
+            logBotError("[router] verified voice products unavailable", error);
+            return [];
+          }),
+        ]);
+        const verification = verifyVoiceTranscript({
+          rawTranscript: effectiveText,
+          ownerHash: tenant.ownerHash,
+          language: transcription.language,
+          providerConfidence: transcription.providerConfidence,
+          locale: transcription.language === "hindi" || transcription.language === "hinglish" ? "hi-IN" : "en-AU",
+          contacts: contactRows.flatMap((row) => {
+            try {
+              const aliases = JSON.parse(decryptString(row.aliasesCiphertext)) as unknown;
+              if (!Array.isArray(aliases) || !aliases.every((alias) => typeof alias === "string")) return [];
+              return [{
+                id: row.id,
+                ownerHash: row.ownerHash,
+                displayName: decryptString(row.displayNameCiphertext),
+                channel: row.channel,
+                maskedDestination: row.maskedDestination,
+                aliases,
+                verified: row.revokedAt === null,
+              }];
+            } catch {
+              logBotError("[router] verified voice contact record rejected", new Error("invalid encrypted contact record"));
+              return [];
+            }
+          }),
+          products: productRows.map((row) => ({
+            id: row.id,
+            ownerHash: row.ownerHash,
+            canonicalKey: row.canonicalKey,
+            brand: row.brand,
+            model: row.model,
+            aliases: row.aliases,
+            verified: row.revokedAt === null,
+          })),
+        });
+        await mergeVoiceMessageMetadata(this.deps.db, persisted.id, {
+          verifier: {
+            schemaVersion: verification.schemaVersion,
+            policyVersion: verification.policyVersion,
+            tier: verification.tier,
+            disposition: verification.disposition,
+            semanticStatus: verification.semanticStatus,
+            externalActionAllowed: false,
+            reasons: verification.reasons,
+            entities: verification.entities.map((entity) => ({
+              fieldType: entity.fieldType,
+              resolution: entity.resolution,
+              source: entity.source,
+              recordId: entity.recordId,
+              canonicalHash: entity.canonicalValue
+                ? createHash("sha256").update(entity.canonicalValue, "utf8").digest("hex")
+                : undefined,
+            })),
+          },
+          updatedAt: this.deps.now().toISOString(),
+        });
+        const verifierBlock = formatVoiceVerifierBlock(verification);
+        if (verifierBlock) {
+          commandJob = await holdCommandJobForVoiceVerification(
+            this.deps.db,
+            commandJob.id,
+            encryptForStorage(effectiveText),
+            verifierBlock,
+          );
+          await this.sendAndPersistBestEffort(verifierBlock, "voice verifier gate");
           return;
         }
         commandJob = await refreshCommandJobIntent(

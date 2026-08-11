@@ -150,6 +150,22 @@ export async function refreshCommandJobIntent(
   });
 }
 
+export async function holdCommandJobForVoiceVerification(
+  db: DB,
+  id: string,
+  storedCommand: string,
+  receiptText: string,
+): Promise<CommandJob> {
+  return updateCommandJob(db, id, {
+    command: storedCommand.trim(),
+    status: "needs_clarification",
+    riskLevel: "approval_required",
+    receiptText: receiptText.trim(),
+    error: null,
+    updatedAt: new Date(),
+  });
+}
+
 export async function recordCommandJobFailure(
   db: DB,
   id: string,

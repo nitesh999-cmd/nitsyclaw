@@ -2293,7 +2293,7 @@ describe("Router (integration)", () => {
     expect(decryptString(replayJob.command)).toBe("this is a replay-safe voice note");
   });
 
-  it("approval-gates risky voice transcripts before the agent can act", async () => {
+  it("verifier-gates risky voice transcripts before the agent can act", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
       transcriber: {
@@ -2318,19 +2318,19 @@ describe("Router (integration)", () => {
     const state = getFakeDbState(deps.db);
     const riskyJob = state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice")!;
     expect(riskyJob).toMatchObject({
-      status: "needs_approval",
+      status: "needs_clarification",
       riskLevel: "approval_required",
     });
     expect(isEncryptedString(riskyJob.command)).toBe(true);
     expect(decryptString(riskyJob.command)).toBe("send a message to Mukesh saying I am running late");
-    expect(wa.sent.some((message) => message.body.includes("Needs your approval"))).toBe(true);
+    expect(wa.sent.some((message) => message.body.includes("I did not act"))).toBe(true);
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
   it("resends a risky voice approval gate on replay if the first prompt failed to send", async () => {
     let approvalPromptFailures = 0;
     wa.send = async (message) => {
-      if (message.body.includes("Needs your approval") && approvalPromptFailures === 0) {
+      if (message.body.includes("I did not act") && approvalPromptFailures === 0) {
         approvalPromptFailures += 1;
         throw new Error("temporary WhatsApp send failure");
       }
@@ -2363,17 +2363,17 @@ describe("Router (integration)", () => {
 
     const state = getFakeDbState(deps.db);
     expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice-approval-replay")).toMatchObject({
-      status: "needs_approval",
+      status: "needs_clarification",
       riskLevel: "approval_required",
     });
-    expect(wa.sent.filter((sent) => sent.body.includes("Needs your approval"))).toHaveLength(1);
+    expect(wa.sent.filter((sent) => sent.body.includes("I did not act"))).toHaveLength(1);
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
   it("resends a risky voice approval gate on same-process replay", async () => {
     let approvalPromptFailures = 0;
     wa.send = async (message) => {
-      if (message.body.includes("Needs your approval") && approvalPromptFailures === 0) {
+      if (message.body.includes("I did not act") && approvalPromptFailures === 0) {
         approvalPromptFailures += 1;
         throw new Error("temporary WhatsApp send failure");
       }
@@ -2405,10 +2405,10 @@ describe("Router (integration)", () => {
 
     const state = getFakeDbState(deps.db);
     expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice-same-process-replay")).toMatchObject({
-      status: "needs_approval",
+      status: "needs_clarification",
       riskLevel: "approval_required",
     });
-    expect(wa.sent.filter((sent) => sent.body.includes("Needs your approval"))).toHaveLength(1);
+    expect(wa.sent.filter((sent) => sent.body.includes("I did not act"))).toHaveLength(1);
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
@@ -2445,6 +2445,37 @@ describe("Router (integration)", () => {
     expect(wa.sent.some((message) => message.body.includes("Transcribed"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("I will reply in English"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("Weather checked."))).toBe(true);
+  });
+
+  it("verifier-gates a Devanagari external action that the English command regex cannot classify", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "रवि को कॉल करना और 15 परसेंट वाला कोट भेजना।";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "must not run" }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-hindi-risky-voice",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-hindi-risky-voice")).toMatchObject({
+      status: "needs_clarification",
+      riskLevel: "approval_required",
+    });
+    expect(wa.sent.some((message) => message.body.includes("I did not act"))).toBe(true);
+    expect(wa.sent.some((message) => message.body.includes("must not run"))).toBe(false);
   });
 
   it("shows, corrects, and deletes the prior transcript without retaining spoken control commands", async () => {
