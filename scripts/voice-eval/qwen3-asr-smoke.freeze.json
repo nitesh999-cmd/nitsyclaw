@@ -1,7 +1,7 @@
 {
-  "schemaVersion": "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-FREEZE-V1",
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-FREEZE-V1.1",
   "frozenOn": "2026-08-11",
-  "evidencePath": "docs/qwen3-asr-1.7b-offline-evaluation-2026-08-11.md",
+  "evidencePath": "docs/qwen3-asr-v11-diagnostic-re-freeze-2026-08-11.md",
   "model": {
     "repository": "Qwen/Qwen3-ASR-1.7B",
     "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
@@ -19,6 +19,7 @@
     "transformers": "4.57.6",
     "dtype": "bfloat16",
     "device": "cuda:0",
+    "devicePolicy": "fixed-cuda-0",
     "maxInferenceBatchSize": 1,
     "maxNewTokens": 128
   },
@@ -35,10 +36,24 @@
     "werCannotOverrideSafety": true,
     "missingConfidenceRequiresOwnerConfirmation": true
   },
+  "diagnosticPolicy": {
+    "processSchema": "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1",
+    "adapterSchema": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1",
+    "diagnosticCases": 1,
+    "scoredCases": 2,
+    "oneNewScoredRunMaximum": true,
+    "scoredRunAuthorized": false,
+    "atomicNoOverwrite": true,
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1"
+  },
   "files": [
     {
       "path": "scripts/voice-eval/qwen3-asr-adapter.py",
-      "sha256": "f688e869842f45eabd1e8ea6129fd0a274f3103e78d5397ae06eac3b1e8b8762"
+      "sha256": "ee84c72ceaedf57946c6c12a66f7fac9977ece5d792fa6926a24b0c8c0ec69b8"
+    },
+    {
+      "path": "scripts/voice-eval/qwen3-asr-adapter.test.ts",
+      "sha256": "892dc3fff796c4f246ba245a6d7872f2f23581270ac9bfcb2ca6f3fba215adb5"
     },
     {
       "path": "scripts/voice-eval/qwen3-asr-package.lock.txt",
@@ -46,11 +61,19 @@
     },
     {
       "path": "scripts/voice-eval/qwen3-asr-process.ts",
-      "sha256": "4de272090f8ee81fa212254006f44cfb18af0fa6ab5e485a6b1c9581c0a9e036"
+      "sha256": "d2e7cf2362a90e5e581c9d0ed7791f409050921a11f8bf2f30bf36fa44a9274f"
+    },
+    {
+      "path": "scripts/voice-eval/qwen3-asr-process.test.ts",
+      "sha256": "f74d17125a2212ae592a81a09683fa599cc2a870086ced0c4dd455b614eccac9"
     },
     {
       "path": "scripts/voice-eval/qwen3-asr-runtime-py312.lock.txt",
       "sha256": "2f1a1e77bdf95c65aed79a71dba291aa47ee18c6b469d59dbe5db3fd03fea933"
+    },
+    {
+      "path": "scripts/voice-eval/qwen3-asr-runner.test.ts",
+      "sha256": "26d3be39592e834cfad8e2f653ab0d8fe37e2b7fe7219a18de680bee0ade87d2"
     },
     {
       "path": "scripts/voice-eval/qwen3-asr-v21-score.ts",
@@ -58,8 +81,8 @@
     },
     {
       "path": "scripts/voice-eval/run-qwen3-asr-smoke.ts",
-      "sha256": "607ee3f0f96afabf02d35c4827e813f9ed72e74ab28168a6c415c67ed9d34dc8"
+      "sha256": "3d3ea102e59dd2756fbc0297fec378a38effe19bd4e2182925f4abf5ef9139c3"
     }
   ],
-  "aggregateSha256": "d2c6244ffd544e343699266287f798f2d3ea98a312547dca42ecfa7d3454605d"
+  "aggregateSha256": "df1b768004fae59a3a2633deb0b311a41848ffaab9df98c95f26901d0fbe4d2a"
 }

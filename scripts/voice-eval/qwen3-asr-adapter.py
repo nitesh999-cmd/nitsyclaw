@@ -24,10 +24,39 @@ MODEL_WEIGHT_HASHES = {
 CASE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 MAX_AUDIO_BYTES = 16 * 1024 * 1024
 MAX_AUDIO_SECONDS = 120
+MAX_ERROR_MESSAGE = 2_048
 
 
 def _deny_network(*_args: Any, **_kwargs: Any) -> Any:
     raise OSError("NitsyClaw offline evaluation blocks all Python socket access")
+
+
+def _safe_error_message(error: Exception) -> str:
+    message = str(error).replace("\r", " ").replace("\n", " ")[:MAX_ERROR_MESSAGE]
+    message = re.sub(r"(?:[A-Za-z]:\\|\\\\)[^\t\"']+", "<redacted-path>", message)
+    message = re.sub(r"/(?:Users|home)/[^\s\"']+", "<redacted-path>", message)
+    message = re.sub(
+        r"(?i)\b(api[_-]?key|authorization|password|secret|token)\s*[:=]\s*[^\s,;]+",
+        r"\1=<redacted>",
+        message,
+    )
+    return message or "local inference failed without an error message"
+
+
+def _error_kind(error: Exception, torch: Any) -> str:
+    name = type(error).__name__
+    message = str(error)
+    if (torch is not None and isinstance(error, torch.OutOfMemoryError)) or name == "OutOfMemoryError":
+        return "oom"
+    if message == "model returned no complete transcript":
+        return "no_transcript"
+    if re.search(
+        r"^(?:CUDA is unavailable|.*Expected all tensors to be on the same device.*|.*invalid device ordinal.*)$",
+        message,
+        re.IGNORECASE,
+    ):
+        return "device_placement"
+    return "validation" if isinstance(error, ValueError) else "runtime"
 
 
 # Apply before importing any third-party model or audio package.
@@ -120,6 +149,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--audio-root", required=True)
     parser.add_argument("--case", action="append", required=True)
     parser.add_argument("--max-new-tokens", type=int, default=128)
+    parser.add_argument("--mode", choices=("diagnostic", "scored"), required=True)
     args = parser.parse_args()
     if args.max_new_tokens != 128:
         raise ValueError("max_new_tokens is frozen at 128")
@@ -135,7 +165,7 @@ def _peak_rss(process: Any) -> int:
 
 def main() -> int:
     payload: dict[str, Any] = {
-        "schemaVersion": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1",
+        "schemaVersion": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1",
         "status": "error",
         "confidenceTelemetry": "unavailable",
         "providerConfidence": None,
@@ -157,6 +187,8 @@ def main() -> int:
         cases = [_validate_audio(audio_root, item) for item in args.case]
         if len({case_id for case_id, _path in cases}) != len(cases):
             raise ValueError("case ids must be unique")
+        selected_cases = cases[:1] if args.mode == "diagnostic" else cases
+        payload["mode"] = args.mode
         model_path = Path(args.model_path)
         observed_hashes = _validate_model(model_path)
 
@@ -182,7 +214,7 @@ def main() -> int:
         torch.cuda.synchronize(0)
         load_ms = round((time.perf_counter() - load_started) * 1_000)
         results: list[dict[str, Any]] = []
-        for case_id, audio_path in cases:
+        for case_id, audio_path in selected_cases:
             case_started = time.perf_counter()
             transcription = model.transcribe(
                 audio=str(audio_path),
@@ -230,8 +262,9 @@ def main() -> int:
     except Exception as error:  # fail closed with a bounded error class, never partial model output
         name = type(error).__name__
         payload["error"] = {
-            "kind": "oom" if "OutOfMemory" in name else "validation" if isinstance(error, ValueError) else "runtime",
+            "kind": _error_kind(error, torch),
             "class": name,
+            "message": _safe_error_message(error),
         }
     finally:
         model = None

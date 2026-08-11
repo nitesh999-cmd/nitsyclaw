@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type Qwen3AsrFreezeManifest = {
-  schemaVersion: "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-FREEZE-V1";
+  schemaVersion: "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-FREEZE-V1.1";
   frozenOn: string;
   evidencePath: string;
   model: {
@@ -21,6 +21,7 @@ export type Qwen3AsrFreezeManifest = {
     transformers: "4.57.6";
     dtype: "bfloat16";
     device: "cuda:0";
+    devicePolicy: "fixed-cuda-0";
     maxInferenceBatchSize: 1;
     maxNewTokens: 128;
   };
@@ -34,6 +35,16 @@ export type Qwen3AsrFreezeManifest = {
     werCannotOverrideSafety: true;
     missingConfidenceRequiresOwnerConfirmation: true;
   };
+  diagnosticPolicy: {
+    processSchema: "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1";
+    adapterSchema: "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1";
+    diagnosticCases: 1;
+    scoredCases: 2;
+    oneNewScoredRunMaximum: true;
+    scoredRunAuthorized: false;
+    atomicNoOverwrite: true;
+    offlineEnvironmentPolicy: "OFFLINE_ALLOWLIST_V1";
+  };
   files: Array<{ path: string; sha256: string }>;
   aggregateSha256: string;
 };
@@ -43,9 +54,12 @@ const repositoryRoot = join(directory, "..", "..");
 const freezePath = join(directory, "qwen3-asr-smoke.freeze.json");
 const permittedPaths = new Set([
   "scripts/voice-eval/qwen3-asr-adapter.py",
+  "scripts/voice-eval/qwen3-asr-adapter.test.ts",
   "scripts/voice-eval/qwen3-asr-package.lock.txt",
   "scripts/voice-eval/qwen3-asr-process.ts",
+  "scripts/voice-eval/qwen3-asr-process.test.ts",
   "scripts/voice-eval/qwen3-asr-runtime-py312.lock.txt",
+  "scripts/voice-eval/qwen3-asr-runner.test.ts",
   "scripts/voice-eval/qwen3-asr-v21-score.ts",
   "scripts/voice-eval/run-qwen3-asr-smoke.ts",
 ]);
@@ -64,15 +78,16 @@ export function frozenQwenTextSha256(text: string): string {
 
 export async function verifyQwen3AsrSmokeFreeze(): Promise<Qwen3AsrFreezeManifest> {
   const parsed = JSON.parse(await readFile(freezePath, "utf8")) as Qwen3AsrFreezeManifest;
-  if (parsed.schemaVersion !== "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-FREEZE-V1") {
+  if (parsed.schemaVersion !== "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-FREEZE-V1.1") {
     throw new Error("Qwen3-ASR freeze schema is invalid.");
   }
   if (parsed.files.length !== permittedPaths.size || parsed.model.repository !== "Qwen/Qwen3-ASR-1.7B" ||
+      parsed.evidencePath !== "docs/qwen3-asr-v11-diagnostic-re-freeze-2026-08-11.md" ||
       parsed.model.revision !== "7278e1e70fe206f11671096ffdd38061171dd6e5" ||
       parsed.model.license !== "apache-2.0" || parsed.model.bytes !== 4_703_114_308 ||
       parsed.runtime.python !== "3.12.10" || parsed.runtime.qwenAsr !== "0.0.6" ||
       parsed.runtime.torch !== "2.9.1+cu128" || parsed.runtime.transformers !== "4.57.6" ||
-      parsed.runtime.dtype !== "bfloat16" || parsed.runtime.device !== "cuda:0" ||
+      parsed.runtime.dtype !== "bfloat16" || parsed.runtime.device !== "cuda:0" || parsed.runtime.devicePolicy !== "fixed-cuda-0" ||
       parsed.runtime.maxInferenceBatchSize !== 1 || parsed.runtime.maxNewTokens !== 128) {
     throw new Error("Qwen3-ASR frozen model or runtime settings changed.");
   }
@@ -81,6 +96,14 @@ export async function verifyQwen3AsrSmokeFreeze(): Promise<Qwen3AsrFreezeManifes
       !parsed.releasePolicy.negationRequired || !parsed.releasePolicy.languageRequired ||
       !parsed.releasePolicy.werCannotOverrideSafety || !parsed.releasePolicy.missingConfidenceRequiresOwnerConfirmation) {
     throw new Error("Qwen3-ASR frozen safety policy changed.");
+  }
+  if (parsed.diagnosticPolicy.processSchema !== "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1" ||
+      parsed.diagnosticPolicy.adapterSchema !== "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1" ||
+      parsed.diagnosticPolicy.diagnosticCases !== 1 || parsed.diagnosticPolicy.scoredCases !== 2 ||
+      !parsed.diagnosticPolicy.oneNewScoredRunMaximum || parsed.diagnosticPolicy.scoredRunAuthorized !== false ||
+      !parsed.diagnosticPolicy.atomicNoOverwrite ||
+      parsed.diagnosticPolicy.offlineEnvironmentPolicy !== "OFFLINE_ALLOWLIST_V1") {
+    throw new Error("Qwen3-ASR frozen diagnostic policy changed.");
   }
   for (const entry of parsed.files) {
     if (!permittedPaths.has(entry.path) || entry.path.includes("..")) throw new Error("Qwen3-ASR freeze path is invalid.");

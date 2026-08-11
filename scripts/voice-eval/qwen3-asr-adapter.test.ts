@@ -28,10 +28,23 @@ describe("Qwen3-ASR offline adapter safety", () => {
 
   it("has fail-closed OOM, malformed audio, timeout-compatible output, and cleanup paths", async () => {
     const source = await readFile(adapterPath, "utf8");
-    expect(source).toContain('"oom" if "OutOfMemory" in name');
+    expect(source).toContain('return "oom"');
+    expect(source).toContain('return "device_placement"');
+    expect(source).toContain('return "no_transcript"');
+    expect(source).toContain('"schemaVersion": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1"');
+    expect(source).toContain('choices=("diagnostic", "scored")');
+    expect(source).toContain('selected_cases = cases[:1] if args.mode == "diagnostic" else cases');
     expect(source).toContain('raise ValueError("audio is not a complete PCM WAV")');
     expect(source).toContain("torch.cuda.empty_cache()");
     expect(source).toContain('payload["cleanup"]');
     expect(source).toContain("return 0 if payload[\"status\"] == \"ok\" else 2");
+  });
+
+  it("persists a bounded redacted causal message without raw paths or tokens", async () => {
+    const source = await readFile(adapterPath, "utf8");
+    expect(source).toContain("MAX_ERROR_MESSAGE = 2_048");
+    expect(source).toContain("_safe_error_message(error)");
+    expect(source).toContain('"message": _safe_error_message(error)');
+    expect(source).toContain('r"\\1=<redacted>"');
   });
 });

@@ -9,7 +9,7 @@ import { LocalSapiSpeechSynthesizer } from "../../apps/bot/src/local-speech-synt
 import type { VoiceLanguage } from "@nitsyclaw/shared/voice";
 import { auditHeldOutCorpus } from "./scoring-v2.1.js";
 import { getVoiceSmokeV2Manifest } from "./scoring-v2.js";
-import { runBoundedJsonProcess } from "./qwen3-asr-process.js";
+import { runBoundedJsonProcess, sha256Executable, type BoundedJsonProcessResult } from "./qwen3-asr-process.js";
 import { scoreQwenSmokeV21 } from "./qwen3-asr-v21-score.js";
 import { verifyQwen3AsrSmokeFreeze } from "./verify-qwen3-asr-freeze.js";
 import { verifyVoiceSmokeV2Freeze } from "./verify-v2-freeze.js";
@@ -25,6 +25,9 @@ const MODEL_WEIGHT_HASHES = {
 const PROCESS_TIMEOUT_MS = 600_000;
 const directory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = join(directory, "..", "..");
+const DEVICE_POLICY = "fixed-cuda-0" as const;
+
+type RunMode = "diagnostic" | "scored";
 
 type AdapterCase = {
   caseId: string;
@@ -35,8 +38,9 @@ type AdapterCase = {
 };
 
 type AdapterPayload = {
-  schemaVersion: "NITSYCLAW-QWEN3-ASR-ADAPTER-V1";
+  schemaVersion: "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1";
   status: "ok" | "error";
+  mode?: RunMode;
   modelRevision?: string;
   cases?: AdapterCase[];
   resources?: Record<string, unknown>;
@@ -100,9 +104,9 @@ async function verifyModel(modelPath: string): Promise<Record<string, string>> {
   return hashes;
 }
 
-function parseAdapterPayload(value: Record<string, unknown>, expectedCaseIds: string[]): AdapterPayload {
+function parseAdapterPayload(value: Record<string, unknown>, expectedCaseIds: string[], mode: RunMode): AdapterPayload {
   const candidate = value as Partial<AdapterPayload>;
-  if (candidate.schemaVersion !== "NITSYCLAW-QWEN3-ASR-ADAPTER-V1" ||
+  if (candidate.schemaVersion !== "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1" ||
       (candidate.status !== "ok" && candidate.status !== "error") ||
       candidate.confidenceTelemetry !== "unavailable" || candidate.providerConfidence !== null ||
       !candidate.cleanup || typeof candidate.cleanup.cudaAllocatedBytes !== "number" ||
@@ -110,7 +114,7 @@ function parseAdapterPayload(value: Record<string, unknown>, expectedCaseIds: st
     throw new Error("Qwen adapter returned an invalid result schema.");
   }
   if (candidate.status === "ok") {
-    if (candidate.modelRevision !== MODEL_REVISION || !Array.isArray(candidate.cases) ||
+    if (candidate.mode !== mode || candidate.modelRevision !== MODEL_REVISION || !Array.isArray(candidate.cases) ||
         candidate.cases.length !== expectedCaseIds.length) {
       throw new Error("Qwen adapter returned an invalid successful result.");
     }
@@ -129,10 +133,31 @@ function parseAdapterPayload(value: Record<string, unknown>, expectedCaseIds: st
   return candidate as AdapterPayload;
 }
 
+function requestedMode(): RunMode {
+  const args = process.argv.slice(2);
+  if (args.length !== 2 || args[0] !== "--mode" || (args[1] !== "diagnostic" && args[1] !== "scored")) {
+    throw new Error("Qwen V1.1 runner requires exactly --mode diagnostic or --mode scored.");
+  }
+  return args[1];
+}
+
+async function requireSuccessfulDiagnostic(path: string): Promise<void> {
+  const value = JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
+  const cleanup = value.cleanup as Record<string, unknown> | undefined;
+  if (value.schemaVersion !== "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1" || value.phase !== "FINAL" ||
+      value.outcome !== "SUCCESS" || value.nonLoopbackTcpConnectionsObserved !== 0 || cleanup?.passed !== true) {
+    throw new Error("Scored Qwen smoke is blocked until the frozen V1.1 diagnostic succeeds offline with cleanup.");
+  }
+}
+
 async function main(): Promise<void> {
+  const mode = requestedMode();
   const frozenV2 = await verifyVoiceSmokeV2Freeze();
   const frozenV21 = await verifyVoiceSmokeV21Freeze();
   const frozenQwen = await verifyQwen3AsrSmokeFreeze();
+  if (mode === "scored" && !frozenQwen.diagnosticPolicy.scoredRunAuthorized) {
+    throw new Error("Scored Qwen smoke is frozen off because causal inference failure was not established.");
+  }
   const v21Audit = auditHeldOutCorpus();
   const manifest = getVoiceSmokeV2Manifest();
   const localAppData = process.env.LOCALAPPDATA ?? "";
@@ -151,12 +176,24 @@ async function main(): Promise<void> {
     "NitsyClaw", "models", "Qwen3-ASR-1.7B", MODEL_REVISION,
   );
   const modelWeightSha256 = await verifyModel(modelPath);
+  const pythonSha256 = await sha256Executable(python);
+  const diagnosticPath = join(
+    repositoryRoot,
+    "docs",
+    `qwen3-asr-v11-${DEVICE_POLICY}-${mode}-process-2026-08-11.json`,
+  );
+  const prerequisiteDiagnosticPath = join(
+    repositoryRoot,
+    "docs",
+    `qwen3-asr-v11-${DEVICE_POLICY}-diagnostic-process-2026-08-11.json`,
+  );
+  if (mode === "scored") await requireSuccessfulDiagnostic(prerequisiteDiagnosticPath);
   const before = await currentTempArtifacts();
   const evaluationDir = await mkdtemp(join(tmpdir(), "nitsyclaw-voice-qwen3-asr-"));
   await assertPrivateTempDir(evaluationDir);
   const audioCorpus: Array<{ caseId: string; wavPath: string; sha256: string; size: number }> = [];
   let adapterPayload: AdapterPayload | undefined;
-  let adapterProcess: { exitCode: number | null; elapsedMs: number; stderrSha256: string } | undefined;
+  let processResult: BoundedJsonProcessResult | undefined;
 
   try {
     const synthesizer = new LocalSapiSpeechSynthesizer();
@@ -201,31 +238,63 @@ async function main(): Promise<void> {
         size: wav.byteLength,
       });
     }
-    const processResult = await runBoundedJsonProcess({
+    const childArgs = [
+      "-I", adapter,
+      "--model-path", modelPath,
+      "--audio-root", evaluationDir,
+      ...audioCorpus.flatMap((audio) => ["--case", `${audio.caseId}=${audio.wavPath}`]),
+      "--max-new-tokens", "128",
+      "--mode", mode,
+    ];
+    const sanitizedArgs = [
+      "-I", "<reviewed-qwen3-asr-adapter.py>",
+      "--model-path", `<pinned-model-revision:${MODEL_REVISION}>`,
+      "--audio-root", "<private-synthetic-audio-root>",
+      ...audioCorpus.flatMap((audio) => ["--case", `${audio.caseId}=<private-synthetic-wav>`]),
+      "--max-new-tokens", "128",
+      "--mode", mode,
+    ];
+    const expectedCaseIds = audioCorpus.map((item) => item.caseId).slice(0, mode === "diagnostic" ? 1 : 2);
+    processResult = await runBoundedJsonProcess({
       executable: python,
-      args: [
-        "-I", adapter,
-        "--model-path", modelPath,
-        "--audio-root", evaluationDir,
-        ...audioCorpus.flatMap((audio) => ["--case", `${audio.caseId}=${audio.wavPath}`]),
-        "--max-new-tokens", "128",
-      ],
+      executableSha256: pythonSha256,
+      args: childArgs,
+      sanitizedArgs,
+      attemptId: `qwen3-asr-v11-${DEVICE_POLICY}-${mode}`,
+      diagnosticPath,
       timeoutMs: PROCESS_TIMEOUT_MS,
+      requireTranscript: true,
+      validatePayload: (payload) => {
+        try {
+          parseAdapterPayload(payload, expectedCaseIds, mode);
+          return { valid: true };
+        } catch (error) {
+          return { valid: false, error: error instanceof Error ? error.message : "Qwen adapter schema validation failed." };
+        }
+      },
+      redactions: [repositoryRoot, localAppData, modelPath, evaluationDir, python, adapter, ...audioCorpus.map((item) => item.wavPath)],
+      cleanup: async () => {
+        await rm(evaluationDir, { recursive: true, force: true, maxRetries: 2 });
+        const after = await currentTempArtifacts();
+        return {
+          passed: JSON.stringify(before) === JSON.stringify(after),
+          privateEvaluationDirectoryRemoved: true,
+          tempArtifactSetRestored: JSON.stringify(before) === JSON.stringify(after),
+        };
+      },
     });
-    adapterPayload = parseAdapterPayload(processResult.payload, audioCorpus.map((item) => item.caseId));
-    adapterProcess = {
-      exitCode: processResult.exitCode,
-      elapsedMs: processResult.elapsedMs,
-      stderrSha256: createHash("sha256").update(processResult.stderr).digest("hex"),
-    };
+    if (processResult.payload) {
+      adapterPayload = parseAdapterPayload(processResult.payload, expectedCaseIds, mode);
+    }
   } finally {
-    await rm(evaluationDir, { recursive: true, force: true, maxRetries: 2 });
+    if (!processResult) await rm(evaluationDir, { recursive: true, force: true, maxRetries: 2 });
   }
 
   const after = await currentTempArtifacts();
   const cleanupPassed = JSON.stringify(before) === JSON.stringify(after) &&
+    processResult?.diagnostic.cleanup.passed === true &&
     adapterPayload?.cleanup.cudaAllocatedBytes === 0 && adapterPayload.cleanup.cudaReservedBytes === 0;
-  const scores = adapterPayload?.status === "ok"
+  const scores = mode === "scored" && adapterPayload?.status === "ok"
     ? adapterPayload.cases?.map((item) => ({
       modelLanguage: item.modelLanguage,
       ...scoreQwenSmokeV21({
@@ -236,11 +305,17 @@ async function main(): Promise<void> {
       }),
     })) ?? []
     : [];
-  const passed = adapterPayload?.status === "ok" && adapterProcess?.exitCode === 0 &&
-    scores.length === manifest.cases.length && scores.every((score) => score.passed) &&
-    scores.every((score) => score.frozenV21.confirmationRequired) && v21Audit.passed && cleanupPassed;
+  const diagnosticSucceeded = mode === "diagnostic" && processResult?.outcome === "SUCCESS" &&
+    adapterPayload?.status === "ok" && adapterPayload.cases?.length === 1 && cleanupPassed;
+  const scoredPassed = mode === "scored" && processResult?.outcome === "SUCCESS" &&
+    adapterPayload?.status === "ok" && processResult.exitCode === 0 && scores.length === manifest.cases.length &&
+    scores.every((score) => score.passed) && scores.every((score) => score.frozenV21.confirmationRequired) &&
+    v21Audit.passed && cleanupPassed;
+  const passed = diagnosticSucceeded || scoredPassed;
   console.log(JSON.stringify({
-    schemaVersion: "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-V1",
+    schemaVersion: "NITSYCLAW-QWEN3-ASR-1.7B-SMOKE-V1.1",
+    mode,
+    devicePolicy: DEVICE_POLICY,
     candidate: "Qwen/Qwen3-ASR-1.7B",
     modelRevision: MODEL_REVISION,
     frozenQwenAggregateSha256: frozenQwen.aggregateSha256,
@@ -251,9 +326,21 @@ async function main(): Promise<void> {
       kernelFirewallRule: false,
       pythonSocketAccessDeniedBeforeImports: true,
       offlineEnvironmentForced: true,
+      nonLoopbackTcpConnectionsObserved: processResult?.diagnostic.nonLoopbackTcpConnectionsObserved ?? null,
     },
     audioCorpus: audioCorpus.map(({ caseId, sha256, size }) => ({ caseId, sha256, size })),
-    adapterProcess,
+    adapterProcess: processResult ? {
+      outcome: processResult.outcome,
+      exitCode: processResult.exitCode,
+      elapsedMs: processResult.elapsedMs,
+      stderrSha256: createHash("sha256").update(processResult.stderr).digest("hex"),
+      diagnosticPath: relative(repositoryRoot, processResult.diagnosticPath).replace(/\\/gu, "/"),
+      diagnosticSha256: await sha256File(processResult.diagnosticPath),
+      lifecycle: processResult.diagnostic.lifecycle,
+      peakChildRamBytes: processResult.diagnostic.peakChildRamBytes,
+      peakGpuMemoryBytes: processResult.diagnostic.peakGpuMemoryBytes,
+      outputTruncated: processResult.diagnostic.outputTruncated,
+    } : null,
     adapter: adapterPayload,
     frozenV2Scores: scores,
     frozenV21Audit: v21Audit,
