@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.3-DIAGNOSTIC-FREEZE-1",
+  "frozenOn": "2026-08-11",
+  "startingCommit": "af2a4de10011578ff65a4b4a6ae52168fb37e554",
+  "parentV11AggregateSha256": "df1b768004fae59a3a2633deb0b311a41848ffaab9df98c95f26901d0fbe4d2a",
+  "model": {
+    "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+    "bytes": 4703114308,
+    "weightSha256": {
+      "model-00001-of-00002.safetensors": "a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6",
+      "model-00002-of-00002.safetensors": "6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc"
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "maxNewTokens": 128
+  },
+  "fixture": {
+    "caseId": "hinglish-business",
+    "sha256": "c46218063f37892bdec79afe09c9353cec2396bafa9ffba527ba33951949c01c",
+    "bytes": 234818
+  },
+  "policy": {
+    "diagnosticCases": 1,
+    "scoredCases": 2,
+    "scorerExecutionAuthorized": false,
+    "oneInferenceMaximum": true,
+    "retryAuthorized": false,
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "processSchema": "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1",
+    "adapterPayloadSchema": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1"
+  },
+  "files": [
+    {
+      "path": "apps/bot/src/local-speech-synthesizer.ts",
+      "sha256": "29d761810f13530d22104d94c1ba0730cb68fb688abce9d239d972abbe8fffd5"
+    },
+    {
+      "path": "scripts/synthesize-local-sapi.ps1",
+      "sha256": "e83e9526f9f77f7ae2be38d68033319e81e30e83410b2d43d6470f2be4f5df78"
+    },
+    {
+      "path": "scripts/voice-eval/qwen3-asr-adapter-v13.py",
+      "sha256": "ef05b6d872d840f4a95fc0a285b9c290b727d028b96398c31a360504ede28d61"
+    },
+    {
+      "path": "scripts/voice-eval/qwen3-asr-adapter.py",
+      "sha256": "ee84c72ceaedf57946c6c12a66f7fac9977ece5d792fa6926a24b0c8c0ec69b8"
+    },
+    {
+      "path": "scripts/voice-eval/qwen3-asr-process.ts",
+      "sha256": "d2e7cf2362a90e5e581c9d0ed7791f409050921a11f8bf2f30bf36fa44a9274f"
+    },
+    {
+      "path": "scripts/voice-eval/run-qwen3-asr-v13-hinglish-diagnostic.ts",
+      "sha256": "1d05e54416758ade609840664dbf42f34996aff73370b8aaa7ba295fe60b3c99"
+    },
+    {
+      "path": "scripts/voice-eval/voice-smoke-v2-spec.json",
+      "sha256": "6e332da97775467c84006dbd2211822469a9ac941c0f2668d56fe76a452786b5"
+    }
+  ],
+  "aggregateSha256": "0f2c460dbf70b23b6193ba70ff3f3772dede0783ef78f3797d2e46fb55fedddb"
+}
