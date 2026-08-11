@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.2-PREFLIGHT-1",
+  "phase": "FROZEN_BEFORE_INFERENCE",
+  "capturedAt": "2026-08-11T09:03:05.727Z",
+  "startingCommit": "7c707fa722b8ba954f1715988e32716800c38995",
+  "frozenV11AggregateSha256": "df1b768004fae59a3a2633deb0b311a41848ffaab9df98c95f26901d0fbe4d2a",
+  "invocation": {
+    "executableName": "python.exe",
+    "executableSha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14",
+    "arguments": [
+      "-I",
+      "<reviewed-qwen3-asr-adapter.py>",
+      "--model-path",
+      "<pinned-model-revision:7278e1e70fe206f11671096ffdd38061171dd6e5>",
+      "--audio-root",
+      "<private-synthetic-audio-root>",
+      "--case",
+      "hinglish-business=<private-synthetic-wav>",
+      "--max-new-tokens",
+      "128",
+      "--mode",
+      "diagnostic"
+    ],
+    "shell": false,
+    "environmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "timeoutMs": 600000,
+    "attemptId": "qwen3-asr-v12-fixed-cuda-0-hinglish-diagnostic",
+    "diagnosticPath": "docs/qwen3-asr-v12-fixed-cuda-0-hinglish-diagnostic-process-2026-08-11.json",
+    "exactlyOneCase": true,
+    "scorerExecutionAuthorized": false
+  },
+  "invocationSha256": "79a08c336ec5698d414cbd964a329ab6de3fa05b3bf03301ef7a97cd165f1261",
+  "fixture": {
+    "caseId": "hinglish-business",
+    "sha256": "c46218063f37892bdec79afe09c9353cec2396bafa9ffba527ba33951949c01c",
+    "bytes": 234818,
+    "synthetic": true
+  },
+  "model": {
+    "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+    "weightSha256": {
+      "model-00001-of-00002.safetensors": "a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6",
+      "model-00002-of-00002.safetensors": "6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc"
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16"
+  },
+  "frozenFiles": {
+    "runner": "7486f543c732b70c5f7a09ba1d867ef6ac49a62434cfdde89a20becf1e03a7df",
+    "processTelemetry": "d2e7cf2362a90e5e581c9d0ed7791f409050921a11f8bf2f30bf36fa44a9274f",
+    "adapter": "ee84c72ceaedf57946c6c12a66f7fac9977ece5d792fa6926a24b0c8c0ec69b8",
+    "voiceSpec": "6e332da97775467c84006dbd2211822469a9ac941c0f2668d56fe76a452786b5",
+    "synthesizerSource": "29d761810f13530d22104d94c1ba0730cb68fb688abce9d239d972abbe8fffd5",
+    "synthesisScript": "e83e9526f9f77f7ae2be38d68033319e81e30e83410b2d43d6470f2be4f5df78",
+    "ffmpeg": "ad8f211bc894755e0061c55ab280ae00e8d3d4f15a8cc4372b24cfa247b5942e",
+    "python": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14"
+  },
+  "baseline": {
+    "ram": {
+      "totalBytes": 67756871680,
+      "freeBytes": 34834124800,
+      "parentRssBytes": 126955520
+    },
+    "gpu": {
+      "available": true,
+      "gpu": "NVIDIA GeForce RTX 4060, 8188, 5246, 2711, 610.74",
+      "computeProcesses": [
+        "2072, [N/A]",
+        "3848, [N/A]",
+        "2224, [N/A]",
+        "496, [N/A]",
+        "14508, [N/A]",
+        "14516, [N/A]",
+        "16124, [N/A]",
+        "8968, [N/A]",
+        "18104, [N/A]",
+        "18044, [N/A]",
+        "21644, [N/A]",
+        "22776, [N/A]",
+        "20448, [N/A]",
+        "11212, [N/A]",
+        "9276, [N/A]",
+        "12988, [N/A]",
+        "26440, [N/A]",
+        "29088, [N/A]",
+        "20364, [N/A]",
+        "31060, [N/A]",
+        "29592, [N/A]",
+        "32216, [N/A]",
+        "32112, [N/A]",
+        "42824, [N/A]",
+        "40820, [N/A]",
+        "37844, [N/A]",
+        "2600, [N/A]",
+        "33044, [N/A]",
+        "46852, [N/A]",
+        "41412, [N/A]",
+        "49376, [N/A]",
+        "27456, [N/A]",
+        "55836, [N/A]",
+        "52236, [N/A]",
+        "34668, [N/A]",
+        "51304, [N/A]",
+        "42768, [N/A]",
+        "38872, [N/A]",
+        "46604, [N/A]",
+        "2804, [N/A]",
+        "3688, [N/A]",
+        "30944, [N/A]",
+        "56304, [N/A]",
+        "53188, [N/A]"
+      ]
+    },
+    "eventLogs": {
+      "available": true,
+      "applicationRecordId": 822913,
+      "applicationTime": "2026-08-11T18:58:25.6812732+10:00",
+      "systemRecordId": 141351,
+      "systemTime": "2026-08-11T18:36:16.9936926+10:00"
+    },
+    "tempArtifacts": []
+  },
+  "networkIsolation": {
+    "kernelFirewallRule": false,
+    "pythonSocketAccess": "denied-before-third-party-imports",
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "exactPidNonLoopbackMonitoring": true
+  }
+}
