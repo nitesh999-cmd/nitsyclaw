@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1.1-ADVERSARIAL-FREEZE",
+  "frozenOn": "2026-08-12",
+  "initialCommit": "be4cd77e9f800493907ebcd7ea76fbac4f8086ee",
+  "immutableFiles": [
+    { "role": "v1_baseline_freeze", "path": "scripts/voice-eval/voice-verifier-v1-adversarial.freeze.json", "sha256": "43b620915b7d78bcc3e9550e86567d51c7e161adf9e9660b8e8cc43bc0368539" },
+    { "role": "v1_initial_result", "path": "scripts/voice-eval/voice-verifier-v1-adversarial-initial-run.json", "sha256": "aac8b270095a12af952b37c8349fecc812b38fd8ca30caccdc71e26514b7ccd9" },
+    { "role": "v1_repair_result", "path": "scripts/voice-eval/voice-verifier-v1-adversarial-repair-run-01.json", "sha256": "a39670da2b0a659b898b3886684391e8027ca0aa1b8926ccead0a74ce8ba7e0a" },
+    { "role": "v1_1_spec", "path": "docs/voice-verifier-v1.1-adversarial-spec.md", "sha256": "258da0683450c18df3266c0c42cce22df871babe8a69fa29d9497944124d0d8b" },
+    { "role": "fixtures", "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-fixtures.json", "sha256": "dd8ea85e6fab8089edc262255762668bc5b3677851f51088b167aac8f4e20e6f" },
+    { "role": "thresholds", "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-thresholds.json", "sha256": "4713dccfeab227c58bf78cc400b89e34cf79d028485240a6ea5f40f982813daa" },
+    { "role": "runner", "path": "packages/shared/test/voice-verifier-adversarial-v1.1.test.ts", "sha256": "e84cb0c2aa59b4f550fb73fc86c9639f28a79242547d2b5040f3ae45fe86dae3" },
+    { "role": "isolated_database_schema", "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-db-schema.sql", "sha256": "4a81f4562e52ca6bc20f6cea91ebbb3d024c23f68b999696cd4bddb05f91c386" },
+    { "role": "validator", "path": "scripts/voice-eval/validate-voice-verifier-v1.1-adversarial.ts", "sha256": "fe2cad771a67a5385a6634704500d307a6942c8e28baeae89e5e195d6ce726f8" },
+    { "role": "freeze_verifier", "path": "scripts/voice-eval/verify-voice-verifier-v1.1-adversarial-freeze.ts", "sha256": "13434260376b2c2a54f99ed6271a8f2fb816ce69efe2acb56bd531be206c2f9f" }
+  ],
+  "initialImplementationFiles": [
+    { "path": "apps/bot/src/router.ts", "sha256": "ce647e78490cd83580403c3ae421aa2a6ad30741bdf6879068602842cb336403" },
+    { "path": "packages/shared/drizzle/0011_voice_verification.sql", "sha256": "b64b5931c94e102bba87a16c7f8099dd633272812a5c7426e1fac086a0024f2d" },
+    { "path": "packages/shared/drizzle/meta/_journal.json", "sha256": "11c14273a5560dba09fb9abd6bd3edf4544447d4f975a72e32c8a81e1a00704d" },
+    { "path": "packages/shared/src/db/repo.ts", "sha256": "5eb193cf5ffb1eff4acacb9f939e0c697d676dcd5bc2bfddc15de2f29452b7a0" },
+    { "path": "packages/shared/src/db/schema.ts", "sha256": "7a2dfe68915a2ecaf2785f3d8f7cc7f9306fe72612ef916ba1c3e00b183d6839" },
+    { "path": "packages/shared/src/ops/command-jobs.ts", "sha256": "0d6d2d5fdf5fd1595b251febee9bdedc851ac9f9a392fc07f033d6a6677df2e9" },
+    { "path": "packages/shared/src/voice/canonicalize.ts", "sha256": "22089b7a7755bda4f774c9d47ba970050767b7b354e44bb9b601b9c6b09b7562" },
+    { "path": "packages/shared/src/voice/index.ts", "sha256": "45ffa41f0fcbce9acbdb48050be12bcde0cdb45db6988a4509397adc2cbafac7" },
+    { "path": "packages/shared/src/voice/policy.ts", "sha256": "aceb49b06585e20feccc2dd2a93a6c000e29a5e332b83d522bc27487800c6ed8" },
+    { "path": "packages/shared/src/voice/resolution.ts", "sha256": "0c66c5fa386ff23c3bf7931be5a02c34343f2490a1948dbc404b95dc44426e71" },
+    { "path": "packages/shared/src/voice/risk-policy.ts", "sha256": "8ceaba12e692c0972796a1ad813be1705b16d4729f94886595e50c65a09c4143" },
+    { "path": "packages/shared/src/voice/types.ts", "sha256": "2800623227abe016ad7ecbb01a169be9851338ec3eb2ba2a8fc2ffec3dd3fb18" },
+    { "path": "packages/shared/src/voice/unicode-policy.ts", "sha256": "ef6cffac9663a537a0b33438e58f00290c78299ff9eb2d3343671ec34ef28c80" },
+    { "path": "packages/shared/src/voice/verifier.ts", "sha256": "474c0cfa4e50441b17a258a9f1293448064cd863c64a8babe6484238363a2ecf" }
+  ],
+  "immutableAggregateSha256": "c5f4b0b0f91242d246eab6c91366f41d7d514c5f1bd44e83add6911cb0bcd920",
+  "initialImplementationAggregateSha256": "01265feddc5ff44d4136d13267ae070617b9ba034a2e0c9e4131cee6fa7186eb",
+  "completeInitialAggregateSha256": "dc04b3293df0ef48d3ff525fc97eedde4a78f8ca4214a4962aa80caf8803a62a"
+}
