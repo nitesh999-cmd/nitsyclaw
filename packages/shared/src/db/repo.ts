@@ -1,6 +1,6 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
-import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import {
   assertPublicSaleTenantBoundaries,
   requireTenantContext,
@@ -26,6 +26,8 @@ import {
   entities,
   verifiedVoiceContacts,
   verifiedVoiceProducts,
+  voiceVerificationProposals,
+  voiceVerificationConfirmations,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -699,6 +701,218 @@ export async function listVerifiedVoiceProducts(db: DB, tenant: TenantContext) {
     .from(verifiedVoiceProducts)
     .where(and(eq(verifiedVoiceProducts.ownerHash, context.ownerHash), isNull(verifiedVoiceProducts.revokedAt)))
     .orderBy(asc(verifiedVoiceProducts.brand), asc(verifiedVoiceProducts.model));
+}
+
+export interface VoiceVerificationProposalKey {
+  proposalId: string;
+  ownerHash: string;
+  conversationHash: string;
+  policyVersion: string;
+  tokenHash: string;
+  tokenBindingHash: string;
+}
+
+export interface VoiceVerificationProposalInsert extends VoiceVerificationProposalKey {
+  expiresAt: Date;
+  createdAt?: Date;
+}
+
+export interface VoiceVerificationConfirmationInsert extends VoiceVerificationProposalKey {
+  attemptId?: string;
+  accepted: boolean;
+  createdAt?: Date;
+}
+
+function assertVoiceProposalBindingKey(context: TenantContext, key: VoiceVerificationProposalKey): void {
+  if (key.ownerHash !== context.ownerHash) throw new Error("voice proposal owner does not match tenant context");
+  if (!key.proposalId || !key.policyVersion) throw new Error("voice proposal identity is incomplete");
+  assertVoiceDirectoryHash("ownerHash", key.ownerHash);
+  assertVoiceDirectoryHash("conversationHash", key.conversationHash);
+  assertVoiceDirectoryHash("tokenHash", key.tokenHash);
+  assertVoiceDirectoryHash("tokenBindingHash", key.tokenBindingHash);
+}
+
+export async function insertVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  input: VoiceVerificationProposalInsert,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, input);
+  const [row] = await db.insert(voiceVerificationProposals).values({
+    ...input,
+    proposalId: input.proposalId,
+    ownerHash: input.ownerHash,
+    conversationHash: input.conversationHash,
+    policyVersion: input.policyVersion,
+    tokenHash: input.tokenHash,
+    tokenBindingHash: input.tokenBindingHash,
+    status: "pending",
+    cancelledAt: null,
+    consumedAt: null,
+  }).returning();
+  return row!;
+}
+
+export async function getVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  const [row] = await db.select().from(voiceVerificationProposals).where(and(
+    eq(voiceVerificationProposals.proposalId, key.proposalId),
+    eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+    eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+    eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+    eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+    eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+  )).limit(1);
+  return row ?? null;
+}
+
+export async function recordVoiceVerificationConfirmation(
+  db: DB,
+  tenant: TenantContext,
+  input: VoiceVerificationConfirmationInsert,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, input);
+  const now = input.createdAt ?? new Date();
+  return db.transaction(async (transaction) => {
+    const [proposal] = await transaction.select().from(voiceVerificationProposals).where(and(
+      eq(voiceVerificationProposals.proposalId, input.proposalId),
+      eq(voiceVerificationProposals.ownerHash, input.ownerHash),
+      eq(voiceVerificationProposals.conversationHash, input.conversationHash),
+      eq(voiceVerificationProposals.policyVersion, input.policyVersion),
+      eq(voiceVerificationProposals.tokenHash, input.tokenHash),
+      eq(voiceVerificationProposals.tokenBindingHash, input.tokenBindingHash),
+      eq(voiceVerificationProposals.status, "pending"),
+      isNull(voiceVerificationProposals.cancelledAt),
+      isNull(voiceVerificationProposals.consumedAt),
+      gt(voiceVerificationProposals.expiresAt, now),
+    )).for("update").limit(1);
+    if (!proposal) throw new Error("voice proposal binding is not usable");
+    const [row] = await transaction.insert(voiceVerificationConfirmations).values({
+      ...input,
+      proposalId: input.proposalId,
+      ownerHash: input.ownerHash,
+      conversationHash: input.conversationHash,
+      policyVersion: input.policyVersion,
+      tokenHash: input.tokenHash,
+      tokenBindingHash: input.tokenBindingHash,
+      createdAt: now,
+    }).returning();
+    return row!;
+  });
+}
+
+export async function cancelVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+  now: Date,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  const [row] = await db.update(voiceVerificationProposals).set({
+    status: "cancelled",
+    cancelledAt: now,
+    updatedAt: now,
+  }).where(and(
+    eq(voiceVerificationProposals.proposalId, key.proposalId),
+    eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+    eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+    eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+    eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+    eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+    eq(voiceVerificationProposals.status, "pending"),
+    isNull(voiceVerificationProposals.cancelledAt),
+    isNull(voiceVerificationProposals.consumedAt),
+    gt(voiceVerificationProposals.expiresAt, now),
+  )).returning();
+  return row ?? null;
+}
+
+export async function expireVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+  now: Date,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  const [row] = await db.update(voiceVerificationProposals).set({
+    status: "expired",
+    updatedAt: now,
+  }).where(and(
+    eq(voiceVerificationProposals.proposalId, key.proposalId),
+    eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+    eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+    eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+    eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+    eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+    eq(voiceVerificationProposals.status, "pending"),
+    isNull(voiceVerificationProposals.cancelledAt),
+    isNull(voiceVerificationProposals.consumedAt),
+    lte(voiceVerificationProposals.expiresAt, now),
+  )).returning();
+  return row ?? null;
+}
+
+export async function consumeVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+  now: Date,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  return db.transaction(async (transaction) => {
+    const [proposal] = await transaction.select().from(voiceVerificationProposals).where(and(
+      eq(voiceVerificationProposals.proposalId, key.proposalId),
+      eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+      eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+      eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+      eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+      eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+      eq(voiceVerificationProposals.status, "pending"),
+      isNull(voiceVerificationProposals.cancelledAt),
+      isNull(voiceVerificationProposals.consumedAt),
+      gt(voiceVerificationProposals.expiresAt, now),
+    )).for("update").limit(1);
+    if (!proposal) return null;
+    const [accepted] = await transaction.select({ attemptId: voiceVerificationConfirmations.attemptId })
+      .from(voiceVerificationConfirmations)
+      .where(and(
+        eq(voiceVerificationConfirmations.proposalId, key.proposalId),
+        eq(voiceVerificationConfirmations.ownerHash, key.ownerHash),
+        eq(voiceVerificationConfirmations.conversationHash, key.conversationHash),
+        eq(voiceVerificationConfirmations.policyVersion, key.policyVersion),
+        eq(voiceVerificationConfirmations.tokenHash, key.tokenHash),
+        eq(voiceVerificationConfirmations.tokenBindingHash, key.tokenBindingHash),
+        eq(voiceVerificationConfirmations.accepted, true),
+      )).limit(1);
+    if (!accepted) return null;
+    const [row] = await transaction.update(voiceVerificationProposals).set({
+      status: "completed",
+      consumedAt: now,
+      updatedAt: now,
+    }).where(and(
+      eq(voiceVerificationProposals.proposalId, key.proposalId),
+      eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+      eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+      eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+      eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+      eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+      eq(voiceVerificationProposals.status, "pending"),
+      isNull(voiceVerificationProposals.cancelledAt),
+      isNull(voiceVerificationProposals.consumedAt),
+      gt(voiceVerificationProposals.expiresAt, now),
+    )).returning();
+    return row ?? null;
+  });
 }
 
 export async function upsertSystemHeartbeat(

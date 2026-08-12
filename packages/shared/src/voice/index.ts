@@ -5,3 +5,4 @@ export * from "./canonicalize.js";
 export * from "./resolution.js";
 export * from "./risk-policy.js";
 export * from "./verifier.js";
+export * from "./proposal-binding.js";

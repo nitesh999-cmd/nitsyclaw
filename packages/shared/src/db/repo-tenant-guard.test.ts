@@ -26,6 +26,12 @@ const guardedRepoFunctions = [
   "listVerifiedVoiceContacts",
   "insertVerifiedVoiceProduct",
   "listVerifiedVoiceProducts",
+  "insertVoiceVerificationProposal",
+  "getVoiceVerificationProposal",
+  "recordVoiceVerificationConfirmation",
+  "cancelVoiceVerificationProposal",
+  "expireVoiceVerificationProposal",
+  "consumeVoiceVerificationProposal",
 ];
 
 describe("repo tenant guard", () => {

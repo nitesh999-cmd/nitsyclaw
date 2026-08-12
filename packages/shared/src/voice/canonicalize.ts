@@ -1,8 +1,40 @@
 import type {
   VoiceEvidenceSpan,
   VoiceResolutionState,
+  VoiceTemporalContext,
   VoiceTypedEntity,
 } from "./types.js";
+
+const WEEKDAY_NAMES = [
+  "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+] as const;
+
+function validCalendarDate(year: number, month: number, day: number): boolean {
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  return candidate.getUTCFullYear() === year
+    && candidate.getUTCMonth() === month - 1
+    && candidate.getUTCDate() === day;
+}
+
+function weekdayForCanonicalDate(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!validCalendarDate(year, month, day)) return null;
+  return WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? null;
+}
+
+function isSydneyDstGap(dateValue: string, timeValue: string): boolean {
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(dateValue);
+  const time = /^(\d{2}):(\d{2})$/u.exec(timeValue);
+  if (!date || !time || date[2] !== "10" || time[1] !== "02") return false;
+  const year = Number(date[1]);
+  const day = Number(date[3]);
+  const firstSunday = 1 + ((7 - new Date(Date.UTC(year, 9, 1)).getUTCDay()) % 7);
+  return day === firstSunday;
+}
 
 function evidence(text: string, start: number, end: number): VoiceEvidenceSpan {
   return { start, end, text: text.slice(start, end) };
@@ -66,6 +98,7 @@ export function normalizeVoiceView(text: string): string {
 export function extractDeterministicVoiceEntities(
   text: string,
   locale?: "en-AU" | "en-IN" | "hi-IN",
+  temporalContext?: VoiceTemporalContext,
 ): VoiceTypedEntity[] {
   const entities: VoiceTypedEntity[] = [];
   let sequence = 0;
@@ -144,7 +177,8 @@ export function extractDeterministicVoiceEntities(
     const end = start + match[0].length;
     const day = Number(match[1]);
     const month = Number(match[2]);
-    const canonical = locale && day >= 1 && day <= 31 && month >= 1 && month <= 12
+    const year = Number(match[3]);
+    const canonical = locale && validCalendarDate(year, month, day)
       ? `${match[3]}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
       : null;
     entities.push(entity(text, nextId("date"), "date", start, end, canonical, canonical ? "exact" : "ambiguous"));
@@ -179,6 +213,43 @@ export function extractDeterministicVoiceEntities(
     const start = match.index ?? 0;
     const end = start + match[0].length;
     entities.push(entity(text, nextId("phone"), "phone", start, end, match[0].trim().startsWith("+") ? `+${digits}` : digits, "exact"));
+  }
+
+  const explicitDate = entities.find(
+    ({ fieldType, canonicalValue }) => fieldType === "date" && /^\d{4}-\d{2}-\d{2}$/u.test(canonicalValue ?? ""),
+  );
+  const contextIsStale = temporalContext !== undefined
+    && temporalContext.version !== temporalContext.currentVersion;
+  for (const match of text.matchAll(/\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/giu)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    const normalizedWeekday = match[0].toLowerCase();
+    let canonical: string | null = `WEEKDAY|${normalizedWeekday}`;
+    let resolution: VoiceResolutionState = "ambiguous";
+    if (contextIsStale) {
+      canonical = null;
+      resolution = "rejected";
+    } else if (explicitDate?.canonicalValue) {
+      if (weekdayForCanonicalDate(explicitDate.canonicalValue) === normalizedWeekday) {
+        resolution = "exact";
+      } else {
+        canonical = null;
+        resolution = "rejected";
+      }
+    } else if (temporalContext) {
+      resolution = "exact";
+    }
+    entities.push(entity(text, nextId("weekday"), "date", start, end, canonical, resolution));
+  }
+
+  const sydneyTimezonePresent = temporalContext?.timezone === "Australia/Sydney"
+    || entities.some(({ fieldType, canonicalValue }) => fieldType === "timezone" && canonicalValue === "Australia/Sydney");
+  if (sydneyTimezonePresent && explicitDate?.canonicalValue) {
+    for (const time of entities.filter(({ fieldType }) => fieldType === "time")) {
+      if (time.canonicalValue && isSydneyDstGap(explicitDate.canonicalValue, time.canonicalValue)) {
+        time.resolution = "rejected";
+      }
+    }
   }
 
   return entities;

@@ -1,6 +1,7 @@
 // Drizzle schema — single source of truth (Constitution R5).
 // All NitsyClaw state lives here.
 
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   uuid,
@@ -11,6 +12,9 @@ import {
   boolean,
   index,
   uniqueIndex,
+  primaryKey,
+  foreignKey,
+  check,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -356,6 +360,115 @@ export const verifiedVoiceProducts = pgTable(
   }),
 );
 
+/** Text-confirmation proposals produced by the voice verifier. Never grants external authority. */
+export const voiceVerificationProposals = pgTable(
+  "voice_verification_proposals",
+  {
+    proposalId: text("proposal_id").notNull(),
+    ownerHash: text("owner_hash").notNull(),
+    conversationHash: text("conversation_hash").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenBindingHash: text("token_binding_hash").notNull(),
+    status: text("status", { enum: ["pending", "completed", "cancelled", "expired"] })
+      .notNull()
+      .default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    identityPk: primaryKey({
+      name: "voice_verification_proposals_identity_pk",
+      columns: [t.proposalId, t.ownerHash, t.conversationHash, t.policyVersion],
+    }),
+    tokenUniqueIdx: uniqueIndex("voice_verification_proposals_token_hash_unique_idx").on(t.tokenHash),
+    bindingUniqueIdx: uniqueIndex("voice_verification_proposals_binding_hash_unique_idx").on(t.tokenBindingHash),
+    confirmationIdentityUniqueIdx: uniqueIndex("voice_verification_proposals_confirmation_identity_unique_idx").on(
+      t.proposalId,
+      t.ownerHash,
+      t.conversationHash,
+      t.policyVersion,
+      t.tokenHash,
+      t.tokenBindingHash,
+    ),
+    pendingLookupIdx: index("voice_verification_proposals_pending_lookup_idx").on(
+      t.ownerHash,
+      t.conversationHash,
+      t.status,
+      t.expiresAt,
+    ),
+    ownerHashLengthCheck: check("voice_verification_proposals_owner_hash_length_check", sql`length(${t.ownerHash}) = 64`),
+    conversationHashLengthCheck: check("voice_verification_proposals_conversation_hash_length_check", sql`length(${t.conversationHash}) = 64`),
+    tokenHashLengthCheck: check("voice_verification_proposals_token_hash_length_check", sql`length(${t.tokenHash}) = 64`),
+    tokenBindingHashLengthCheck: check("voice_verification_proposals_binding_hash_length_check", sql`length(${t.tokenBindingHash}) = 64`),
+    cancelledStateCheck: check(
+      "voice_verification_proposals_cancelled_state_check",
+      sql`(${t.status} = 'cancelled') = (${t.cancelledAt} IS NOT NULL)`,
+    ),
+    consumedStateCheck: check(
+      "voice_verification_proposals_consumed_state_check",
+      sql`(${t.status} = 'completed') = (${t.consumedAt} IS NOT NULL)`,
+    ),
+  }),
+);
+
+/** Immutable attempts to accept or reject an exactly bound voice proposal. */
+export const voiceVerificationConfirmations = pgTable(
+  "voice_verification_confirmations",
+  {
+    attemptId: uuid("attempt_id").defaultRandom().primaryKey(),
+    proposalId: text("proposal_id").notNull(),
+    ownerHash: text("owner_hash").notNull(),
+    conversationHash: text("conversation_hash").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenBindingHash: text("token_binding_hash").notNull(),
+    accepted: boolean("accepted").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    proposalBindingFk: foreignKey({
+      name: "voice_verification_confirmations_proposal_binding_fk",
+      columns: [
+        t.proposalId,
+        t.ownerHash,
+        t.conversationHash,
+        t.policyVersion,
+        t.tokenHash,
+        t.tokenBindingHash,
+      ],
+      foreignColumns: [
+        voiceVerificationProposals.proposalId,
+        voiceVerificationProposals.ownerHash,
+        voiceVerificationProposals.conversationHash,
+        voiceVerificationProposals.policyVersion,
+        voiceVerificationProposals.tokenHash,
+        voiceVerificationProposals.tokenBindingHash,
+      ],
+    }),
+    ownerConversationIdx: index("voice_verification_confirmations_owner_conversation_idx").on(
+      t.ownerHash,
+      t.conversationHash,
+      t.createdAt,
+    ),
+    acceptedOnceIdx: uniqueIndex("voice_verification_confirmations_accepted_once_idx").on(
+      t.proposalId,
+      t.ownerHash,
+      t.conversationHash,
+      t.policyVersion,
+      t.tokenHash,
+      t.tokenBindingHash,
+    ).where(sql`${t.accepted} = true`),
+    ownerHashLengthCheck: check("voice_verification_confirmations_owner_hash_length_check", sql`length(${t.ownerHash}) = 64`),
+    conversationHashLengthCheck: check("voice_verification_confirmations_conversation_hash_length_check", sql`length(${t.conversationHash}) = 64`),
+    tokenHashLengthCheck: check("voice_verification_confirmations_token_hash_length_check", sql`length(${t.tokenHash}) = 64`),
+    tokenBindingHashLengthCheck: check("voice_verification_confirmations_binding_hash_length_check", sql`length(${t.tokenBindingHash}) = 64`),
+  }),
+);
+
 /**
  * OAuth/API accounts connected by the owner.
  * Tokens are encrypted by caller before insert/update.
@@ -470,6 +583,10 @@ export type VerifiedVoiceContactRecord = typeof verifiedVoiceContacts.$inferSele
 export type NewVerifiedVoiceContactRecord = typeof verifiedVoiceContacts.$inferInsert;
 export type VerifiedVoiceProductRecord = typeof verifiedVoiceProducts.$inferSelect;
 export type NewVerifiedVoiceProductRecord = typeof verifiedVoiceProducts.$inferInsert;
+export type VoiceVerificationProposalRecord = typeof voiceVerificationProposals.$inferSelect;
+export type NewVoiceVerificationProposalRecord = typeof voiceVerificationProposals.$inferInsert;
+export type VoiceVerificationConfirmationRecord = typeof voiceVerificationConfirmations.$inferSelect;
+export type NewVoiceVerificationConfirmationRecord = typeof voiceVerificationConfirmations.$inferInsert;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;

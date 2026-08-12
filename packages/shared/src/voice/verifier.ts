@@ -14,6 +14,7 @@ import { inspectVoiceUnicode } from "./unicode-policy.js";
 import type {
   VoiceActionEvidence,
   VoiceSemanticEvidence,
+  VoiceSemanticLifecycle,
   VoiceSemanticStatus,
   VoiceVerificationInput,
   VoiceVerificationResult,
@@ -21,9 +22,45 @@ import type {
 
 const SEMANTIC_KEYS = new Set(["action", "externalEffect", "negated", "correction", "evidence"]);
 const SEMANTIC_ACTIONS = new Set([
-  "transcribe", "answer", "retrieve", "draft", "check_quote", "send", "call", "book",
+  "transcribe", "answer", "retrieve", "draft", "check", "check_quote", "cancel", "send", "call", "book",
   "order", "pay", "delete", "account", "confirm", "unknown",
 ]);
+
+const LIFECYCLE_STATUS = {
+  timeout: ["timeout", "semantic_timeout"],
+  late_after_timeout: ["late_rejected", "semantic_late_after_timeout"],
+  cancelled: ["cancelled_rejected", "semantic_after_cancellation"],
+  previous_process: ["restart_rejected", "semantic_after_restart"],
+  partial: ["partial_rejected", "semantic_partial_output"],
+} as const satisfies Record<VoiceSemanticLifecycle["state"], readonly [VoiceSemanticStatus, string]>;
+
+const LIFECYCLE_KEYS = new Set(["state", "requestId", "processEpoch", "currentProcessEpoch"]);
+
+function semanticLifecycleStatus(
+  lifecycle: VoiceSemanticLifecycle | undefined,
+): readonly [VoiceSemanticStatus, string] | undefined {
+  if (lifecycle === undefined) return undefined;
+  if (!lifecycle || typeof lifecycle !== "object" || Array.isArray(lifecycle)) {
+    return LIFECYCLE_STATUS.partial;
+  }
+  const value = lifecycle as unknown as Record<string, unknown>;
+  if (!hasOnlyKeys(value, LIFECYCLE_KEYS)
+    || typeof value.state !== "string"
+    || !(value.state in LIFECYCLE_STATUS)
+    || typeof value.requestId !== "string"
+    || value.requestId.length === 0
+    || typeof value.processEpoch !== "string"
+    || value.processEpoch.length === 0) {
+    return LIFECYCLE_STATUS.partial;
+  }
+  if (value.state === "previous_process"
+    && (typeof value.currentProcessEpoch !== "string"
+      || value.currentProcessEpoch.length === 0
+      || value.currentProcessEpoch === value.processEpoch)) {
+    return LIFECYCLE_STATUS.partial;
+  }
+  return LIFECYCLE_STATUS[value.state as VoiceSemanticLifecycle["state"]];
+}
 
 function hasOnlyKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>): boolean {
   return Object.keys(value).every((key) => allowed.has(key));
@@ -82,7 +119,7 @@ function semanticStatus(
 export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerificationResult {
   const rawTranscript = input.rawTranscript;
   const unicode = inspectVoiceUnicode(rawTranscript);
-  const entities = extractDeterministicVoiceEntities(rawTranscript, input.locale);
+  const entities = extractDeterministicVoiceEntities(rawTranscript, input.locale, input.temporalContext);
   const recipient = resolveVoiceRecipient({
     text: rawTranscript,
     ownerHash: input.ownerHash,
@@ -102,9 +139,11 @@ export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerif
   const correctionPresent = voiceCorrectionPresent(rawTranscript);
   const authority = voiceAuthority(rawTranscript);
   const promptInjection = voicePromptInjectionPresent(rawTranscript);
-  const semantics = semanticStatus(rawTranscript, input.semantic, actions, negated, correctionPresent);
+  const lifecycle = semanticLifecycleStatus(input.semanticLifecycle);
+  const semantics = lifecycle?.[0]
+    ?? semanticStatus(rawTranscript, input.semantic, actions, negated, correctionPresent);
   const tier = classifyVoiceRiskTier({ actions, entities, correction: correctionPresent, authority });
-  const disposition = rawTranscript.trim()
+  let disposition = rawTranscript.trim()
     ? voiceDisposition({
         unicodeSafe: unicode.safe,
         tier,
@@ -117,12 +156,29 @@ export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerif
       })
     : "reject";
 
+  const ambiguousCheck = actions.some(({ action }) => action === "check")
+    && !actions.some(({ action }) => action === "check_quote")
+    && /^\s*(?:please\s+)?(?:check|चेक)(?:\s+(?:it|this|that|them|इसे|यह))?\s*[.!?]*\s*$/iu.test(rawTranscript);
+  if (ambiguousCheck && disposition === "allow_local_preview") disposition = "require_text_clarification";
+
   const reasons: string[] = [];
   if (!rawTranscript.trim()) reasons.push("empty_transcript");
   if (!unicode.safe) reasons.push("unicode_rejected");
   if (input.providerConfidence === null) reasons.push("provider_confidence_unavailable");
   if (semantics === "invalid") reasons.push("semantic_evidence_invalid");
   if (semantics === "disagrees") reasons.push("semantic_evidence_disagrees");
+  if (lifecycle) reasons.push(lifecycle[1]);
+  if (ambiguousCheck) reasons.push("check_object_ambiguous");
+  const weekday = entities.find(({ raw }) => /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/iu.test(raw));
+  if (weekday?.resolution === "ambiguous") reasons.push("weekday_anchor_missing");
+  if (input.temporalContext && input.temporalContext.version !== input.temporalContext.currentVersion) {
+    reasons.push("temporal_context_stale");
+  } else if (weekday?.resolution === "rejected") {
+    reasons.push("weekday_date_conflict");
+  }
+  if (entities.some(({ fieldType, resolution }) => fieldType === "time" && resolution === "rejected")) {
+    reasons.push("local_time_nonexistent");
+  }
   if (negated) reasons.push("negation_present");
   if (correctionPresent) reasons.push("correction_present");
   if (authority === "quoted_or_background") reasons.push("voice_authority_unclear");

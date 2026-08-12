@@ -15,12 +15,14 @@ const ACTION_PATTERNS: Array<{ action: VoiceAction; externalEffect: boolean; pat
   { action: "order", externalEffect: true, pattern: /\b(?:order|purchase|buy)\b|(?:ऑर्डर|खरीद|मंगवा(?:ओ|\s+दो)?)/iu },
   { action: "account", externalEffect: true, pattern: /\b(?:connect|authorize|authorise|login|account)\b|(?:अकाउंट|लॉगिन|कनेक्ट)/iu },
   { action: "confirm", externalEffect: true, pattern: /\b(?:confirm|approve|go\s+ahead)\b|(?:पुष्टि|मंजूर)/iu },
+  { action: "cancel", externalEffect: true, pattern: /\b(?:cancel|abort|withdraw)\b|(?:रद्द|कैंसल)/iu },
   { action: "send", externalEffect: true, pattern: /\b(?:send|message|text|email|forward|share|post|publish|dispatch|deliver|ping|reach\s+out)\b|(?:भेजो|भेजना|मैसेज|ईमेल|पहुँचा(?:ओ|\s+दो)?)/iu },
   { action: "call", externalEffect: true, pattern: /\b(?:call|phone|ring)\b|(?:कॉल|फोन|फ़ोन)(?:\s+लगाओ)?/iu },
   { action: "book", externalEffect: true, pattern: /\b(?:book|schedule|reserve|appointment|arrange)\b|(?:बुक|शेड्यूल|अपॉइंटमेंट|समय\s+तय)/iu },
   { action: "draft", externalEffect: false, pattern: /\b(?:draft|prepare|compose)\b|(?:ड्राफ्ट|तैयार)/iu },
   { action: "retrieve", externalEffect: false, pattern: /\b(?:show|find|retrieve|read|open|get)\b|(?:दिखाओ|ढूँढो|पढ़ो)/iu },
   { action: "check_quote", externalEffect: false, pattern: /(?:\bquote\b|कोट|क्वोट)[\s\S]{0,80}(?:\bcheck\b|चेक)|(?:\bcheck\b|चेक)[\s\S]{0,80}(?:\bquote\b|कोट|क्वोट)/iu },
+  { action: "check", externalEffect: false, pattern: /\bcheck\b|चेक/iu },
 ];
 
 function firstSpan(text: string, pattern: RegExp): VoiceEvidenceSpan | null {
@@ -32,6 +34,7 @@ function firstSpan(text: string, pattern: RegExp): VoiceEvidenceSpan | null {
 export function detectVoiceActions(text: string): VoiceActionEvidence[] {
   const actions: VoiceActionEvidence[] = [];
   for (const candidate of ACTION_PATTERNS) {
+    if (candidate.action === "check" && actions.some(({ action }) => action === "check_quote")) continue;
     const span = firstSpan(text, candidate.pattern);
     if (span) actions.push({ action: candidate.action, externalEffect: candidate.externalEffect, span });
   }
@@ -39,7 +42,7 @@ export function detectVoiceActions(text: string): VoiceActionEvidence[] {
 }
 
 export function voiceNegationPresent(text: string): boolean {
-  return /\b(?:no|not|never|don['’]?t|do\s+not|cancel)\b|(?:नहीं|नही|मत)|\b(?:nahi|nahin|mat)\b/iu.test(text);
+  return /\b(?:no|not|never|don['’]?t|do\s+not)\b|(?:नहीं|नही|मत)|\b(?:nahi|nahin|mat)\b/iu.test(text);
 }
 
 export function voiceCorrectionPresent(text: string): boolean {
@@ -70,12 +73,12 @@ export function classifyVoiceRiskTier(args: {
   if (args.authority === "quoted_or_background") return 4;
   const actionSet = new Set(args.actions.map(({ action }) => action));
   const recipient = args.entities.some(({ fieldType }) => fieldType === "recipient");
-  const consequential = ["delete", "pay", "order", "account", "confirm"].some((action) => actionSet.has(action as VoiceAction));
+  const consequential = ["delete", "pay", "order", "account", "confirm", "cancel"].some((action) => actionSet.has(action as VoiceAction));
   const externalEffect = args.actions.some((action) => action.externalEffect);
   if (consequential || args.correction || (recipient && externalEffect)) return 4;
   if (["send", "call", "book"].some((action) => actionSet.has(action as VoiceAction))) return 3;
   if (actionSet.has("transcribe")) return 0;
-  if (["draft", "retrieve", "check_quote"].some((action) => actionSet.has(action as VoiceAction))) return 2;
+  if (["draft", "retrieve", "check", "check_quote"].some((action) => actionSet.has(action as VoiceAction))) return 2;
   return args.actions.length === 0 ? 1 : 1;
 }
 
@@ -83,7 +86,7 @@ export function voiceDisposition(args: {
   unicodeSafe: boolean;
   tier: VoiceRiskTier;
   entities: VoiceTypedEntity[];
-  semanticStatus: "unavailable" | "valid" | "invalid" | "disagrees";
+  semanticStatus: import("./types.js").VoiceSemanticStatus;
   negated: boolean;
   correction: boolean;
   authority: "direct" | "discussion" | "quoted_or_background";
@@ -94,7 +97,7 @@ export function voiceDisposition(args: {
     return "require_text_restatement";
   }
   if (args.tier === 3) return "require_text_confirmation";
-  if (args.semanticStatus === "invalid" || args.semanticStatus === "disagrees") return "require_text_clarification";
+  if (!["unavailable", "valid"].includes(args.semanticStatus)) return "require_text_clarification";
   const unresolved = args.entities.some(({ resolution }) => resolution !== "exact");
   if (args.tier === 2) return unresolved ? "require_text_clarification" : "allow_local_preview";
   if (args.tier === 0) return "allow_transcript";

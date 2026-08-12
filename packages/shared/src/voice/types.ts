@@ -136,7 +136,9 @@ export type VoiceAction =
   | "answer"
   | "retrieve"
   | "draft"
+  | "check"
   | "check_quote"
+  | "cancel"
   | "send"
   | "call"
   | "book"
@@ -161,7 +163,30 @@ export interface VoiceSemanticEvidence {
   evidence: VoiceEvidenceSpan[];
 }
 
-export type VoiceSemanticStatus = "unavailable" | "valid" | "invalid" | "disagrees";
+export type VoiceSemanticStatus =
+  | "unavailable"
+  | "valid"
+  | "invalid"
+  | "disagrees"
+  | "timeout"
+  | "late_rejected"
+  | "cancelled_rejected"
+  | "restart_rejected"
+  | "partial_rejected";
+
+export interface VoiceSemanticLifecycle {
+  state: "timeout" | "late_after_timeout" | "cancelled" | "previous_process" | "partial";
+  requestId: string;
+  processEpoch: string;
+  currentProcessEpoch?: string;
+}
+
+export interface VoiceTemporalContext {
+  anchorDate: string;
+  version: string;
+  currentVersion: string;
+  timezone: "Australia/Sydney";
+}
 
 export interface VoiceTierPolicy {
   tier: VoiceRiskTier;
@@ -191,6 +216,8 @@ export interface VoiceVerificationInput {
   requiredRecipientChannel?: VerifiedVoiceContact["channel"];
   products?: VerifiedVoiceProduct[];
   semantic?: VoiceSemanticEvidence;
+  semanticLifecycle?: VoiceSemanticLifecycle;
+  temporalContext?: VoiceTemporalContext;
 }
 
 export interface VoiceVerificationResult {
