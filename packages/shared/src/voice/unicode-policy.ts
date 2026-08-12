@@ -38,10 +38,16 @@ export function inspectVoiceUnicode(text: string): VoiceUnicodeAssessment {
     const end = index + char.length;
     if (BIDI_CODE_POINTS.has(codePoint)) {
       issues.push({ kind: "bidi", span: span(normalized, index, end) });
+    } else if (/\p{Cs}/u.test(char)) {
+      issues.push({ kind: "surrogate", span: span(normalized, index, end) });
     } else if (/\p{Cc}/u.test(char)) {
       issues.push({ kind: "control", span: span(normalized, index, end) });
     } else if (/\p{Cf}/u.test(char)) {
       issues.push({ kind: "format", span: span(normalized, index, end) });
+    } else if (char.normalize("NFKC") !== char.normalize("NFC")) {
+      issues.push({ kind: "compatibility", span: span(normalized, index, end) });
+    } else if (/[\u0334-\u0338]/u.test(char)) {
+      issues.push({ kind: "combining_mark", span: span(normalized, index, end) });
     }
     index = end;
   }

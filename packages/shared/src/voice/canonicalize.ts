@@ -51,6 +51,14 @@ function timeCanonical(hourText: string, minuteText: string, meridiem?: string):
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+const HOUR_WORDS = new Map<string, number>([
+  ["one", 1], ["two", 2], ["three", 3], ["four", 4], ["five", 5], ["six", 6],
+  ["seven", 7], ["eight", 8], ["nine", 9], ["ten", 10], ["eleven", 11],
+  ["twelve", 12], ["thirteen", 13], ["fourteen", 14], ["fifteen", 15],
+  ["sixteen", 16], ["seventeen", 17], ["eighteen", 18], ["nineteen", 19],
+  ["twenty", 20], ["twenty-one", 21], ["twenty-two", 22], ["twenty-three", 23],
+]);
+
 export function normalizeVoiceView(text: string): string {
   return text.normalize("NFC").replace(/\s+/gu, " ").trim();
 }
@@ -79,6 +87,12 @@ export function extractDeterministicVoiceEntities(
     if (occupiedTimeSpans.some(([left, right]) => start >= left && end <= right)) continue;
     const canonical = timeCanonical(match[1]!, match[2]!);
     if (canonical) entities.push(entity(text, nextId("time"), "time", start, end, canonical, "exact"));
+  }
+  for (const match of text.matchAll(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty(?:-(?:one|two|three))?)\s+hundred\b/giu)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    const hour = HOUR_WORDS.get(match[1]!.toLowerCase());
+    if (hour !== undefined) entities.push(entity(text, nextId("time"), "time", start, end, `${String(hour).padStart(2, "0")}:00`, "exact"));
   }
 
   const powerPattern = /\b(\d+(?:\.\d+)?)\s*(kilowatt(?:[ -]?hours?|s)?|kwh|kw)(?![\p{L}\p{N}])/giu;
@@ -116,6 +130,13 @@ export function extractDeterministicVoiceEntities(
     const value = decimal(match[3] ?? match[5]!);
     entities.push(entity(text, nextId("amount"), "amount", start, end, `${currency}|${value}`, "exact"));
   }
+  const spokenAmountPattern = /(?<![\p{L}\p{N}])(?:(minus|negative)\s+)?(\d[\d,]*(?:\.\d{1,2})?)\s+(dollars?|डॉलर)(?![\p{L}\p{N}])/giu;
+  for (const match of text.matchAll(spokenAmountPattern)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    const sign = match[1] ? "-" : "";
+    entities.push(entity(text, nextId("amount"), "amount", start, end, `AUD|${sign}${decimal(match[2]!)}`, "exact"));
+  }
 
   const numericDatePattern = /(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?!\d)/gu;
   for (const match of text.matchAll(numericDatePattern)) {
@@ -141,6 +162,15 @@ export function extractDeterministicVoiceEntities(
     const start = match.index ?? 0;
     const end = start + match[0].length;
     entities.push(entity(text, nextId("location"), "location", start, end, null, "candidate"));
+  }
+
+  for (const match of text.matchAll(/\b(?:Australia\/(?:Sydney|Melbourne|Brisbane|Perth|Adelaide)|Asia\/Kolkata|UTC)\b/giu)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    const canonical = match[0].toLowerCase() === "utc"
+      ? "UTC"
+      : match[0].replace(/^australia/iu, "Australia").replace(/^asia/iu, "Asia");
+    entities.push(entity(text, nextId("timezone"), "timezone", start, end, canonical, "exact"));
   }
 
   for (const match of text.matchAll(/(?:\+?\d[\d ()-]{6,}\d)/gu)) {

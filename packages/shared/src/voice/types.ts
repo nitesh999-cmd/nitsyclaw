@@ -144,6 +144,7 @@ export type VoiceAction =
   | "pay"
   | "delete"
   | "account"
+  | "confirm"
   | "unknown";
 
 export interface VoiceActionEvidence {
@@ -175,7 +176,7 @@ export interface VoiceUnicodeAssessment {
   safe: boolean;
   normalized: string;
   issues: Array<{
-    kind: "control" | "format" | "bidi" | "mixed_script_token";
+    kind: "control" | "format" | "bidi" | "surrogate" | "compatibility" | "combining_mark" | "mixed_script_token";
     span: VoiceEvidenceSpan;
   }>;
 }
@@ -187,6 +188,7 @@ export interface VoiceVerificationInput {
   providerConfidence: number | null;
   locale?: "en-AU" | "en-IN" | "hi-IN";
   contacts?: VerifiedVoiceContact[];
+  requiredRecipientChannel?: VerifiedVoiceContact["channel"];
   products?: VerifiedVoiceProduct[];
   semantic?: VoiceSemanticEvidence;
 }

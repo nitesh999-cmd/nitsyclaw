@@ -7,6 +7,7 @@ import {
   voiceCorrectionPresent,
   voiceDisposition,
   voiceNegationPresent,
+  voicePromptInjectionPresent,
   voiceTierPolicy,
 } from "./risk-policy.js";
 import { inspectVoiceUnicode } from "./unicode-policy.js";
@@ -18,6 +19,16 @@ import type {
   VoiceVerificationResult,
 } from "./types.js";
 
+const SEMANTIC_KEYS = new Set(["action", "externalEffect", "negated", "correction", "evidence"]);
+const SEMANTIC_ACTIONS = new Set([
+  "transcribe", "answer", "retrieve", "draft", "check_quote", "send", "call", "book",
+  "order", "pay", "delete", "account", "confirm", "unknown",
+]);
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>): boolean {
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
 function semanticStatus(
   rawTranscript: string,
   semantic: VoiceSemanticEvidence | undefined,
@@ -25,14 +36,32 @@ function semanticStatus(
   negated: boolean,
   correction: boolean,
 ): VoiceSemanticStatus {
-  if (!semantic) return "unavailable";
-  if (!Array.isArray(semantic.evidence) || semantic.evidence.length === 0) return "invalid";
-  for (const span of semantic.evidence) {
+  if (semantic === undefined) return "unavailable";
+  if (!semantic || typeof semantic !== "object" || Array.isArray(semantic)) return "invalid";
+  const value = semantic as unknown as Record<string, unknown>;
+  if (!hasOnlyKeys(value, SEMANTIC_KEYS)
+    || !SEMANTIC_ACTIONS.has(value.action as string)
+    || typeof value.externalEffect !== "boolean"
+    || typeof value.negated !== "boolean"
+    || (value.correction !== "absent" && value.correction !== "present")
+    || !Array.isArray(value.evidence)
+    || value.evidence.length === 0) return "invalid";
+  const allowedSpanKeys = new Set(["start", "end", "text"]);
+  for (const candidate of value.evidence) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)
+      || !hasOnlyKeys(candidate as Record<string, unknown>, allowedSpanKeys)) return "invalid";
+    const span = candidate as Record<string, unknown>;
+    if (!Number.isInteger(span.start) || !Number.isInteger(span.end) || typeof span.text !== "string") return "invalid";
+  }
+  const spans = semantic.evidence;
+  for (const span of spans) {
     if (!Number.isInteger(span.start) || !Number.isInteger(span.end) || span.start < 0 || span.end <= span.start || span.end > rawTranscript.length) {
       return "invalid";
     }
     if (rawTranscript.slice(span.start, span.end) !== span.text) return "invalid";
   }
+  const ordered = [...spans].sort((left, right) => left.start - right.start || left.end - right.end);
+  if (ordered.some((span, index) => index > 0 && span.start < ordered[index - 1]!.end)) return "invalid";
   const deterministicActions = new Set(actions.map(({ action }) => action));
   const actionAgrees = deterministicActions.has(semantic.action)
     || (deterministicActions.size === 0 && ["answer", "unknown"].includes(semantic.action));
@@ -58,6 +87,7 @@ export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerif
     text: rawTranscript,
     ownerHash: input.ownerHash,
     contacts: input.contacts ?? [],
+    requiredChannel: input.requiredRecipientChannel,
   });
   const product = resolveVoiceProduct({
     text: rawTranscript,
@@ -71,6 +101,7 @@ export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerif
   const negated = voiceNegationPresent(rawTranscript);
   const correctionPresent = voiceCorrectionPresent(rawTranscript);
   const authority = voiceAuthority(rawTranscript);
+  const promptInjection = voicePromptInjectionPresent(rawTranscript);
   const semantics = semanticStatus(rawTranscript, input.semantic, actions, negated, correctionPresent);
   const tier = classifyVoiceRiskTier({ actions, entities, correction: correctionPresent, authority });
   const disposition = rawTranscript.trim()
@@ -82,6 +113,7 @@ export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerif
         negated,
         correction: correctionPresent,
         authority,
+        promptInjection,
       })
     : "reject";
 
@@ -94,6 +126,7 @@ export function verifyVoiceTranscript(input: VoiceVerificationInput): VoiceVerif
   if (negated) reasons.push("negation_present");
   if (correctionPresent) reasons.push("correction_present");
   if (authority === "quoted_or_background") reasons.push("voice_authority_unclear");
+  if (promptInjection) reasons.push("prompt_injection_rejected");
   if (entities.some(({ resolution }) => resolution === "ambiguous")) reasons.push("critical_field_ambiguous");
   if (entities.some(({ resolution }) => resolution === "candidate")) reasons.push("critical_field_unverified");
   if (tier >= 3) reasons.push("external_or_consequential_action_requires_text");

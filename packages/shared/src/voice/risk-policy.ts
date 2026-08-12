@@ -10,13 +10,14 @@ import type {
 
 const ACTION_PATTERNS: Array<{ action: VoiceAction; externalEffect: boolean; pattern: RegExp }> = [
   { action: "transcribe", externalEffect: false, pattern: /\b(?:show|display|read)\s+(?:(?:the|my)\s+)?transcript\b|(?:ट्रांसक्रिप्ट|लिप्यंतरण)\s+(?:दिखाओ|पढ़ो)/iu },
-  { action: "delete", externalEffect: true, pattern: /\b(?:delete|remove|erase|wipe)\b|(?:डिलीट|हटाओ|मिटाओ)/iu },
-  { action: "pay", externalEffect: true, pattern: /\b(?:pay|transfer|refund|spend)\b|(?:पेमेंट|भुगतान|ट्रांसफर)/iu },
-  { action: "order", externalEffect: true, pattern: /\b(?:order|purchase|buy)\b|(?:ऑर्डर|खरीद)/iu },
+  { action: "delete", externalEffect: true, pattern: /\b(?:delete|remove|erase|wipe)\b|(?:डिलीट|हटाओ|हटा\s+देना|मिटाओ)/iu },
+  { action: "pay", externalEffect: true, pattern: /\b(?:pay|transfer|refund|spend|remit)\b|(?:पेमेंट|भुगतान|ट्रांसफर|चुका(?:ओ|\s+दो)?)/iu },
+  { action: "order", externalEffect: true, pattern: /\b(?:order|purchase|buy)\b|(?:ऑर्डर|खरीद|मंगवा(?:ओ|\s+दो)?)/iu },
   { action: "account", externalEffect: true, pattern: /\b(?:connect|authorize|authorise|login|account)\b|(?:अकाउंट|लॉगिन|कनेक्ट)/iu },
-  { action: "send", externalEffect: true, pattern: /\b(?:send|message|text|email|forward|share|post|publish)\b|(?:भेजो|भेजना|मैसेज|ईमेल)/iu },
-  { action: "call", externalEffect: true, pattern: /\b(?:call|phone|ring)\b|(?:कॉल|फोन)/iu },
-  { action: "book", externalEffect: true, pattern: /\b(?:book|schedule|reserve|appointment)\b|(?:बुक|शेड्यूल|अपॉइंटमेंट)/iu },
+  { action: "confirm", externalEffect: true, pattern: /\b(?:confirm|approve|go\s+ahead)\b|(?:पुष्टि|मंजूर)/iu },
+  { action: "send", externalEffect: true, pattern: /\b(?:send|message|text|email|forward|share|post|publish|dispatch|deliver|ping|reach\s+out)\b|(?:भेजो|भेजना|मैसेज|ईमेल|पहुँचा(?:ओ|\s+दो)?)/iu },
+  { action: "call", externalEffect: true, pattern: /\b(?:call|phone|ring)\b|(?:कॉल|फोन|फ़ोन)(?:\s+लगाओ)?/iu },
+  { action: "book", externalEffect: true, pattern: /\b(?:book|schedule|reserve|appointment|arrange)\b|(?:बुक|शेड्यूल|अपॉइंटमेंट|समय\s+तय)/iu },
   { action: "draft", externalEffect: false, pattern: /\b(?:draft|prepare|compose)\b|(?:ड्राफ्ट|तैयार)/iu },
   { action: "retrieve", externalEffect: false, pattern: /\b(?:show|find|retrieve|read|open|get)\b|(?:दिखाओ|ढूँढो|पढ़ो)/iu },
   { action: "check_quote", externalEffect: false, pattern: /(?:\bquote\b|कोट|क्वोट)[\s\S]{0,80}(?:\bcheck\b|चेक)|(?:\bcheck\b|चेक)[\s\S]{0,80}(?:\bquote\b|कोट|क्वोट)/iu },
@@ -46,13 +47,17 @@ export function voiceCorrectionPresent(text: string): boolean {
 }
 
 export function voiceAuthority(text: string): "direct" | "discussion" | "quoted_or_background" {
-  if (/\b(?:the\s+tv|television|radio|podcast|video|someone|they|he|she)\s+(?:said|says|is\s+saying)|\b(?:quoted|reading\s+aloud)\b/iu.test(text)) {
+  if (/\b(?:the\s+(?:tv|television|radio|podcast|video|note)|someone|they|he|she)\s+(?:said|says|is\s+saying|reads?)|\b(?:quoted|reading\s+aloud)\b/iu.test(text)) {
     return "quoted_or_background";
   }
-  if (/^\s*(?:how\s+do\s+i|how\s+can\s+i|what\s+(?:does|happens)|can\s+i|should\s+i|why\s+would\s+i)\b/iu.test(text)) {
+  if (/^\s*(?:how\s+do\s+i|how\s+can\s+i|what\s+(?:does|happens|would\s+happen)|can\s+i|should\s+i|why\s+would\s+i)\b/iu.test(text)) {
     return "discussion";
   }
   return "direct";
+}
+
+export function voicePromptInjectionPresent(text: string): boolean {
+  return /\bexternalActionAllowed\b|\b(?:call|invoke|run)\s+(?:the\s+)?tool\b|\bapproval\s*=\s*true\b|\bsend_message\b/iu.test(text);
 }
 
 export function classifyVoiceRiskTier(args: {
@@ -65,8 +70,9 @@ export function classifyVoiceRiskTier(args: {
   if (args.authority === "quoted_or_background") return 4;
   const actionSet = new Set(args.actions.map(({ action }) => action));
   const recipient = args.entities.some(({ fieldType }) => fieldType === "recipient");
-  const consequential = ["delete", "pay", "order", "account"].some((action) => actionSet.has(action as VoiceAction));
-  if (consequential || args.correction || (recipient && (actionSet.has("send") || actionSet.has("call")))) return 4;
+  const consequential = ["delete", "pay", "order", "account", "confirm"].some((action) => actionSet.has(action as VoiceAction));
+  const externalEffect = args.actions.some((action) => action.externalEffect);
+  if (consequential || args.correction || (recipient && externalEffect)) return 4;
   if (["send", "call", "book"].some((action) => actionSet.has(action as VoiceAction))) return 3;
   if (actionSet.has("transcribe")) return 0;
   if (["draft", "retrieve", "check_quote"].some((action) => actionSet.has(action as VoiceAction))) return 2;
@@ -81,8 +87,9 @@ export function voiceDisposition(args: {
   negated: boolean;
   correction: boolean;
   authority: "direct" | "discussion" | "quoted_or_background";
+  promptInjection: boolean;
 }): VoiceVerificationDisposition {
-  if (!args.unicodeSafe) return "reject";
+  if (!args.unicodeSafe || args.promptInjection) return "reject";
   if (args.tier >= 4 || args.negated || args.correction || args.authority === "quoted_or_background") {
     return "require_text_restatement";
   }

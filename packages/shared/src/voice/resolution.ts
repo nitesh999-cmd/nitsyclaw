@@ -13,6 +13,10 @@ function boundary(char: string | undefined): boolean {
   return char === undefined || !/[\p{L}\p{M}\p{N}_]/u.test(char);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
 function findAliasSpan(text: string, alias: string): VoiceEvidenceSpan | null {
   const normalizedText = text.normalize("NFC").toLocaleLowerCase("en");
   const normalizedAlias = normalizeAlias(alias);
@@ -76,10 +80,11 @@ export function resolveVoiceRecipient(args: {
   text: string;
   ownerHash: string;
   contacts: VerifiedVoiceContact[];
+  requiredChannel?: VerifiedVoiceContact["channel"];
 }): VoiceTypedEntity | null {
   const matches: Array<{ contact: VerifiedVoiceContact; span: VoiceEvidenceSpan }> = [];
   for (const contact of args.contacts) {
-    if (!contact.verified || contact.ownerHash !== args.ownerHash) continue;
+    if (!contact.verified || contact.ownerHash !== args.ownerHash || (args.requiredChannel && contact.channel !== args.requiredChannel)) continue;
     for (const alias of contact.aliases) {
       const aliasSpan = findAliasSpan(args.text, alias);
       if (aliasSpan) {
@@ -169,13 +174,24 @@ export function resolveVoiceProduct(args: {
       alternatives: matches.map(({ product }) => `${product.brand} ${product.model}`),
     };
   }
-  const candidate = args.text.match(/(?:Tesla|टेस्ला)\s+[\p{L}\p{M}\p{N} -]*(?:Powerwall|पावर[\p{L}\p{M}]*)(?:\s+[\p{L}\p{M}\p{N}-]+)?/iu);
-  if (candidate?.index === undefined) return null;
+  const knownBrand = args.products
+    .map(({ brand }) => args.text.match(new RegExp(
+      `\\b${escapeRegExp(brand)}\\b\\s+(?:inverter|battery|panel|[\\p{L}]*\\d[\\p{L}\\p{N}-]*)`,
+      "iu",
+    )))
+    .find((candidate) => candidate?.index !== undefined);
+  const specificCandidate = args.text.match(/(?:Tesla|टेस्ला)\s+[\p{L}\p{M}\p{N} -]*(?:Powerwall|पावर[\p{L}\p{M}]*)(?:\s+[\p{L}\p{M}\p{N}-]+)?/iu);
+  const candidate = specificCandidate?.index === undefined
+    ? knownBrand?.index === undefined
+      ? null
+      : { start: knownBrand.index, end: knownBrand.index + knownBrand[0].length, text: knownBrand[0] }
+    : { start: specificCandidate.index, end: specificCandidate.index + specificCandidate[0].length, text: specificCandidate[0] };
+  if (!candidate) return null;
   return {
     id: "product-candidate",
     fieldType: "product",
-    raw: candidate[0],
-    span: { start: candidate.index, end: candidate.index + candidate[0].length, text: candidate[0] },
+    raw: candidate.text,
+    span: candidate,
     canonicalValue: null,
     resolution: "candidate",
     source: "deterministic",
