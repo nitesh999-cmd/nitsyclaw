@@ -1,0 +1,25 @@
+--- packages/shared/test/voice-verifier-adversarial-v1.1.test.ts
++++ packages/shared/test/voice-verifier-adversarial-v1.2.test.ts
+@@ -538,16 +538,21 @@
+                 { token_hash: "e".repeat(64) },
+                 { token_binding_hash: "f".repeat(64) },
+               ];
++              let rejectedMutations = 0;
+               for (const [index, mutation] of mutations.entries()) {
+                 expect(() => insertAttempt(db, `${fixture.id}-${index}`, fixture.accepted, mutation)).toThrow();
++                rejectedMutations++;
+               }
++              expect(rejectedMutations).toBe(mutations.length);
++              expect(rejectedMutations).toBe(6);
+               return;
+             }
+             default:
+               throw new Error(`unknown persistence operation: ${fixture.operation}`);
+           }
+         };
+-        if (fixture.expectedRejected) expect(operation).toThrow();
++        if (fixture.operation === "mutate_each_binding_field") expect(operation).not.toThrow();
++        else if (fixture.expectedRejected) expect(operation).toThrow();
+         else expect(operation).not.toThrow();
+       } finally {
+         db.close();

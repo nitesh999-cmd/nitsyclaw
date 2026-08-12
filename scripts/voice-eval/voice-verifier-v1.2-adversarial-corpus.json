@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1.2-ADVERSARIAL-CORPUS",
+  "createdOn": "2026-08-12",
+  "baseCommit": "eaff2ba5f223ec8ded19ae5d7c0f38bce3d0210e",
+  "productionImplementationCommit": "be4cd77e9f800493907ebcd7ea76fbac4f8086ee",
+  "voiceReleaseAuthorized": false,
+  "sharedImmutableInputs": [
+    {
+      "role": "specification",
+      "path": "docs/voice-verifier-v1.1-adversarial-spec.md",
+      "sha256": "258da0683450c18df3266c0c42cce22df871babe8a69fa29d9497944124d0d8b"
+    },
+    {
+      "role": "fixtures",
+      "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-fixtures.json",
+      "sha256": "dd8ea85e6fab8089edc262255762668bc5b3677851f51088b167aac8f4e20e6f"
+    },
+    {
+      "role": "thresholds",
+      "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-thresholds.json",
+      "sha256": "4713dccfeab227c58bf78cc400b89e34cf79d028485240a6ea5f40f982813daa"
+    },
+    {
+      "role": "isolated_database_schema",
+      "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-db-schema.sql",
+      "sha256": "4a81f4562e52ca6bc20f6cea91ebbb3d024c23f68b999696cd4bddb05f91c386"
+    },
+    {
+      "role": "validator",
+      "path": "scripts/voice-eval/validate-voice-verifier-v1.1-adversarial.ts",
+      "sha256": "fe2cad771a67a5385a6634704500d307a6942c8e28baeae89e5e195d6ce726f8"
+    }
+  ],
+  "historicalEvidence": [
+    {
+      "role": "v1_freeze",
+      "path": "scripts/voice-eval/voice-verifier-v1-adversarial.freeze.json",
+      "sha256": "43b620915b7d78bcc3e9550e86567d51c7e161adf9e9660b8e8cc43bc0368539"
+    },
+    {
+      "role": "v1_initial_result",
+      "path": "scripts/voice-eval/voice-verifier-v1-adversarial-initial-run.json",
+      "sha256": "aac8b270095a12af952b37c8349fecc812b38fd8ca30caccdc71e26514b7ccd9"
+    },
+    {
+      "role": "v1_repair_result",
+      "path": "scripts/voice-eval/voice-verifier-v1-adversarial-repair-run-01.json",
+      "sha256": "a39670da2b0a659b898b3886684391e8027ca0aa1b8926ccead0a74ce8ba7e0a"
+    },
+    {
+      "role": "v1_1_freeze",
+      "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial.freeze.json",
+      "sha256": "0034f27116ac059dbd0d5671bc21fcb43069c2d4fe4f8884fb17f8cedf79b638"
+    },
+    {
+      "role": "v1_1_initial_result",
+      "path": "scripts/voice-eval/voice-verifier-v1.1-adversarial-initial-run.json",
+      "sha256": "837ed031e6c0f33f92308b5076482caca3434a81726547adfa532e3419064151"
+    },
+    {
+      "role": "v1_1_evidence",
+      "path": "docs/voice-verifier-v1.1-adversarial-evidence-2026-08-12.md",
+      "sha256": "c4e7a47b4695aa13ba978516c0c449c45fba95d6777c4f1880a21638e3c22b02"
+    }
+  ],
+  "runnerCorrection": {
+    "sourcePath": "packages/shared/test/voice-verifier-adversarial-v1.1.test.ts",
+    "sourceSha256": "e84cb0c2aa59b4f550fb73fc86c9639f28a79242547d2b5040f3ae45fe86dae3",
+    "correctedPath": "packages/shared/test/voice-verifier-adversarial-v1.2.test.ts",
+    "correctedSha256": "b65bf305cc011518afac06c8467abc1404ae89f35bf1b90027220efa30979ec4",
+    "diffPath": "scripts/voice-eval/voice-verifier-v1.2-runner.diff",
+    "diffSha256": "24fddd0c6a3f8fcc59bcc5766b4243f1b88a8ce3212e362de7bb4f4b5c3d5b84",
+    "authorizedCorrection": "replace the contradictory outer throw expectation for mutate_each_binding_field with a non-throwing operation assertion and explicit proof that all six mutations were evaluated and rejected",
+    "expectedMutationCount": 6,
+    "allOtherRunnerAssertionsUnchanged": true
+  },
+  "fixtureCounts": {
+    "check": 6,
+    "cancel": 7,
+    "weekday": 7,
+    "semanticLifecycle": 5,
+    "binding": 26,
+    "persistence": 12,
+    "totalFixtureRecords": 63,
+    "totalRunnerAssertions": 70
+  },
+  "initialImplementationAggregateSha256": "01265feddc5ff44d4136d13267ae070617b9ba034a2e0c9e4131cee6fa7186eb",
+  "completeV11InitialAggregateSha256": "dc04b3293df0ef48d3ff525fc97eedde4a78f8ca4214a4962aa80caf8803a62a"
+}
