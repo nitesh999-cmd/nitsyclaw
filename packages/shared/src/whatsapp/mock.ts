@@ -1,4 +1,4 @@
-import type { InboundMessage, OutboundMessage, WhatsAppClient } from "./client.js";
+import type { InboundMessage, OutboundMessage, OutboundSendResult, WhatsAppClient } from "./client.js";
 
 /**
  * In-memory WhatsApp client for tests.
@@ -13,7 +13,7 @@ export class MockWhatsAppClient implements WhatsAppClient {
     /* always ready */
   }
 
-  async send(msg: OutboundMessage): Promise<{ id: string }> {
+  async send(msg: OutboundMessage): Promise<OutboundSendResult> {
     if (this.destroyed) throw new Error("client destroyed");
     this.sent.push(msg);
     return { id: `mock-${this.sent.length}` };
@@ -37,6 +37,8 @@ export class MockWhatsAppClient implements WhatsAppClient {
       timestamp: partial.timestamp ?? new Date(),
       hasMedia: partial.hasMedia ?? false,
       mediaType: partial.mediaType,
+      mediaSizeBytes: partial.mediaSizeBytes,
+      mediaDurationSeconds: partial.mediaDurationSeconds,
       downloadMedia: partial.downloadMedia,
     };
     for (const h of this.handlers) await h(msg);

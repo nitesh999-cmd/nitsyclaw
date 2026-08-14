@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-SMOKE-V2-FREEZE",
+  "files": [
+    {
+      "path": "scripts/voice-eval/scoring-v2.ts",
+      "sha256": "59cd6c7690a48e346b0a088390466bcd44d3843f63a70385f7159e4c66b16969"
+    },
+    {
+      "path": "scripts/voice-eval/voice-smoke-v2-spec.json",
+      "sha256": "6e332da97775467c84006dbd2211822469a9ac941c0f2668d56fe76a452786b5"
+    }
+  ],
+  "aggregateSha256": "d169f8584a158af92463bf84ad7afa257d2daeb5d2ed13d4df3b585e28115d7b"
+}

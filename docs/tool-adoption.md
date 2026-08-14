@@ -28,6 +28,10 @@ Adopt the boring reliable stack first:
 | Ollama 0.32.1 | High for owner-local PA | Adopt behind adapter | Already installed and reachable; HTTP-native adapter adds no package. Manual exact-name model pulls and local-only networking keep supply-chain and privacy risk visible. |
 | qwen3:8b | High, pending live proof | Recommended first model | Tool-capable 8B model is a conservative starting point for the 63 GB RAM machine; live quality/latency must be measured before stickier adoption. |
 | nomic-embed-text | Medium-high, pending live proof | Recommended first embedder | Small local embedding model; use bounded in-memory reranking until a dimension-aware schema is designed. |
+| Handy 0.9.4 | High for owner-local WhatsApp voice | Reuse installed binary | Offline ASR, MIT source, fixed CLI arguments, exact binary path, and no cloud transport. Do not bundle or auto-install it. |
+| Nemotron 3.5 ASR 0.6B Q8 GGUF | High for English/Hindi ASR | Reuse installed allowlisted model | OpenMDW-1.1, multilingual, and already present. Exact model path is allowlisted; no download or fallback is permitted. |
+| FFmpeg/ffprobe 8.1.2 Gyan full build | High for strict audio boundaries | Reuse installed executables | Required for safe probe/decode/Opus conversion. GPLv3 external tool; invoke only and do not redistribute. |
+| Windows System.Speech | Conditional for voice output | Owner-only English/Hinglish bridge | Already part of Windows and requires no model install, but naturalness/Hindi quality is below the final target. Hindi remains approval-gated. |
 
 ## Adoption rules
 

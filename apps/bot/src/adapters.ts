@@ -26,6 +26,9 @@ import type {
   LlmClient,
   Transcriber,
 } from "@nitsyclaw/shared/agent";
+import { createLlmWorkCoordinator } from "./llm-work-coordinator.js";
+import { LocalVoiceTranscriber } from "./local-voice-transcriber.js";
+import { LocalSapiSpeechSynthesizer } from "./local-speech-synthesizer.js";
 
 /** RFC 2047 encoded-word for header values containing non-ASCII (e.g. "Café invoice"). */
 function encodeHeaderValue(value: string): string {
@@ -158,24 +161,6 @@ export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
         toolCalls,
         text,
       };
-    },
-  };
-}
-
-export function makeOpenAiTranscriber(apiKey: string, model: string): Transcriber {
-  const client = new OpenAI({ apiKey });
-  return {
-    async transcribe(audio: Buffer, mimetype: string) {
-      const { toFile } = await import("openai/uploads");
-      const subtype = (mimetype.split("/")[1] ?? "ogg").split(";")[0] ?? "ogg";
-      const extMap: Record<string, string> = {
-        ogg: "ogg", oga: "oga", opus: "ogg", mpeg: "mp3", mp3: "mp3",
-        wav: "wav", webm: "webm", m4a: "m4a", mp4: "mp4", flac: "flac",
-      };
-      const ext = extMap[subtype] ?? "ogg";
-      const file = await toFile(audio, "audio." + ext, { type: mimetype.split(";")[0] });
-      const out = await client.audio.transcriptions.create({ file, model });
-      return out.text ?? "";
     },
   };
 }
@@ -382,7 +367,6 @@ export interface BotConfigEnv {
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL: string;
   OPENAI_API_KEY?: string;
-  TRANSCRIPTION_MODEL: string;
   SERPER_API_KEY?: string;
   ENABLE_WEB_RESEARCH?: boolean;
   WEB_SEARCH_MAX_USES?: number;
@@ -429,7 +413,7 @@ export function buildAgentDeps(args: {
     contextWindow: args.env.OLLAMA_CONTEXT_LIMIT,
     think: args.env.OLLAMA_THINK,
   });
-  const llm = createRoutedLlm({
+  const routedLlm = createRoutedLlm({
     local: ollama,
     cloud: cloudLlm,
     mode: args.env.NITSYCLAW_MODEL_MODE ?? "auto",
@@ -440,11 +424,18 @@ export function buildAgentDeps(args: {
       await logAudit(args.db, auditModelRoute(buildModelRouteAuditPayload(event)));
     },
   });
-  const transcriber = args.env.OPENAI_API_KEY
-    ? makeOpenAiTranscriber(args.env.OPENAI_API_KEY, args.env.TRANSCRIPTION_MODEL)
-    : { async transcribe() { throw new Error("OPENAI_API_KEY not set"); } };
+  const llmWork = createLlmWorkCoordinator(routedLlm);
+  const localTranscriber = new LocalVoiceTranscriber();
+  const transcriber: Transcriber = {
+    transcribe: (audio, mimetype, options) =>
+      llmWork.runInteractiveResource(() => localTranscriber.transcribe(audio, mimetype, options)),
+  };
+  const localSpeechSynthesizer = new LocalSapiSpeechSynthesizer();
   const cloudEmbedder = args.env.OPENAI_API_KEY ? makeOpenAiEmbedder(args.env.OPENAI_API_KEY) : undefined;
-  const embedder = createPrivacyAwareEmbedder({ local: ollama, cloud: cloudEmbedder });
+  const routedEmbedder = createPrivacyAwareEmbedder({ local: ollama, cloud: cloudEmbedder });
+  const embedder: Embedder = {
+    embed: (text) => llmWork.runInteractiveResource(() => routedEmbedder.embed(text)),
+  };
   const imageAnalyzer = args.env.ANTHROPIC_API_KEY
     ? makeAnthropicImageAnalyzer(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL)
     : {
@@ -456,8 +447,13 @@ export function buildAgentDeps(args: {
   return {
     db: args.db,
     whatsapp: args.whatsapp,
-    llm,
+    llm: llmWork.interactive,
+    runBackgroundLlmJob: (job) => llmWork.runBackground(job),
     transcriber,
+    speechSynthesizer: {
+      synthesize: (request) =>
+        llmWork.runInteractiveResource(() => localSpeechSynthesizer.synthesize(request)),
+    },
     webSearch,
     liveResearch: researcher,
     calendar: realCalendar,

@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1.1-ADVERSARIAL-FIXTURES",
+  "syntheticOnly": true,
+  "frozenAgainstCommit": "be4cd77e9f800493907ebcd7ea76fbac4f8086ee",
+  "policyVersion": "NITSYCLAW-VOICE-VERIFIER-V1",
+  "checkCases": [
+    {
+      "id": "check-direct-quote",
+      "rawTranscript": "Check the quote.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "allowed", "action": "check_quote", "tier": 2, "disposition": "allow_local_preview", "negated": false, "authority": "direct" }
+    },
+    {
+      "id": "check-negated-quote",
+      "rawTranscript": "Do not check the quote.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "check_quote", "tier": 2, "disposition": "require_text_restatement", "negated": true, "authority": "direct" }
+    },
+    {
+      "id": "check-quoted-background",
+      "rawTranscript": "The television says, check the quote.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "check_quote", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "quoted_or_background" }
+    },
+    {
+      "id": "check-ambiguous-object",
+      "rawTranscript": "Check it.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "check", "tier": 2, "disposition": "require_text_clarification", "negated": false, "authority": "direct", "reason": "check_object_ambiguous" }
+    },
+    {
+      "id": "check-roman-hinglish-quote",
+      "rawTranscript": "Quote check kar do.",
+      "language": "hinglish",
+      "locale": "en-IN",
+      "expected": { "outcome": "allowed", "action": "check_quote", "tier": 2, "disposition": "allow_local_preview", "negated": false, "authority": "direct" }
+    },
+    {
+      "id": "check-devanagari-hinglish-quote",
+      "rawTranscript": "कोट चेक करो।",
+      "language": "hinglish",
+      "locale": "hi-IN",
+      "expected": { "outcome": "allowed", "action": "check_quote", "tier": 2, "disposition": "allow_local_preview", "negated": false, "authority": "direct" }
+    }
+  ],
+  "cancelCases": [
+    {
+      "id": "cancel-pending-proposal",
+      "rawTranscript": "Cancel proposal proposal-v11-alpha.",
+      "proposalState": "pending",
+      "identity": "matching",
+      "expectedBindingReason": "matched",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "direct" }
+    },
+    {
+      "id": "cancel-completed-proposal",
+      "rawTranscript": "Cancel completed proposal proposal-v11-alpha.",
+      "proposalState": "completed",
+      "identity": "matching",
+      "expectedBindingReason": "state_not_pending",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "direct" }
+    },
+    {
+      "id": "cancel-unknown-proposal",
+      "rawTranscript": "Cancel proposal proposal-v11-unknown.",
+      "proposalState": "missing",
+      "identity": "matching",
+      "expectedBindingReason": "proposal_missing",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "direct" }
+    },
+    {
+      "id": "cancel-negated",
+      "rawTranscript": "Do not cancel proposal proposal-v11-alpha.",
+      "proposalState": "pending",
+      "identity": "matching",
+      "expectedBindingReason": "matched",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": true, "authority": "direct" }
+    },
+    {
+      "id": "cancel-quoted-background",
+      "rawTranscript": "The radio says, cancel proposal proposal-v11-alpha.",
+      "proposalState": "pending",
+      "identity": "matching",
+      "expectedBindingReason": "matched",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "quoted_or_background" }
+    },
+    {
+      "id": "cancel-other-owner",
+      "rawTranscript": "Cancel proposal proposal-v11-alpha.",
+      "proposalState": "pending",
+      "identity": "wrong_owner",
+      "expectedBindingReason": "identity_mismatch",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "direct" }
+    },
+    {
+      "id": "cancel-other-conversation",
+      "rawTranscript": "Cancel proposal proposal-v11-alpha.",
+      "proposalState": "pending",
+      "identity": "wrong_conversation",
+      "expectedBindingReason": "identity_mismatch",
+      "expected": { "outcome": "blocked", "action": "cancel", "tier": 4, "disposition": "require_text_restatement", "negated": false, "authority": "direct" }
+    }
+  ],
+  "weekdayCases": [
+    {
+      "id": "weekday-alone-no-anchor",
+      "rawTranscript": "Book it for Monday.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Monday", "weekdayCanonical": "WEEKDAY|monday", "weekdayResolution": "ambiguous", "reason": "weekday_anchor_missing" }
+    },
+    {
+      "id": "weekday-plus-date",
+      "rawTranscript": "Book it for Monday, 17/08/2026.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Monday", "weekdayCanonical": "WEEKDAY|monday", "weekdayResolution": "exact", "dateRaw": "17/08/2026", "dateCanonical": "2026-08-17" }
+    },
+    {
+      "id": "weekday-date-matching",
+      "rawTranscript": "Schedule Monday 17/08/2026 at 10:00.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Monday", "weekdayCanonical": "WEEKDAY|monday", "weekdayResolution": "exact", "dateRaw": "17/08/2026", "dateCanonical": "2026-08-17" }
+    },
+    {
+      "id": "weekday-date-conflicting",
+      "rawTranscript": "Schedule Tuesday 17/08/2026 at 10:00.",
+      "language": "english",
+      "locale": "en-AU",
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Tuesday", "weekdayCanonical": null, "weekdayResolution": "rejected", "dateRaw": "17/08/2026", "dateCanonical": "2026-08-17", "reason": "weekday_date_conflict" }
+    },
+    {
+      "id": "weekday-dst-nonexistent-sydney",
+      "rawTranscript": "Schedule Sunday 04/10/2026 at 2:30 a.m. Australia/Sydney.",
+      "language": "english",
+      "locale": "en-AU",
+      "temporalContext": { "anchorDate": "2026-08-12", "version": "calendar-v1", "currentVersion": "calendar-v1", "timezone": "Australia/Sydney" },
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Sunday", "weekdayCanonical": "WEEKDAY|sunday", "weekdayResolution": "exact", "dateRaw": "04/10/2026", "dateCanonical": "2026-10-04", "timeRaw": "2:30 a.m.", "timeResolution": "rejected", "reason": "local_time_nonexistent" }
+    },
+    {
+      "id": "weekday-stale-context",
+      "rawTranscript": "Book it for Monday.",
+      "language": "english",
+      "locale": "en-AU",
+      "temporalContext": { "anchorDate": "2026-08-12", "version": "calendar-v1", "currentVersion": "calendar-v2", "timezone": "Australia/Sydney" },
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Monday", "weekdayCanonical": null, "weekdayResolution": "rejected", "reason": "temporal_context_stale" }
+    },
+    {
+      "id": "weekday-australian-locale",
+      "rawTranscript": "Book Monday 17/08/2026 at 9:15 Australia/Sydney.",
+      "language": "english",
+      "locale": "en-AU",
+      "temporalContext": { "anchorDate": "2026-08-12", "version": "calendar-v1", "currentVersion": "calendar-v1", "timezone": "Australia/Sydney" },
+      "expected": { "outcome": "blocked", "action": "book", "tier": 3, "weekdayRaw": "Monday", "weekdayCanonical": "WEEKDAY|monday", "weekdayResolution": "exact", "dateRaw": "17/08/2026", "dateCanonical": "2026-08-17" }
+    }
+  ],
+  "semanticTimeoutCases": [
+    {
+      "id": "semantic-timeout",
+      "rawTranscript": "Check the quote.",
+      "lifecycle": { "state": "timeout", "requestId": "semantic-v11-1", "processEpoch": "epoch-v11" },
+      "expected": { "status": "timeout", "reason": "semantic_timeout", "outcome": "blocked", "baselineTier": 2 }
+    },
+    {
+      "id": "semantic-late-after-timeout",
+      "rawTranscript": "Send the quote.",
+      "lifecycle": { "state": "late_after_timeout", "requestId": "semantic-v11-2", "processEpoch": "epoch-v11" },
+      "expected": { "status": "late_rejected", "reason": "semantic_late_after_timeout", "outcome": "blocked", "baselineTier": 3 }
+    },
+    {
+      "id": "semantic-after-cancellation",
+      "rawTranscript": "Cancel proposal proposal-v11-alpha.",
+      "lifecycle": { "state": "cancelled", "requestId": "semantic-v11-3", "processEpoch": "epoch-v11" },
+      "expected": { "status": "cancelled_rejected", "reason": "semantic_after_cancellation", "outcome": "blocked", "baselineTier": 4 }
+    },
+    {
+      "id": "semantic-after-restart",
+      "rawTranscript": "Book it for Monday.",
+      "lifecycle": { "state": "previous_process", "requestId": "semantic-v11-4", "processEpoch": "epoch-old", "currentProcessEpoch": "epoch-v11" },
+      "expected": { "status": "restart_rejected", "reason": "semantic_after_restart", "outcome": "blocked", "baselineTier": 3 }
+    },
+    {
+      "id": "semantic-partial-output",
+      "rawTranscript": "Check the quote.",
+      "lifecycle": { "state": "partial", "requestId": "semantic-v11-5", "processEpoch": "epoch-v11" },
+      "expected": { "status": "partial_rejected", "reason": "semantic_partial_output", "outcome": "blocked", "baselineTier": 2 }
+    }
+  ],
+  "bindingBase": {
+    "proposalId": "proposal-v11-alpha",
+    "ownerHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "conversationHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "policyVersion": "NITSYCLAW-VOICE-VERIFIER-V1",
+    "rawToken": "synthetic-v11-token-alpha",
+    "tokenHash": "967121ab59a25354b97a2547c57c35c1943f633789013e39c9f1ecd5c0d4bba9",
+    "tokenBindingHash": "dd2cf4324f94d342d51833567617446ecc9dc18a9aef0099447c60c430b34e97",
+    "status": "pending",
+    "expiresAtMs": 2000,
+    "cancelledAtMs": null,
+    "usedAtMs": null,
+    "nowMs": 1000
+  },
+  "bindingCases": [
+    { "id": "binding-correct-accepted-0", "accepted": 0, "mutation": "none", "expected": { "bindingValid": true, "confirmationUsable": false, "reason": "not_accepted" } },
+    { "id": "binding-correct-accepted-1", "accepted": 1, "mutation": "none", "expected": { "bindingValid": true, "confirmationUsable": true, "reason": "matched" } },
+    { "id": "binding-wrong-proposal-accepted-0", "accepted": 0, "mutation": "wrong_proposal", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-proposal-accepted-1", "accepted": 1, "mutation": "wrong_proposal", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-owner-accepted-0", "accepted": 0, "mutation": "wrong_owner", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-owner-accepted-1", "accepted": 1, "mutation": "wrong_owner", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-conversation-accepted-0", "accepted": 0, "mutation": "wrong_conversation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-conversation-accepted-1", "accepted": 1, "mutation": "wrong_conversation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-owner-conversation-accepted-0", "accepted": 0, "mutation": "wrong_owner_conversation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-owner-conversation-accepted-1", "accepted": 1, "mutation": "wrong_owner_conversation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-policy-accepted-0", "accepted": 0, "mutation": "wrong_policy", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-policy-accepted-1", "accepted": 1, "mutation": "wrong_policy", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-wrong-token-accepted-0", "accepted": 0, "mutation": "wrong_token", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "token_mismatch" } },
+    { "id": "binding-wrong-token-accepted-1", "accepted": 1, "mutation": "wrong_token", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "token_mismatch" } },
+    { "id": "binding-expired-accepted-0", "accepted": 0, "mutation": "expired", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "expired" } },
+    { "id": "binding-expired-accepted-1", "accepted": 1, "mutation": "expired", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "expired" } },
+    { "id": "binding-cancelled-accepted-0", "accepted": 0, "mutation": "cancelled", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "cancelled" } },
+    { "id": "binding-cancelled-accepted-1", "accepted": 1, "mutation": "cancelled", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "cancelled" } },
+    { "id": "binding-used-accepted-0", "accepted": 0, "mutation": "used", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "used" } },
+    { "id": "binding-used-accepted-1", "accepted": 1, "mutation": "used", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "used" } },
+    { "id": "binding-completed-accepted-0", "accepted": 0, "mutation": "completed", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "state_not_pending" } },
+    { "id": "binding-completed-accepted-1", "accepted": 1, "mutation": "completed", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "state_not_pending" } },
+    { "id": "binding-replay-owner-mutation-accepted-0", "accepted": 0, "mutation": "replay_owner_mutation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-replay-owner-mutation-accepted-1", "accepted": 1, "mutation": "replay_owner_mutation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-replay-conversation-mutation-accepted-0", "accepted": 0, "mutation": "replay_conversation_mutation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } },
+    { "id": "binding-replay-conversation-mutation-accepted-1", "accepted": 1, "mutation": "replay_conversation_mutation", "expected": { "bindingValid": false, "confirmationUsable": false, "reason": "identity_mismatch" } }
+  ],
+  "persistenceCases": [
+    { "id": "db-correct-accepted-0", "operation": "insert_matching_attempt", "accepted": 0, "expectedRejected": false },
+    { "id": "db-correct-accepted-1", "operation": "insert_matching_attempt", "accepted": 1, "expectedRejected": false },
+    { "id": "db-wrong-owner-accepted-0", "operation": "insert_wrong_owner", "accepted": 0, "expectedRejected": true },
+    { "id": "db-wrong-owner-accepted-1", "operation": "insert_wrong_owner", "accepted": 1, "expectedRejected": true },
+    { "id": "db-wrong-conversation-accepted-0", "operation": "insert_wrong_conversation", "accepted": 0, "expectedRejected": true },
+    { "id": "db-wrong-conversation-accepted-1", "operation": "insert_wrong_conversation", "accepted": 1, "expectedRejected": true },
+    { "id": "db-wrong-owner-conversation-accepted-0", "operation": "insert_wrong_owner_conversation", "accepted": 0, "expectedRejected": true },
+    { "id": "db-wrong-owner-conversation-accepted-1", "operation": "insert_wrong_owner_conversation", "accepted": 1, "expectedRejected": true },
+    { "id": "db-copied-row-owner", "operation": "copy_proposal_owner", "accepted": 0, "expectedRejected": true },
+    { "id": "db-copied-row-conversation", "operation": "copy_proposal_conversation", "accepted": 0, "expectedRejected": true },
+    { "id": "db-duplicate-token-cross-tenant", "operation": "duplicate_token_cross_tenant", "accepted": 0, "expectedRejected": true },
+    { "id": "db-token-binding-all-identity-fields", "operation": "mutate_each_binding_field", "accepted": 1, "expectedRejected": false }
+  ],
+  "requiredRepositoryPaths": [
+    "insertVoiceVerificationProposal",
+    "getVoiceVerificationProposal",
+    "recordVoiceVerificationConfirmation",
+    "cancelVoiceVerificationProposal",
+    "expireVoiceVerificationProposal",
+    "consumeVoiceVerificationProposal"
+  ]
+}

@@ -11,6 +11,7 @@
     "./agent": "./src/agent/index.ts",
     "./local-brain": "./src/local-brain/index.ts",
     "./whatsapp": "./src/whatsapp/index.ts",
+    "./voice": "./src/voice/index.ts",
     "./features": "./src/features/index.ts",
     "./integrations/spotify": "./src/integrations/spotify.ts",
     "./integrations/gmail-connector": "./src/integrations/gmail-connector.ts",

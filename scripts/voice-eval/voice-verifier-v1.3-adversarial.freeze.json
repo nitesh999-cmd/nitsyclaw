@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1.3-ADVERSARIAL-FREEZE",
+  "frozenOn": "2026-08-14",
+  "baseCommit": "d4b284b0e5a344bd8e5501b8c506e71c29924041",
+  "immutableFiles": [
+    {
+      "role": "corpus",
+      "path": "scripts/voice-eval/voice-verifier-v1.3-adversarial-corpus.json",
+      "sha256": "6e581300bdf50c413fab48da630e08b175f8e412d519380abc7a09021cabc2cf"
+    },
+    {
+      "role": "freeze_verifier",
+      "path": "scripts/voice-eval/verify-voice-verifier-v1.3-adversarial-freeze.ts",
+      "sha256": "8948f3dca6c93939220f23611d51b48c1d7c7f16b1c9a6c3d55e60c39e839735"
+    },
+    {
+      "role": "corrected_runner",
+      "path": "packages/shared/test/voice-verifier-adversarial-v1.2.test.ts",
+      "sha256": "b65bf305cc011518afac06c8467abc1404ae89f35bf1b90027220efa30979ec4"
+    },
+    {
+      "role": "runner_diff",
+      "path": "scripts/voice-eval/voice-verifier-v1.2-runner.diff",
+      "sha256": "24fddd0c6a3f8fcc59bcc5766b4243f1b88a8ce3212e362de7bb4f4b5c3d5b84"
+    }
+  ],
+  "implementationSnapshotFiles": [
+    {
+      "path": "apps/bot/src/router.ts",
+      "sha256": "18314a08ffd058d5574ebba06e0b406d1ee279ffb2da50309b3e0d179f0003b0"
+    },
+    {
+      "path": "packages/shared/drizzle/0011_voice_verification.sql",
+      "sha256": "b64b5931c94e102bba87a16c7f8099dd633272812a5c7426e1fac086a0024f2d"
+    },
+    {
+      "path": "packages/shared/drizzle/meta/_journal.json",
+      "sha256": "830f54649b82c457d030db6fce4c65d7a14159d39d17f3802bd0597ae2e7ec4f"
+    },
+    {
+      "path": "packages/shared/src/db/repo.ts",
+      "sha256": "92b67665cec07c7a0d75b1594feadd3fa4b3f41de467d90fd1e6dc2396adce09"
+    },
+    {
+      "path": "packages/shared/src/db/schema.ts",
+      "sha256": "6ec05e05e553f4de4d3e58bd0ca70c5976b57cee127c41d14eb03a8288658229"
+    },
+    {
+      "path": "packages/shared/src/ops/command-jobs.ts",
+      "sha256": "0d6d2d5fdf5fd1595b251febee9bdedc851ac9f9a392fc07f033d6a6677df2e9"
+    },
+    {
+      "path": "packages/shared/src/voice/canonicalize.ts",
+      "sha256": "54955ad1a773ce4d7fd04f93ccc43b2db886ebe9a596f545dd97b88d9d0e292f"
+    },
+    {
+      "path": "packages/shared/src/voice/index.ts",
+      "sha256": "504f5ab82976deea2cd9f5566ef5686db29b59cb92d7e096ffd3b67b755d0376"
+    },
+    {
+      "path": "packages/shared/src/voice/policy.ts",
+      "sha256": "aceb49b06585e20feccc2dd2a93a6c000e29a5e332b83d522bc27487800c6ed8"
+    },
+    {
+      "path": "packages/shared/src/voice/resolution.ts",
+      "sha256": "0c66c5fa386ff23c3bf7931be5a02c34343f2490a1948dbc404b95dc44426e71"
+    },
+    {
+      "path": "packages/shared/src/voice/risk-policy.ts",
+      "sha256": "f485f6b17ce3d215707cd4970e7dd57bdf66478d0b275266fa9b4b6f20213507"
+    },
+    {
+      "path": "packages/shared/src/voice/types.ts",
+      "sha256": "40b6023f2b78a8ad230d789314dee880f7a11a90227ee0fb8763aafa1e64ef25"
+    },
+    {
+      "path": "packages/shared/src/voice/unicode-policy.ts",
+      "sha256": "ef6cffac9663a537a0b33438e58f00290c78299ff9eb2d3343671ec34ef28c80"
+    },
+    {
+      "path": "packages/shared/src/voice/verifier.ts",
+      "sha256": "46e10de5b56dcdf53ff7ba3949e91bf7ac16ba07cdb4e16d2191f2ee4f283559"
+    }
+  ],
+  "immutableAggregateSha256": "a910618f06ecb81e559b6139a63c5b47715d33b1c2a8c4d41197f906ffe265e3",
+  "implementationSnapshotAggregateSha256": "1dcec92b9a8ff2a28136ac371f8244221bf4ebc71f9c7483a06ccea7d73aafad",
+  "completeAggregateSha256": "a7846e8ecd60d3750582b2bf19665ceb21f129d858656a5b2911e3e82469eb03"
+}

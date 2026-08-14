@@ -14,8 +14,9 @@ import {
   makeFakeLiveResearcher,
 } from "@nitsyclaw/shared/../test/helpers.js";
 import { MockWhatsAppClient } from "@nitsyclaw/shared/whatsapp";
+import type { LlmClient } from "@nitsyclaw/shared/agent";
 import { OllamaProviderError } from "@nitsyclaw/shared/local-brain";
-import { generateKey, hashPhone } from "@nitsyclaw/shared/utils";
+import { decryptString, generateKey, hashPhone, isEncryptedString } from "@nitsyclaw/shared/utils";
 
 const OWNER = "+919876543210";
 // makeAgentDeps' fake live research returns exactly one verified pair.
@@ -1086,22 +1087,89 @@ describe("Router (integration)", () => {
     expect(wa.sent.find((m) => m.body === "ack")).toBeTruthy();
   });
 
-  it("suppresses a model-generated saved/working receipt in the default agent loop", async () => {
+  it("records a local-model timeout as a terminal WhatsApp job without automatic replay", async () => {
+    const timeoutLlm: LlmClient = {
+      async complete() {
+        return { text: "unused" };
+      },
+      async toolStep() {
+        throw Object.assign(new Error("Ollama request timed out."), {
+          name: "OllamaProviderError",
+          code: "timeout",
+        });
+      },
+    };
+    deps = makeAgentDeps({ whatsapp: wa, llm: timeoutLlm });
+    router = new Router(deps, OWNER);
+
+    await expect(router.handle({
+      id: "x-local-timeout",
+      from: OWNER,
+      body: "Explain my private note",
+      timestamp: new Date(),
+      hasMedia: false,
+    })).rejects.toThrow("Ollama request timed out");
+
+    const job = getFakeDbState(deps.db).command_jobs[0];
+    expect(job).toMatchObject({
+      sourceExternalId: "x-local-timeout",
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
+      nextRunAt: null,
+    });
+    expect(wa.sent).toHaveLength(0);
+  });
+
+  it("fails visibly when the model returns no usable answer", async () => {
+    const emptyLlm: LlmClient = {
+      async complete() {
+        return { text: "" };
+      },
+      async toolStep() {
+        return { stopReason: "end_turn", toolCalls: [], text: "   " };
+      },
+    };
+    deps = makeAgentDeps({ whatsapp: wa, llm: emptyLlm });
+    router = new Router(deps, OWNER);
+
+    await expect(router.handle({
+      id: "x-empty-response",
+      from: OWNER,
+      body: "Summarise this private item",
+      timestamp: new Date(),
+      hasMedia: false,
+    })).rejects.toMatchObject({ name: "EmptyAgentResponseError", code: "empty_response" });
+
+    expect(getFakeDbState(deps.db).command_jobs[0]).toMatchObject({
+      sourceExternalId: "x-empty-response",
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
+    });
+  });
+
+  it("rejects a model-generated saved/working receipt as an empty visible answer", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
       llm: fakeLlmWithToolCall("reply_to_user", { text: "Saved. Working on it." }),
     });
     router = new Router(deps, OWNER);
 
-    await router.handle({
+    await expect(router.handle({
       id: "x-model-receipt",
       from: OWNER,
       body: "Hi",
       timestamp: new Date(),
       hasMedia: false,
-    });
+    })).rejects.toMatchObject({ name: "EmptyAgentResponseError" });
 
     expect(wa.sent).toHaveLength(0);
+    expect(getFakeDbState(deps.db).command_jobs[0]).toMatchObject({
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
+    });
   });
 
   it("answers next moves from the live feature queue without the model loop", async () => {
@@ -2909,7 +2977,7 @@ describe("Router (integration)", () => {
     expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(1);
   });
 
-  it("retries replayed WhatsApp status after a partial send failure", async () => {
+  it("does not automatically replay a WhatsApp status after a partial send failure", async () => {
     let sends = 0;
     wa.send = async (message) => {
       sends += 1;
@@ -2933,10 +3001,12 @@ describe("Router (integration)", () => {
     expect(state.command_jobs).toHaveLength(1);
     expect(state.command_jobs[0]).toMatchObject({
       sourceExternalId: "x-replayed-status-after-failure",
-      status: "done",
+      status: "failed",
+      attempts: 1,
+      maxAttempts: 1,
     });
     expect(wa.sent.some((message) => message.body.includes("Couldn't load the current status"))).toBe(true);
-    expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(1);
+    expect(wa.sent.filter((message) => message.body.includes("Status: ready"))).toHaveLength(0);
   });
 
   it("does not replay a resolved confirmation after router restart", async () => {
@@ -3129,14 +3199,16 @@ describe("Router (integration)", () => {
     const state = getFakeDbState(deps.db);
     expect(transcribeCalls).toBe(1);
     expect(wa.sent).toHaveLength(sentAfterFirstRun);
-    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-voice-replay")).toMatchObject({
-      command: "this is a replay-safe voice note",
+    const replayJob = state.command_jobs.find((job) => job.sourceExternalId === "x-voice-replay")!;
+    expect(replayJob).toMatchObject({
       status: "done",
       dedupeKey: "whatsapp:x-voice-replay",
     });
+    expect(isEncryptedString(replayJob.command)).toBe(true);
+    expect(decryptString(replayJob.command)).toBe("this is a replay-safe voice note");
   });
 
-  it("approval-gates risky voice transcripts before the agent can act", async () => {
+  it("verifier-gates risky voice transcripts before the agent can act", async () => {
     deps = makeAgentDeps({
       whatsapp: wa,
       transcriber: {
@@ -3159,19 +3231,21 @@ describe("Router (integration)", () => {
     });
 
     const state = getFakeDbState(deps.db);
-    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice")).toMatchObject({
-      command: "send a message to Mukesh saying I am running late",
-      status: "needs_approval",
+    const riskyJob = state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice")!;
+    expect(riskyJob).toMatchObject({
+      status: "needs_clarification",
       riskLevel: "approval_required",
     });
-    expect(wa.sent.some((message) => message.body.includes("Needs your approval"))).toBe(true);
+    expect(isEncryptedString(riskyJob.command)).toBe(true);
+    expect(decryptString(riskyJob.command)).toBe("send a message to Mukesh saying I am running late");
+    expect(wa.sent.some((message) => message.body.includes("I did not act"))).toBe(true);
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
   it("resends a risky voice approval gate on replay if the first prompt failed to send", async () => {
     let approvalPromptFailures = 0;
     wa.send = async (message) => {
-      if (message.body.includes("Needs your approval") && approvalPromptFailures === 0) {
+      if (message.body.includes("I did not act") && approvalPromptFailures === 0) {
         approvalPromptFailures += 1;
         throw new Error("temporary WhatsApp send failure");
       }
@@ -3204,17 +3278,17 @@ describe("Router (integration)", () => {
 
     const state = getFakeDbState(deps.db);
     expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice-approval-replay")).toMatchObject({
-      status: "needs_approval",
+      status: "needs_clarification",
       riskLevel: "approval_required",
     });
-    expect(wa.sent.filter((sent) => sent.body.includes("Needs your approval"))).toHaveLength(1);
+    expect(wa.sent.filter((sent) => sent.body.includes("I did not act"))).toHaveLength(1);
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
   it("resends a risky voice approval gate on same-process replay", async () => {
     let approvalPromptFailures = 0;
     wa.send = async (message) => {
-      if (message.body.includes("Needs your approval") && approvalPromptFailures === 0) {
+      if (message.body.includes("I did not act") && approvalPromptFailures === 0) {
         approvalPromptFailures += 1;
         throw new Error("temporary WhatsApp send failure");
       }
@@ -3246,10 +3320,10 @@ describe("Router (integration)", () => {
 
     const state = getFakeDbState(deps.db);
     expect(state.command_jobs.find((job) => job.sourceExternalId === "x-risky-voice-same-process-replay")).toMatchObject({
-      status: "needs_approval",
+      status: "needs_clarification",
       riskLevel: "approval_required",
     });
-    expect(wa.sent.filter((sent) => sent.body.includes("Needs your approval"))).toHaveLength(1);
+    expect(wa.sent.filter((sent) => sent.body.includes("I did not act"))).toHaveLength(1);
     expect(wa.sent.some((message) => message.body.includes("should not run"))).toBe(false);
   });
 
@@ -3276,14 +3350,140 @@ describe("Router (integration)", () => {
     });
 
     const state = getFakeDbState(deps.db);
-    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-voice-notice-send-failure")).toMatchObject({
-      command: "check the weather tomorrow",
+    const weatherJob = state.command_jobs.find((job) => job.sourceExternalId === "x-voice-notice-send-failure")!;
+    expect(weatherJob).toMatchObject({
       status: "done",
       riskLevel: "safe",
     });
+    expect(isEncryptedString(weatherJob.command)).toBe(true);
+    expect(decryptString(weatherJob.command)).toBe("check the weather tomorrow");
     expect(wa.sent.some((message) => message.body.includes("Transcribed"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("I will reply in English"))).toBe(false);
     expect(wa.sent.some((message) => message.body.includes("Weather checked."))).toBe(true);
+  });
+
+  it("verifier-gates a Devanagari external action that the English command regex cannot classify", async () => {
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return "रवि को कॉल करना और 15 परसेंट वाला कोट भेजना।";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "must not run" }),
+    });
+    router = new Router(deps, OWNER);
+
+    await router.handle({
+      id: "x-hindi-risky-voice",
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice",
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+
+    const state = getFakeDbState(deps.db);
+    expect(state.command_jobs.find((job) => job.sourceExternalId === "x-hindi-risky-voice")).toMatchObject({
+      status: "needs_clarification",
+      riskLevel: "approval_required",
+    });
+    expect(wa.sent.some((message) => message.body.includes("I did not act"))).toBe(true);
+    expect(wa.sent.some((message) => message.body.includes("must not run"))).toBe(false);
+  });
+
+  it("shows, corrects, and deletes the prior transcript without retaining spoken control commands", async () => {
+    const transcripts = ["The quote total is fifty dollars", "show transcript"];
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: {
+        async transcribe() {
+          return transcripts.shift() ?? "unexpected";
+        },
+      },
+      llm: fakeLlmWithToolCall("reply_to_user", { text: "Quote noted." }),
+    });
+    router = new Router(deps, OWNER);
+
+    const voice = (id: string) => ({
+      id,
+      from: OWNER,
+      body: "",
+      timestamp: new Date(),
+      hasMedia: true,
+      mediaType: "voice" as const,
+      downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+    });
+    await router.handle(voice("x-voice-transcript-source"));
+    wa.sent = [];
+    await router.handle(voice("x-voice-transcript-show"));
+
+    const state = getFakeDbState(deps.db);
+    const source = state.messages.find((message) => message.waMessageId === "x-voice-transcript-source")!;
+    const spokenControl = state.messages.find((message) => message.waMessageId === "x-voice-transcript-show")!;
+    expect(wa.sent[0]?.body).toContain("The quote total is fifty dollars");
+    expect(decryptString(source.transcript!)).toBe("The quote total is fifty dollars");
+    expect(spokenControl.transcript).toBeNull();
+
+    await router.handle({
+      id: "x-voice-transcript-correct",
+      from: OWNER,
+      body: "No, I said fifteen, not fifty",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+    expect(decryptString(source.transcript!)).toBe("The quote total is fifteen dollars");
+    expect(wa.sent.at(-1)?.body).toContain("did not replay");
+
+    await router.handle({
+      id: "x-voice-transcript-delete",
+      from: OWNER,
+      body: "Forget that transcript",
+      timestamp: new Date(),
+      hasMedia: false,
+    });
+    expect(source.transcript).toBeNull();
+    expect(wa.sent.at(-1)?.body).toContain("Raw and generated voice media were already temporary");
+  });
+
+  it("never acts on low-quality or quoted background voice instructions", async () => {
+    let agentCalls = 0;
+    const richResult = (text: string, quality: "low" | "medium") => ({
+      text,
+      language: "english" as const,
+      languageConfidence: 0.8,
+      providerConfidence: null,
+      quality,
+      uncertainSpans: [],
+      media: { container: "ogg" as const, codec: "opus" as const, bytes: 20, durationSeconds: 2, channels: 1, sampleRate: 48_000, rmsDb: -20, peak: 0.4 },
+      timingsMs: { probe: 1, decode: 1, transcribe: 1, total: 3 },
+    });
+    const results = [
+      richResult("Pay fifty dollars", "low"),
+      richResult("The television said send Mukesh a message", "medium"),
+    ];
+    deps = makeAgentDeps({
+      whatsapp: wa,
+      transcriber: { async transcribe() { return results.shift()!; } },
+      llm: { async complete() { agentCalls += 1; return { text: "must not run", toolCalls: [] }; } },
+    });
+    router = new Router(deps, OWNER);
+    for (const id of ["x-voice-low-quality", "x-voice-background"]) {
+      await router.handle({
+        id,
+        from: OWNER,
+        body: "",
+        timestamp: new Date(),
+        hasMedia: true,
+        mediaType: "voice",
+        downloadMedia: async () => ({ data: Buffer.from("audio"), mimetype: "audio/ogg" }),
+      });
+    }
+    expect(agentCalls).toBe(0);
+    expect(wa.sent.some((message) => message.body.includes("not confident enough"))).toBe(true);
+    expect(wa.sent.some((message) => message.body.includes("quoted or background speech"))).toBe(true);
+    expect(wa.sent.some((message) => message.body.includes("must not run"))).toBe(false);
   });
 
   it("hears the last voice message without creating an approval-gated job", async () => {

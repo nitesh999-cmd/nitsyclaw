@@ -2,13 +2,15 @@
 // This is the ONLY file that imports whatsapp-web.js (Constitution R16).
 
 import wweb from "whatsapp-web.js";
-const { Client, LocalAuth } = wweb;
+import { randomUUID } from "node:crypto";
+const { Client, LocalAuth, MessageMedia } = wweb;
 type WwebjsClientInstance = InstanceType<typeof Client>;
 type Message = wweb.Message;
 type WwebMessageWithEnvelope = Message & {
   fromMe?: boolean;
   from?: string;
   to?: string;
+  _data?: { size?: number; duration?: number };
 };
 type WwebChatWithContact = Awaited<ReturnType<Message["getChat"]>> & {
   getContact?: () => Promise<{ isMe?: boolean }>;
@@ -60,12 +62,15 @@ import {
   isSelfChatCalibrationPhrase,
   readAllowedSelfChatIds,
 } from "./whatsapp-self-chat-calibration.js";
+import {
+  WhatsAppOutboundAckCoordinator,
+  type WhatsAppOutboundAckStateStore,
+  type WhatsAppSubmissionClient,
+} from "./whatsapp-outbound-submission.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
   : ["--no-sandbox", "--disable-setuid-sandbox", "--single-process", "--no-zygote", "--disable-dev-shm-usage"];
-const WHATSAPP_HANDLER_FAILURE_REPLY =
-  "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
 const CHROMIUM_SINGLETON_LOCK_FILES = new Set(["SingletonLock", "SingletonSocket", "SingletonCookie"]);
 const CHROMIUM_CACHE_DIRS = new Set([
   "blob_storage",
@@ -174,16 +179,52 @@ export function resolveWebVersionCache(): { type: "remote"; remotePath: string }
   return { type: "remote", remotePath };
 }
 
-export function isMissingSendAckError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return (
-    error.name === "TypeError" &&
-    /Cannot read properties of undefined \(reading 'id'\)/i.test(error.message)
-  );
-}
-
 export function prepareOutboundBodyForWhatsApp(body: string): string {
   return sanitizeUserFacingReply(body);
+}
+
+export function createWhatsAppCorrelationId(
+  createId: () => string = randomUUID,
+): string {
+  return `NC-${createId().replace(/[^a-f0-9]/gi, "").slice(0, 8).toUpperCase() || "ERROR"}`;
+}
+
+export function formatWhatsAppHandlerFailure(error: unknown, correlationId: string): string {
+  const value = error as { name?: unknown; code?: unknown; message?: unknown } | null;
+  const name = typeof value?.name === "string" ? value.name.toLowerCase() : "";
+  const code = typeof value?.code === "string" ? value.code.toLowerCase() : "";
+  const message = typeof value?.message === "string" ? value.message.toLowerCase() : "";
+  const isLocalProvider = name.includes("ollama") || code.startsWith("ollama_");
+  const ref = `NC-${correlationId
+    .replace(/^NC-/i, "")
+    .replace(/[^a-f0-9]/gi, "")
+    .slice(0, 8)
+    .toUpperCase() || "ERROR"}`;
+
+  if (isLocalProvider && (code === "timeout" || code === "ollama_timeout" || /timed? out|timeout/.test(message))) {
+    return `The local model timed out before I could answer. Nothing was sent to a cloud model, and I did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (
+    isLocalProvider &&
+    (code === "offline" ||
+      code === "model_missing" ||
+      /unavailable|offline|econnrefused|model.+not.+(?:found|installed)/.test(message))
+  ) {
+    return `The local model is unavailable, so I could not answer. Nothing was sent to a cloud model, and I did not retry automatically. Check local model health, then try again. Ref: ${ref}`;
+  }
+  if (code === "empty_response" || name === "emptyagentresponseerror") {
+    return `The backend returned no usable answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (code === "auth" || /\b401\b|unauthori[sz]ed|authentication|invalid api key/.test(message)) {
+    return `The configured provider rejected authentication. I logged it and did not retry automatically. Check provider setup before retrying. Ref: ${ref}`;
+  }
+  if (code === "tool_failure" || name.includes("tool")) {
+    return `A backend tool step failed before I could answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (code === "timeout" || /timed? out|timeout/.test(message)) {
+    return `A backend step timed out before I could answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  return `I hit a backend error before I could finish. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
 }
 
 export function shouldSendNonSelfChatDropNotice(args: {
@@ -261,6 +302,9 @@ export interface WwebjsOptions {
   restartBackoffMs?: number;
   maxConsecutiveHealthFailures?: number;
   presenceUnavailableIntervalMs?: number;
+  sendSubmissionTimeoutMs?: number;
+  sendAckTimeoutMs?: number;
+  outboundAckStore?: WhatsAppOutboundAckStateStore;
   healthFilePath?: string;
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
   onQr?: (payload: string) => void | Promise<void>;
@@ -270,6 +314,8 @@ export interface WwebjsOptions {
 
 const INBOUND_HEALTH_EMIT_INTERVAL_MS = 60_000;
 const LID_LOOKUP_TIMEOUT_MS = 8_000;
+const MAX_INBOUND_VOICE_BYTES = 8 * 1024 * 1024;
+const MAX_OUTBOUND_VOICE_BYTES = 2 * 1024 * 1024;
 
 export class WwebjsClient implements WhatsAppClient {
   private echoGuard = new WhatsAppEchoGuard();
@@ -292,8 +338,11 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly restartBackoffMs: number;
   private readonly maxConsecutiveHealthFailures: number;
   private readonly presenceUnavailableIntervalMs: number;
+  private readonly sendSubmissionTimeoutMs: number;
+  private readonly sendAckTimeoutMs: number;
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
+  private readonly outboundAckCoordinator: WhatsAppOutboundAckCoordinator;
   private lastNonSelfChatNoticeAtMs = 0;
   private readonly inboundHealth = new InboundRoutingHealth();
   private readonly lidResolver = new LidPhoneResolver((userIds) => {
@@ -320,7 +369,12 @@ export class WwebjsClient implements WhatsAppClient {
     this.presenceUnavailableIntervalMs = parsePresenceUnavailableIntervalMs(
       opts.presenceUnavailableIntervalMs,
     );
+    this.sendSubmissionTimeoutMs = opts.sendSubmissionTimeoutMs ?? 45_000;
+    this.sendAckTimeoutMs = opts.sendAckTimeoutMs ?? 45_000;
     this.healthFilePath = opts.healthFilePath ?? defaultHealthFilePath();
+    this.outboundAckCoordinator = new WhatsAppOutboundAckCoordinator({
+      store: opts.outboundAckStore,
+    });
     this.readyPromise = this.newReadyPromise();
 
     this.puppeteerOpts = {
@@ -475,12 +529,16 @@ export class WwebjsClient implements WhatsAppClient {
     await markPresenceUnavailable(this.client, Math.min(this.healthProbeTimeoutMs, 2_000), label);
   }
 
-  private async sendHandlerFailureReply(canSendFailureReply: boolean): Promise<void> {
+  private async sendHandlerFailureReply(
+    canSendFailureReply: boolean,
+    error: unknown,
+    correlationId: string,
+  ): Promise<void> {
     if (!canSendFailureReply) return;
     try {
       await this.send({
         to: this.opts.ownerNumber,
-        body: WHATSAPP_HANDLER_FAILURE_REPLY,
+        body: formatWhatsAppHandlerFailure(error, correlationId),
       });
     } catch (fallbackError) {
       logBotError("[wwebjs] handler failure fallback send failed", fallbackError);
@@ -605,6 +663,12 @@ export class WwebjsClient implements WhatsAppClient {
 
   private wireEvents(generation: number): void {
     const isCurrentGeneration = () => generation === this.generation && !this.stopped;
+
+    // Attach durable ACK and local-echo observation before this generation can
+    // become ready or accept an outbound submission.
+    this.outboundAckCoordinator.attach(
+      this.client as unknown as WhatsAppSubmissionClient,
+    );
 
     this.client.on("qr", (qr: string) => {
       if (!isCurrentGeneration()) return;
@@ -770,6 +834,8 @@ export class WwebjsClient implements WhatsAppClient {
           body,
           timestamp: new Date((m.timestamp ?? Date.now() / 1000) * 1000),
           hasMedia: m.hasMedia,
+          mediaSizeBytes: Number.isFinite(Number(envelope._data?.size)) ? Number(envelope._data?.size) : undefined,
+          mediaDurationSeconds: Number.isFinite(Number(envelope._data?.duration)) ? Number(envelope._data?.duration) : undefined,
           mediaType: m.hasMedia
             ? (m.type === "ptt" || m.type === "audio")
               ? "voice"
@@ -780,6 +846,12 @@ export class WwebjsClient implements WhatsAppClient {
           downloadMedia: m.hasMedia
             ? async () => {
                 const media = await m.downloadMedia();
+                if (m.type === "ptt" || m.type === "audio") {
+                  const estimatedBytes = estimatedBase64Bytes(media.data);
+                  if (estimatedBytes > MAX_INBOUND_VOICE_BYTES) {
+                    throw new Error("Inbound voice media exceeded the 8 MB decoded safety limit.");
+                  }
+                }
                 return {
                   data: Buffer.from(media.data, "base64"),
                   mimetype: media.mimetype,
@@ -790,8 +862,9 @@ export class WwebjsClient implements WhatsAppClient {
         };
         for (const h of this.handlers) await h(inbound);
       } catch (e) {
-        logBotError("[wwebjs] handler error", e);
-        await this.sendHandlerFailureReply(canSendFailureReply);
+        const correlationId = createWhatsAppCorrelationId();
+        logBotError(`[wwebjs] handler error ref=${correlationId}`, e);
+        await this.sendHandlerFailureReply(canSendFailureReply, e, correlationId);
       }
     };
 
@@ -803,32 +876,42 @@ export class WwebjsClient implements WhatsAppClient {
     return this.readyPromise;
   }
 
-  async send(msg: OutboundMessage): Promise<{ id: string }> {
-    const body = prepareOutboundBodyForWhatsApp(msg.body);
-    if (!body) return { id: "suppressed-noisy-receipt" };
+  async send(msg: OutboundMessage): Promise<{
+    id: string;
+    ack?: number;
+    delivery?: "server_submitted" | "device_acknowledged";
+  }> {
+    const body = msg.media ? "" : prepareOutboundBodyForWhatsApp(msg.body);
+    if (!body && !msg.media) return { id: "suppressed-noisy-receipt" };
     const target = msg.to.includes("@") ? msg.to : `${msg.to}@c.us`;
+    if (normalizeWhatsAppOwnerId(target) !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)) {
+      throw new Error("WhatsApp outbound recipient failed the owner-only transport boundary.");
+    }
     if (this.restarting) await this.restarting;
     await this.ready();
     const client = this.client;
     try {
-      this.echoGuard.rememberOutgoing(body);
-      const sent = await client.sendMessage(target, body);
+      if (body) this.echoGuard.rememberOutgoing(body);
+      const content = msg.media ? toReviewedWwebVoiceMedia(msg.media) : body;
+      const sent = await this.outboundAckCoordinator.submit(
+        client as unknown as WhatsAppSubmissionClient,
+        {
+          target,
+          body,
+          content,
+          sendOptions: msg.media ? { sendAudioAsVoice: true } : undefined,
+          submissionTimeoutMs: this.sendSubmissionTimeoutMs,
+          ackTimeoutMs: this.sendAckTimeoutMs,
+        },
+      );
+      console.log(`[wwebjs] outbound: id=present ack=${sent.ack} delivery=${sent.delivery}`);
       void markPresenceUnavailable(
         client,
         Math.min(this.healthProbeTimeoutMs, 2_000),
         "WhatsApp presence after send",
       );
-      return { id: sent.id?._serialized ?? "" };
+      return sent;
     } catch (e) {
-      if (isMissingSendAckError(e)) {
-        console.warn("[wwebjs] send ack missing after WhatsApp send; treating as sent without message id");
-        void markPresenceUnavailable(
-          client,
-          Math.min(this.healthProbeTimeoutMs, 2_000),
-          "WhatsApp presence after missing send ack",
-        );
-        return { id: "unknown-send-ack" };
-      }
       void this.restart(safeRestartReason("send failed", e));
       throw e;
     }
@@ -844,8 +927,30 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.healthProbe) clearInterval(this.healthProbe);
     if (this.presenceUnavailableProbe) clearInterval(this.presenceUnavailableProbe);
     if (this.readyWatchdog) clearTimeout(this.readyWatchdog);
+    this.outboundAckCoordinator.detach();
     this.client.removeAllListeners();
     await this.markUnavailable("WhatsApp presence before destroy");
     await this.client.destroy();
   }
 }
+
+function estimatedBase64Bytes(value: string): number {
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor(value.length * 3 / 4) - padding);
+}
+
+function toReviewedWwebVoiceMedia(media: NonNullable<OutboundMessage["media"]>) {
+  if (
+    media.kind !== "voice" ||
+    media.mimetype.toLowerCase() !== "audio/ogg; codecs=opus" ||
+    media.data.byteLength === 0 ||
+    media.data.byteLength > MAX_OUTBOUND_VOICE_BYTES ||
+    media.data.toString("ascii", 0, 4) !== "OggS" ||
+    !/^[a-z0-9][a-z0-9._-]{0,80}\.ogg$/i.test(media.filename)
+  ) {
+    throw new Error("Generated voice media failed the WhatsApp transport boundary.");
+  }
+  return new MessageMedia("audio/ogg", media.data.toString("base64"), media.filename);
+}
+
+export const wwebjsVoiceMediaInternals = { estimatedBase64Bytes, toReviewedWwebVoiceMedia };

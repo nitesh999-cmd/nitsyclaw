@@ -1,7 +1,11 @@
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { getSystemHeartbeat, type SystemHeartbeat } from "@nitsyclaw/shared/db";
-import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
+import {
+  classifyWhatsAppHealthSignal,
+  requiresWhatsAppAttention,
+  type WhatsAppHealthState,
+} from "./whatsapp-health-classification.js";
 
 const CLIENT_STALE_MS = 2 * 60 * 1000;
 const SEND_STALE_MS = 10 * 60 * 1000;
@@ -63,16 +67,21 @@ export async function buildNightlyWhatsAppHealthReport(
       : undefined;
 
   const runtime = buildBotRuntimeMetadata(process.env, now);
-  const commit = heartbeatMetadataText(botRuntime, "commitShort")
-    ?? heartbeatMetadataText(botRuntime, "commit")
-    ?? runtime.commitShort;
+  const recordedCommit = heartbeatMetadataText(botRuntime, "commitShort")
+    ?? heartbeatMetadataText(botRuntime, "commit");
+  const commit = recordedCommit && !["unknown", "unavailable"].includes(recordedCommit.toLowerCase())
+    ? recordedCommit
+    : runtime.commitShort;
   const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
   const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
   const sendError = heartbeatMetadataText(whatsappSend, "error");
 
-  const clientFreshness = classifyHeartbeat(whatsappClient, now, CLIENT_STALE_MS);
-  const sendFreshness = classifyHeartbeat(whatsappSend, now, SEND_STALE_MS);
-  const loopFreshness = classifyHeartbeat(whatsappLoopGuard, now, LOOP_STALE_MS);
+  const runtimeState = classifySignal(botRuntime, now, RUNTIME_STALE_MS, "periodic");
+  const schedulerState = classifySignal(scheduler, now, 3 * 60 * 1000, "periodic");
+  const clientState = classifySignal(whatsappClient, now, CLIENT_STALE_MS, "periodic");
+  const sendState = classifySignal(whatsappSend, now, SEND_STALE_MS, "event");
+  const loopState = classifySignal(whatsappLoopGuard, now, LOOP_STALE_MS, "periodic");
+  const inboundState = classifySignal(whatsappInbound, now, INBOUND_STALE_MS, "event");
   // Inbound routing: a missing heartbeat just means no inbound traffic has been
   // classified yet. A degraded one means genuine owner self-chat messages are
   // failing identity resolution, so the report must not say "ready".
@@ -91,10 +100,13 @@ export async function buildNightlyWhatsAppHealthReport(
   // must stop this report from claiming the system is ready.
   const webResearch = formatWebResearchHealthLine(deps);
   const status: NightlyHealthReportResult["status"] =
-    clientFreshness === "ok" &&
-    sendFreshness === "ok" &&
-    loopFreshness === "ok" &&
+    runtimeState === "healthy" &&
+    schedulerState === "healthy" &&
+    clientState === "healthy" &&
+    !requiresWhatsAppAttention(sendState) &&
+    loopState === "healthy" &&
     !inboundDegraded &&
+    !requiresWhatsAppAttention(inboundState) &&
     !sendError &&
     !loopReason &&
     !webResearch.unavailable
@@ -112,23 +124,24 @@ export async function buildNightlyWhatsAppHealthReport(
   }).format(now);
 
   const details = [
-    heartbeatLine("Bot runtime", botRuntime, now, RUNTIME_STALE_MS),
-    heartbeatLine("Scheduler", scheduler, now, 3 * 60 * 1000),
-    heartbeatLine("WhatsApp client", whatsappClient, now, CLIENT_STALE_MS),
-    heartbeatLine("WhatsApp send", whatsappSend, now, SEND_STALE_MS, sendError ? `last error: ${sendError}` : undefined),
+    heartbeatLine("Bot runtime", botRuntime, now, RUNTIME_STALE_MS, "periodic"),
+    heartbeatLine("Scheduler", scheduler, now, 3 * 60 * 1000, "periodic"),
+    heartbeatLine("WhatsApp client", whatsappClient, now, CLIENT_STALE_MS, "periodic"),
+    heartbeatLine("WhatsApp send", whatsappSend, now, SEND_STALE_MS, "event", sendError ? `last error: ${sendError}` : undefined),
     heartbeatLine(
       "Loop guard",
       whatsappLoopGuard,
       now,
       LOOP_STALE_MS,
+      "periodic",
       loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
     ),
-    heartbeatLine("Inbound routing", whatsappInbound, now, INBOUND_STALE_MS, inboundDetail),
+    heartbeatLine("Inbound routing", whatsappInbound, now, INBOUND_STALE_MS, "event", inboundDetail),
     webResearch.line,
     // FYI only — doesn't affect `status` above. This report already arrives
     // via WhatsApp (the most reliable channel), so a dead ntfy/toast/mail
     // side-channel is worth a note but not itself a WhatsApp-readiness issue.
-    heartbeatLine("Notify channels", notifyChannels, now, 24 * 60 * 60 * 1000, notifyDetail),
+    heartbeatLine("Notify channels", notifyChannels, now, 24 * 60 * 60 * 1000, "event", notifyDetail),
   ];
 
   return {
@@ -137,7 +150,7 @@ export async function buildNightlyWhatsAppHealthReport(
       "Nightly WhatsApp health",
       `Status: ${status === "ready" ? "ready" : "needs attention"}`,
       `Time: ${localTime}`,
-      `Version: commit ${commit}`,
+      `Version: commit ${commit}${commit === "unavailable" ? ` (${runtime.commitReason})` : ""}`,
       "",
       ...details.map((line) => `- ${line}`),
       "",
@@ -163,13 +176,23 @@ function heartbeatLine(
   heartbeat: SystemHeartbeat | null,
   now: Date,
   staleAfterMs: number,
+  kind: "periodic" | "event",
   detail?: string,
 ): string {
-  const freshness = classifyHeartbeat(heartbeat, now, staleAfterMs);
-  if (!heartbeat) return `${label}: missing`;
+  const state = classifySignal(heartbeat, now, staleAfterMs, kind);
+  if (!heartbeat) return `${label}: not tested`;
   const ageSeconds = Math.max(0, Math.round((now.getTime() - heartbeat.lastSeenAt.getTime()) / 1000));
   const suffix = detail ? ` - ${detail}` : "";
-  return `${label}: ${heartbeat.status} (${freshness}, ${ageSeconds}s ago)${suffix}`;
+  return `${label}: ${heartbeat.status} (${state}, ${ageSeconds}s ago)${suffix}`;
+}
+
+function classifySignal(
+  heartbeat: SystemHeartbeat | null,
+  now: Date,
+  staleAfterMs: number,
+  kind: "periodic" | "event",
+): WhatsAppHealthState {
+  return classifyWhatsAppHealthSignal({ heartbeat, now, staleAfterMs, kind });
 }
 
 function heartbeatMetadataText(heartbeat: SystemHeartbeat | null, key: string): string | null {

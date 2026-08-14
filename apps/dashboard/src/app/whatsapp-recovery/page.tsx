@@ -273,7 +273,7 @@ export default async function WhatsAppRecoveryPage() {
             <p><span className="font-medium text-slate-100">Loop guard warning:</span> send <span className="font-mono text-slate-100">resume whatsapp</span>, wait for the resumed reply, then repeat the proof.</p>
             <p><span className="font-medium text-slate-100">Send failure:</span> WhatsApp client is not ready or the session needs repair.</p>
             <p><span className="font-medium text-slate-100">Version mismatch:</span> Vercel deployed but Railway did not redeploy the bot worker.</p>
-            <p><span className="font-medium text-slate-100">Voice fails:</span> check transcription model/API keys and media handling.</p>
+            <p><span className="font-medium text-slate-100">Voice fails:</span> check the local Handy model, FFmpeg tools, GPU availability, and media boundary.</p>
           </div>
         </div>
       </section>

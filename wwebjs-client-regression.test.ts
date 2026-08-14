@@ -62,7 +62,9 @@ describe("wwebjs client regressions", () => {
   });
 
   test("sends a safe WhatsApp fallback when backend handling crashes", () => {
-    expect(source).toContain("WHATSAPP_HANDLER_FAILURE_REPLY");
+    expect(source).toContain("formatWhatsAppHandlerFailure");
+    expect(source).toContain("createWhatsAppCorrelationId");
+    expect(source).toContain("did not retry automatically");
     expect(source).toContain("sendHandlerFailureReply");
     expect(source).toContain("canSendFailureReply = true");
     expect(source).toContain('logBotError("[wwebjs] handler failure fallback send failed", fallbackError)');

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1.2-ADVERSARIAL-FREEZE",
+  "frozenOn": "2026-08-12",
+  "baseCommit": "eaff2ba5f223ec8ded19ae5d7c0f38bce3d0210e",
+  "immutableFiles": [
+    { "role": "corpus", "path": "scripts/voice-eval/voice-verifier-v1.2-adversarial-corpus.json", "sha256": "e2e0b1b20e922116adb3ac17a5e4a6637fcd65278a4b44b65bb7d8b577499f07" },
+    { "role": "corrected_runner", "path": "packages/shared/test/voice-verifier-adversarial-v1.2.test.ts", "sha256": "b65bf305cc011518afac06c8467abc1404ae89f35bf1b90027220efa30979ec4" },
+    { "role": "runner_diff", "path": "scripts/voice-eval/voice-verifier-v1.2-runner.diff", "sha256": "24fddd0c6a3f8fcc59bcc5766b4243f1b88a8ce3212e362de7bb4f4b5c3d5b84" },
+    { "role": "freeze_verifier", "path": "scripts/voice-eval/verify-voice-verifier-v1.2-adversarial-freeze.ts", "sha256": "7adbe4bc812e7c4478409b485e14b3392d0755209e26bbbd03ecc4accfcf0cc0" }
+  ],
+  "initialImplementationFiles": [
+    { "path": "apps/bot/src/router.ts", "sha256": "ce647e78490cd83580403c3ae421aa2a6ad30741bdf6879068602842cb336403" },
+    { "path": "packages/shared/drizzle/0011_voice_verification.sql", "sha256": "b64b5931c94e102bba87a16c7f8099dd633272812a5c7426e1fac086a0024f2d" },
+    { "path": "packages/shared/drizzle/meta/_journal.json", "sha256": "11c14273a5560dba09fb9abd6bd3edf4544447d4f975a72e32c8a81e1a00704d" },
+    { "path": "packages/shared/src/db/repo.ts", "sha256": "5eb193cf5ffb1eff4acacb9f939e0c697d676dcd5bc2bfddc15de2f29452b7a0" },
+    { "path": "packages/shared/src/db/schema.ts", "sha256": "7a2dfe68915a2ecaf2785f3d8f7cc7f9306fe72612ef916ba1c3e00b183d6839" },
+    { "path": "packages/shared/src/ops/command-jobs.ts", "sha256": "0d6d2d5fdf5fd1595b251febee9bdedc851ac9f9a392fc07f033d6a6677df2e9" },
+    { "path": "packages/shared/src/voice/canonicalize.ts", "sha256": "22089b7a7755bda4f774c9d47ba970050767b7b354e44bb9b601b9c6b09b7562" },
+    { "path": "packages/shared/src/voice/index.ts", "sha256": "45ffa41f0fcbce9acbdb48050be12bcde0cdb45db6988a4509397adc2cbafac7" },
+    { "path": "packages/shared/src/voice/policy.ts", "sha256": "aceb49b06585e20feccc2dd2a93a6c000e29a5e332b83d522bc27487800c6ed8" },
+    { "path": "packages/shared/src/voice/resolution.ts", "sha256": "0c66c5fa386ff23c3bf7931be5a02c34343f2490a1948dbc404b95dc44426e71" },
+    { "path": "packages/shared/src/voice/risk-policy.ts", "sha256": "8ceaba12e692c0972796a1ad813be1705b16d4729f94886595e50c65a09c4143" },
+    { "path": "packages/shared/src/voice/types.ts", "sha256": "2800623227abe016ad7ecbb01a169be9851338ec3eb2ba2a8fc2ffec3dd3fb18" },
+    { "path": "packages/shared/src/voice/unicode-policy.ts", "sha256": "ef6cffac9663a537a0b33438e58f00290c78299ff9eb2d3343671ec34ef28c80" },
+    { "path": "packages/shared/src/voice/verifier.ts", "sha256": "474c0cfa4e50441b17a258a9f1293448064cd863c64a8babe6484238363a2ecf" }
+  ],
+  "immutableAggregateSha256": "39df02bc355242f41af0f1827576aaba97ae882f47b455a5a5f6eac07e3deb27",
+  "initialImplementationAggregateSha256": "01265feddc5ff44d4136d13267ae070617b9ba034a2e0c9e4131cee6fa7186eb",
+  "completeInitialAggregateSha256": "dd74de18b130cffe5a62955b7cab74b1c7466e9de9a2d7469b00c2520bf0b8f3"
+}

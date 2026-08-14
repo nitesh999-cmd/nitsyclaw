@@ -2,6 +2,12 @@ import type { DB } from "../db/client.js";
 import type { LiveWebResearcher } from "../search/live-web-research.js";
 import type { VerifiedSourceCollector } from "../search/verified-sources.js";
 import type { WhatsAppClient } from "../whatsapp/client.js";
+import type {
+  SpeechSynthesisRequest,
+  SpeechSynthesisResult,
+  TranscriptionRequestOptions,
+  TranscriptionResult,
+} from "../voice/types.js";
 
 /**
  * Dependencies a feature/tool needs. Injected, never imported globally.
@@ -12,6 +18,7 @@ export interface AgentDeps {
   whatsapp: WhatsAppClient;
   llm: LlmClient;
   transcriber: Transcriber;
+  speechSynthesizer?: SpeechSynthesizer;
   webSearch: WebSearcher;
   /**
    * Live web research through Anthropic's server-side web search tool.
@@ -36,7 +43,17 @@ export interface AgentDeps {
   now: () => Date;
   timezone: string;
   profile?: UserProfile;
+  /**
+   * Runs optional background model work without competing with an active
+   * user-facing model call. Bot runtimes wire this; tests and dashboard
+   * surfaces may omit it.
+   */
+  runBackgroundLlmJob?<T>(job: (llm: LlmClient) => Promise<T>): Promise<BackgroundLlmJobResult<T>>;
 }
+
+export type BackgroundLlmJobResult<T> =
+  | { status: "completed"; value: T }
+  | { status: "busy" };
 
 export interface UserProfile {
   homeLocation?: string;
@@ -67,7 +84,15 @@ export interface LlmClient {
 }
 
 export interface Transcriber {
-  transcribe(audio: Buffer, mimetype: string): Promise<string>;
+  transcribe(
+    audio: Buffer,
+    mimetype: string,
+    options?: TranscriptionRequestOptions,
+  ): Promise<TranscriptionResult>;
+}
+
+export interface SpeechSynthesizer {
+  synthesize(request: SpeechSynthesisRequest): Promise<SpeechSynthesisResult>;
 }
 
 export interface WebSearcher {

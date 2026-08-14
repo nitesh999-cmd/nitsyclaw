@@ -12,6 +12,9 @@ export interface QrRecoveryEnv {
   NITSYCLAW_QR_RECOVERY_UNTIL?: string;
   NITSYCLAW_QR_RECOVERY_MAX_WINDOW_MS?: string;
   PORT?: string;
+  NITSYCLAW_HTTP_HOST?: string;
+  RAILWAY_ENVIRONMENT_ID?: string;
+  RAILWAY_DEPLOYMENT_ID?: string;
 }
 
 export interface QrRecoveryWindow {
@@ -286,12 +289,22 @@ export function startQrRecoveryServer(
     send(res, { status: 404, contentType: "text/plain; charset=utf-8", body: "Not found" });
   });
 
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`[qr-recovery] HTTP recovery server listening on port ${port}`);
+  const host = resolveQrRecoveryHost(env);
+  server.listen(port, host, () => {
+    console.log(`[qr-recovery] HTTP recovery server listening on ${host}:${port}`);
   });
   return Object.assign(server, {
     setHealthProvider(provider: BotHealthProvider) {
       healthProvider = provider;
     },
   });
+}
+
+export function resolveQrRecoveryHost(env: QrRecoveryEnv): string {
+  const explicit = env.NITSYCLAW_HTTP_HOST?.trim();
+  if (explicit) return explicit;
+  if (env.RAILWAY_ENVIRONMENT_ID?.trim() || env.RAILWAY_DEPLOYMENT_ID?.trim()) {
+    return "0.0.0.0";
+  }
+  return "127.0.0.1";
 }

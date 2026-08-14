@@ -5,7 +5,7 @@ import { fakeTranscriber, makeFakeDb } from "./helpers.js";
 const OWNER_HASH = "owner-voice-test";
 
 describe("transcribeAndStore", () => {
-  it("transcribes and stores as memory", async () => {
+  it("stores the encrypted conversation transcript without promoting it to memory", async () => {
     const { db, state } = makeFakeDb();
     const out = await transcribeAndStore({
       audio: Buffer.from("non-empty"),
@@ -15,9 +15,8 @@ describe("transcribeAndStore", () => {
       ownerHash: OWNER_HASH,
     });
     expect(out.transcript).toContain("transcribed");
-    expect(state.memories).toHaveLength(1);
-    expect(state.memories[0].kind).toBe("note");
-    expect(state.memories[0].tags).toContain("voice");
+    expect(out.transcription.providerConfidence).toBeNull();
+    expect(state.memories).toHaveLength(0);
   });
 
   it("rejects empty audio", async () => {

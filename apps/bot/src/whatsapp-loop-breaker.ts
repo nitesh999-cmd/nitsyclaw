@@ -1,6 +1,7 @@
 import type {
   InboundMessage,
   OutboundMessage,
+  OutboundSendResult,
   WhatsAppClient,
 } from "@nitsyclaw/shared/whatsapp";
 
@@ -65,7 +66,7 @@ export class WhatsAppLoopBreaker implements WhatsAppClient {
     return this.inner.ready();
   }
 
-  async send(msg: OutboundMessage): Promise<{ id: string }> {
+  async send(msg: OutboundMessage): Promise<OutboundSendResult> {
     this.prune();
     this.resetIfCooldownExpired();
     if (this.isPaused()) {

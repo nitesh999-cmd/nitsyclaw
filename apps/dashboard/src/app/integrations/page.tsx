@@ -49,7 +49,7 @@ async function loadRows(): Promise<IntegrationRow[]> {
     {
       name: "OpenAI",
       status: process.env.OPENAI_API_KEY ? "Connected" : "Needs setup",
-      detail: "Voice transcription and embeddings.",
+      detail: "Optional dashboard AI and embeddings. WhatsApp voice stays local.",
     },
     {
       name: "Gmail",

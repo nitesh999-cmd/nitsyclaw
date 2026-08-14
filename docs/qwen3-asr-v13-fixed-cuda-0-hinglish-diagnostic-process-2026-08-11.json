@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1",
+  "phase": "FINAL",
+  "attemptId": "qwen3-asr-v13-fixed-cuda-0-hinglish-diagnostic",
+  "invocation": {
+    "executableName": "python.exe",
+    "executableSha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14",
+    "arguments": [
+      "-I",
+      "<reviewed-qwen3-asr-adapter-v13.py>",
+      "--model-path",
+      "<pinned-model-revision:7278e1e70fe206f11671096ffdd38061171dd6e5>",
+      "--audio-root",
+      "<private-synthetic-audio-root>",
+      "--case",
+      "hinglish-business=<private-synthetic-wav>",
+      "--max-new-tokens",
+      "128",
+      "--mode",
+      "diagnostic"
+    ],
+    "shell": false,
+    "environmentPolicy": "OFFLINE_ALLOWLIST_V1"
+  },
+  "processCreationTimestamp": "2026-08-11T09:37:26.777Z",
+  "processId": 37020,
+  "spawn": {
+    "succeeded": true,
+    "timestamp": "2026-08-11T09:37:26.787Z",
+    "error": null
+  },
+  "lifecycle": {
+    "errorTimestamp": null,
+    "exitTimestamp": "2026-08-11T09:37:46.365Z",
+    "closeTimestamp": "2026-08-11T09:37:46.365Z",
+    "exitCode": 1,
+    "exitSignal": null,
+    "closeCode": 1,
+    "closeSignal": null,
+    "gracefulTerminationRequested": false,
+    "forcedKillRequired": false
+  },
+  "stdout": {
+    "bytes": 0,
+    "storedBytes": 0,
+    "decoded": "",
+    "decodeError": false,
+    "truncated": false,
+    "ended": true,
+    "closed": true,
+    "error": null
+  },
+  "stderr": {
+    "bytes": 1425,
+    "storedBytes": 1425,
+    "decoded": "\rLoading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]\rLoading checkpoint shards:  50%|#####     | 1/2 [00:01<00:01,  1.91s/it]\rLoading checkpoint shards: 100%|##########| 2/2 [00:02<00:00,  1.08it/s]\rLoading checkpoint shards: 100%|##########| 2/2 [00:02<00:00,  1.07s/it]\r\nThe following generation flags are not valid and may be ignored: ['temperature']. Set `TRANSFORMERS_VERBOSITY=info` for more details.\r\nSetting `pad_token_id` to `eos_token_id`:151645 for open-end generation.\r\nTraceback (most recent call last):\r\n  File \"<redacted>\", line 52, in <module>\r\n    raise SystemExit(main())\r\n                     ^^^^^^\r\n  File \"<redacted>\", line 48, in main\r\n    return int(adapter.main())\r\n               ^^^^^^^^^^^^^^\r\n  File \"<redacted>\\scripts\\voice-eval\\qwen3-asr-adapter.py\", line 281, in main\r\n    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), flush=True)\r\n  File \"<redacted>\\NitsyClaw\\qwen3-asr\\python-3.12.10\\Lib\\encodings\\cp1252.py\", line 19, in encode\r\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nUnicodeEncodeError: 'charmap' codec can't encode characters in position 161-162: character maps to <undefined>\r\n",
+    "decodeError": false,
+    "truncated": false,
+    "ended": true,
+    "closed": true,
+    "error": null
+  },
+  "timedOut": false,
+  "cancelled": false,
+  "wallClockDurationMs": 19782,
+  "peakChildRamBytes": 4894720,
+  "peakGpuMemoryBytes": null,
+  "resourceSamples": 21,
+  "nonLoopbackTcpConnectionsObserved": 0,
+  "outputTruncated": false,
+  "transcriptParse": {
+    "status": "EMPTY",
+    "error": null
+  },
+  "outcome": "NONZERO_EXIT",
+  "cleanup": {
+    "passed": true,
+    "privateEvaluationDirectoryRemoved": true,
+    "tempArtifactSetRestored": true
+  }
+}

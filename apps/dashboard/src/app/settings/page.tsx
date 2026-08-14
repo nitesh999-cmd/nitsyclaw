@@ -52,7 +52,7 @@ export default async function SettingsPage({
         <ul className="grid gap-2 text-sm md:grid-cols-3">
           <li className="nc-tile">Google Calendar: {process.env.GOOGLE_CLIENT_ID ? "configured" : "not configured"}</li>
           <li className="nc-tile">Anthropic Claude: {process.env.ANTHROPIC_API_KEY ? "configured" : "not configured"}</li>
-          <li className="nc-tile">OpenAI Whisper: {process.env.OPENAI_API_KEY ? "configured" : "not configured"}</li>
+          <li className="nc-tile">WhatsApp voice: local owner-only preview</li>
         </ul>
       </section>
 

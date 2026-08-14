@@ -124,6 +124,7 @@ export async function refreshCommandJobIntent(
   id: string,
   command: string,
   allowAgentClarification: boolean,
+  opts: { storedCommand?: string } = {},
 ): Promise<CommandJob> {
   const intent = analyzePersonalPaIntent(command);
   const riskLevel = intent.kind === "approval_required" ? "approval_required" : "safe";
@@ -141,10 +142,26 @@ export async function refreshCommandJobIntent(
       : intent.userFacingText;
 
   return updateCommandJob(db, id, {
-    command: command.trim(),
+    command: (opts.storedCommand ?? command).trim(),
     status,
     riskLevel,
     receiptText,
+    updatedAt: new Date(),
+  });
+}
+
+export async function holdCommandJobForVoiceVerification(
+  db: DB,
+  id: string,
+  storedCommand: string,
+  receiptText: string,
+): Promise<CommandJob> {
+  return updateCommandJob(db, id, {
+    command: storedCommand.trim(),
+    status: "needs_clarification",
+    riskLevel: "approval_required",
+    receiptText: receiptText.trim(),
+    error: null,
     updatedAt: new Date(),
   });
 }

@@ -9,15 +9,80 @@ import {
   readAllowedSelfChatIds,
 } from "./whatsapp-self-chat-calibration.js";
 import {
+  createWhatsAppCorrelationId,
+  formatWhatsAppHandlerFailure,
   formatNonSelfChatDropNotice,
-  isMissingSendAckError,
   prepareOutboundBodyForWhatsApp,
   pruneChromiumCacheDirs,
   resolveWebVersionCache,
   shouldLogChatLookupError,
   shouldRetryChatLookupForSelfChatCandidate,
   shouldSendNonSelfChatDropNotice,
+  wwebjsVoiceMediaInternals,
 } from "./wwebjs-client.js";
+
+describe("WhatsApp native voice media boundary", () => {
+  it("accepts only reviewed Ogg Opus media and converts it to MessageMedia", () => {
+    const converted = wwebjsVoiceMediaInternals.toReviewedWwebVoiceMedia({
+      kind: "voice",
+      data: Buffer.from("OggSvalidated"),
+      mimetype: "audio/ogg; codecs=opus",
+      filename: "nitsyclaw-reply.ogg",
+    });
+    expect(converted.mimetype).toBe("audio/ogg");
+    expect(Buffer.from(converted.data, "base64").toString("ascii", 0, 4)).toBe("OggS");
+  });
+
+  it.each([
+    { kind: "voice" as const, data: Buffer.from("bad"), mimetype: "audio/ogg; codecs=opus", filename: "reply.ogg" },
+    { kind: "voice" as const, data: Buffer.from("OggSok"), mimetype: "audio/mpeg", filename: "reply.ogg" },
+    { kind: "voice" as const, data: Buffer.from("OggSok"), mimetype: "audio/ogg; codecs=opus", filename: "../reply.ogg" },
+    { kind: "voice" as const, data: Buffer.alloc(2 * 1024 * 1024 + 1, 1), mimetype: "audio/ogg; codecs=opus", filename: "reply.ogg" },
+  ])("rejects invalid generated media before submission", (media) => {
+    expect(() => wwebjsVoiceMediaInternals.toReviewedWwebVoiceMedia(media)).toThrow(/transport boundary/);
+  });
+
+  it("calculates decoded base64 size before allocating a voice buffer", () => {
+    expect(wwebjsVoiceMediaInternals.estimatedBase64Bytes("TQ==")).toBe(1);
+    expect(wwebjsVoiceMediaInternals.estimatedBase64Bytes("TWE=")).toBe(2);
+  });
+});
+
+describe("WhatsApp handler failures", () => {
+  it("returns an actionable timeout without leaking the raw error", () => {
+    const error = Object.assign(
+      new Error("Ollama request timed out for nitesh@example.com sk_live_secret123456789"),
+      { name: "OllamaProviderError", code: "timeout" },
+    );
+    const reply = formatWhatsAppHandlerFailure(error, "aabbccdd");
+
+    expect(reply).toContain("local model timed out");
+    expect(reply).toContain("Nothing was sent to a cloud model");
+    expect(reply).toContain("did not retry automatically");
+    expect(reply).toContain("Ref: NC-AABBCCDD");
+    expect(reply).not.toContain("nitesh@example.com");
+    expect(reply).not.toContain("sk_live");
+  });
+
+  it.each([
+    [Object.assign(new Error("ECONNREFUSED"), { name: "OllamaProviderError", code: "offline" }), "local model is unavailable"],
+    [Object.assign(new Error("blank"), { code: "empty_response" }), "no usable answer"],
+    [new Error("401 invalid api key secret-value"), "rejected authentication"],
+    [Object.assign(new Error("tool exploded with private-value"), { code: "tool_failure" }), "backend tool step failed"],
+    [new Error("database query timed out with private-value"), "backend step timed out"],
+    [new Error("backend exploded with private-value"), "backend error"],
+  ])("classifies failures without returning internals", (error, expected) => {
+    const reply = formatWhatsAppHandlerFailure(error, "11223344");
+    expect(reply).toContain(expected);
+    expect(reply).toContain("Ref: NC-11223344");
+    expect(reply).not.toContain("secret-value");
+    expect(reply).not.toContain("private-value");
+  });
+
+  it("creates a compact sanitized correlation id", () => {
+    expect(createWhatsAppCorrelationId(() => "aa-bb_cc!!dd")).toBe("NC-AABBCCDD");
+  });
+});
 
 describe("resolveWebVersionCache", () => {
   it("does not hard-pin a stale WhatsApp Web version by default", () => {
@@ -49,20 +114,6 @@ describe("resolveWebVersionCache", () => {
         process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = previous;
       }
     }
-  });
-});
-
-describe("isMissingSendAckError", () => {
-  it("recognizes the whatsapp-web.js missing send acknowledgement crash", () => {
-    expect(
-      isMissingSendAckError(new TypeError("Cannot read properties of undefined (reading 'id')")),
-    ).toBe(true);
-  });
-
-  it("does not hide real browser target closure errors", () => {
-    const error = new Error("Protocol error (Runtime.callFunctionOn): Target closed");
-    error.name = "TargetCloseError";
-    expect(isMissingSendAckError(error)).toBe(false);
   });
 });
 

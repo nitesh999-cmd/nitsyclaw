@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1-FREEZE",
+  "frozenOn": "2026-08-12",
+  "methodology": "Specification, synthetic fixtures, classifications, and thresholds frozen before implementation tests; no model execution or candidate-derived data.",
+  "files": [
+    {
+      "path": "docs/voice-verifier-v1-spec.md",
+      "sha256": "8bf720cd8332c50721c2603291b0acad52ede90871f42d85eaf300c66580f55d"
+    },
+    {
+      "path": "scripts/voice-eval/voice-verifier-v1-fixtures.json",
+      "sha256": "12dbb1c80c06165388c8b91f1d7130a8564779c52daeb55a68bacd023a0e40b9"
+    }
+  ],
+  "aggregateSha256": "e9760a51ac9b4d5d96c1ec17bd5e672d2401deead63cbc06426f3c676a09cc5e"
+}

@@ -1,3 +1,12 @@
+## WhatsApp voice intelligence (2026-08-09)
+
+- `apps/bot/src/local-voice-transcriber.ts` — strict local media validation, FFmpeg normalization, and Handy ASR.
+- `apps/bot/src/local-speech-synthesizer.ts` — local SAPI speech generation and native Ogg Opus output validation.
+- `apps/bot/src/whatsapp-voice-reply.ts` — ordered owner-turn context and text/voice reply policy.
+- `packages/shared/src/voice/` — language, quality, preference, and speech-safety policy.
+- `scripts/voice-local-eval.ts` — private synthetic ASR quality and cleanup benchmark.
+- `docs/whatsapp-voice-intelligence.md` — architecture, privacy, limits, commands, evaluation, and live gate.
+
 ## Project Structure
 
 C:\Users\Nitesh\projects\NitsyClaw\.claude

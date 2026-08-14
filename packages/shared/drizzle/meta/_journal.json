@@ -78,6 +78,20 @@
       "when": 1783257432000,
       "tag": "0010_tenant_owner_hash_scoped_domains",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786458483803,
+      "tag": "0011_voice_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786543200000,
+      "tag": "0012_voice_proposal_binding",
+      "breakpoints": true
     }
   ]
 }
