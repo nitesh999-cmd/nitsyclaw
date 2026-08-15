@@ -3514,3 +3514,91 @@ required before anything acts on it.
 The general lesson: a property test whose reference implementation shares the suspect
 operation with the code under test proves nothing. Put the oracle somewhere the code cannot
 reach, and make it the real prior implementation.
+
+---
+
+## 2026-08-16 — Dependency remediation, Sharp on Vercel Linux, and the Windows CI flake
+
+### pnpm audit 39 to 0, without weakening anything
+
+The branch was blocked by the `security` job. The interesting part was not the count but
+*why* the count was wrong: there were **two** override lists. `package.json` carried a
+`pnpm.overrides` block and `pnpm-workspace.yaml` carried `overrides:`. pnpm accepts both and
+`package.json` wins. They had drifted, so every edit to the workspace file was inert, and a
+stale `ip-address: 10.1.1` pin sat there holding a vulnerable version in place while looking
+like it had been fixed. That is now R82: one authority, enforced by a guard.
+
+Three packages were removed from the tree entirely rather than pinned — `extract-zip`
+(GHSA-jmr9-qjv8-65gv, high, and no fixed version has ever shipped), `nodemailer` and
+`basic-ftp`. Absence is strictly stronger than a floor. The rest got floors tied to their
+published advisories, and `engines.node` went to `>=22.12.0` because Puppeteer 25 requires it.
+
+Compatibility was proven, not assumed. Puppeteer 25.5.0 drives `whatsapp-web.js@1.34.7` all
+the way to QR-ready despite that package pinning `24.38.0` exactly.
+
+### Sharp 0.35.3 on Vercel Linux
+
+Sharp ships platform-specific native binaries, so a Windows-only proof is worth very little —
+a Linux load failure would break dashboard image optimization in production with no local
+signal. Getting a real proof took three attempts:
+
+1. First Preview: every request returned `302` to Vercel SSO. Deployment Protection. Bypassing
+   it needed a settings change or a manual token, both out of scope, so it was deleted.
+2. `vercel curl` (CLI 53.1.1) handled the protection itself — it mints and uses an ephemeral
+   bypass token, no manual token, no settings change. That got past Vercel and straight into
+   the *app's* own gate: `503 Dashboard auth is not configured`. The optimizer fetches its
+   source image back through the app's proxy, and `isPublicPath()` did not cover the fixtures.
+3. Third attempt added three fixtures and one `/api/sharp-proof` endpoint to `isPublicPath()`
+   by exact string equality, proved with behavioural tests that 14 neighbouring paths stayed
+   fail-closed, and got the result: `sharpVersion 0.35.3`, `platform linux`, `arch x64`, and
+   JPEG/PNG/WebP each `HTTP 200` through the real Next 16.2.11 `/_next/image`, decoded at
+   64x48 and 128x96. Preview deleted, all pre-existing Previews intact, every touched file
+   restored to its byte-exact pre-proof hash.
+
+Worth knowing for next time: `vercel curl` fails with `curl: (3) URL rejected` on a path with
+no query string — append any dummy query. And Next 16 defaults to `qualities: [75]`, so
+`q=60` or `q=90` returns `400 INVALID_IMAGE_OPTIMIZE_REQUEST`; that is the allowlist, not Sharp.
+
+### The Windows CI flake — a starved test is not a slow test
+
+Windows had failed three times on three *different* tests, each a 5000ms timeout. The obvious
+read is "these tests need longer timeouts". That would have been wrong, and it would have
+buried the actual problem under a bigger number.
+
+The failing tests are not slow. The SQLite one that failed at `c26ad2c` runs in **37ms**
+locally and **62ms** on Linux. The freeze verifier that failed at `144ac15c` runs in **26ms**.
+Windows CI inflated them 135-190x.
+
+What actually happens: `ollama-recovery.test.ts` spawns about sixteen Windows PowerShell
+processes to drive `ensure-ollama.ps1` through its scenarios. On Linux it is platform-gated
+and costs 11ms; on the four-core Windows runner it costs 29.5s and takes the cores. It has
+explicit per-test budgets of 60s to 180s so it never fails itself. Everything scheduled alongside it is running
+on the 5000ms default with no CPU. Whichever unbudgeted test happens to collide loses — hence
+a different test each run.
+
+Proven by controlled experiment on a sixteen-core Windows machine, changing only `maxWorkers`:
+
+| workers | ratio | slowest single test | tests over 4s | failures |
+|---|---|---|---|---|
+| 16 | 1.00 | 5817ms | 3 | 0 |
+| 8 | 0.50 | 4363ms | 2 | 0 |
+| 6 | 0.38 | 3896ms | 0 | 0 |
+| 4 | 0.25 | 3703ms | 0 | 0 |
+| 2 | 0.12 | 3523ms | 0 | 0 |
+
+Monotonic, and from a half downward every test still above 2500ms was an ollama test that
+already carried a budget. So the fix is one Windows-only worker cap, not a timeout anywhere.
+Linux keeps the default and its 3.91s run.
+
+Note the shape of the curve: it saturates around 3.5s. That floor is real work, not
+contention. It is why the cap is expressed as a ratio of available cores rather than a
+magic number — the guard asserts the *relationship*, and it tests both platforms explicitly
+so the Windows rule is still verified when CI runs it on Linux.
+
+### The general lesson
+
+Twice in two days the same mistake was available and avoided: treating a symptom's location
+as its cause. The Semgrep findings were repo-wide, not branch-new. The Windows timeouts were
+contention, not slow tests. In both cases the cheap fix (suppress; raise the timeout) would
+have produced a green board and a worse system. Measure the thing in isolation and on the
+other platform before you believe where the problem lives.
