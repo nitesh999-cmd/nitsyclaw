@@ -60,7 +60,11 @@ const EXE_NOT_FOUND = 10;
 const START_TIMEOUT = 11;
 const MODEL_MISSING = 12;
 
-describe("ensure-ollama behaviour", () => {
+// These execute scripts/ensure-ollama.ps1 through Windows PowerShell against a
+// simulated server, so they are Windows-only by construction. The safety-contract
+// and wiring blocks below read the script as source and stay cross-platform, which
+// keeps the guarantees that matter on every runner.
+describe.skipIf(process.platform !== "win32")("ensure-ollama behaviour", () => {
   test("a healthy Ollama causes zero starts", () => {
     const r = runScenario("healthy");
     expect(r.code).toBe(OK);

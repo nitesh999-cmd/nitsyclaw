@@ -3338,3 +3338,50 @@ Two failures at the same SHA are **not** fixed by that change and remain open:
 
 The general lesson is R79: a test that reads a tracked file and asserts on its structure
 must normalise line endings first, or it asserts on the checkout rather than the content.
+
+### The last two CI reds were both "wrong runner", not "wrong code" -- 2026-08-14
+
+After the first EOL repair, CI run 31857444754 at `144ac15` was still red on two jobs.
+`ci-workflow.test.ts` had gone green, which confirmed the diagnosis; the two survivors were
+the ones predicted, and neither was a defect in shipped behaviour.
+
+`verify-voice-verifier-v1-freeze.test.ts` simulated the opposite line ending with
+`fixtures.replace(/\n/gu, "\r\n")`. That is only correct starting from LF. On the Windows
+runner the fixture file is already CRLF, so the rewrite produced `\r\r\n`, the normaliser
+collapsed it to two newlines, and the hash moved (`564cf98e...` vs `12dbb1c8...`). The fix
+is to make the simulation idempotent: `fixtures.replace(/\r?\n/gu, "\r\n")`. The frozen
+fixture itself was never touched -- only the test's own scratch transformation.
+
+`ollama-recovery.test.ts > ensure-ollama behaviour` executes `scripts/ensure-ollama.ps1`
+through Windows PowerShell, so it cannot pass on `ubuntu-latest`. It had never failed before
+because the branch it came from, `fix/anthropic-web-search`, had never been through CI --
+the integration merge was the first time CI ever ran it. Gated with
+`describe.skipIf(process.platform !== "win32")`.
+
+What deliberately stayed cross-platform: `ensure-ollama safety contract` and
+`recovery wiring` read the script as text rather than executing it. On every runner we still
+assert never-kill/stop/restart, that the only thing started is a detached hidden
+`ollama serve` with no `-Wait`, the stable 0/10/11/12/13 exit-code contract, the
+cross-process lock and bounded timeouts, and required-model ordering with the health marker
+written only on success. That split is R80 -- gate the execution, never the guarantee.
+
+The split is not yet clean, and independent review caught it. Two assertions that are pure
+source checks live inside the gated block because they share a `test()` with a PowerShell
+scenario: the no-pull/no-remove verb check (`ollama-recovery.test.ts:114-115`) and the
+loopback-only / no-`0.0.0.0` check (`:122-126`). Those two now run on Windows only. Nothing
+about the helper changed, but a future regression adding `ollama pull` or a `0.0.0.0` bind
+would no longer be caught by the Linux job. Lifting those two assertions into the ungated
+block is the fix; it is deliberately left out of the CI-repair commit so that commit stays a
+pure runner fix, and it is recorded as a known gap under R80 rather than quietly carried.
+
+The same review noted the CRLF equality assertion is tautological on a runner whose checkout
+is already CRLF -- the idempotent rewrite is a no-op there, so it compares a string to
+itself. It still does real work on Linux, and the trailing-space negative assertion stays
+meaningful everywhere. A strictly stronger form would derive LF explicitly and then derive
+CRLF from it; that was not applied because the authorised change was an exact one-line
+substitution.
+
+Operational lesson worth keeping: a fully green local run did not predict either failure,
+because this worktree is LF-normalised and Windows-native. Both defects only exist in a
+checkout whose line endings differ from the developer's. When a gate is EOL- or OS-sensitive,
+CI is the authority and local green means nothing.

@@ -18,7 +18,11 @@ describe("Voice Verifier V1 freeze", () => {
 
   it("normalizes line endings without normalizing content", async () => {
     const fixtures = await readFile(join(directory, "voice-verifier-v1-fixtures.json"), "utf8");
-    expect(voiceVerifierV1TextSha256(fixtures.replace(/\n/gu, "\r\n")))
+    // `\r?\n` keeps the simulation idempotent: on a Windows checkout the file is
+    // already CRLF, and a bare `\n` -> `\r\n` rewrite would yield `\r\r\n`, which
+    // normalises to two newlines and changes the hash. This asserts that CRLF input
+    // hashes identically to LF input on any runner.
+    expect(voiceVerifierV1TextSha256(fixtures.replace(/\r?\n/gu, "\r\n")))
       .toBe(voiceVerifierV1TextSha256(fixtures));
     expect(voiceVerifierV1TextSha256(`${fixtures} `)).not.toBe(voiceVerifierV1TextSha256(fixtures));
   });
