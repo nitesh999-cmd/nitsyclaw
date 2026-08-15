@@ -3308,3 +3308,33 @@ Reply modes (`text`, `voice`, `automatic`) and language/brief preferences use ex
 Raw and generated media are temporary only; transcripts remain encrypted, are not automatically promoted to memory, can be shown/deleted/corrected by the owner, and never enter raw logs. Native voice sends use `sendAudioAsVoice` through exact-ID/recipient ACK correlation. Self-echo is not delivery proof and ambiguous post-submission errors are never automatically retried.
 
 Full architecture, budgets, data lifecycle, owner commands, evaluation thresholds, licence review, and live-proof gate are in `docs/whatsapp-voice-intelligence.md`.
+
+### CI is red for checkout reasons, not content reasons -- 2026-08-14
+
+CI run 31807095414 at `eaf1b96` (the integration merge) failed on two runners for three
+different reasons, and only one of them was a real content problem.
+
+`windows` failed `ci-workflow.test.ts` with `job e2e not found: expected -1 to be greater
+than -1`. The same committed `ci.yml` parsed fine on `ubuntu-latest`. Cause: `core.autocrlf`
+materialises the file as CRLF on Windows, so `workflow.indexOf("\n  e2e:\n")` can never
+match -- the byte after `:` is `\r`, not `\n`. The workflow itself is correct and
+byte-identical on both runners. Fix is one line in the test: normalise with
+`.replace(/\r\n?/g, "\n")` before asserting (R79). Proven 15/15 under both an LF checkout
+and a simulated CRLF checkout, with `ci.yml` restored byte-identical afterwards.
+
+Two failures at the same SHA are **not** fixed by that change and remain open:
+
+- `scripts/voice-eval/verify-voice-verifier-v1-freeze.test.ts:21` does
+  `fixtures.replace(/\n/gu, "\r\n")`. On a CRLF checkout the file is already CRLF, so this
+  produces `\r\r\n` and the hash diverges. Same class of defect, different file. Smallest
+  correct fix is `fixtures.replace(/\r?\n/gu, "\r\n")` -- test-only, and it does not touch
+  the frozen fixture listed in the V1 freeze manifest.
+- `ollama-recovery.test.ts` has no platform guard and drives `scripts/ensure-ollama.ps1`,
+  a deliberately Windows-local helper, so it fails on `ubuntu-latest`. This suite arrived
+  from `fix/anthropic-web-search`, which had never been through CI, so the merge is the
+  first time CI has ever executed it. Smallest correct fix is
+  `describe.skipIf(process.platform !== "win32")` on the behavioural block, leaving the
+  source-only wiring assertions cross-platform. No freeze manifest lists this file.
+
+The general lesson is R79: a test that reads a tracked file and asserts on its structure
+must normalise line endings first, or it asserts on the checkout rather than the content.

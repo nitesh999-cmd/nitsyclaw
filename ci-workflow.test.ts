@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 describe("GitHub Actions CI workflow", () => {
-  const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+  // Normalise line endings: Windows checkouts materialise ci.yml with CRLF
+  // (core.autocrlf), and the structural assertions below anchor on "\n  <job>:\n".
+  // Without this the same committed workflow parses on Linux and fails on Windows.
+  const workflow = readFileSync(".github/workflows/ci.yml", "utf8").replace(/\r\n?/g, "\n");
 
   it("does not leave empty with blocks on action steps", () => {
     const lines = workflow.split(/\r?\n/);
