@@ -4,7 +4,7 @@
   "startingCommit": "332b529d5de8d9fb3bb9fa32d3ffc5fc9b78ccca",
   "parentV14AggregateSha256": "5545f163e6af1ae262ea6cd522189a04d6df636dd760e48a800b7709dc976f1b",
   "frozenV2AggregateSha256": "d169f8584a158af92463bf84ad7afa257d2daeb5d2ed13d4df3b585e28115d7b",
-  "frozenV21AggregateSha256": "fba510500f928675905d67e838caecd9b1075d708c96938d5249fc8d873820a5",
+  "frozenV21AggregateSha256": "01be6ff8e0fbb4e7eb426a053174ea16fa7ba6e07d3579278d63f66746a165ef",
   "model": {
     "repository": "Qwen/Qwen3-ASR-1.7B",
     "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
@@ -183,9 +183,31 @@
     { "path": "scripts/voice-eval/qwen3-asr-v21-score.ts", "sha256": "fbd399a55bb3a8e871cddd9f582102facb175f1cef015d47141389d274c344a5" },
     { "path": "scripts/voice-eval/qwen3-asr-v15.test.ts", "sha256": "916d1f82230b42f54c7864d84a51583f4b6d14182b24c48ebd0326bd78304a36" },
     { "path": "scripts/voice-eval/run-qwen3-asr-v15-scored-smoke.ts", "sha256": "0b1faa0190dea7a026c04e44d86c3ae927223b179703cc210882341eacbb326d" },
-    { "path": "scripts/voice-eval/scoring-v2.1.ts", "sha256": "945c1d3119d39e14514ef0d78f5b38de037c440b1dca26baccb3bf8cd5e382fb" },
+    { "path": "scripts/voice-eval/scoring-v2.1.ts", "sha256": "b5765268b78208ad80203916963f9671c483dfc3d17cf2ac16fdfc2c7adea3c9" },
     { "path": "scripts/voice-eval/scoring-v2.ts", "sha256": "59cd6c7690a48e346b0a088390466bcd44d3843f63a70385f7159e4c66b16969" },
     { "path": "scripts/voice-eval/voice-smoke-v2-spec.json", "sha256": "6e332da97775467c84006dbd2211822469a9ac941c0f2668d56fe76a452786b5" }
   ],
-  "aggregateSha256": "5269ce0fe5789913ba79febe83ff795924bdbe69e287f744c0f12cc0d9305570"
+  "aggregateSha256": "82ec3b9fac45ceab460fc12d1675d19f084a1ef864742e7593e546b9eb71d781",
+  "corrections": [
+    {
+      "date": "2026-08-14",
+      "path": "scripts/voice-eval/scoring-v2.1.ts",
+      "previousSha256": "945c1d3119d39e14514ef0d78f5b38de037c440b1dca26baccb3bf8cd5e382fb",
+      "correctedSha256": "b5765268b78208ad80203916963f9671c483dfc3d17cf2ac16fdfc2c7adea3c9",
+      "previousAggregateSha256": "5269ce0fe5789913ba79febe83ff795924bdbe69e287f744c0f12cc0d9305570",
+      "correctedAggregateSha256": "82ec3b9fac45ceab460fc12d1675d19f084a1ef864742e7593e546b9eb71d781",
+      "previousFrozenV21AggregateSha256": "fba510500f928675905d67e838caecd9b1075d708c96938d5249fc8d873820a5",
+      "correctedFrozenV21AggregateSha256": "01be6ff8e0fbb4e7eb426a053174ea16fa7ba6e07d3579278d63f66746a165ef",
+      "reason": "Semgrep detect-non-literal-regexp remediation",
+      "change": "Four fixed script patterns became equivalent literals. scriptCount previously constructed four dynamic RegExp values over the constant list [Latin, Devanagari, Cyrillic, Greek]; it now tests four literal regexes in the same order. Neither form uses the g flag, so there is no lastIndex state. Scoring behaviour is unchanged, so no frozen model, runtime, case, threshold or evidence value moves.",
+      "equivalenceProof": "Old and new scriptCount compared over 21 inputs (empty, single-script Latin/Devanagari/Cyrillic/Greek, multi-script combinations, digits, punctuation, zero-width and control characters, Han, combining forms, and a 5000-character input) plus five repeated calls for lastIndex stability: identical on every case.",
+      "dependentValuesRecomputed": "Only the scoring-v2.1.ts entry changed. aggregateSha256 and frozenV21AggregateSha256 are mathematically derived and were recomputed with this manifest's own algorithm, which was first shown to reproduce the pre-correction values exactly. qwen3-asr-v15.test.ts was proven not to require modification and remains frozen at its original digest.",
+      "originalBytesPreservedIn": {
+        "parentCommit": "c4d1ce5b4fd0d64d2ba336847d2a5808eef057a0",
+        "gitBlob": "c794c82fedc4d7c341bf6f6e92299e941712ec26",
+        "note": "The parent commit is pushed to origin/integrate/voice-into-audit, so the pre-correction bytes remain permanently retrievable."
+      },
+      "authorization": "Authorized historical exception, not silent regeneration. The owner explicitly approved this single recorded correction after the alternative - leaving a live freeze verifier failing - was rejected. No Semgrep rule was suppressed, no ignore entry added and no scan configuration weakened."
+    }
+  ]
 }

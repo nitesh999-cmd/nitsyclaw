@@ -109,21 +109,15 @@ describe.skipIf(process.platform !== "win32")("ensure-ollama behaviour", () => {
     expect(r.starts).toBe(0);
     expect(r.healthMarker).toBe(false);
     expect(r.log).toContain("model_missing");
-    // The helper must contain no pull/install/remove verb at all.
-    const helper = readFileSync(HELPER, "utf8");
-    expect(helper).not.toMatch(/ollama\s+(pull|run|rm|create|cp|push)/i);
-    expect(helper).not.toMatch(/\/api\/pull|\/api\/create|\/api\/delete/i);
+    // The source-level "never pulls" guarantee lives in the cross-platform
+    // safety-contract block below, so it is asserted on every runner.
   }, 60_000);
 
   test("the child is configured for loopback only", () => {
     const r = runScenario("missing");
     expect(r.childHost).toBe("127.0.0.1:11434");
-    const helper = psCode(HELPER);
-    expect(helper).toContain("127.0.0.1:11434");
-    expect(helper).toContain("http://127.0.0.1:11434");
-    // No public or LAN bind, ever (comments stripped, so this tests code only).
-    expect(helper).not.toContain("0.0.0.0");
-    expect(helper).not.toMatch(/OLLAMA_HOST\s*=\s*['"]?(?!127\.0\.0\.1)\d/);
+    // The source-level loopback guarantee lives in the cross-platform
+    // safety-contract block below, so it is asserted on every runner.
   }, 60_000);
 
   test("the parent environment is restored after starting a child", () => {
@@ -180,6 +174,20 @@ describe("ensure-ollama safety contract", () => {
     expect(helper).not.toMatch(/Stop-Process/i);
     expect(helper).not.toMatch(/taskkill/i);
     expect(helper).not.toMatch(/\.Kill\(\)/i);
+  });
+
+  test("never pulls, runs, removes, creates, copies or pushes a model", () => {
+    expect(helper).not.toMatch(/ollama\s+(pull|run|rm|create|cp|push)/i);
+    expect(helper).not.toMatch(/\/api\/pull|\/api\/create|\/api\/delete/i);
+  });
+
+  test("binds loopback only, never a public or LAN interface", () => {
+    // Comments are stripped first, so this asserts against code, not prose.
+    const code = psCode(HELPER);
+    expect(code).toContain("127.0.0.1:11434");
+    expect(code).toContain("http://127.0.0.1:11434");
+    expect(code).not.toContain("0.0.0.0");
+    expect(code).not.toMatch(/OLLAMA_HOST\s*=\s*['"]?(?!127\.0\.0\.1)\d/);
   });
 
   test("starts only 'ollama serve', detached and hidden", () => {

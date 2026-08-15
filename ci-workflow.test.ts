@@ -30,13 +30,33 @@ describe("GitHub Actions CI workflow", () => {
     expect(emptyWithLines).toEqual([]);
   });
 
-  it("uses Node 24-compatible action versions and packageManager from package.json for pnpm setup", () => {
-    expect(workflow).toContain("uses: actions/checkout@v6");
-    expect(workflow).toContain("uses: pnpm/action-setup@v6");
-    expect(workflow).toContain("uses: actions/setup-node@v5");
-    expect(workflow).toContain("uses: actions/upload-artifact@v7");
+  it("pins every action to an immutable SHA at the Node 24-compatible major version", () => {
+    // Every action is pinned to a 40-character commit SHA so the reference cannot be
+    // silently repointed, with the human-readable version kept in a trailing comment.
+    // Both halves are asserted: the immutable pin AND the intended major.
+    // EVERY `uses:` line must satisfy the contract, not merely one representative
+    // occurrence — otherwise a single reference could be repointed to `@main` or
+    // lose its version comment while the others keep the assertion green.
+    const majors: Record<string, string> = {
+      "actions/checkout": "v6",
+      "pnpm/action-setup": "v6",
+      "actions/setup-node": "v5",
+      "actions/upload-artifact": "v7",
+    };
+    const usesLines = workflow.split("\n").filter((line) => /^\s*(-\s*)?uses:/.test(line));
+    expect(usesLines).toHaveLength(23);
+    for (const line of usesLines) {
+      const parsed = /uses:\s*([\w.-]+\/[\w.-]+)@([^\s#]+)\s*#\s*(v\S+)\s*$/.exec(line);
+      expect(parsed, `unpinned or uncommented action: ${line.trim()}`).not.toBeNull();
+      const [, action, ref, version] = parsed!;
+      expect(ref, `not a 40-char SHA: ${line.trim()}`).toMatch(/^[0-9a-f]{40}$/);
+      expect(majors[action!], `unexpected action: ${action}`).toBeDefined();
+      expect(version!.startsWith(`${majors[action!]}.`), `wrong major for ${action}: ${version}`).toBe(true);
+    }
+    // No mutable reference of any shape — tag, branch or floating name.
+    expect(workflow).not.toMatch(/uses:\s*[\w.-]+\/[\w.-]+@(?![0-9a-f]{40}\b)/);
     expect(workflow).not.toContain("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24");
-    expect(workflow).not.toMatch(/uses:\s*pnpm\/action-setup@v6\s*\r?\n\s*with:\s*\r?\n/);
+    expect(workflow).not.toMatch(/uses:\s*pnpm\/action-setup@[0-9a-f]{40}[^\n]*\r?\n\s*with:\s*\r?\n/);
   });
 
   it("runs the production build before coverage and e2e gates", () => {

@@ -139,7 +139,12 @@ export async function verifyQwen3AsrV15Freeze(): Promise<Qwen3AsrV15Freeze> {
       parsed.frozenV2AggregateSha256 !== frozenV2.aggregateSha256 ||
       parsed.frozenV2AggregateSha256 !== "d169f8584a158af92463bf84ad7afa257d2daeb5d2ed13d4df3b585e28115d7b" ||
       parsed.frozenV21AggregateSha256 !== frozenV21.aggregateSha256 ||
-      parsed.frozenV21AggregateSha256 !== "fba510500f928675905d67e838caecd9b1075d708c96938d5249fc8d873820a5") {
+      // Corrected 2026-08-14 under the recorded scoring-v2.1.ts exception. The
+      // pre-correction value was
+      // fba510500f928675905d67e838caecd9b1075d708c96938d5249fc8d873820a5; see the
+      // `corrections` record in both freeze manifests. The check is unchanged and
+      // still pins one exact expected digest.
+      parsed.frozenV21AggregateSha256 !== "01be6ff8e0fbb4e7eb426a053174ea16fa7ba6e07d3579278d63f66746a165ef") {
     throw new Error("Qwen V1.5 parent freezes or starting point changed.");
   }
 

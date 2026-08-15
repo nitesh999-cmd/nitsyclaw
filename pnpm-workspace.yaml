@@ -6,3 +6,9 @@ overrides:
   esbuild@<=0.24.2: 0.25.0
   postcss@<8.5.10: '>=8.5.10'
   vite@<=6.4.1: 6.4.2
+# Supply-chain controls (pnpm >= 10.26). Newly published versions are not installed
+# immediately, transitive dependencies may not come from exotic sources, and a
+# resolved version may never be silently downgraded.
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade

@@ -140,9 +140,21 @@ function hasFormatControl(value: string): boolean {
   return /[\p{Cc}\p{Cf}\p{Cs}]/u.test(value);
 }
 
+/**
+ * The four scripts the V2.1 scorer distinguishes, as literals rather than four
+ * `new RegExp(`\p{Script=${script}}`, "u")` constructions over the same four
+ * fixed names. Same patterns, same order, no `g` flag and therefore no
+ * `lastIndex` state — behaviour is identical; only the construction site moves.
+ */
+const SCRIPT_PROBES = [
+  /\p{Script=Latin}/u,
+  /\p{Script=Devanagari}/u,
+  /\p{Script=Cyrillic}/u,
+  /\p{Script=Greek}/u,
+] as const;
+
 function scriptCount(value: string): number {
-  return ["Latin", "Devanagari", "Cyrillic", "Greek"]
-    .filter((script) => new RegExp(`\\p{Script=${script}}`, "u").test(value)).length;
+  return SCRIPT_PROBES.filter((probe) => probe.test(value)).length;
 }
 
 function rejectsCriticalUnicode(value: string): boolean {

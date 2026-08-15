@@ -13,8 +13,92 @@ function boundary(char: string | undefined): boolean {
   return char === undefined || !/[\p{L}\p{M}\p{N}_]/u.test(char);
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+/**
+ * The model-ish token that must follow a catalogue brand for it to count as a
+ * product mention. A literal, so no catalogue or transcript text is ever
+ * compiled into a pattern.
+ */
+const BRAND_MODEL_SUFFIX = /^\s+(?:inverter|battery|panel|[\p{L}]*\d[\p{L}\p{N}-]*)/iu;
+
+/**
+ * Whether `\b` would treat this character as a word character, under the exact
+ * flags the previous pattern used.
+ *
+ * `\w` is ASCII, but with `i` *and* `u` together the engine applies Unicode
+ * simple case folding, so a few non-ASCII characters fold onto an ASCII word
+ * character and count: U+017F LATIN SMALL LETTER LONG S folds to `s`, and
+ * U+212A KELVIN SIGN folds to `k`. Testing with the same `/iu` flags reproduces
+ * that instead of approximating it — which is what keeps `ſSungrow` from
+ * matching the brand `Sungrow`, exactly as the old pattern did.
+ */
+const REGEXP_WORD_CHAR = /^\w$/iu;
+
+function isRegExpWordChar(char: string | undefined): boolean {
+  return char !== undefined && REGEXP_WORD_CHAR.test(char);
+}
+
+/**
+ * Compares one code unit of the transcript against one of the brand.
+ *
+ * ASCII letters compare case-insensitively; every other code unit must be
+ * exactly equal. No case mapping is applied, because case mapping is not
+ * length-preserving — `"İ".toLowerCase()` is two code units — and a
+ * length change is what lets two different strings collapse onto one another
+ * and produce a match the previous pattern would have refused.
+ */
+function codeUnitsMatch(textUnit: number, brandUnit: number): boolean {
+  if (textUnit === brandUnit) return true;
+  if (textUnit > 0x7F || brandUnit > 0x7F) return false;
+  const lowerText = textUnit >= 0x41 && textUnit <= 0x5A ? textUnit + 0x20 : textUnit;
+  const lowerBrand = brandUnit >= 0x41 && brandUnit <= 0x5A ? brandUnit + 0x20 : brandUnit;
+  return lowerText === lowerBrand;
+}
+
+/**
+ * Finds `brand` followed by a model-ish token.
+ *
+ * Length-preserving, safety-monotonic brand matching: ASCII case-insensitive;
+ * non-ASCII exact. May reject exotic Unicode case variants but cannot introduce
+ * a match rejected by the previous escaped `/iu` implementation. Comparison is
+ * code unit by code unit over equal-length windows, so no whole-string
+ * transformation can shift an offset or merge two distinct strings. Word
+ * boundaries remain exactly the old ones, tested with the same `/iu` flags.
+ *
+ * The brand is matched as a literal rather than escaped and compiled, so
+ * catalogue text never reaches the regex engine and no metacharacter can change
+ * what matches. Only the fixed suffix above is a regex.
+ *
+ * Cost is bounded rather than unconditionally cheap. The scan is O(text x brand)
+ * in the worst case — a highly repetitive transcript against a highly repetitive
+ * brand — so a brand longer than `MAX_BRAND_LENGTH` is refused outright instead
+ * of scanned. A catalogue brand is owner-curated and short; anything past that
+ * bound is not a real product name, and refusing it keeps a single turn from
+ * blocking the event loop. That bound also makes the cost ceiling deterministic
+ * rather than machine-dependent.
+ */
+const MAX_BRAND_LENGTH = 128;
+
+function matchBrandSpan(text: string, brand: string): { index: number; text: string } | null {
+  if (!brand || brand.length > MAX_BRAND_LENGTH) return null;
+  for (let at = 0; at + brand.length <= text.length; at = at + 1) {
+    let matched = true;
+    for (let offset = 0; offset < brand.length; offset = offset + 1) {
+      if (!codeUnitsMatch(text.charCodeAt(at + offset), brand.charCodeAt(offset))) {
+        matched = false;
+        break;
+      }
+    }
+    if (!matched) continue;
+    const end = at + brand.length;
+    // `\b` holds where word-ness changes across the position.
+    const startBoundary = isRegExpWordChar(text[at - 1]) !== isRegExpWordChar(text[at]);
+    const endBoundary = isRegExpWordChar(text[end - 1]) !== isRegExpWordChar(text[end]);
+    if (startBoundary && endBoundary) {
+      const suffix = BRAND_MODEL_SUFFIX.exec(text.slice(end));
+      if (suffix) return { index: at, text: text.slice(at, end + suffix[0].length) };
+    }
+  }
+  return null;
 }
 
 function findAliasSpan(text: string, alias: string): VoiceEvidenceSpan | null {
@@ -175,16 +259,13 @@ export function resolveVoiceProduct(args: {
     };
   }
   const knownBrand = args.products
-    .map(({ brand }) => args.text.match(new RegExp(
-      `\\b${escapeRegExp(brand)}\\b\\s+(?:inverter|battery|panel|[\\p{L}]*\\d[\\p{L}\\p{N}-]*)`,
-      "iu",
-    )))
+    .map(({ brand }) => matchBrandSpan(args.text, brand))
     .find((candidate) => candidate?.index !== undefined);
   const specificCandidate = args.text.match(/(?:Tesla|टेस्ला)\s+[\p{L}\p{M}\p{N} -]*(?:Powerwall|पावर[\p{L}\p{M}]*)(?:\s+[\p{L}\p{M}\p{N}-]+)?/iu);
   const candidate = specificCandidate?.index === undefined
     ? knownBrand?.index === undefined
       ? null
-      : { start: knownBrand.index, end: knownBrand.index + knownBrand[0].length, text: knownBrand[0] }
+      : { start: knownBrand.index, end: knownBrand.index + knownBrand.text.length, text: knownBrand.text }
     : { start: specificCandidate.index, end: specificCandidate.index + specificCandidate[0].length, text: specificCandidate[0] };
   if (!candidate) return null;
   return {

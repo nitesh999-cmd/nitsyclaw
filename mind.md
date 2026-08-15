@@ -3385,3 +3385,132 @@ Operational lesson worth keeping: a fully green local run did not predict either
 because this worktree is LF-normalised and Windows-native. Both defects only exist in a
 checkout whose line endings differ from the developer's. When a gate is EOL- or OS-sensitive,
 CI is the authority and local green means nothing.
+
+### Supply-chain hardening, and correcting a frozen file honestly -- 2026-08-14
+
+The `security` job had never actually run on this branch: it was skipped every time an
+earlier job failed. Its first execution blocked on 30 Semgrep findings, which looked like an
+integration defect and was not one. `main`'s own `ci.yml` carries the identical 23 mutable
+action tags, and `dependabot.yml` and `pnpm-workspace.yaml` are byte-identical to `main`.
+`main` last passed CI on 2026-08-04; `semgrep scan --config auto` pulls current registry
+rules, and the supply-chain rules that fired reference pnpm v10.16/v10.26 features that
+post-date that run. 28 of 30 findings would fail `main` today too.
+
+So the fix is repo-wide hardening rather than branch triage:
+
+- All 23 action references pinned to 40-character SHAs, each resolved from the official
+  upstream repository and verified to be the head of its intended tag, with the readable
+  version kept in a trailing comment. `ci-workflow.test.ts` now asserts *both* the immutable
+  pin and the intended major, plus "no mutable tag anywhere" -- a stronger check than the
+  version-string assertion it replaced.
+- `blockExoticSubdeps: true`, `minimumReleaseAge: 10080`, `trustPolicy: no-downgrade`.
+  pnpm 10.33.2 accepts all three; `pnpm install --lockfile-only --frozen-lockfile --offline`
+  exits 0 with no warnings and the lockfile unchanged, so resolution is unaffected.
+- Seven-day Dependabot cooldown on both ecosystems.
+
+The two branch-new findings were both `detect-non-literal-regexp`, and neither was
+exploitable. The production one already applied `escapeRegExp` to catalogue-derived text.
+It now matches the brand as a literal string instead: catalogue text never reaches the regex
+engine, so no metacharacter can change what matches. Cost is *bounded*, not unconditionally
+cheap -- the scan is O(text x brand) in the worst case, so a brand longer than
+MAX_BRAND_LENGTH (128) is refused outright rather than scanned. A catalogue brand is
+owner-curated and short; anything past that bound is not a real product name. Word-boundary
+semantics are preserved exactly -- including that a brand ending in punctuation still fails
+the trailing boundary, which is what the old escaped pattern did. Focused tests pin that
+behaviour, including the over-long-brand refusal, asserted as a deterministic bound rather
+than a machine-dependent wall-clock limit.
+
+The interesting one was the frozen scorer. `scoring-v2.1.ts` is frozen by two manifests and
+**both are live test gates**, unlike the V1.2 chain, which the V1.3 work could leave failing
+precisely because nothing executed it. Leaving these failing would mean a permanently red
+integrity gate, which is how people learn to ignore integrity gates. Rewriting the hashes
+silently would be worse. So the correction is recorded instead (R81): both manifests carry a
+`corrections` entry with the previous and corrected digests, every dependent aggregate before
+and after, the reason, the equivalence proof, and the parent commit `c4d1ce5` plus blob
+`c794c82f` that preserve the original bytes. Before recomputing anything, each manifest's own
+aggregate algorithm was shown to reproduce its pre-correction value exactly, so the new
+numbers are derived rather than asserted. A sabotage test then confirmed the corrected
+manifests still detect an unauthorised change -- one appended byte produced
+`Frozen V2.1 file changed` -- and the file was restored byte-identically afterwards.
+
+One thing survived only by luck and is worth fixing later: `qwen3-asr-v15-scored.freeze.json`
+freezes `qwen3-asr-v15.test.ts`, the very test that verifies it. That was proven not to need
+editing before the manifests were touched, so no circularity arose. A correction that *did*
+require editing that test would have had no non-circular path. A manifest should not freeze
+its own verifier.
+
+### The brand matcher is safety-monotonic, not equivalent -- 2026-08-14
+
+Worth recording precisely, because the first version of this change was wrong and an
+independent review caught it.
+
+Removing the dynamic `new RegExp` from catalogue-brand matching looked like a pure win:
+match the brand as a literal and no catalogue text ever reaches the regex engine. The first
+implementation lower-cased the whole transcript and used `indexOf` on that. Two real defects:
+
+1. U+0130 (Latin capital I with dot above) lower-cases to **two** code units. Every offset
+   after it shifts, so the reported span could point at text that is not there. That is
+   silent evidence corruption, and evidence spans are what the owner sees when confirming.
+2. It was **looser** than the old pattern on `ſSungrow SG5000` -- it matched where the old
+   regex did not, which is the wrong direction for a security change.
+
+The fix for (1) is to compare equal-length slices of the original text, never a re-cased
+copy, so an index from the scan is always valid in the original.
+
+The fix for (2) turned on a JavaScript detail worth remembering: `\w` is ASCII, but with
+both `i` and `u` flags the engine applies Unicode simple case folding, so exactly two
+non-ASCII characters count as word characters -- U+017F (long s, folds to `s`) and U+212A
+(Kelvin sign, folds to `k`). A BMP scan confirms it is exactly those two. Testing boundaries
+with `/^\w$/iu` therefore reproduces `\b` exactly, and `ſSungrow` correctly stops matching.
+
+That fixed the boundaries but NOT the comparison, which at this point still used
+`toLowerCase()`. That draft was superseded -- see "Length-preserving brand matching, and two
+wrong turns before it" below for the final design and why whole-string case mapping had to go
+entirely. Nothing in this paragraph describes the shipped implementation.
+
+The output was and remains low-trust: `resolution: "candidate"`, `source: "deterministic"`,
+`canonicalValue: null`, confirmation still required before anything acts on it.
+
+
+### Length-preserving brand matching, and two wrong turns before it -- 2026-08-14
+
+Final rule, stated exactly as it now appears in the code and Constitution:
+
+> Length-preserving, safety-monotonic brand matching: ASCII case-insensitive; non-ASCII
+> exact. May reject exotic Unicode case variants but cannot introduce a match rejected by
+> the previous escaped /iu implementation.
+
+Two earlier attempts were wrong, and independent review caught both. Worth recording because
+the failure mode is subtle and will recur wherever someone replaces a regex with "simpler"
+string handling.
+
+Attempt 1 lower-cased the whole transcript and used indexOf. U+0130 lower-cases to TWO code
+units, so every offset after it shifted and the reported evidence span could point at text
+that was not there. It was also looser on a long-s prefix.
+
+Attempt 2 compared equal-length slices, which fixed the offsets, and used /^\w$/iu for word
+boundaries, which fixed the long-s case -- with both i and u flags the engine case-folds, so
+exactly U+017F and U+212A count as word characters beyond ASCII. But the brand comparison
+still used toLowerCase(), and full case mapping can merge two genuinely different strings:
+brand "İi̇a" against transcript "i̇İa" both map to "i̇i̇a",
+so it matched where the old pattern did not. My property test could not catch it, because its
+"old" condition also used toLowerCase() -- it was testing the implementation against itself.
+
+The fix is to never apply a case mapping at all. Compare code unit by code unit: ASCII
+letters case-insensitively, every other code unit exactly. Length cannot change, so two
+distinct strings can never collapse together.
+
+Proof is now non-circular: an oracle harness living OUTSIDE the repository runs the real
+escaped /iu regex and compares. 100,000 deterministic fuzz cases plus explicit U+0130,
+U+017F, U+212A, sigma/final-sigma, sharp-S, combining-mark and surrogate-pair cases;
+17,139 accepted matches, zero looser results, zero offset corruption. The committed test
+mirrors the comparator rather than embedding a `new RegExp`, so it adds no Semgrep finding.
+
+Accepted stricter behaviour, documented rather than hidden: U+017F does not match brand `s`,
+and U+212A does not match brand `k`. Exact non-ASCII spelling still matches. The output was
+and remains a low-trust `candidate`, deterministic, `canonicalValue: null`, confirmation
+required before anything acts on it.
+
+The general lesson: a property test whose reference implementation shares the suspect
+operation with the code under test proves nothing. Put the oracle somewhere the code cannot
+reach, and make it the real prior implementation.

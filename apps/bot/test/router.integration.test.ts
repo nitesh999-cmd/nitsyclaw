@@ -3788,7 +3788,10 @@ describe("Router (integration)", () => {
     expect(wa.sent[0].body).toContain("Document received");
     expect(wa.sent[0].body).toContain("energy-bill.pdf");
     expect(wa.sent[0].body).toContain("PDF/OCR parsing still needs to be wired");
-  });
+    // PDF extraction alone is allowed DEFAULT_PDF_PARSE_TIMEOUT_MS (5s), which is the
+    // whole vitest default budget, so this is marginal on a slow runner. Same 15s
+    // allowance ea72f20 gave the adjacent PDF test.
+  }, 15000);
 
   it("selectable-text PDF upload is extracted and analyzed before replying", async () => {
     await router.handle({
