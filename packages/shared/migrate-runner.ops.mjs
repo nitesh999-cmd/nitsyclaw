@@ -56,14 +56,39 @@ try {
 if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
   throw new Error(`Refusing to migrate: unexpected protocol ${parsed.protocol}`);
 }
-if (parsed.port !== REQUIRED_PORT) {
+
+/**
+ * Rehearsal against a disposable local clone.
+ *
+ * A runner that cannot be rehearsed is its own safety defect: the connection
+ * rules below would otherwise force every rehearsal to exercise a *different*
+ * code path than production, which is exactly how a runner ships untested.
+ *
+ * Safe by construction: the relaxation applies only when the host is loopback.
+ * Supabase is never loopback, so this flag cannot weaken a production run no
+ * matter how it is set. The flag alone is not enough — the address must be
+ * local as well.
+ */
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+const rehearsal = process.env.NITSYCLAW_MIGRATION_REHEARSAL === "1" && LOOPBACK.has(parsed.hostname);
+if (process.env.NITSYCLAW_MIGRATION_REHEARSAL === "1" && !rehearsal) {
   throw new Error(
-    `Refusing to migrate: port must be ${REQUIRED_PORT} (session pooler), got "${parsed.port || "<unset>"}". ` +
-      "The 6543 transaction pooler would break both session SET and the advisory lock.",
+    `Refusing to migrate: NITSYCLAW_MIGRATION_REHEARSAL=1 is only honoured for a loopback host, got "${parsed.hostname}".`,
   );
 }
-if (parsed.searchParams.get("sslmode") !== REQUIRED_SSLMODE) {
-  throw new Error(`Refusing to migrate: sslmode must be "${REQUIRED_SSLMODE}".`);
+
+if (!rehearsal) {
+  if (parsed.port !== REQUIRED_PORT) {
+    throw new Error(
+      `Refusing to migrate: port must be ${REQUIRED_PORT} (session pooler), got "${parsed.port || "<unset>"}". ` +
+        "The 6543 transaction pooler would break both session SET and the advisory lock.",
+    );
+  }
+  if (parsed.searchParams.get("sslmode") !== REQUIRED_SSLMODE) {
+    throw new Error(`Refusing to migrate: sslmode must be "${REQUIRED_SSLMODE}".`);
+  }
+} else {
+  console.log("REHEARSAL=1 loopback host — connection-class checks relaxed; timeout and lock checks still enforced");
 }
 
 const sql = postgres(raw, { max: 1, prepare: false, onnotice: () => {} });
@@ -84,7 +109,7 @@ try {
         `statement_timeout=${shown.statement_timeout}).`,
     );
   }
-  if (shown.port !== REQUIRED_PORT) {
+  if (!rehearsal && shown.port !== REQUIRED_PORT) {
     throw new Error(`Refusing to migrate: server reports port ${shown.port}, expected ${REQUIRED_PORT}.`);
   }
   console.log(
