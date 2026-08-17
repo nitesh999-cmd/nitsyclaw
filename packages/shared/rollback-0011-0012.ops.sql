@@ -34,17 +34,33 @@ SET LOCAL statement_timeout = '300s';
 DO $$
 DECLARE
   n bigint;
-  journal_rows int;
+  rows_0011 int;
+  rows_0012 int;
 BEGIN
   IF NOT pg_try_advisory_xact_lock(82134471) THEN
     RAISE EXCEPTION 'A migration or rollback already holds the advisory lock; refusing to proceed.';
   END IF;
 
-  SELECT count(*) INTO journal_rows
-    FROM drizzle.__drizzle_migrations
-   WHERE created_at IN (1786458483803, 1786543200000);
-  IF journal_rows <> 2 THEN
-    RAISE EXCEPTION 'Expected 0011 and 0012 to be recorded (2 journal rows), found %. Refusing.', journal_rows;
+  -- Lock BEFORE counting. The advisory lock only coordinates this script and the
+  -- migration runner; ordinary application inserts never take it. Without these
+  -- table locks an insert could begin after the count, commit while DROP TABLE
+  -- waited, and be destroyed by a rollback that had already decided the tables
+  -- were empty. ACCESS EXCLUSIVE is what DROP TABLE needs anyway, so taking it
+  -- up front only closes the window between the check and the drop.
+  LOCK TABLE
+    verified_voice_contacts,
+    verified_voice_products,
+    voice_verification_proposals,
+    voice_verification_confirmations
+    IN ACCESS EXCLUSIVE MODE;
+
+  -- One row per migration, asserted separately: a single count of 2 would also
+  -- be satisfied by two rows for 0011 and none for 0012.
+  SELECT count(*) INTO rows_0011 FROM drizzle.__drizzle_migrations WHERE created_at = 1786458483803;
+  SELECT count(*) INTO rows_0012 FROM drizzle.__drizzle_migrations WHERE created_at = 1786543200000;
+  IF rows_0011 <> 1 OR rows_0012 <> 1 THEN
+    RAISE EXCEPTION
+      'Expected exactly one journal row for 0011 and one for 0012, found % and %. Refusing.', rows_0011, rows_0012;
   END IF;
 
   -- Emptiness gate: any row here means real data would be destroyed.

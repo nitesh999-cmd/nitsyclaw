@@ -40,7 +40,7 @@ loadBotDotenv();
 async function main() {
   const env = loadEnv();
   const runtimeMetadata = buildBotRuntimeMetadata(process.env);
-  assertWhatsAppRuntimeAllowed(process.env);
+  const runtimeMode = assertWhatsAppRuntimeAllowed(process.env);
   console.log(
     `[boot] NitsyClaw bot starting (TZ=${env.TIMEZONE}, platform=${runtimeMetadata.platform}, runtime=${runtimeMetadata.runtimeId}, commit=${runtimeMetadata.commitShort})`,
   );
@@ -59,7 +59,26 @@ async function main() {
   }).catch((e) => logBotError("[boot] startup heartbeat failed; continuing", e));
 
   const qrRecovery = new QrRecoveryController(process.env);
-  const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env);
+  const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env, {
+    whatsappEnabled: runtimeMode.mode === "client",
+  });
+
+  // Not the WhatsApp owner: serve health, construct nothing. The return happens
+  // before `whatsappSessionDir(...)` is ever evaluated, so this path cannot read
+  // or create a session directory, launch Chromium, or register a QR handler.
+  if (runtimeMode.mode === "no-client") {
+    qrRecoveryServer?.setHealthProvider(() => ({
+      service: "nitsyclaw-bot",
+      status: "ok",
+      whatsapp: { ready: false, reason: runtimeMode.reason },
+      at: new Date().toISOString(),
+    }));
+    console.log(
+      `[boot] no-client mode (${runtimeMode.reason}): health is served, WhatsApp is owned by another runtime`,
+    );
+    return;
+  }
+
   let latestWhatsAppRuntimeEvent: WhatsAppRuntimeEvent = {
     status: "initializing",
     reason: "startup",

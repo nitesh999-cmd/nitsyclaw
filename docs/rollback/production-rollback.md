@@ -106,3 +106,33 @@ statements and journal insert share one transaction. A post-commit verification 
 is investigated and fixed forward. Any dump or physical restore requires separate
 explicit owner approval with a stated RPO, because restoring discards every write made
 since the snapshot.
+
+Exact dump-restore command (requires separate owner approval and a stated RPO):
+
+```powershell
+# Never decrypt to disk. Stream straight into pg_restore.
+gpg --batch --quiet --decrypt --pinentry-mode loopback `
+    --passphrase-file "<passphrase-file>" "backups/<artifact>.dump.gpg" |
+  pg_restore --host "<session-pooler-host>" --port 5432 --username "<role>" `
+    --dbname "<database>" --no-owner --no-privileges --clean --if-exists
+```
+
+`--clean --if-exists` is what makes it a restore rather than a merge, and is exactly why
+it needs approval: it drops and recreates the objects in the dump, discarding everything
+written since the snapshot. Rehearse it against a disposable instance first — omit
+`--clean` there and restore into a fresh empty database instead. Expect three errors for
+the proprietary `supabase_vault` extension, which does not exist outside Supabase; those
+are benign. PITR is not enabled, so there is no finer-grained recovery point than this
+artifact and the daily physical backup.
+
+WhatsApp runtime during a deploy:
+
+A Railway build that is not the WhatsApp owner does **not** simply start healthy. Measured
+behaviour at the current head: with `NITSYCLAW_WHATSAPP_RUNTIME_OWNER` unset or unrecognised,
+the guard **throws before the health server exists**, `/healthz` never answers, the Railway
+healthcheck fails, and Railway keeps the *previous* deployment running — which is the older
+build with no ownership check at all. Setting the value to exactly `laptop` starts the
+container in **no-client mode**: `/healthz` and `/health` serve, `/health` reports
+`whatsapp.ready=false` with `reason=runtime_not_owner`, the QR recovery routes return `404`,
+and no WhatsApp client, Chromium process or session directory access ever happens. Only the
+exact value `railway` hands the session over.

@@ -239,9 +239,11 @@ function recoveryHtml(): string {
 export function startQrRecoveryServer(
   controller: QrRecoveryController,
   env: QrRecoveryEnv = process.env,
+  options: { whatsappEnabled?: boolean } = {},
 ): (Server & { setHealthProvider(provider: BotHealthProvider): void }) | null {
   const port = Number(env.PORT);
   if (!Number.isFinite(port) || port < 0) return null;
+  const whatsappEnabled = options.whatsappEnabled ?? true;
 
   let healthProvider: BotHealthProvider = () => ({
     service: "nitsyclaw-bot",
@@ -262,6 +264,13 @@ export function startQrRecoveryServer(
         contentType: "application/json; charset=utf-8",
         body: JSON.stringify(healthProvider()),
       });
+      return;
+    }
+    // In no-client mode there is no client and no QR to serve. A reachable QR
+    // page on a build that never pairs is an ownership trap: it invites someone
+    // to scan and hand the live session to the wrong runtime.
+    if (!whatsappEnabled && url.pathname.startsWith("/recovery/whatsapp-qr")) {
+      send(res, { status: 404, contentType: "text/plain; charset=utf-8", body: "Not found" });
       return;
     }
     if (url.pathname === "/recovery/whatsapp-qr") {

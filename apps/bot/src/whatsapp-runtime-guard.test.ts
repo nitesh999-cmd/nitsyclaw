@@ -23,7 +23,7 @@ const RAILWAY = {
 describe("WhatsApp runtime ownership on Railway", () => {
   test("a Railway container with no ownership setting cannot start WhatsApp", () => {
     expect(() => assertWhatsAppRuntimeAllowed({ ...RAILWAY })).toThrow(
-      /must be exactly "railway" but it is not set/,
+      /must be exactly "railway" or "laptop" but it is not set/,
     );
   });
 
@@ -33,10 +33,18 @@ describe("WhatsApp runtime ownership on Railway", () => {
     ).toThrow(/must be exactly "railway"/);
   });
 
-  test('a Railway container set to "laptop" cannot start WhatsApp', () => {
-    expect(() =>
-      assertWhatsAppRuntimeAllowed({ ...RAILWAY, [WHATSAPP_RUNTIME_OWNER_ENV]: "laptop" }),
-    ).toThrow(/must be exactly "railway"/);
+  test('a Railway container set to "laptop" serves health but never builds a client', () => {
+    // This previously threw. Under the laptop-owned architecture it must serve
+    // health instead: throwing before the health server exists means Railway's
+    // healthcheck fails and Railway keeps the PREVIOUS, permissive build alive.
+    // The protection that matters is unchanged and still asserted — no WhatsApp
+    // client is ever constructed on this runtime.
+    const decision = assertWhatsAppRuntimeAllowed({
+      ...RAILWAY,
+      [WHATSAPP_RUNTIME_OWNER_ENV]: "laptop",
+    });
+    expect(decision).toEqual({ mode: "no-client", reason: "runtime_not_owner" });
+    expect(decision.mode).not.toBe("client");
   });
 
   test("malformed and unknown ownership values all fail closed on Railway", () => {

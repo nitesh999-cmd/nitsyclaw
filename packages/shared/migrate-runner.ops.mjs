@@ -35,7 +35,10 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 
 const LOCK_KEY = 82134471; // arbitrary, stable, NitsyClaw migrations only
 const REQUIRED_PORT = "5432";
-const REQUIRED_SSLMODE = "require";
+/** `require` or stronger. Anything weaker is a downgrade, not a variation. */
+const ACCEPTED_SSLMODES = new Set(["require", "verify-ca", "verify-full"]);
+const SENTINEL_TABLE = "nitsyclaw_rehearsal_sentinel";
+const SENTINEL_TOKEN = "nitsyclaw-disposable-clone-do-not-create-in-production";
 const LOCK_TIMEOUT = "5s";
 const STATEMENT_TIMEOUT = "300s";
 /** What `current_setting` must return once the SETs have run. */
@@ -64,14 +67,18 @@ if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
  * rules below would otherwise force every rehearsal to exercise a *different*
  * code path than production, which is exactly how a runner ships untested.
  *
- * Safe by construction: the relaxation applies only when the host is loopback.
- * Supabase is never loopback, so this flag cannot weaken a production run no
- * matter how it is set. The flag alone is not enough — the address must be
- * local as well.
+ * Gated twice, because one gate was not enough. A loopback address alone is NOT
+ * proof of a disposable database: a TCP proxy, an SSH tunnel or a doctored hosts
+ * entry can make production answer on 127.0.0.1, and the relaxation would then
+ * skip the port, TLS and server-port checks against the real thing. So the flag
+ * requires a loopback address AND an independently created sentinel table that
+ * only the clone-restore procedure makes and that must never exist in
+ * Production. Both, or no relaxation.
  */
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-const rehearsal = process.env.NITSYCLAW_MIGRATION_REHEARSAL === "1" && LOOPBACK.has(parsed.hostname);
-if (process.env.NITSYCLAW_MIGRATION_REHEARSAL === "1" && !rehearsal) {
+const rehearsalRequested = process.env.NITSYCLAW_MIGRATION_REHEARSAL === "1";
+const rehearsal = rehearsalRequested && LOOPBACK.has(parsed.hostname);
+if (rehearsalRequested && !rehearsal) {
   throw new Error(
     `Refusing to migrate: NITSYCLAW_MIGRATION_REHEARSAL=1 is only honoured for a loopback host, got "${parsed.hostname}".`,
   );
@@ -84,17 +91,46 @@ if (!rehearsal) {
         "The 6543 transaction pooler would break both session SET and the advisory lock.",
     );
   }
-  if (parsed.searchParams.get("sslmode") !== REQUIRED_SSLMODE) {
-    throw new Error(`Refusing to migrate: sslmode must be "${REQUIRED_SSLMODE}".`);
+  // getAll, not get: a URL may carry `sslmode` twice, and this driver reduces
+  // duplicates to the LAST value while `get()` returns the FIRST. Checking the
+  // first would let `?sslmode=require&sslmode=disable` pass with TLS off.
+  const sslModes = parsed.searchParams.getAll("sslmode");
+  if (sslModes.length !== 1) {
+    throw new Error(
+      `Refusing to migrate: exactly one sslmode parameter is required, found ${sslModes.length}.`,
+    );
+  }
+  if (!ACCEPTED_SSLMODES.has(sslModes[0])) {
+    throw new Error(
+      `Refusing to migrate: sslmode must be one of ${[...ACCEPTED_SSLMODES].join(", ")}, got "${sslModes[0]}".`,
+    );
   }
 } else {
-  console.log("REHEARSAL=1 loopback host — connection-class checks relaxed; timeout and lock checks still enforced");
+  console.log("REHEARSAL=1 loopback host — connection-class checks relaxed pending sentinel verification");
 }
 
 const sql = postgres(raw, { max: 1, prepare: false, onnotice: () => {} });
 let locked = false;
 
 try {
+  // The sentinel is the independent half of the rehearsal gate. A loopback
+  // address alone is not proof: a TCP proxy, SSH tunnel or a doctored hosts
+  // entry can make production answer on 127.0.0.1. This table is created by the
+  // clone-restore procedure AFTER restoring, and must never exist in Production,
+  // so a tunnelled production database fails the check even though the address
+  // looked local.
+  if (rehearsal) {
+    const [sentinel] = await sql`
+      SELECT token FROM ${sql(SENTINEL_TABLE)} LIMIT 1`.catch(() => [undefined]);
+    if (!sentinel || sentinel.token !== SENTINEL_TOKEN) {
+      throw new Error(
+        `Refusing to migrate: NITSYCLAW_MIGRATION_REHEARSAL=1 requires the ${SENTINEL_TABLE} marker, ` +
+          "which only a disposable clone has. A loopback address is not sufficient proof on its own.",
+      );
+    }
+    console.log("rehearsal_sentinel=verified");
+  }
+
   // Explicit SET, not startup options: the pooler drops startup options.
   await sql.unsafe(`SET lock_timeout = '${LOCK_TIMEOUT}'`);
   await sql.unsafe(`SET statement_timeout = '${STATEMENT_TIMEOUT}'`);

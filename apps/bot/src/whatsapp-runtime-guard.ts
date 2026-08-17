@@ -67,15 +67,37 @@ export function whatsappRuntimeOwner(
  * protection: if ownership has been explicitly handed to Railway, this machine
  * stands down rather than becoming the second client.
  */
-export function assertWhatsAppRuntimeAllowed(env: WhatsAppRuntimeGuardEnv): void {
+export type WhatsAppRuntimeMode =
+  | { mode: "client" }
+  | { mode: "no-client"; reason: "runtime_not_owner" };
+
+/**
+ * Decides what this process may do, or throws when it must not run at all.
+ *
+ * `no-client` exists because a Railway container that is *not* the owner still
+ * has to answer its healthcheck. Throwing before the health server starts means
+ * the deployment never becomes healthy, Railway retries and then keeps the
+ * PREVIOUS build running -- which is the older, permissive one that has no
+ * ownership check at all. Failing closed on WhatsApp while still serving health
+ * is what actually retires that build.
+ *
+ * Ownership is laptop-owned by decision: the laptop holds the session, and a
+ * Railway container marked `laptop` serves health without ever constructing a
+ * client. Only an explicit `railway` hands the session over.
+ */
+export function resolveWhatsAppRuntimeMode(env: WhatsAppRuntimeGuardEnv): WhatsAppRuntimeMode {
   const owner = whatsappRuntimeOwner(env);
 
   if (isRailwayRuntime(env)) {
-    if (owner === "railway") return;
+    if (owner === "railway") return { mode: "client" };
+    // Explicitly not the owner: healthy, but never a WhatsApp client.
+    if (owner === "laptop") return { mode: "no-client", reason: "runtime_not_owner" };
+    // Unset or unrecognised still fails closed: an unconfigured container must
+    // not silently become a half-running service nobody assigned.
     const declared = env[WHATSAPP_RUNTIME_OWNER_ENV]?.trim();
     const seen = declared ? `got "${declared}"` : "it is not set";
     throw new Error(
-      `Refusing to start WhatsApp on Railway: ${WHATSAPP_RUNTIME_OWNER_ENV} must be exactly "railway" but ${seen}. ` +
+      `Refusing to start WhatsApp on Railway: ${WHATSAPP_RUNTIME_OWNER_ENV} must be exactly "railway" or "laptop" but ${seen}. ` +
         "The laptop launcher is the current WhatsApp runtime; starting here would put a second client on the same session.",
     );
   }
@@ -87,11 +109,16 @@ export function assertWhatsAppRuntimeAllowed(env: WhatsAppRuntimeGuardEnv): void
     );
   }
 
-  if (isEnabled(env.NITSYCLAW_ALLOW_LOCAL_WHATSAPP)) return;
+  if (isEnabled(env.NITSYCLAW_ALLOW_LOCAL_WHATSAPP)) return { mode: "client" };
 
   const runtimeOwner = env.NITSYCLAW_RUNTIME_OWNER?.trim();
   const ownerLabel = runtimeOwner ? ` owner=${runtimeOwner}` : "";
   throw new Error(
     `Refusing to start local WhatsApp bot${ownerLabel}. Set NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1 only when you intentionally want this machine to reply to WhatsApp.`,
   );
+}
+
+/** Back-compatible wrapper: throws when refused, and returns the decided mode. */
+export function assertWhatsAppRuntimeAllowed(env: WhatsAppRuntimeGuardEnv): WhatsAppRuntimeMode {
+  return resolveWhatsAppRuntimeMode(env);
 }
