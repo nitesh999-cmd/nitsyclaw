@@ -19,10 +19,32 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage, insertFeatureRequest, logAudit, redactAuditString } from "@nitsyclaw/shared/db";
-import { buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import {
+  auditModelRoute,
+  auditToolFailure,
+  auditToolSuccess,
+  auditUnknownTool,
+  getDb,
+  insertMessage,
+  insertFeatureRequest,
+  logAudit,
+} from "@nitsyclaw/shared/db";
+import {
+  buildSystemPrompt,
+  classifyToolError,
+  loadCrossSurfaceHistory,
+  projectForAudit,
+} from "@nitsyclaw/shared/agent";
+import {
+  createPrivacyAwareEmbedder,
+  createRoutedLlm,
+  hasExplicitCloudApproval,
+  localBrainModeFromEnv,
+  buildModelRouteAuditPayload,
+  OllamaProvider,
+} from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { createWebResearch } from "@nitsyclaw/shared/search";
 import {
   formatPrivateModeActionBlocked,
   formatPrivateModeHelp,
@@ -62,15 +84,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const NO_STORE = { "Cache-Control": "no-store" };
-const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : undefined;
-}
-
-function safeToolError(error: unknown): string {
-  return redactAuditString(error instanceof Error ? error.message : `${error}`);
 }
 
 class NoopWhatsApp implements WhatsAppClient {
@@ -118,16 +135,15 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
   };
 }
 
-function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: string } {
+function buildDashboardDeps(): { deps: AgentDeps } {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
   const openaiKey = process.env.OPENAI_API_KEY;
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = apiKey ? new Anthropic({ apiKey }) : undefined;
+  const db = getDb();
+  const local = new OllamaProvider();
 
-  // LlmClient is used only for tool round-trips inside this route. The final
-  // round uses anthropic.messages.stream directly so we can pipe deltas.
-  const llm: LlmClient = {
+  const cloudLlm: LlmClient | undefined = anthropic ? {
     async complete(args) {
       const resp = await anthropic.messages.create({
         model,
@@ -162,19 +178,41 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
       const stopReason = (resp.stop_reason ?? "end_turn") as "end_turn" | "tool_use" | "max_tokens";
       return { stopReason, toolCalls, text };
     },
-  };
+  } : undefined;
+
+  const llm = createRoutedLlm({
+    local,
+    cloud: cloudLlm,
+    mode: localBrainModeFromEnv(),
+    explicitCloudApproval: hasExplicitCloudApproval,
+    telemetry: async (event) => {
+      // Payload is built from the routing event alone, so no owner-linked
+      // value can reach it. Row ownership elsewhere is untouched.
+      await logAudit(db, auditModelRoute(buildModelRouteAuditPayload(event)));
+    },
+  });
+
+  const webResearch = createWebResearch({
+    anthropicApiKey: apiKey,
+    anthropicModel: model,
+    enabled: process.env.ENABLE_WEB_RESEARCH !== "false",
+    maxUses: Number(process.env.WEB_SEARCH_MAX_USES ?? 5),
+    serperApiKey: process.env.SERPER_API_KEY,
+  });
 
   const deps: AgentDeps = {
-    db: getDb(),
+    db,
     whatsapp: new NoopWhatsApp(),
     llm,
     transcriber: noopTranscriber,
-    webSearch: process.env.SERPER_API_KEY
-      ? makeSerperSearch(process.env.SERPER_API_KEY)
-      : noopWebSearch,
+    webSearch: webResearch.webSearch,
+    liveResearch: webResearch.researcher,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
-    embedder: openaiKey ? makeOpenAiEmbedder(openaiKey) : { async embed() { return []; } },
+    embedder: createPrivacyAwareEmbedder({
+      local,
+      cloud: openaiKey ? makeOpenAiEmbedder(openaiKey) : undefined,
+    }),
     now: () => new Date(),
     timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
     profile: {
@@ -193,7 +231,7 @@ function buildDashboardDeps(): { deps: AgentDeps; anthropic: Anthropic; model: s
       timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
     },
   };
-  return { deps, anthropic, model };
+  return { deps };
 }
 
 export async function POST(req: Request) {
@@ -210,9 +248,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ reply: CHAT_CONFIG_ERROR }, { status: 503, headers: NO_STORE });
-  }
   const rawBody = await parseLimitedJsonBody(req);
   if (!rawBody.ok) {
     return NextResponse.json({ reply: rawBody.reply }, { status: rawBody.status, headers: NO_STORE });
@@ -328,14 +363,14 @@ export async function POST(req: Request) {
     }
   }
 
-  let built: { deps: AgentDeps; anthropic: Anthropic; model: string };
+  let built: { deps: AgentDeps };
   try {
     built = buildDashboardDeps();
   } catch (e: unknown) {
     const configError = publicConfigErrorOrNull(e) ?? { reply: "Dashboard configuration is incomplete.", status: 503 };
     return streamSingleEvent({ type: "error", message: configError.reply }, { status: configError.status });
   }
-  const { deps, anthropic, model } = built;
+  const { deps } = built;
   const promptProfile = await resolvePromptProfileFromContext(deps.db, {
     userPhone: ownerPhone,
     now: deps.now(),
@@ -416,6 +451,9 @@ export async function POST(req: Request) {
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
               toolResultParts.push(`[tool ${call.name}] error: Tool unavailable.`);
               send({ type: "tool_result", name: call.name, success: false, error: "Tool unavailable." });
+              // Same treatment as the shared loop: the attempt is recorded under
+              // a fixed token, without the model-supplied name or call input.
+              await logAudit(deps.db, auditUnknownTool());
               continue;
             }
             try {
@@ -430,27 +468,29 @@ export async function POST(req: Request) {
               toolCalls.push({ name: call.name, input: call.input, output: out, success: true });
               toolResultParts.push(`[tool ${call.name}] ${JSON.stringify(out)}`);
               send({ type: "tool_result", name: call.name, success: true });
-              await logAudit(deps.db, {
-                actor: "agent",
-                tool: call.name,
-                input: call.input as Record<string, unknown>,
-                output: out as Record<string, unknown>,
-                success: true,
-                durationMs: Date.now() - started,
-              });
+              // The complete result stays in `toolCalls` and in the streamed
+              // reply; only the tool's own projection is persisted.
+              await logAudit(
+                deps.db,
+                auditToolSuccess({
+                  tool: tool.name,
+                  projected: projectForAudit(tool, call.input, out),
+                  durationMs: Date.now() - started,
+                }),
+              );
             } catch (e) {
-              const err = safeToolError(e);
               toolCalls.push({ name: call.name, input: call.input, output: null, success: false });
               toolResultParts.push(`[tool ${call.name}] error: Tool failed.`);
               send({ type: "tool_result", name: call.name, success: false, error: "Tool failed." });
-              await logAudit(deps.db, {
-                actor: "agent",
-                tool: call.name,
-                input: call.input as Record<string, unknown>,
-                success: false,
-                error: err,
-                durationMs: Date.now() - started,
-              });
+              await logAudit(
+                deps.db,
+                auditToolFailure({
+                  tool: tool.name,
+                  projectedInput: projectForAudit(tool, call.input, undefined).input,
+                  errorAudit: classifyToolError(tool.errorProjection, call.input, e),
+                  durationMs: Date.now() - started,
+                }),
+              );
             }
           }
           messages.push({ role: "assistant", content: resp.text });
@@ -469,21 +509,20 @@ export async function POST(req: Request) {
             await new Promise((r) => setTimeout(r, 5));
           }
         } else {
-          // All MAX_TOOL_ROUNDS exhausted with no final text — issue a proper
-          // streaming call to wrap up.
-          const stream2 = anthropic.messages.stream({
-            model,
-            max_tokens: 1500,
-            system: buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
-            tools: registry.toAnthropicTools() as Anthropic.Tool[],
-            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          // All tool rounds were used. Ask the routed model to close the loop,
+          // preserving local-only and sensitive-data routing rules.
+          const completion = await deps.llm.complete({
+            system: [
+              buildSystemPrompt({ surface: "dashboard", profile: promptProfile }),
+              "No more tools are available in this turn. Summarise the completed work and any honest limitations.",
+            ].join("\n\n"),
+            messages,
+            maxTokens: 1500,
           });
-          for await (const event of stream2) {
-            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-              const delta = event.delta.text;
-              finalText += delta;
-              send({ type: "text", delta });
-            }
+          finalText = completion.text;
+          for (const word of finalText.split(/(\s+)/)) {
+            send({ type: "text", delta: word });
+            await new Promise((resolve) => setTimeout(resolve, 5));
           }
         }
 

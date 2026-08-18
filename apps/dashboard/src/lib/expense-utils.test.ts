@@ -3,6 +3,8 @@ import { csvCell, normalizeExpenseFilters, validateExpenseFilters } from "./expe
 import { expenseWhere } from "./expense-utils.js";
 
 describe("expense utils", () => {
+  const ownerHash = "owner-expense-utils-test";
+
   it("protects CSV cells from spreadsheet formula injection", () => {
     expect(csvCell("=SUM(1,1)")).toBe("\"'=SUM(1,1)\"");
     expect(csvCell(" =SUM(1,1)")).toBe("\"' =SUM(1,1)\"");
@@ -28,9 +30,9 @@ describe("expense utils", () => {
     expect(validateExpenseFilters({ to: "2026-05-02" })).toBeNull();
   });
 
-  it("builds no where clause for empty or invalid filters", () => {
-    expect(expenseWhere({})).toBeUndefined();
-    expect(expenseWhere({ from: "bad-date", to: "2026-02-31" })).toBeUndefined();
+  it("always builds an owner-scoped where clause", () => {
+    expect(expenseWhere({}, ownerHash)).toBeDefined();
+    expect(expenseWhere({ from: "bad-date", to: "2026-02-31" }, ownerHash)).toBeDefined();
   });
 
   it("builds a where clause for searchable filters", () => {
@@ -39,6 +41,6 @@ describe("expense utils", () => {
       category: "food",
       from: "2026-05-01",
       to: "2026-05-08",
-    })).toBeDefined();
+    }, ownerHash)).toBeDefined();
   });
 });

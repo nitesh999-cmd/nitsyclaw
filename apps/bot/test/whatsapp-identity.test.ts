@@ -53,6 +53,31 @@ describe("WhatsApp identity helpers", () => {
     ).toBe(true);
   });
 
+  it("rejects ambiguous owner-authored LID messages when WhatsApp chat lookup fails", () => {
+    expect(
+      isOwnerSelfChat({
+        from: "61430008008@c.us",
+        fromMe: true,
+        to: "129274421981381@lid",
+        chatId: "",
+        ownerNumber: "+61430008008",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts an ambiguous owner-authored LID only after explicit self-chat calibration", () => {
+    expect(
+      isOwnerSelfChat({
+        from: "61430008008@c.us",
+        fromMe: true,
+        to: "129274421981381@lid",
+        chatId: "",
+        ownerNumber: "+61430008008",
+        allowedSelfChatIds: ["129274421981381@lid"],
+      }),
+    ).toBe(true);
+  });
+
   it("rejects WhatsApp LID direct chats when chat contact is not the current user", () => {
     expect(
       isOwnerSelfChat({
@@ -61,6 +86,18 @@ describe("WhatsApp identity helpers", () => {
         to: "129274421981381@lid",
         chatId: "129274421981381@lid",
         chatIsMe: false,
+        ownerNumber: "+61430008008",
+      }),
+    ).toBe(false);
+  });
+
+  it("still rejects owner-authored LID chats when a different chat id is known", () => {
+    expect(
+      isOwnerSelfChat({
+        from: "61430008008@c.us",
+        fromMe: true,
+        to: "129274421981381@lid",
+        chatId: "61425046161@c.us",
         ownerNumber: "+61430008008",
       }),
     ).toBe(false);

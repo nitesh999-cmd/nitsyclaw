@@ -11,13 +11,32 @@
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "pnpm -r typecheck",
-    "release:check": "pnpm lint && pnpm -r typecheck && pnpm build && pnpm test:coverage && pnpm test:e2e && pnpm run security:deep",
+    "typecheck": "pnpm -r typecheck && pnpm run typecheck:scripts",
+    "typecheck:scripts": "tsc -p scripts/tsconfig.json",
+    "release:check": "pnpm lint && pnpm -r typecheck && pnpm run typecheck:scripts && pnpm build && pnpm test:coverage && pnpm test:e2e && pnpm run security:deep",
     "release:preflight": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/preflight.ps1",
     "release:vercel-build": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/vercel-build.ps1",
     "release:live-smoke": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/live-smoke.ps1",
     "release:post-deploy-proof": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/post-deploy-proof.ps1",
     "local:env-doctor": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/local-env-doctor.ps1",
+    "local-brain:doctor": "tsx scripts/local-brain-doctor.ts",
+    "local-brain:eval": "tsx scripts/local-brain-eval.ts",
+    "local-brain:benchmark": "tsx scripts/local-brain-benchmark.ts",
+    "local-brain:retrieval-benchmark": "tsx scripts/local-brain-retrieval-benchmark.ts",
+    "local-brain:release-gate": "tsx scripts/local-brain-release-gate.ts",
+    "local-brain:controlled-demo": "tsx scripts/local-brain-controlled-demo.ts",
+    "local-brain:browser-proof": "tsx scripts/local-brain-browser-proof.ts",
+    "voice:eval-local": "tsx scripts/voice-local-eval.ts",
+    "voice:eval-local-v2": "tsx scripts/voice-eval/run-voice-smoke-v2.ts",
+    "voice:verify-v2-freeze": "tsx scripts/voice-eval/verify-v2-freeze.ts",
+    "voice:validate-scorer-v2.1": "tsx scripts/voice-eval/run-v2.1-validation.ts",
+    "voice:verify-v2.1-freeze": "tsx scripts/voice-eval/verify-v2.1-freeze.ts",
+    "voice:diagnose-qwen3-asr": "tsx scripts/voice-eval/run-qwen3-asr-smoke.ts --mode diagnostic",
+    "voice:eval-qwen3-asr": "tsx scripts/voice-eval/run-qwen3-asr-smoke.ts --mode scored",
+    "voice:verify-qwen3-asr-freeze": "tsx scripts/voice-eval/verify-qwen3-asr-freeze.ts",
+    "voice:verify-verifier-v1.3-freeze": "tsx scripts/voice-eval/verify-voice-verifier-v1.3-adversarial-freeze.ts",
+    "voice:test-qwen3-asr": "vitest run scripts/voice-eval/qwen3-asr-process.test.ts scripts/voice-eval/qwen3-asr-adapter.test.ts scripts/voice-eval/qwen3-asr-runner.test.ts scripts/voice-eval/qwen3-asr-v21-score.test.ts scripts/voice-eval/verify-qwen3-asr-freeze.test.ts",
+    "voice:test": "vitest run packages/shared/test/02-voice-capture.test.ts packages/shared/test/voice-policy.test.ts packages/shared/test/voice-restart.test.ts apps/bot/src/local-voice-transcriber.test.ts apps/bot/src/local-speech-synthesizer.test.ts apps/bot/src/whatsapp-voice-reply.test.ts apps/bot/src/whatsapp-send-monitor.test.ts apps/bot/src/wwebjs-client.test.ts apps/bot/src/whatsapp-outbound-submission.test.ts apps/bot/test/router.integration.test.ts",
     "release:wait-railway": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/railway-wait-for-commit.ps1",
     "release:whatsapp-full": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/whatsapp-full-release.ps1",
     "ci:powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-powershell-syntax.ps1",
@@ -62,6 +81,7 @@
     "customer:check": "pnpm exec tsx scripts/customer-instance-check.ts",
     "tenant:check": "pnpm exec tsx scripts/tenant-boundary-check.ts",
     "tenant:access-inventory": "pnpm exec tsx scripts/tenant-access-inventory.ts",
+    "tenant:owner-backfill": "pnpm exec tsx scripts/backfill-scoped-owner-hash.ts",
     "tenant:migration-plan": "pnpm exec tsx scripts/tenant-migration-plan-check.ts",
     "watchdog:heartbeat": "pnpm exec tsx scripts/watchdog-heartbeat.ts",
     "db:generate": "pnpm --filter @nitsyclaw/shared db:generate",
@@ -72,7 +92,7 @@
     "dashboard": "pnpm --filter @nitsyclaw/dashboard dev",
     "google:auth": "pnpm --filter @nitsyclaw/bot google:auth",
     "bot:doctor": "pnpm exec tsx scripts/bot-startup-doctor.ts",
-    "whatsapp:smoke": "vitest run apps/bot/test/router.integration.test.ts apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/wwebjs-client.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts",
+    "whatsapp:smoke": "vitest run apps/bot/test/router.integration.test.ts apps/bot/src/personal-command-shortcuts.test.ts apps/bot/src/wwebjs-client.test.ts apps/bot/src/whatsapp-outbound-submission.test.ts apps/bot/src/whatsapp-loop-breaker.test.ts apps/bot/src/whatsapp-send-monitor.test.ts apps/bot/src/local-voice-transcriber.test.ts apps/bot/src/local-speech-synthesizer.test.ts apps/bot/src/whatsapp-voice-reply.test.ts packages/shared/test/voice-policy.test.ts packages/shared/test/voice-restart.test.ts",
     "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
   },
   "devDependencies": {
@@ -87,23 +107,10 @@
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.59.1",
     "vitest": "4.1.0",
-    "ws": "8.20.1"
+    "ws": "8.21.0"
   },
   "engines": {
-    "node": ">=22.3.0",
+    "node": ">=22.12.0",
     "pnpm": ">=9.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "drizzle-orm@<0.45.2": ">=0.45.2",
-      "esbuild@<0.28.1": "0.28.1",
-      "postcss@<8.5.10": ">=8.5.10",
-      "vite@<=6.4.1": "6.4.2",
-      "ip-address": "10.1.1",
-      "basic-ftp@<=5.3.1": "5.3.1",
-      "brace-expansion@>=5.0.0 <5.0.6": "5.0.6",
-      "ws@>=8.0.0 <8.20.1": "8.20.1",
-      "qs@>=6.11.1 <=6.15.1": "6.15.2"
-    }
   }
 }

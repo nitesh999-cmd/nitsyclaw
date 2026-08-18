@@ -28,8 +28,22 @@ import { logBotError } from "./safe-log.js";
 // full alerting infra.
 let consecutiveAllChannelFailures = 0;
 
-export async function notifyAll(text: string, opts: NotifyOpts = {}, db?: DB): Promise<void> {
-  if (process.env.NODE_ENV === "test" || process.env.VITEST === "true") return;
+export type NotifyAllResult = {
+  ntfy: NotifyChannelResult;
+  toast: NotifyChannelResult;
+  msMail: NotifyChannelResult;
+  consecutiveAllChannelFailures: number;
+};
+
+export async function notifyAll(text: string, opts: NotifyOpts = {}, db?: DB): Promise<NotifyAllResult> {
+  if (process.env.NODE_ENV === "test" || process.env.VITEST === "true") {
+    return {
+      ntfy: "skipped",
+      toast: "skipped",
+      msMail: "skipped",
+      consecutiveAllChannelFailures,
+    };
+  }
   const [pushResult, mailResult] = await Promise.all([
     pushNotify(text, opts).catch((): { ntfy: NotifyChannelResult; toast: NotifyChannelResult } => ({
       ntfy: "failed",
@@ -43,18 +57,22 @@ export async function notifyAll(text: string, opts: NotifyOpts = {}, db?: DB): P
   const allFailed = attempted.length > 0 && attempted.every((r) => r === "failed");
   consecutiveAllChannelFailures = allFailed ? consecutiveAllChannelFailures + 1 : 0;
 
-  if (!db) return;
-  await upsertSystemHeartbeat(db, {
-    source: "notify-channels",
-    status: allFailed ? "error" : "ok",
-    lastSeenAt: new Date(),
-    metadata: {
-      ntfy: pushResult.ntfy,
-      toast: pushResult.toast,
-      msMail: mailResult,
-      consecutiveAllChannelFailures,
-    },
-  }).catch((e) => logBotError("[notify-all] heartbeat write failed", e));
+  const result = {
+    ntfy: pushResult.ntfy,
+    toast: pushResult.toast,
+    msMail: mailResult,
+    consecutiveAllChannelFailures,
+  };
+
+  if (db) {
+    await upsertSystemHeartbeat(db, {
+      source: "notify-channels",
+      status: allFailed ? "error" : "ok",
+      lastSeenAt: new Date(),
+      metadata: result,
+    }).catch((e) => logBotError("[notify-all] heartbeat write failed", e));
+  }
+  return result;
 }
 
 async function sendMsEmailNotify(text: string, opts: NotifyOpts): Promise<NotifyChannelResult> {

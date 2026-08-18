@@ -1,7 +1,7 @@
 # mind.md — NitsyClaw
 
 > Living technical reference. Read at the start of every session before doing any work.
-> Updated: 2026-07-05 (full-codebase bug hunt + fix batch -- P0 dashboard auth, Outlook timezone corruption, session 61)
+> Updated: 2026-08-09 (owner-only local WhatsApp voice intelligence)
 
 ---
 
@@ -27,7 +27,8 @@ One-line pitch: "Text or voice-note NitsyClaw on WhatsApp. It does the work. The
 | Monorepo | pnpm workspaces |
 | WhatsApp | whatsapp-web.js + LocalAuth (Path B — personal, single-recipient) |
 | LLM | Anthropic Claude Sonnet 4.6 |
-| Voice (input) | OpenAI Whisper API |
+| Voice (input) | Owner-only preview: local Handy 0.9.4 + allowlisted Nemotron 3.5 ASR 0.6B Q8; quality gate not passed; no cloud fallback |
+| Voice (output) | Owner-only preview: local Windows SAPI bridge -> validated Ogg Opus; Hindi TTS approval-gated |
 | DB | Supabase Postgres + pgvector |
 | ORM | Drizzle |
 | Dashboard | Next.js 16.2.6 + Tailwind + shadcn-flavored components |
@@ -2830,3 +2831,774 @@ Every notify failure (ntfy, Windows toast, MS mail) was caught and logged with n
 - Full `router.ts` (3192 lines), confirmation-rail race conditions, and encrypted-column mixed-plaintext edge cases were not exhaustively reviewed this session (2 of 4 bug-hunt subagents hit the session limit before returning).
 - Recurring reminders beyond simple weekday patterns remain unimplemented (pre-existing, not new this session).
 
+---
+
+## 62. Session 2026-07-17 -- Ollama Local Brain foundation + Today focus proof
+
+**Date:** 2026-07-17 (Sydney)
+**Driver:** Nitesh -- "NITSYCLAW LOCAL-BRAIN SPRINT — START NOW."
+
+### Architecture decision
+
+Added a shared HTTP-native Ollama provider and deterministic privacy router. `auto` keeps private everyday work local, permits cloud for difficult ordinary reasoning, and blocks sensitive fallback unless the owner explicitly approves cloud reasoning. `local_only` never falls back. Route audits store safe labels/reasons/timing only, never prompts.
+
+Both bot and dashboard now receive the same routed `LlmClient` through `AgentDeps`. Private memory embeddings prefer Ollama and refuse silent cloud fallback. Existing 1536-dimensional vectors are left untouched; local embeddings rerank a bounded owner-scoped recent set until a dimension-aware migration is measured.
+
+### PA loop and proof slice
+
+Codified Capture -> Understand -> Retrieve -> Propose -> Approve -> Act -> Remember. Retrieval rechecks `ownerHash`, excludes corrected/forgotten and instruction-like rows, wraps context as untrusted data, and reports provenance/confidence/time.
+
+Added deterministic WhatsApp commands `what should I focus on today?` and `local brain status`. Today focus ranks up to three real priorities from daily focus, reminders, approvals, command jobs, memories/entities, plus bot-connected calendar/inbox context. The dashboard adds the same grounded Today proof and a private `/local-brain` inspection surface.
+
+### Environment and verification boundary
+
+Ollama 0.32.1 was installed and reachable on loopback, with zero models installed. No automatic pull occurred. `qwen3:8b` and `nomic-embed-text` are documented recommendations; live answer quality, retrieval quality, and token latency remain unverified until those manual pulls occur.
+
+Added 36 deterministic PA evaluation scenarios and 63 focused local-brain tests covering provider protocol, offline/missing-model/timeout handling, routing, approvals, tenant isolation, memory injection filtering, and Today grounding. Full-suite/release-gate results belong in the final sprint handoff after they complete.
+
+### Independent adversarial correction
+
+A fresh read-only verifier reproduced two P0 leaks in the first implementation: routing considered only the latest turn while sending full history, and ordinary-looking saved memory could fall through to cloud embeddings. The release was stopped. The corrected boundary classifies the complete outbound prompt/history/tool context, makes privacy sticky, requires the exact `cloud approved for this full conversation context:` disclosure for sensitive escalation, and never cloud-embeds saved memory by default. Regression probes also enforce proposal action flags, escape memory wrapper delimiters, owner-filter dashboard route telemetry, exclude stale/corrected/forgotten Today evidence, and allow true `local_only` boot without Anthropic.
+
+The verifier's second pass caught two P1 gaps: static system-policy words made ordinary auto fallback impossible, and injection filtering was not wired into production `recall_memory`. The final design distinguishes static policy from dynamic context, strips the marked owner profile from every cloud prompt, keeps private history/tool data sticky, and filters/wraps production recall results with a matching system-level untrusted-data instruction. Expired confirmations are excluded from Today focus and bot route telemetry now carries the owner hash.
+
+### Final verification addendum -- 2026-07-18
+
+Continued in the dedicated `C:\Users\Nitesh\projects\NitsyClaw-ollama` worktree on `feat/ollama-local-brain`. The normal `C:\Users\Nitesh\projects\NitsyClaw` checkout was on `main`; this branch was already checked out in the worktree, so the main checkout was left untouched.
+
+Verified the restored dependency tree without reinstalling or pulling models. Initial raw `pnpm exec` attempts hit Codex/pnpm dependency-status temp-file writes, so local binaries were used first; canonical `pnpm` gates then completed under the actual worktree. Installed Ollama models remained exactly `qwen3:8b` and `nomic-embed-text:latest`. `local-brain:doctor` reported Ollama 0.32.1 online, `local_only`, qwen3:8b, nomic embeddings, and 31 ms health latency.
+
+Release gates completed:
+
+- `pnpm run local-brain:release-gate`: pass; local-only mode, Ollama online, exact models, 36/36 policy scenarios, 25 retrieval queries, top-1 1.0, top-3 1.0, grounding 1.0, zero privacy/injection/stale-memory failures.
+- `pnpm run local-brain:controlled-demo`: pass; grounded Today focus, preference recall, correction superseding old memory, cross-owner exclusion, prompt-injection exclusion, risky action stayed `awaiting_approval` with zero action calls, and real Qwen response routed `local_only` in 5.99 s.
+- `pnpm test`: pass; 207 files, 1,061 tests.
+- `pnpm lint`: pass with 0 errors and 6 warnings.
+- `pnpm typecheck`: pass for shared, bot, and dashboard.
+- `pnpm build`: pass for bot and dashboard.
+- `pnpm run whatsapp:release-gate`: pass; declared dry scope, no Railway mutation, no WhatsApp sends, no provider OAuth actions.
+
+Local browser proof: started the dashboard locally on `http://127.0.0.1:3107` with dev auth bypass and local-only Ollama settings. Playwright proved `/local-brain` rendered HTTP 200 with `Local Brain`, `Ollama online`, `qwen3:8b`, and no risky actions waiting. Full browser proof seeded with synthetic owner database rows remains unverified because this run deliberately avoided loading or mutating real DB-backed personal data. The service-level controlled demo is the verified synthetic-owner proof for retrieval, correction, cross-owner exclusion, injection exclusion, and approval safety.
+
+Leakage check: changed Local Brain scripts print status, timings, routing labels, model names, and counts only; they do not print model response text, prompt payloads, memory contents, credentials, or personal data. The temp dev-server log contained only the expected dev-auth warning and no secret value. `.env.local.example` contains placeholder URL/key shapes only.
+
+### Browser proof addendum -- 2026-07-18
+
+Created `feat/local-brain-browser-proof` from verified Local Brain tip `dca9ef8` in the normal `C:\Users\Nitesh\projects\NitsyClaw` checkout. The newer `main` WhatsApp/tenant commits were left out of scope so the browser proof remains tied to the already-verified Local Brain release line. Existing untracked files and caches were preserved and not staged.
+
+Added a fail-closed synthetic browser fixture and runner:
+
+- `apps/dashboard/src/app/local-brain/browser-proof-fixture.ts`
+- `scripts/local-brain-browser-proof.ts`
+- `pnpm run local-brain:browser-proof`
+- docs: `docs/local-brain-browser-proof.md`
+
+The fixture refuses to run with `DATABASE_URL`/`DATABASE_URL_DIRECT`, production/Vercel/Railway markers, non-loopback Ollama, non-`local_only` routing, or provider/send/analytics env such as OpenAI, Anthropic, Google/Microsoft/Spotify secrets, ntfy, or PostHog. The runner starts the dashboard only on loopback, clears outbound-provider env in the child process, blocks browser-side non-localhost requests, uses unmistakably synthetic owner identifiers/data, and tears down the dev server in `finally`.
+
+`pnpm run local-brain:browser-proof` passed. Evidence artifacts were written under `output/playwright/local-brain-browser-proof/2026-07-18T07-01-13-528Z/` and are ignored runtime artifacts, not committed. The proof rendered `/local-brain` and verified: grounded Today focus, corrected preference recall, old memory excluded, other-owner memory excluded, prompt-injection memory excluded, risky action stayed `awaiting_approval`, zero outbound action calls, and a real Qwen response routed `local / local_only`.
+
+Verification completed:
+
+- `pnpm exec vitest run apps/dashboard/src/app/local-brain/page.test.ts apps/dashboard/src/app/local-brain/browser-proof-fixture.test.ts package-scripts.test.ts` -- pass; 3 files, 39 tests.
+- `pnpm typecheck` -- pass for shared, bot, dashboard.
+- `pnpm lint` -- pass with 0 errors and 6 pre-existing warnings.
+- `pnpm test` -- pass; 208 files, 1,068 tests.
+- `pnpm build` -- pass for bot and dashboard.
+- `pnpm run local-brain:release-gate` -- first attempt failed only because `NITSYCLAW_MODEL_MODE` was not set in that shell; rerun with explicit local-only Ollama env passed with Ollama 0.32.1, `qwen3:8b`, `nomic-embed-text:latest`, policy 36/36, retrieval 25/25, top-1/top-3/grounding 1.0, and zero privacy/injection/stale-memory failures.
+- `pnpm run local-brain:controlled-demo` with explicit local-only Ollama env -- pass; real Qwen local response in 591.9 ms, 67 chars, route `local_only`.
+- `pnpm run whatsapp:release-gate` -- pass in dry scope; no Railway mutation, no WhatsApp sends, no provider OAuth actions.
+
+Remaining limitation: this proves the browser path against synthetic disposable data only. Owner-only demo still requires local Ollama running with the exact models. Public sale remains blocked by the known multi-user auth and tenant-isolation review gaps.
+
+
+### WhatsApp @lid self-chat regression -- 2026-07-28
+
+Symptom on the live laptop bot: `[wwebjs] dropped: not self-chat fromMe=true from=contact to=lid chat=empty chatIsMe=false`. Root cause chain: WhatsApp Web now addresses owner "Message Yourself" events with an `@lid` recipient; `getChat()` returns no usable chat id for that event, so `chatIsMe` stays false; every R42 envelope rule (`chat === owner`, `to === owner`, `chatIsMe && chatId endsWith @lid`) therefore failed and the owner's own command was dropped. The existing retry + calibration allowlist only papered over it.
+
+Fix (branch `fix/whatsapp-lid-self-chat`, installed whatsapp-web.js verified as 1.34.7):
+
+- `apps/bot/src/whatsapp-lid-identity.ts` -- candidate detection (`lidSelfChatTargets`) plus `LidPhoneResolver` over `client.getContactLidAndPhone` with a bounded TTL cache (10 min, 64 entries) and `resolveLidSelfChat` returning `accepted | rejected_identity | unresolved | not_candidate`. Accept requires every `@lid` endpoint to normalize exactly to `WHATSAPP_OWNER_NUMBER`; lookup errors, empty/malformed payloads, echoed mismatched lids, and other people's numbers all fail closed.
+- `apps/bot/src/whatsapp-inbound-gate.ts` -- the inbound decision sequence (startup replay -> duplicate -> echo -> self-chat/LID -> owner-only) extracted from `wwebjs-client.ts` so it is directly testable. Chat identity is read lazily, so cheap drops still cost no chat lookup, and LID resolution only runs after the plain rules already said no.
+- `apps/bot/src/whatsapp-inbound-health.ts` -- counters-only inbound routing health. Repeated *unresolved* owner self-chat candidates flip the snapshot to `degraded`; a `lid_identity_mismatch` (owner messaging somebody else) is a correct rejection and never raises the alarm.
+- `apps/bot/src/wwebjs-client.ts` -- uses the gate, wraps the LID lookup in an 8 s timeout, records inbound health, and logs address KINDS only. `id=${messageId}` was removed from drop logs because serialized WhatsApp ids embed the chat jid (a phone number).
+- `apps/bot/src/index.ts` + `apps/bot/src/nightly-health-report.ts` -- new `whatsapp-inbound` heartbeat; the nightly report can no longer say `ready` while owner self-chat identity resolution is failing, and prints "owner self-chat identity resolution failing (N in a row)" with no identifiers.
+
+Verification: targeted tests 45/45; `pnpm --filter @nitsyclaw/bot typecheck` pass; `pnpm test` 211 files / 1,104 tests pass; `pnpm lint` 0 errors (6 pre-existing warnings); `pnpm run whatsapp:smoke` 185 tests pass. `pnpm run security:audit` still fails on pre-existing upstream advisories (next and friends) unrelated to this change.
+
+### Stale command-job replay on id-less WhatsApp events -- 2026-07-28
+
+Symptom: after the @lid transport fix, an accepted 73-char owner request came back with the same 46-char reply as `proof test`. Root cause chain, proved read-only from the database, not guessed:
+
+1. `wwebjs-client.ts` sets `id: m.id?._serialized ?? ""`. WhatsApp `@lid` self-chat events carry no serialized id, so `msg.id` is `""`.
+2. `Router.handle` built `dedupeKey = whatsapp:${msg.id}` unconditionally, so every id-less message keyed on the literal `whatsapp:`.
+3. On 2026-07-16 one id-less message stored a job under that key with status `needs_clarification` and receipt `Who or what do you mean, and what should I do?` (46 chars, from `analyzePersonalPaIntent` -> `vague_risky_reference`).
+4. Every later id-less message matched that row, hit `isGateReplay` and returned the stored receipt -- before persisting the inbound turn, before intent analysis, before the agent. Hence no new `command_jobs` rows (newest was 2026-07-16), no errors, and identical replies. `messages` shows exactly two outbound rows today (09:33 and 10:04) and no inbound rows, which matches an early return above the persist step.
+
+Fix: dedupe key and `sourceExternalId` are written only when a real message id exists (`whatsAppExternalId`); otherwise the turn routes normally. Duplicate protection for id-less turns now uses `inboundReplayKey` -- truncated SHA-256 over second-resolution timestamp, media type, and body, held in memory only, never stored, logged, or used as a database key. The poisoned 2026-07-16 row was left untouched; nothing looks it up any more.
+
+Regression tests in `apps/bot/test/router.integration.test.ts`: a clear general request with no message id and a stale `whatsapp:` clarification job present must be routed and answered, never replayed; an id-less message must not write a bare `whatsapp:` dedupe key; a doubly-delivered id-less message must execute once.
+
+Capability gap found while tracing: `SERPER_API_KEY` is not defined in either env file the bot loads, so `buildAgentDeps` wires `stubWebSearch`. Live news/web lookups therefore cannot return real results today even though the system prompt tells the model to use `web_search`. Not fixed here -- it needs an operator decision about a search provider, not a code change.
+
+Verification: `apps/bot/test/router.integration.test.ts` 117 tests pass; `pnpm test` 211 files / 1,107 tests pass; bot typecheck pass; `pnpm lint` 0 errors (6 pre-existing warnings).
+
+### Live web search rebuilt on Anthropic server-side search -- 2026-07-28
+
+Symptom: asked for today's world news and 20 current stories, NitsyClaw replied that its training data ended in 2024, said it *could* use `web_search`, and asked whether it should search. The owner had to answer "Yes please" before anything happened.
+
+Root cause chain:
+
+1. `registerWebResearch` was disabled in `packages/shared/src/features/index.ts`, so the agent loop had **no** search tool of its own.
+2. The only search path was a `web_search_20250305` server tool appended inside `makeAnthropicLlm.toolStep` (`apps/bot/src/adapters.ts`). That injection is structurally unsound for this loop: server search results carry `encrypted_content` that must be echoed back verbatim on later turns, but `runAgent` re-serialises every turn as plain strings, so the search context could never survive a second round. It also violated the spirit of R59 (whole cross-surface history exposed to the search request).
+3. `stopReason` was cast straight from `resp.stop_reason`, so `pause_turn` silently ended the turn with whatever partial text existed.
+4. `deps.webSearch` fell back to `stubWebSearch`, which returned a fabricated row reading "Set SERPER_API_KEY in .env.local" — that string was what the morning brief printed as its weather line.
+
+Fix (branch `fix/anthropic-web-search`):
+
+- `packages/shared/src/search/live-web-research.ts` -- transport-free contract: `LiveWebResearcher`, the response parser, the WhatsApp formatter, the untrusted-fenced prompt block, and the non-secret health shape. The parser reads only text, citation `title`/`url`, and server-tool error codes; `encrypted_content`, `encrypted_index`, and `tool_use_id` are never read, so they cannot reach logs, storage, or WhatsApp.
+- `packages/shared/src/search/anthropic-web-research.ts` -- one research call = one bounded Anthropic request carrying only `web_search_20250305` with `max_uses` (default 5, clamped 1..10), plus up to two `pause_turn` continuations that echo the assistant content back byte-for-byte. Transport errors map to non-secret codes (`provider_disabled`, `unsupported_model`, `rate_limited`, `query_rejected`, `request_failed`); provider messages and request ids stay internal.
+- `packages/shared/src/search/web-research-intent.ts` -- conservative detector for messages that already asked for live information; excludes anything scoped to the owner's own data or to bot internals.
+- Router: on an explicit live-information request the search runs **before** the agent loop in the same turn, and the findings are injected into the system prompt inside an untrusted `[LIVE_WEB_RESEARCH_RESULTS]` fence. The model can still combine them with other tools (travel location, feature-queue status). If research is unavailable the turn ends with one honest message and no stale-knowledge answer.
+- System prompt: the "training cutoff" and "use the web_search tool" lines are gone. It now says call `web_research` immediately, never ask permission, never mention a cutoff, and say plainly when search is unavailable.
+- `web_research` is a normal client tool again, backed by `deps.liveResearch`; only the query string leaves the device, which is what R59 asks for.
+- `stubWebSearch` deleted. With no Anthropic key and no pre-existing Serper key, `webSearch` returns `[]` so the morning brief omits weather instead of printing a placeholder that reads like data.
+- Nightly health: new non-secret `Web research: <state> (anthropic-web-search, max N searches/request)` line. The report cannot say `ready` while web research is unavailable.
+
+SDK/model compatibility, checked rather than assumed: `@anthropic-ai/sdk` 0.95.2 declares `WebSearchTool20250305` and `pause_turn` in `StopReason`; `ANTHROPIC_MODEL` defaults to `claude-sonnet-4-6`. `web_search_20250305` defaults to `allowed_callers: ["direct"]`, so no code-execution provisioning is involved. Newer `web_search_20260209`/`20260318` versions exist but add dynamic filtering and response-inclusion we do not need.
+
+Verification: `pnpm test` 214 files / 1,161 tests pass; `pnpm -r typecheck` pass; `pnpm build` pass; `pnpm lint` 0 errors (6 pre-existing warnings); `pnpm run ci:whatsapp-replies` 132 tests pass; reply snapshots unchanged. `pnpm run security:audit` and `pnpm run security:semgrep` still fail on pre-existing findings (upstream advisories, and 28 `pnpm-workspace.yaml` policy findings) untouched by this change.
+
+Still open: web search must be enabled for the Claude account in the Console, otherwise every request returns a 400 and the bot reports `provider_disabled`. Nothing here can prove that from code.
+
+### Per-turn server search budget (double-spend fix) -- 2026-07-28
+
+Architecture check before local integration: one owner turn had **two** independent routes to the Anthropic provider, and each carried its own `max_uses`.
+
+1. `router.ts` pre-search -> `deps.liveResearch.research()` -- 5 searches.
+2. The `web_research` client tool inside `runAgent` -> the same researcher instance -- another 5, and `runAgent` allows up to 6 rounds.
+
+Worst case for a single owner message: 5 + (6 x 5) = 35 server searches. The prompt block already told the model not to re-search, but that is advisory text, not an enforced ceiling. Verdict: duplicate provider invocation was possible.
+
+Fix: `packages/shared/src/search/turn-budget.ts` -- `createTurnScopedResearcher(base, maxUses?)` wraps the shared researcher for one turn. Each call receives only the allowance that is left (`research({ maxUses })`, honoured by `makeAnthropicWebResearcher` and clamped so a caller can never raise the configured ceiling). Spend is charged from `searchesUsed`, so failed searches -- which the provider does not bill -- cost nothing. When the budget is exhausted the wrapper returns `max_uses_exceeded` locally and issues no provider request at all. The router builds one wrapper per turn and injects it into `agentDeps.liveResearch`, so pre-search and the client tool share it.
+
+Proof: `packages/shared/test/turn-budget.test.ts` (shared allowance, hard total ceiling across 10 calls, local refusal with zero provider requests, failures not charged, per-call clamping) plus three router integration tests -- exactly one provider request for a normal explicit current-news request; total allowance <= 5 when the model also calls `web_research`; a second in-turn search runs on the leftover 3, never a fresh 5.
+
+Verification: full `pnpm test` 215 files / 1,173 tests pass; bot typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged versus 5965717 (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile, or migration change).
+
+### Live-research fix proven by the 23:08 failure -- 2026-07-28
+
+Read-only DB correlation of the failed live proof gave four facts: inbound accepted (commandLen 67), one command job `done` (attempts 0, resultLen 207), one `web_research` audit row with `status=unavailable searchesUsed=2 sourceCount=0`, and **every `model_route` row `route=local`**. The reply was model-composed prose (207 chars matches no unavailable template, max 156), so the local Ollama brain answered a live-news question it had no way to answer.
+
+Four defects, four fixes:
+
+1. **Local brain answered a live turn.** `decideModelRoute` gains `requiresLiveWeb`. When set and cloud is available -> `live_web_research_requires_cloud`; cloud unavailable -> `blocked` with reason `live_web_research_cloud_unavailable` and the honest unavailable message. The branch sits **after** the sensitivity checks, so `sensitive_data_stays_local` still wins -- privacy rules unchanged. `local_only` mode is untouched (owner's explicit choice; pre-search still supplies the findings). `createRoutedLlm` derives the flag via `requiresLiveWebAnswer(system, messages)`, which checks the injected `[LIVE_WEB_RESEARCH_RESULTS]` marker as well as the raw request -- the marker is needed because later loop rounds carry synthetic "Tool results:" turns that would otherwise flip the flag off mid-turn.
+
+2. **Pre-search was invisible.** The router now writes one `web_presearch` audit row per attempt: `status`, `available`, `searchesUsed`, `sourceCount`, `answerLen`, sanitized `failureCode`, `elapsedMs`, `remainingBudget`. No query, answer, sources, URLs, titles, provider text, identifiers, or env values. Without this the previous proof could not be diagnosed without a live repro.
+
+3. **Tool failures lost their reason.** `web_research` output now persists `failureCode`, passed through `normalizeFailureCode` -- a whitelist of the ten known internal categories. Anything else, including raw provider strings that can carry request ids, collapses to `request_failed`.
+
+4. **Redundant provider requests.** The turn-scoped researcher caches the first result with usable findings and serves a repeat ask for the same need from cache: zero searches, zero provider requests. `isSameResearchNeed` compares content tokens (stop-words dropped) at a 0.6 overlap threshold, so a restatement reuses while a genuinely different follow-up falls through to the remaining allowance. Only usable results are cached, so an empty-source answer never suppresses a real search.
+
+Also tightened: pre-search success now requires `hasUsableFindings` -- ok status, non-empty prose, **at least one source**. A zero-source result returns the honest unavailable message immediately instead of reaching the model, so no command result can claim success with `sourceCount: 0`.
+
+Verification: full `pnpm test` 215 files / 1,192 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs fb4df2f (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile, or migration change).
+
+### Database observability + client lifecycle hardening -- 2026-07-29
+
+Fallout from the 23:08/00:08 proof failures. Neither defect was in web research; both made the real failure hard to see or easy to repeat.
+
+**1. SQLSTATE was structurally unreachable.** Drizzle wraps driver failures as `Failed query: <sql>` and hangs the driver error -- the object carrying `code` -- off `cause`. `formatSafeLogError` read only `error.name` and `error.message`, never `cause`, and `redactAuditString` truncates at 160 chars, which the SQL alone exhausts. The 25006 (`read_only_sql_transaction`) that broke proof #2 therefore never appeared in any log; it took a read-only DB correlation plus a `pg_settings` provenance query to find.
+
+Fix: `extractSqlState` walks the `cause` chain (depth 5, cycle-guarded) and validates against the real Postgres SQLSTATE **class** set, not a bare five-character shape -- otherwise Node codes like `EPIPE` and `EBUSY` would be reported as database states. The code is prefixed **after** redaction and truncation (`[sqlstate:25006] ...`) so a long message can never push it out. `stripQueryAndConnectionText` removes SQL text, bound params, and any `postgres://` DSN before redaction, so the added visibility costs no privacy.
+
+**2. `getDb` never cached when given an explicit URL.** `getDb(url)` skipped the cache read *and* the cache write, so every call with a URL built another pool. `apps/bot/src/index.ts` always passes one. One call today, so one pool -- but any second call would have silently doubled them. Fix: cache keyed by exact connection string (key used for lookup only, never logged or returned), so repeated calls share a pool and different URLs stay isolated.
+
+**3. No client shutdown.** Added idempotent `closeDb()`: clears the map *before* awaiting any close, so concurrent or repeated calls cannot double-close; individual failures are swallowed so a dead socket cannot block exit. Wired into the existing SIGINT/SIGTERM handler, including the failure branch.
+
+Limitation stated in code and here: **a forced `Stop-Process -Force` / SIGKILL cannot run any cleanup.** The swaps during both live proofs used exactly that, which is why server-side connections were left for the server to reap. Graceful shutdown covers signals only.
+
+Deliberately NOT done, per scope: no write retries, no degraded inbound processing (rejected earlier -- `command_jobs` backs dedupe, replay protection and exactly-once reply, and all of it needs the same failing write path), no connection-mode change, no schema, migration, dependency or environment change.
+
+One pre-existing test was corrected rather than worked around: `dashboard-safe-errors.test.ts` forbade the literal `set(` in `client.ts`, which a Map-keyed cache trips for no security reason. Replaced with assertions of the actual property -- the connection string is never logged (`console.*`) and never interpolated.
+
+Verification: full `pnpm test` 217 files / 1,214 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 96fadbd (28 audit advisories, 28 semgrep findings all in `pnpm-workspace.yaml`, no dependency, lockfile or migration change).
+
+### Response quality: atomic source pairs + local "today" -- 2026-07-29
+
+Two defects proven by the passing live proof (12/13). The pipeline worked; the presentation did not.
+
+**1. Source labels bound to the wrong domains.** Parsing was already correct -- `collectBtocks` adds `{title, url}` together and dedupes by URL -- but every layer below rendered pairs as a single line, `- Title: url`. A title carrying its own punctuation ("Reuters: World News", "ABC News - AU") makes that shape ambiguous, and the local model, told to "include these titles and URLs", re-emitted them mispaired.
+
+Fix, one renderer used everywhere (`formatSourceList`): each pair occupies two lines -- numbered title, then its own URL -- so a title can never be read as part of a neighbouring link. `sanitizeSourceTitle` flattens newlines/tabs and falls back to the source's *own* hostname when a title is missing. `cleanTitle` in the parser now delegates to it, so parsing, caching, prompt injection and WhatsApp formatting share one implementation.
+
+That alone still trusts the model. The guarantee comes from the router: `applyVerifiedSources` strips every http(s) URL the model wrote (`stripInlineUrls`) and appends the verified pairs verbatim. The prompt block now says explicitly "Do NOT write URLs or your own source list". Result: every displayed link originates from a parsed search result, beside its own title.
+
+**2. "Today" resolved from UTC.** At 02:05 on 29 July AEST (16:05Z on the 28th) the reply said "today, July 28, 2026". Nothing in the prompt or the search instructions told the model what the owner's local day was.
+
+Fix: `resolveLocalDateContext(now, timezone)` (new `local-date.ts`) formats the owner's calendar date via `Intl` with the configured zone -- so it follows AEST/AEDT rather than a fixed offset -- and `formatLocalDateInstruction` pins it: "Treat today ... as that local date, never the UTC date". Passed into the pre-search call, the injected prompt block, and the `web_research` client tool. An unusable timezone falls back to `Australia/Melbourne`, never to UTC, because UTC is the exact failure being prevented.
+
+Privacy routing precedence deliberately unchanged: sensitive history still keeps composition local while the search itself runs in Anthropic.
+
+Known limitation: the verified-source append covers the `finalText` delivery path, which is what live-research turns use. A reply sent through the `reply_to_user` tool is dispatched inside the tool before the router can post-process it, so that path keeps model-written links.
+
+Verification: full `pnpm test` 218 files / 1,233 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 9c08b64.
+
+### Release safety: reply_to_user withheld on live-research turns -- 2026-07-29
+
+Check on 812fb96: could an explicit live-research turn reach `reply_to_user`? **Yes.** `runAgent` was handed the full shared registry on every turn, and `reply_to_user` sends from inside its own handler (`ctx.deps.whatsapp.send`), so the router can never post-process what it delivers. The passing live proof used `finalText` by model choice, not by guarantee -- one different model decision and an unverified, mispaired link ships.
+
+Fix: `ToolRegistry.without(...names)` returns a copy with the named tools withheld, sharing tool definitions by reference and leaving the shared registry untouched. The router builds `turnRegistry = liveResearchBlock ? registry.without("reply_to_user") : registry`, so only live-research turns lose the tool and every such reply must pass through `finalText` -> `applyVerifiedSources`. The injected block now states the tool is withheld for the turn.
+
+Gating verified, not assumed: `applyVerifiedSources` returns its input untouched when `sources` is empty, so `stripInlineUrls` never runs on an ordinary turn. `verifiedSources` is only populated from a pre-search that passed `hasUsableFindings` (ok status, non-empty prose, >= 1 source). Ordinary replies keep their URLs verbatim, including deliberate "what was that page again?" answers.
+
+Five pre-existing fixtures broke, and that was the change doing its job: each used `fakeLlmWithToolCall("reply_to_user", ...)` with a weather or news body -- live-research turns whose delivery mechanism was an assumption, not the behaviour under test (feature-queue append, travel-context save, id-less routing, duplicate execution, voice transcription). They now use a new `fakeLlmWithFinalText` helper, which is what the model actually does when the tool is absent. Three exact-body `=== "ack"` assertions became `startsWith("ack")` because a live-research reply now carries the appended verified source list.
+
+Verification: full `pnpm test` 219 files / 1,243 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 812fb96.
+
+### Turn-scoped verified sources close the model-initiated delivery gap -- 2026-07-29
+
+4e7765f withheld `reply_to_user` on *explicit* live-research turns, but a turn that reached `web_research` on the model's own initiative -- an implicit follow-up such as "Yes please." -- still had the tool available, so its reply bypassed router post-processing entirely. Real path, and the one most likely to carry fabricated or crossed links.
+
+Fix: `createVerifiedSourceCollector()` -- one instance per turn, created in the router and passed through `AgentDeps.verifiedSources`. No module-level state, so concurrent turns cannot see each other's pairs. It dedupes by URL and keeps the first title seen for a URL, so a later, vaguer label cannot displace one already shown.
+
+Both producers feed it: the router seeds it from the pre-search, and `runWebResearch` records on any result passing `hasUsableFindings`. Both consumers read it: `reply_to_user` applies `applyVerifiedSources` immediately before `whatsapp.send` (after the language rewrite, so appended URLs are never re-worded), and the router's `finalText` path uses the same collector. `applyVerifiedSources` moved to shared so one implementation serves both.
+
+Gating is structural: with an empty collector the function returns its input by identity, so ordinary turns and turns following failed or empty research stay byte-identical -- including deliberate answers containing a specific URL.
+
+Router persistence now reproduces what `reply_to_user` actually delivered rather than the model's raw input, so cross-surface history matches the chat. The delivered body is deliberately NOT added to the tool's audit output -- that would put a message body into `audit_log`.
+
+Existing live-research fixtures were tightened from `startsWith("ack")` to exact equality against `ACK_WITH_SOURCES`, so they now assert the precise appended pair rather than just a prefix. The duplicate-event fixture, which is not a live-research turn, asserts exact `"ack"` and therefore proves ordinary replies are untouched.
+
+Verification: full `pnpm test` 220 files / 1,256 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 4e7765f.
+
+### Correction: OLLAMA_TIMEOUT_MS is per call, and the verified-source fallback -- 2026-07-29
+
+**Correction first.** My benchmark report claimed "three rounds would exceed 45 s". That was wrong. `fetchResponse` builds `linkedAbort(options.signal, options.timeoutMs ?? this.requestTimeoutMs)` **inside** the per-attempt loop, and `chat()` goes through it once per HTTP request. So `OLLAMA_TIMEOUT_MS` bounds **each `OllamaProvider.chat()` call**, not the agent loop. Six loop rounds each get a fresh 45 s; the loop itself is unbounded in wall-clock terms. Multi-round cost therefore does not explain the 11:38 timeout, and the benchmark numbers (cold 18.9 s, warm 2.8 s at 13,810 prompt tokens) say a single call has ample headroom on an idle machine. The true cause of that one timeout remains unproven -- contention is the leading hypothesis, not a finding. Timeout value unchanged.
+
+**Fallback implemented.** When explicit pre-search has already succeeded and local composition then times out, the turn now delivers the answer that already exists rather than a generic failure.
+
+- Eligibility is structural: `liveResearchFallback` is assigned only on the `kind: "context"` branch, which is reachable only after `hasUsableFindings` passed. No pre-search, empty findings, or zero sources -> the existing unavailable path runs and the fallback is never armed.
+- The catch is typed: `error instanceof OllamaProviderError && error.code === "timeout"`. No string matching. Database, Anthropic, tool, validation, `offline`, `model_missing`, `bad_response` and `cancelled` all rethrow unchanged.
+- Delivery reuses `formatLiveWebResearchForWhatsApp`, so the atomic pairs and the Melbourne-dated answer come through the existing shared renderer. No provider is called again and Ollama is not retried.
+- `countingWhatsAppClient` wraps the client for the turn, so a turn where a tool already sent something can never be followed by a fallback reply. (`reply_to_user` is withheld on these turns anyway per R71; the counter covers every other sending tool.)
+- The job is completed normally with the delivered text, so WhatsApp redelivery hits the completed-job path instead of re-executing.
+- One audit row, `tool: "web_research_fallback"`, whose output keys are exactly `fallbackType`, `sourceCount`, `answerLen`, `searchesUsed`, `elapsedMs`, `timeoutCode` -- asserted by key set, not by spot checks. Input is `{}`.
+
+Verification: full `pnpm test` 220 files / 1,264 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 8c4dc1d.
+
+### Headline-to-source relationships, and WhatsApp bold -- 2026-07-29
+
+The e5528b5 live proof passed every pipeline check but the visible reply exposed a defect the mechanics could not catch.
+
+**Diagnosis.** R70 guarantees a *title* stays with its *own URL*. Nothing bound a *headline* to a source that supports it. `applyVerifiedSources` stripped the model's links and appended a flat list of every verified pair, capped at `MAX_WHATSAPP_SOURCES = 4` -- hence three headlines followed by four sources, two of which (an NPR section front, a Euronews bulletin) mapped to no delivered item. Section fronts are legitimate search results; nothing filtered them. Separately, the model emitted markdown `**bold**`; WhatsApp uses single asterisks and `sanitizeUserFacingReply` only strips noisy lines, so `**` rendered literally.
+
+**Fix** -- new `headline-answer.ts`, used by both delivery paths:
+
+- The prompts now ask for `1. <headline> SOURCE: <exact source title>`. Citing by *title* rather than by index works identically for the pre-search answer and for local composition, since both see the same verified pair set.
+- `parseHeadlineAnswer` binds each cited headline to the pair whose title it named (normalised match, then containment). A citation matching nothing is dropped **with its headline** -- delivering a headline without a supporting link would recreate the defect.
+- `formatHeadlineAnswerForWhatsApp` renders each headline immediately above its own source and URL. There is no trailing list, so an uncited source cannot be delivered.
+- `isGenericIndexUrl` / `selectCitableSources` withhold section fronts and homepages whenever a real article exists, both from the prompt's source list and from citation matching.
+- `toWhatsAppText` converts `**x**`/`***x***` to `*x*`, `__x__` to `_x_`, and removes stray `**`.
+- No citations parsed -> previous behaviour (prose + pair list). No verified sources -> text returned by identity, so ordinary turns stay byte-identical.
+
+`formatLiveWebResearchForWhatsApp` now delegates to `applyVerifiedSources`, so the typed-timeout fallback obeys the same guarantee. That creates an ESM cycle between `live-web-research.ts` and `verified-sources.ts`; both sides export only hoisted function declarations and neither runs the other at module init, so it resolves cleanly -- verified by the full suite rather than assumed.
+
+Verification: full `pnpm test` 221 files / 1,281 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs e5528b5.
+
+### Provider citations replace model-asserted support -- 2026-07-29
+
+5a9fec1 made the model cite by source title. Two blockers remained, both real: a missing SOURCE marker silently fell back to the old flat list, and matching a title only proves the title exists in the verified set -- it never proves the page supports that headline.
+
+**Diagnosis.** The SDK types answer it. `TextBlock` carries `citations: TextCitation[] | null`, and `CitationsWebSearchResultLocation` carries `{ cited_text, title, url }`. **The provider attaches citations to the specific text span they support.** `collectBlocks` was concatenating every text block into one string and flattening citations into a single global `sources` array -- that is exactly where the provider's relationship was destroyed. Nothing downstream could recover it, so both previous designs were reconstructing by guesswork.
+
+**Fix.** `LiveWebResearchClaim { text, citations }` preserves each span with the citations the provider attached to it. Delivery is built from claims only:
+
+- `buildCitedAnswer(claims, requested)` keeps a claim only if the provider cited it, trims to N, and flags `partial` when fewer than N are supported.
+- `formatCitedAnswerForWhatsApp` renders each item above its own citations, so only cited sources appear and an unused search result cannot be delivered. A partial answer says how many were verified rather than padding from model knowledge.
+- Nothing consults SOURCE text, titles, indices, or URL shape. `isGenericIndexUrl`/`selectCitableSources` are **deleted**: a section front is now deliverable precisely when the provider cited it for that claim, which is the correct test.
+- A missing marker, a wrong citation, an invented title, or malformed local output all reach the same place -- the native cited result -- because the local model's text is never the source of items.
+
+`hasUsableFindings` deliberately stays source-based: a search with results but no citations is still a successful search, it just yields no verified items. Conflating the two made 36 fixtures fail and would have reported real searches as unavailable.
+
+**Cycle removed** by extracting leaves: `types.ts` (types only) and `source-format.ts` (renderers) sit under `cited-answer.ts`, `live-web-research.ts` and `verified-sources.ts`. A test walks the search module graph and asserts no runtime cycle remains, ignoring erased type-only imports.
+
+Verification: full `pnpm test` 221 files / 1,283 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 5a9fec1.
+
+### Runtime data and audit data separated -- 2026-07-29
+
+The bc7da5b live proof passed 13/15. Condition 15 failed: `audit_log` held answer text, source titles and URLs.
+
+**Diagnosis.** `runAgent` persisted the tool call verbatim -- `input: call.input`, `output: out` -- in all three branches (unknown tool, success, error). Runtime and persistence shared one object, so any tool returning rich data wrote that data to durable storage. `web_research` legitimately returns answer, sources, claims and citations; the agent and the collector need all of it. The defect was never the tool's return value, it was that the same object was persisted.
+
+**Fix.** `ToolDefinition.auditProjection?` lets a tool declare what may be persisted; `projectForAudit` in the loop applies it. **Default is empty input and empty output** -- a tool without a projection records nothing, so a new or third-party tool cannot leak an arbitrary object. A throwing projection also degrades to empty rather than leaking or failing the turn. `web_research` declares the six approved scalars (`status`, `available`, `searchesUsed`, `sourceCount`, `answerLen`, `failureCode`) with an empty input, so the query never persists. Handler return values are untouched.
+
+**Read-only inventory of pre-existing rows** (nothing updated or deleted): 53 affected of 348 total, 2026-04-26 to 2026-07-29, across six event types -- `web_research`, `recall_memory`, `search_conversation_history`, `search_gmail_inbox`, `spotify_search_tracks`, `analyze_life_admin_intake`. Categories present: urls, answerText, claimText, sourceTitles, queryText. Absent: citedText, messageBody, phoneLike, lid, requestIds, credentials, encryptedContent.
+
+That inventory matters: the leak was **never limited to web_research**. Five other tools were writing recalled memories, Gmail results, conversation history and intake text into `audit_log`, and had been since April. The empty default closes all of them at once, which is why defaulting to empty is the right call rather than projecting each tool individually.
+
+One existing test asserted `auditText` contained `"[redacted"`. With nothing persisted there is no payload to redact, so it now asserts every audit row has empty input and output -- a stronger guarantee than the redaction it replaced.
+
+Verification: full `pnpm test` 222 files / 1,290 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs bc7da5b.
+
+### Free-text error channel closed -- 2026-07-29
+
+752f50f narrowed tool *success* payloads but left `formatToolErrorText` output going straight into `audit_log.error`.
+
+**Diagnosis.** That string served three consumers: `calls[]` (returned to the router), `toolResultParts` (fed back to the model), and `logAudit({ error })` (durable). Only the third was the leak. `redactAuditString` catches emails, phones and token-shaped strings by pattern, but not prose, URLs, query text, recalled memory, SQL, LIDs, request ids or addresses -- all of which a driver or tool message routinely carries.
+
+**Fix.** New `agent/tool-error.ts`:
+
+- `TOOL_ERROR_CLASSES` allowlist with `tool_error` as the default for anything unclassified.
+- `ToolDefinition.errorProjection?` lets a tool claim a class and a short code. Codes must match `^[a-z][a-z0-9_]{0,39}$`, which structurally cannot hold prose, a URL or SQL. Anything outside the allowlists, or a throwing projection, degrades to the generic class.
+- `extractSqlState` moved here from `apps/bot/src/safe-log.ts` so there is one implementation; safe-log imports and re-exports it, leaving console logging byte-identical. A validated SQLSTATE persists as a bare code, never with the SQL around it.
+- The loop now persists `output: { errorClass, errorCode?, sqlState? }` and sets the `error` column to the class token. Unknown tools record `unknown_tool` with an empty input.
+
+Runtime is untouched: the sanitized string still reaches the model and the caller, so retries, user-facing failures and operational logs behave exactly as before. That separation is the whole point -- detailed sanitized text in the log, structured metadata in durable storage.
+
+Verification: full `pnpm test` 223 files / 1,304 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs 752f50f. The full suite passed *before* the new tests were added too, which confirms no existing behaviour depended on the free-text audit value.
+
+### Error codes moved to a closed vocabulary -- 2026-07-29
+
+c1b0281 stopped free-text error messages reaching `audit_log`, but `errorCode` was still admitted by shape alone: `^[a-z][a-z0-9_]{0,39}$`. That is structural validation, not an allowlist. `customer_abc123` and `memory_secret_token` both satisfy it while carrying an identifier or a secret name, so durable audit metadata was not actually drawn from an approved vocabulary.
+
+Fix: `AUDIT_TOOL_ERROR_CODES` is a closed `as const` list, `AuditToolErrorCode` is derived from it, `ToolErrorAudit.errorCode` is typed to that union, and `allowedCode` now tests exact membership. The regex is deleted, so no value is persisted merely because it looks harmless.
+
+The vocabulary contains exactly one entry, `provider_throttled` -- the only code any existing contract or test declares. No production tool currently sets `errorProjection`, so inventing codes for providers that might exist later would be speculation; adding one requires a source change and review, which is the control the requirement asks for.
+
+Rejecting a code never suppresses the rest of the record: an out-of-vocabulary code still yields a valid `errorClass` and, where present, the validated SQLSTATE. `TOOL_ERROR_CLASSES` is unchanged, SQLSTATE handling is unchanged, and runtime error strings, model-visible tool errors and operational logging are untouched.
+
+Verification: focused suite 24 tests; agent + router suites 211; full `pnpm test` 223 files / 1,314 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs c1b0281.
+
+### ownerHash removed from model_route audit payloads -- 2026-07-29
+
+The ec130bb live proof surfaced the last owner-linked value in durable audit storage: `model_route` input carried `ownerHash`.
+
+**Diagnosis.** `hashPhone(WHATSAPP_OWNER_NUMBER)` was computed *inside* the telemetry callback in `apps/bot/src/adapters.ts` and used for nothing but the audit payload. It was never passed to `decideModelRoute`, never used for privacy classification, model selection or fallback. Two dashboard producers did the same with the request's `ownerHash`. Crucially, `audit_log` has no owner or tenant column -- `id, actor, tool, input, output, success, error, duration_ms, created_at` -- and a repo-wide search found no consumer reading `ownerHash` out of an audit row, so nothing depended on it for authorization or isolation.
+
+**Fix.** `buildModelRouteAuditPayload(event)` in `local-brain/telemetry-audit.ts` is now the single shape all three producers persist. It is built from the routing event alone, and the event type carries no owner, tenant, account, session or request identifier -- so an owner-linked value cannot reach the payload even when a caller has one in scope. Fields are copied explicitly rather than spread, so a future event field cannot silently start being written.
+
+Input is exactly `mode, reason, requestClass, sensitivity`; output exactly `route, model, fallback`. The bounded routing code moves to the `error` column instead of sitting in the output JSON, and is omitted entirely on success. The dashboard producers previously diverged (no `reason` in input, `reasonCode` in output); all three now emit one shape, which is what an event type should mean.
+
+**Row ownership untouched.** In the dashboard, `ownerHash` remains load-bearing for `fromNumber`, `requestedBy`, `privateOwnerTenant()` and cross-surface history scoping. Only the now-unused `buildDashboardDeps(ownerHash)` parameter was dropped, because inside that function the value served the audit payload and nothing else.
+
+**Static audit-producer inventory** (source only, no database access) is recorded in the commit message. One finding beyond this scope: `apps/dashboard/src/app/api/chat/stream/route.ts` runs its own inline agent loop and still persists `call.input` and raw tool output verbatim -- the same defect R76 fixed in the shared loop. It is a dashboard-surface issue, out of scope for this ownerHash correction, and is reported rather than silently widened.
+
+Verification: focused 10 tests; audit/error/router/local-brain suites 275; full `pnpm test` 224 files / 1,324 tests pass; typecheck pass; build pass; lint 0 errors (6 pre-existing warnings); security unchanged vs ec130bb.
+
+### One fail-closed contract for every durable audit write -- 2026-07-30
+
+R76 and R77 fixed the shared agent loop, but each producer still built its own `audit_log` row, so the guarantee held only where someone had remembered it. A static inventory of every writer found four live leaks and no structural reason a fifth would not appear.
+
+**Diagnosis.** Sixteen call sites write `audit_log`, and all of them already funnelled through one function, `logAudit` in `db/repo.ts` -- so the lowest shared boundary existed; it simply accepted an untyped object. Four writers were leaking. The dashboard stream route runs its own inline agent loop and persisted `call.input` and the raw tool output verbatim, the same defect R76 fixed in the shared loop. `whatsapp_loop_breaker` persisted `incident.reason` in both the audit input and the error column; tracing every `trip()` call site showed two branches, one of which interpolates live counters into prose (`send burst: N sends in Mms`). `operator_runner.verify` persisted the failing command text, the report path and the failure summary. `operator_runner.complete` persisted operator-supplied `commit` and `deployment` strings.
+
+**Fix.** `logAudit` now accepts only a branded `SafeAuditEntry`. The brand is a declared-but-never-assigned unique symbol, so an object literal cannot satisfy it -- the compiler forces every caller through one of eleven builders in `db/audit-contract.ts`, each copying approved fields individually rather than spreading. Field classification is explicit: approved boolean, number, timestamp, closed enum, or non-owner operational identifier. Anything else is dropped, not redacted.
+
+Per producer: the loop breaker's runtime `reason` is unchanged (it still drives cooldown, the operational log and feature-request dedupe) but only a closed code derived from its two proven branches is persisted, with `unknown_reason` for anything unrecognised and a fixed `loop_breaker_tripped` in the error column. `operator_runner.verify` records `hasFailedCommand` instead of the command, and a closed `operator_command_failed` instead of the summary. `operator_runner.complete` records presence flags instead of commit and deployment values. Job ids are kept only when they match the operator-queue UUID shape. `whatsapp_recovery_action` was already closed -- `action` is 400-rejected unless it is in `VALID_ACTIONS`, `recorded` is a constant and `proof` a fixed marker -- and is now pinned by test rather than by assumption.
+
+**Both loops now share one path.** `projectForAudit` is exported from the shared loop and used by the dashboard stream loop, along with `classifyToolError`. A tool without an `auditProjection` persists empty input and output in both; a throwing projection degrades to empty in both; an unknown tool is recorded under a fixed token in both, with no model-supplied name, no call input and no error prose. `safeToolError` in the stream route is deleted -- error text no longer reaches the audit row at all. The `web_research` six-scalar projection and the `model_route`, `web_presearch` and `web_research_fallback` shapes are preserved exactly; the only cross-producer change is that the bot's `model_route` actor is now `model-router`, matching the two dashboard producers instead of diverging as `agent`.
+
+**Enforcement is compile-time and static.** The brand blocks arbitrary payloads at build time. A source-inventory test walks `apps/`, `packages/` and `scripts/`, finds every `logAudit(` call site, and fails if one does not use an approved builder, if one passes `call.input`, `error.message/stack/cause`, `incident.reason`, `ownerHash`, `failureSummary`, `failedCommand`, `reportPath`, an answer, a source array or a spread, or if any file outside the contract writes `as SafeAuditEntry`. The scan deliberately permits `answerLen`, `sourceCount` and `commandCount`: the builders type those parameters as `number`, so the compiler covers what the regex does not. Two sanctioned consumers of raw input -- `projectForAudit` and `classifyToolError`, which reduce it rather than persist it -- are excluded by exact pattern, not by loosening the rule.
+
+Two pre-existing tests pinned strings that moved into the contract (`tool: "whatsapp_recovery_action"`, `safeToolError`, `redactAuditString`). Both were re-pointed to their new home with equally exact assertions, and strengthened with negative assertions that the old strings are gone; neither was weakened to a partial match.
+
+Runtime behaviour, model-visible tool results, user-facing replies, operational logging, row ownership, tenant scoping and authorization filters are untouched. No schema, migration or dependency change.
+
+**A seventeenth writer bypassed `logAudit` entirely.** `apps/dashboard/src/app/api/data/delete/route.ts` writes its erasure receipt with `tx.insert(auditLog)` directly, because the row must land inside the deletion transaction. It persisted a request-supplied `exportSnapshotId` off a form field and spread the whole `deleted` tally. It now builds through `auditDataDelete(...)` and inserts via `safeAuditValues(...)`, keeping the transaction while gaining the contract: the snapshot id survives only if it matches the snapshot id shape, and row counts are copied one key at a time with any non-numeric value dropped. The inventory test scans `insert(auditLog)` as well as `logAudit(`, so a direct insert cannot quietly become a second unguarded path again.
+
+Verification: focused boundary suite 30 tests; full `pnpm test` 225 files / 1,354 tests pass; `pnpm -r typecheck` pass; build pass; lint 0 errors (6 pre-existing warnings); security identical to 5431d9c at 28 audit / 28 semgrep findings.
+
+### Closing the two audit gaps: string provenance and script typechecking -- 2026-07-30
+
+R78 gave `audit_log` one fail-closed contract, but the follow-up review found the guarantee resting on two unproven assumptions.
+
+**Gap 1 -- copying a string individually is not validating it.** The contract's own comment said `exportSnapshotId` "is persisted only when it matches the snapshot id shape". It matched `UUID_RE`, but `/api/data/export` mints `export_${exportedAt.replace(/[-:.TZ]/g,"").slice(0,14)}` -- `export_20260508160000`, never a UUID. So the field was both unsafe by provenance (it arrives on a form field) and dead in practice (the guard never matched a real snapshot). Auditing every string-valued field in every builder found the same class of hole throughout: `scope`, `action`, `decision`, `nextStatus`, `status`, `mode`, `reason`, `requestClass`, `sensitivity`, `route`, `model`, `status`/`failureCode`, `timeoutCode` and the `tool` column were all copied without a membership check; `operator_runner.${args.event}` interpolated a caller value straight into the `tool` column; the row-count loop copied map *keys* raw while only checking values; and `isoTimestamp` accepted anything `Date.parse` would swallow, including `"2026"`.
+
+Field-by-field provenance is recorded in the commit message. The decisive question for each identifier was necessity: no audit consumer reads either identifier. The activity, health, command and privacy-center views render `tool`, `success`, `error` and the output payload, and the export path sanitizes both payloads through `sanitizeAuditPayload`.
+
+**`exportSnapshotId` is removed**, not tightened. It is request-supplied, no consumer needs it, and what the erasure receipt actually needs is whether the export-before-delete gate was satisfied -- a boolean. `hasExportSnapshot` replaces it, and `verifiedExportProof` is hoisted in the delete route so the receipt records the real gate result. The raw value still feeds `verifyExportProof`, so deletion safety is unchanged; it simply stops being persisted.
+
+**`jobId` is retained**, because all five evidence tests hold where the snapshot id's did not: `feature_requests.id` is `uuid().defaultRandom()` (Postgres-generated, no owner or user input); the format is an anchored UUID, fixing length at 36; `operator-runner` passes the id of a row it just selected and `operator-complete` rejects a non-UUID before any database call and audits only after the row was found and updated; and it is the operator job correlation key that ties claim, verify and complete rows to one queue item -- which the brief explicitly protects.
+
+Everything else is now an exact-membership closed vocabulary, a bounded normalization, or gone. Where the producer already has a union type, an `AssertComplete<Union, Values>` helper ties the two together at compile time, so adding a member to `LocalBrainMode`, `ModelRoute`, `PaRequestClass`, `DataSensitivity`, `LiveWebResearchStatus`, `LiveWebResearchFailureCode` or `OllamaProviderError["code"]` without extending the audit vocabulary is a type error. `ModelRoutingDecision.reason` is typed `string` upstream, so a 16-code vocabulary is declared in the contract and a test reads `router.ts` and fails if a branch introduces a reason that is missing. Row-count keys are closed to the 12 tables the route actually counts, kept in step by a second source scan. An unrecognised value is recorded as `unknown_*` rather than substituted with a real member: an audit row must not assert a route or sensitivity that did not happen.
+
+Two normalizations are shape-based rather than enumerable, and the tests found the weakness in the first attempt. `tool` is bounded to `^[a-z][a-z0-9_]{0,63}$` -- all 125 registered tool names satisfy it, so a conforming name is a real name. `model` is reported by the Ollama service rather than chosen from a list, and a bare token shape also admitted `req_01HQZX9K2M4N6P8R0T2V4W6Y8A`; requiring the `name:tag` form Ollama always returns rejects that, along with emails, URLs, phone numbers, SQL and owner hashes, and still accepts `llama3.1:8b-instruct-q4_K_M`.
+
+**Gap 2 -- the brand was not enforced where two writers live.** `scripts/` is not a pnpm workspace package (the workspace is `apps/*` and `packages/*`), so `pnpm -r typecheck` never reached `scripts/operator-runner.ts` or `scripts/operator-complete.ts`, and `tsx` strips types without checking them. A narrow `scripts/tsconfig.json` (`noEmit`, exactly the two audit writers plus the one local module they import) closes it, wired through a new `typecheck:scripts` into root `pnpm typecheck` -- which CI already runs, so no workflow change was needed -- and into `release:check`. It immediately caught a genuine latent error: `formatOperatorQueueDoctorReport` annotated its parameter `EnvLike`, a type that was never declared or imported in that file. Brand enforcement was then proven directly: appending an unbranded object literal to a `logAudit` call in `operator-complete.ts` produced `TS2345: Property '[SAFE_AUDIT_ENTRY]' is missing`, and the file was restored.
+
+**Security comparison vs 29b7689** was run empirically, not asserted: the base contract was checked out alongside the new one and both were fed ten hostile values (URL, email, phone, LID, credential, SQL, prose, owner hash, postal address, request id). Before, ten of ten survived in `scope`, `action`, `tool`, the operator `tool`/`decision`/`nextStatus`/`status`, presearch `status`/`failureCode`, `timeoutCode` and every `model_route` string; after, zero. `jobId` leaked zero in both, confirming nothing became more permissive. No field widened.
+
+Runtime deletion, export, operator, routing, recovery, search and WhatsApp behaviour are untouched, as are transaction atomicity, authorization, ownership and tenant scoping. No schema, migration, dependency or lockfile change. The `as SafeAuditEntry` inventory guard is unchanged and still passing.
+
+Verification: focused provenance suite 30 tests; audit boundary 30; deletion, recovery, operator, projection, sanitizer, model-route and structured-error suites all pass; full `pnpm test` 226 files / 1,384 tests; `pnpm typecheck` (now including `scripts`) pass; build pass; lint 0 errors (6 pre-existing warnings, none in changed files).
+
+### The stale owner-scoped routing query on the Local Brain page -- 2026-07-30
+
+5431d9c removed `ownerHash` from durable `model_route` payloads and its commit message recorded that "a repo-wide search found no consumer reading ownerHash out of an audit row". That search was wrong. `apps/dashboard/src/app/local-brain/page.tsx` selected the newest `model_route` row filtered by an owner-hash key read out of the audit input payload as JSON, so from that commit onward the predicate matched nothing and the page's "Last route" and "Reason" tiles silently fell back to their placeholder strings. A second stale read sat in the same file: the same commit moved `reason` from output into input, and the page still read `output.reasonCode`. The regression was a broken feature rather than a leak -- the query returned zero rows -- but the obvious "fix" would have been the dangerous one.
+
+**Why the query could not simply be re-pointed.** `audit_log` is classified `global_operational` with `scopeColumn: null` in `TENANT_TABLE_BOUNDARIES`; it has no owner or tenant column. `model_route` payloads are, by design after 5431d9c, `mode`/`reason`/`requestClass`/`sensitivity` in and `route`/`model`/`fallback` out -- nothing that identifies who made the request. So dropping the predicate and keeping the query would have read the newest routing row written by anyone and rendered it as the signed-in owner's decision. There is no owner-scoped alternative either: no table stores route decisions, and the only other routing source, `getRecentRoutingEvents()`, is a per-process in-memory closure on `LocalBrainLlm` that a Vercel dashboard render cannot reach.
+
+**Ownership model, checked rather than assumed.** `getOwnerIdentity()` derives `ownerHash` from the single `WHATSAPP_OWNER_NUMBER` env var, not from the session, so one deployment represents exactly one owner; multi-user auth is gated behind `NITSYCLAW_AUTH_MODEL=multi-user`, which is not verified, and `assertPublicSaleTenantBoundaries()` throws in public-sale mode while `audit_log` is still a named blocker. So a single deployment cannot today hold two owners' `model_route` rows. That invariant is enforced by configuration, though, not by anything durable in the row -- which is precisely why the page must not depend on it.
+
+**Repair: fail closed.** The audit query is deleted, not widened. `loadLocalBrain` returns `route: null` on the real path and the tiles read "Owner-scoped routing telemetry is unavailable", with a line explaining that routing decisions are recorded without an owner or tenant identifier so none can be attributed to the account. Provider health, chat model, latency, model count and privacy mode are untouched -- they come from `provider.health()` and `localBrainModeFromEnv()` and never needed an audit row. The browser-proof fixture is unaffected: it builds its own routing decision in-process from `getLastRoutingDecision()` for a synthetic owner and supplies its own `route` object, so its panel still renders, and its `reasonCode` shape is its own rather than the audit contract's.
+
+**Preventing the next one.** Two guards, both proven non-vacuous by reintroducing the query and watching four assertions fail. A repo-wide scan bans any JSON operator against `auditLog.input`/`auditLog.output` and any `ownerHash`/`owner_hash`/`tenantId`/`fromNumber`/`phoneHash` read out of audit JSON, across `apps/`, `packages/` and `scripts/`. A contract test pins the dashboard's view to the writer's exact key sets and asserts that two owners' `model_route` rows serialize byte-identically -- the property that makes owner attribution impossible and the fail-closed state correct. Both scans strip comments first, so the explanatory note in the page cannot be what makes them pass; the page's own documentation was reworded so a plain `grep` for the old predicate now returns zero hits across source, which matters because a bad grep is how this survived in the first place.
+
+Nothing was added to `audit_log`: no `ownerHash`, no tenant, account or session identifier, no new table, column, migration or durable identifier. The `SafeAuditEntry` boundary and the `model_route` writer are byte-identical to 24c61f8.
+
+Verification: local brain page 5 tests; new audit consumer contract 10; local brain, model-route audit, audit boundary, string provenance, tenant isolation and tenant boundary suites 185 together; `pnpm run ci:tenant-isolation` 23; full `pnpm test` 227 files / 1,397 tests; `pnpm typecheck` including scripts pass; build pass (`/local-brain` compiles); lint 0 errors (6 pre-existing warnings, none in changed files).
+
+### Laptop-primary WhatsApp runtime ownership -- 2026-07-31
+
+The runtime guard was one-directional. `assertWhatsAppRuntimeAllowed` returned early for any Railway runtime -- `RAILWAY_ENVIRONMENT_ID` or `RAILWAY_DEPLOYMENT_ID` present was sufficient, no further check -- and the suite asserted that as intended behaviour ("allows Railway runtime without local override"). It stopped accidental laptop starts and did nothing about the far more dangerous direction: a Railway container coming up while the laptop already holds the session.
+
+**The laptop is the sole current WhatsApp runtime.** `launch-bot.ps1` and `broom.ps1` gate on `$env:NITSYCLAW_ALLOW_LOCAL_WHATSAPP -eq '1'` or the `.allow-local-whatsapp` marker file; the runtime guard itself is satisfied by `NITSYCLAW_ALLOW_LOCAL_WHATSAPP` in `~/.nitsyclaw/secrets/.env.local`, loaded through `loadBotDotenv()` -> `secretRoot()`, which is outside the repository. That indirection matters: any change requiring a new key in that file would break the laptop on its next restart, so the new setting is optional locally and nothing there had to change.
+
+**Railway has been stuck before WhatsApp readiness for about 26 days.** Read-only diagnosis on 2026-07-31: serving deployment `34ee8b5`, SUCCESS, created 2026-07-05 08:59:42Z; the newer `02b6e34` was correctly SKIPPED ("No changes to watched files" -- docs-only). `/health` returns HTTP 200 with `status: "starting"`, `whatsapp.ready: false`, and a live-advancing `at`, but with top-level keys `service|status|whatsapp|at` only. That is the module-level default provider in `qr-recovery-server.ts`; the real provider installed at `index.ts:157` always adds `whatsapp.loopBreaker` and `runtime`. Since `setHealthProvider` runs after `await monitoredWhatsapp.ready()`, that await has never resolved. Not a crash loop (continuous 200s, no CRASHED deployments), not sleeping. Pairing that container with the live laptop bot would put two clients on one session.
+
+**The fix: one explicit, non-secret ownership setting.** `NITSYCLAW_WHATSAPP_RUNTIME_OWNER`, closed vocabulary `laptop | railway`, declared as `z.enum([...]).optional()` in `env.ts` per the existing convention and enforced in `whatsapp-runtime-guard.ts`, which reads `process.env` directly so the decision does not depend on zod parsing order.
+
+On Railway the guard fails closed: only the exact string `railway` proceeds. Matching is exact after trimming, with no case folding and no prefix match -- a shape check would accept `Railway`, `railway-prod` or `railway2` as authorization to seize a live session. Missing, empty, `local`, `laptop`, misspelled and unknown values all refuse, and the local override is explicitly not a back door into the Railway path. The laptop path is untouched: `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1` still authorizes, declaring `laptop` ownership does not substitute for it, and no new setting is required. One addition is symmetric -- if ownership is explicitly handed to Railway, the laptop stands down rather than becoming the second client.
+
+Placement was verified rather than assumed. The guard sits at `index.ts:39`, ahead of `new QrRecoveryController` (50), `startQrRecoveryServer` (51), `new WwebjsClient` (56) and therefore Chromium launch and session directory access, and ahead of the scheduler and message handling. Tests assert those source offsets directly, so a future reordering that moves the guard later fails.
+
+**CI is gated independently of the Railway dashboard.** `whatsapp-production-smoke` now also requires `vars.NITSYCLAW_WHATSAPP_RUNTIME_OWNER == 'railway'`. An unset repository variable evaluates to `''`, so the default is a clean skip; the job body, the Railway wait, the deploy watchdog, the token gate and the smoke script are unchanged, so setting the variable after a reviewed migration restores the capability exactly. `test`, `e2e`, `security`, `zap-baseline` and `vercel-build` are untouched -- a test asserts the ownership variable appears exactly once in the workflow. Railway support, QR recovery code and rollback capability are all retained; Railway simply became opt-in rather than default.
+
+Both guards were proven non-vacuous: reverting the guard to the old unconditional Railway allow failed 6 tests, removing the CI condition failed 3, and both restored green. A helper bug was caught the same way -- `jobCondition` originally ran past a job with no `if:` into the next job's condition, which would have made the "ungated jobs" assertion meaningless; it is now bounded to a single job and a test pins `e2e` as genuinely conditionless.
+
+**Backups preserved.** Verified bundle `nitsyclaw-backup-0855dbc.bundle`, SHA-256 `33d8b7d84efc8f9220f12d1bbb509e6e83995b07138e28262bfebeb14d963ae8`, 2,641,911 bytes, complete history (646 commits), self-contained with no prerequisites, restore-tested to tree `780c7e4f`. Held at `C:\w\` and synced at `C:\Users\Nitesh\OneDrive\Documents\NitsyClaw Backups\`. Migration 0010 was not modified.
+
+**Still required manually, and deliberately not done here:** in the Railway dashboard, service `web` in project `focused-reprieve` environment `production`, either disable automatic deployment or disconnect the `main` source. Every deployment in the last ten built from `branch = main`, and `railway.json` watchPatterns include `apps/bot/**` and `packages/shared/**`, so a main push would otherwise still trigger a Railway build. The code and CI gates now prevent that build from initializing WhatsApp even if it runs, but the dashboard action removes the build entirely. PR/preview environment settings remain unverified from the repository.
+
+Verification: runtime guard 18 tests; CI workflow 15; full `pnpm test` 227 files / 1,417 tests; `pnpm typecheck` including scripts pass; build pass; lint 0 errors (6 pre-existing warnings, none in changed files).
+
+### Durable Ollama startup and recovery safeguard -- 2026-08-01
+
+The 14:50 WhatsApp failure was not a bug in NitsyClaw. The router refused a private turn because the local brain was unavailable, and refusing to escalate private data to a cloud model is correct. The real defect was that nothing ensured Ollama was running: it had to be started by hand after a reboot or an unexpected exit, so the first private turn after either event failed with a `ModelRoutingError` and a 122-character apology.
+
+**Design: one helper, two callers, no new schedule.** `scripts/ensure-ollama.ps1` is the single reusable entry point. `launch-bot.ps1` calls it once before starting the bot; `broom.ps1` calls it once per normal cycle after the local-WhatsApp gate. No new scheduled task, no change to the existing `PT2M` trigger or task definition -- Broom already runs every two minutes, so recovery rides on a cadence that is already proven.
+
+**Order of checks, and what each protects.** Probe loopback first: if Ollama is ready the helper returns immediately, starts nothing and touches nothing, which is the overwhelmingly common case on a Broom tick. If a server process exists but the port is not up yet, wait for that one rather than starting a second -- this is the case during a slow cold start, and it is the difference between one server and two. Only when there is no process at all does it take a cross-process lock, re-probe under the lock, resolve the installed executable and start exactly one detached hidden `ollama serve`.
+
+**Two independent guards against a double start.** The exclusive lock (`[System.IO.File]::Open` with share mode `None`) means a launcher and a Broom tick firing together cannot both start a server; the loser waits for readiness instead. The re-probe under the lock covers the narrower race where another process finished between the first probe and lock acquisition. These are genuinely independent: weakening the lock alone did not produce a double start in testing, because the re-probe still caught it. That is defence in depth, not redundancy.
+
+**Loopback only, and never destructive.** `OLLAMA_HOST` is set to `127.0.0.1:11434` for the child process only and the parent value is restored in a `finally` block, so nothing leaks into the caller's environment. The helper contains no `Stop-Process`, no `taskkill`, no `.Kill()`, and no pull, run, rm, create or delete verb -- it will never kill a server, restart a healthy one, or touch a model. If `qwen3:8b` is absent it returns a bounded failure rather than pulling several gigabytes unattended.
+
+**Failure is degraded, never fatal.** Exit codes are a stable documented contract: 0 ok, 10 exe not found, 11 start timeout, 12 model missing, 13 lock busy, 1 unexpected. Both callers log the code and carry on. The launcher still starts the bot; Broom's Ollama step sits in its own block that contains no `Stop-ProcessTree`, `Restart-Bot` or `Start-Bot`, so a failed local brain cannot stop, restart or delay an otherwise healthy WhatsApp bot. Reminders, calendar and every other non-model path keep working with the local brain down -- which is exactly what happened between 10:36 and 15:28 today.
+
+**Logging is bounded tokens only.** Raw exception text, environment values, URLs and process command lines are never written; a test asserts every log line matches a whitelist of status tokens and rejects `Exception`, `System.`, stack traces, the parent env sentinel and any `C:\` path.
+
+**Testing without touching the live service.** `scripts/ensure-ollama-testdriver.ps1` dot-sources the helper with `-NoRun` and injects fake probe, process, executable, starter and model seams, writing cross-process state to files so the concurrency case can run two real processes against one real lock. No test contacts port 11434, spawns a real server or reads a real executable, so the whole suite is safe while the live Ollama is up.
+
+Two of my own test bugs were caught this way and are worth recording. Splatting `@common` and then overriding one key with an explicit parameter is a duplicate-parameter error in PowerShell, so four scenarios silently never ran and returned 0; the fix is to clone the hashtable and mutate it. And `Start-Job` does not inherit the caller's working directory, so the concurrency job needed an absolute driver path. Both surfaced because the smoke run printed per-scenario results rather than a single pass/fail.
+
+Non-vacuity was proven three ways: disabling the await-existing branch failed the duplication test behaviourally (0 starts became 1), weakening the lock share mode failed the lock assertion, and removing the Broom wiring failed two wiring tests. All three were restored and verified byte-identical.
+
+**Not wired to the live runtime yet.** The Broom scheduled task points at `broom-silent.vbs` in `C:\Users\Nitesh\projects\NitsyClaw`, so nothing in this commit affects the running laptop until the branch is integrated there. The live bot (PIDs unchanged, started 10:36:52) and the live Ollama (started 15:28:29) were untouched throughout.
+
+Verification: new suite 23 tests; PowerShell syntax gate 46 tracked scripts (was 44); runtime guard, CI workflow, local brain, script safety and watchdog suites 119; full `pnpm test` 228 files / 1,440 tests; `pnpm typecheck` including scripts pass; build pass; lint 0 errors (6 pre-existing warnings, none in changed files). No dependency, lockfile, migration or schema change.
+
+### Owner-only local WhatsApp voice intelligence -- 2026-08-09
+
+Historical recovery showed that voice input was introduced at `4ea85bc` through OpenAI Whisper and was never intentionally removed. Replay, multilingual, and voice-memo routing followed, but there was never a native voice-output implementation. Sanitized database aggregates confirmed 42 inbound voice messages and 41 transcripts without reading their content. The cloud-key dependency and stale product documentation made voice appear unavailable.
+
+The restored path is local and fail-closed: verified owner self-chat -> persisted/deduplicated voice job -> strict MIME/container/codec/size/duration/channel/sample-rate boundary -> private temp -> FFmpeg 16 kHz mono PCM -> installed Handy 0.9.4 with allowlisted Nemotron 3.5 ASR Q8 -> untrusted transcript -> the exact typed-message authorization pipeline. Voice/text owner turns are serialized, and ASR/TTS/Ollama/embedding work shares the local coordinator.
+
+Reply modes (`text`, `voice`, `automatic`) and language/brief preferences use existing encrypted owner profile context. Local SAPI provides an owner-only English/romanized-Hinglish bridge and is converted to validated native Ogg Opus. Hindi/Devanagari TTS remains blocked until a local model is explicitly approved. No OpenAI or other cloud voice fallback exists.
+
+Raw and generated media are temporary only; transcripts remain encrypted, are not automatically promoted to memory, can be shown/deleted/corrected by the owner, and never enter raw logs. Native voice sends use `sendAudioAsVoice` through exact-ID/recipient ACK correlation. Self-echo is not delivery proof and ambiguous post-submission errors are never automatically retried.
+
+Full architecture, budgets, data lifecycle, owner commands, evaluation thresholds, licence review, and live-proof gate are in `docs/whatsapp-voice-intelligence.md`.
+
+### CI is red for checkout reasons, not content reasons -- 2026-08-14
+
+CI run 31807095414 at `eaf1b96` (the integration merge) failed on two runners for three
+different reasons, and only one of them was a real content problem.
+
+`windows` failed `ci-workflow.test.ts` with `job e2e not found: expected -1 to be greater
+than -1`. The same committed `ci.yml` parsed fine on `ubuntu-latest`. Cause: `core.autocrlf`
+materialises the file as CRLF on Windows, so `workflow.indexOf("\n  e2e:\n")` can never
+match -- the byte after `:` is `\r`, not `\n`. The workflow itself is correct and
+byte-identical on both runners. Fix is one line in the test: normalise with
+`.replace(/\r\n?/g, "\n")` before asserting (R79). Proven 15/15 under both an LF checkout
+and a simulated CRLF checkout, with `ci.yml` restored byte-identical afterwards.
+
+Two failures at the same SHA are **not** fixed by that change and remain open:
+
+- `scripts/voice-eval/verify-voice-verifier-v1-freeze.test.ts:21` does
+  `fixtures.replace(/\n/gu, "\r\n")`. On a CRLF checkout the file is already CRLF, so this
+  produces `\r\r\n` and the hash diverges. Same class of defect, different file. Smallest
+  correct fix is `fixtures.replace(/\r?\n/gu, "\r\n")` -- test-only, and it does not touch
+  the frozen fixture listed in the V1 freeze manifest.
+- `ollama-recovery.test.ts` has no platform guard and drives `scripts/ensure-ollama.ps1`,
+  a deliberately Windows-local helper, so it fails on `ubuntu-latest`. This suite arrived
+  from `fix/anthropic-web-search`, which had never been through CI, so the merge is the
+  first time CI has ever executed it. Smallest correct fix is
+  `describe.skipIf(process.platform !== "win32")` on the behavioural block, leaving the
+  source-only wiring assertions cross-platform. No freeze manifest lists this file.
+
+The general lesson is R79: a test that reads a tracked file and asserts on its structure
+must normalise line endings first, or it asserts on the checkout rather than the content.
+
+### The last two CI reds were both "wrong runner", not "wrong code" -- 2026-08-14
+
+After the first EOL repair, CI run 31857444754 at `144ac15` was still red on two jobs.
+`ci-workflow.test.ts` had gone green, which confirmed the diagnosis; the two survivors were
+the ones predicted, and neither was a defect in shipped behaviour.
+
+`verify-voice-verifier-v1-freeze.test.ts` simulated the opposite line ending with
+`fixtures.replace(/\n/gu, "\r\n")`. That is only correct starting from LF. On the Windows
+runner the fixture file is already CRLF, so the rewrite produced `\r\r\n`, the normaliser
+collapsed it to two newlines, and the hash moved (`564cf98e...` vs `12dbb1c8...`). The fix
+is to make the simulation idempotent: `fixtures.replace(/\r?\n/gu, "\r\n")`. The frozen
+fixture itself was never touched -- only the test's own scratch transformation.
+
+`ollama-recovery.test.ts > ensure-ollama behaviour` executes `scripts/ensure-ollama.ps1`
+through Windows PowerShell, so it cannot pass on `ubuntu-latest`. It had never failed before
+because the branch it came from, `fix/anthropic-web-search`, had never been through CI --
+the integration merge was the first time CI ever ran it. Gated with
+`describe.skipIf(process.platform !== "win32")`.
+
+What deliberately stayed cross-platform: `ensure-ollama safety contract` and
+`recovery wiring` read the script as text rather than executing it. On every runner we still
+assert never-kill/stop/restart, that the only thing started is a detached hidden
+`ollama serve` with no `-Wait`, the stable 0/10/11/12/13 exit-code contract, the
+cross-process lock and bounded timeouts, and required-model ordering with the health marker
+written only on success. That split is R80 -- gate the execution, never the guarantee.
+
+The split is not yet clean, and independent review caught it. Two assertions that are pure
+source checks live inside the gated block because they share a `test()` with a PowerShell
+scenario: the no-pull/no-remove verb check (`ollama-recovery.test.ts:114-115`) and the
+loopback-only / no-`0.0.0.0` check (`:122-126`). Those two now run on Windows only. Nothing
+about the helper changed, but a future regression adding `ollama pull` or a `0.0.0.0` bind
+would no longer be caught by the Linux job. Lifting those two assertions into the ungated
+block is the fix; it is deliberately left out of the CI-repair commit so that commit stays a
+pure runner fix, and it is recorded as a known gap under R80 rather than quietly carried.
+
+The same review noted the CRLF equality assertion is tautological on a runner whose checkout
+is already CRLF -- the idempotent rewrite is a no-op there, so it compares a string to
+itself. It still does real work on Linux, and the trailing-space negative assertion stays
+meaningful everywhere. A strictly stronger form would derive LF explicitly and then derive
+CRLF from it; that was not applied because the authorised change was an exact one-line
+substitution.
+
+Operational lesson worth keeping: a fully green local run did not predict either failure,
+because this worktree is LF-normalised and Windows-native. Both defects only exist in a
+checkout whose line endings differ from the developer's. When a gate is EOL- or OS-sensitive,
+CI is the authority and local green means nothing.
+
+### Supply-chain hardening, and correcting a frozen file honestly -- 2026-08-14
+
+The `security` job had never actually run on this branch: it was skipped every time an
+earlier job failed. Its first execution blocked on 30 Semgrep findings, which looked like an
+integration defect and was not one. `main`'s own `ci.yml` carries the identical 23 mutable
+action tags, and `dependabot.yml` and `pnpm-workspace.yaml` are byte-identical to `main`.
+`main` last passed CI on 2026-08-04; `semgrep scan --config auto` pulls current registry
+rules, and the supply-chain rules that fired reference pnpm v10.16/v10.26 features that
+post-date that run. 28 of 30 findings would fail `main` today too.
+
+So the fix is repo-wide hardening rather than branch triage:
+
+- All 23 action references pinned to 40-character SHAs, each resolved from the official
+  upstream repository and verified to be the head of its intended tag, with the readable
+  version kept in a trailing comment. `ci-workflow.test.ts` now asserts *both* the immutable
+  pin and the intended major, plus "no mutable tag anywhere" -- a stronger check than the
+  version-string assertion it replaced.
+- `blockExoticSubdeps: true`, `minimumReleaseAge: 10080`, `trustPolicy: no-downgrade`.
+  pnpm 10.33.2 accepts all three; `pnpm install --lockfile-only --frozen-lockfile --offline`
+  exits 0 with no warnings and the lockfile unchanged, so resolution is unaffected.
+- Seven-day Dependabot cooldown on both ecosystems.
+
+The two branch-new findings were both `detect-non-literal-regexp`, and neither was
+exploitable. The production one already applied `escapeRegExp` to catalogue-derived text.
+It now matches the brand as a literal string instead: catalogue text never reaches the regex
+engine, so no metacharacter can change what matches. Cost is *bounded*, not unconditionally
+cheap -- the scan is O(text x brand) in the worst case, so a brand longer than
+MAX_BRAND_LENGTH (128) is refused outright rather than scanned. A catalogue brand is
+owner-curated and short; anything past that bound is not a real product name. Word-boundary
+semantics are preserved exactly -- including that a brand ending in punctuation still fails
+the trailing boundary, which is what the old escaped pattern did. Focused tests pin that
+behaviour, including the over-long-brand refusal, asserted as a deterministic bound rather
+than a machine-dependent wall-clock limit.
+
+The interesting one was the frozen scorer. `scoring-v2.1.ts` is frozen by two manifests and
+**both are live test gates**, unlike the V1.2 chain, which the V1.3 work could leave failing
+precisely because nothing executed it. Leaving these failing would mean a permanently red
+integrity gate, which is how people learn to ignore integrity gates. Rewriting the hashes
+silently would be worse. So the correction is recorded instead (R81): both manifests carry a
+`corrections` entry with the previous and corrected digests, every dependent aggregate before
+and after, the reason, the equivalence proof, and the parent commit `c4d1ce5` plus blob
+`c794c82f` that preserve the original bytes. Before recomputing anything, each manifest's own
+aggregate algorithm was shown to reproduce its pre-correction value exactly, so the new
+numbers are derived rather than asserted. A sabotage test then confirmed the corrected
+manifests still detect an unauthorised change -- one appended byte produced
+`Frozen V2.1 file changed` -- and the file was restored byte-identically afterwards.
+
+One thing survived only by luck and is worth fixing later: `qwen3-asr-v15-scored.freeze.json`
+freezes `qwen3-asr-v15.test.ts`, the very test that verifies it. That was proven not to need
+editing before the manifests were touched, so no circularity arose. A correction that *did*
+require editing that test would have had no non-circular path. A manifest should not freeze
+its own verifier.
+
+### The brand matcher is safety-monotonic, not equivalent -- 2026-08-14
+
+Worth recording precisely, because the first version of this change was wrong and an
+independent review caught it.
+
+Removing the dynamic `new RegExp` from catalogue-brand matching looked like a pure win:
+match the brand as a literal and no catalogue text ever reaches the regex engine. The first
+implementation lower-cased the whole transcript and used `indexOf` on that. Two real defects:
+
+1. U+0130 (Latin capital I with dot above) lower-cases to **two** code units. Every offset
+   after it shifts, so the reported span could point at text that is not there. That is
+   silent evidence corruption, and evidence spans are what the owner sees when confirming.
+2. It was **looser** than the old pattern on `ſSungrow SG5000` -- it matched where the old
+   regex did not, which is the wrong direction for a security change.
+
+The fix for (1) is to compare equal-length slices of the original text, never a re-cased
+copy, so an index from the scan is always valid in the original.
+
+The fix for (2) turned on a JavaScript detail worth remembering: `\w` is ASCII, but with
+both `i` and `u` flags the engine applies Unicode simple case folding, so exactly two
+non-ASCII characters count as word characters -- U+017F (long s, folds to `s`) and U+212A
+(Kelvin sign, folds to `k`). A BMP scan confirms it is exactly those two. Testing boundaries
+with `/^\w$/iu` therefore reproduces `\b` exactly, and `ſSungrow` correctly stops matching.
+
+That fixed the boundaries but NOT the comparison, which at this point still used
+`toLowerCase()`. That draft was superseded -- see "Length-preserving brand matching, and two
+wrong turns before it" below for the final design and why whole-string case mapping had to go
+entirely. Nothing in this paragraph describes the shipped implementation.
+
+The output was and remains low-trust: `resolution: "candidate"`, `source: "deterministic"`,
+`canonicalValue: null`, confirmation still required before anything acts on it.
+
+
+### Length-preserving brand matching, and two wrong turns before it -- 2026-08-14
+
+Final rule, stated exactly as it now appears in the code and Constitution:
+
+> Length-preserving, safety-monotonic brand matching: ASCII case-insensitive; non-ASCII
+> exact. May reject exotic Unicode case variants but cannot introduce a match rejected by
+> the previous escaped /iu implementation.
+
+Two earlier attempts were wrong, and independent review caught both. Worth recording because
+the failure mode is subtle and will recur wherever someone replaces a regex with "simpler"
+string handling.
+
+Attempt 1 lower-cased the whole transcript and used indexOf. U+0130 lower-cases to TWO code
+units, so every offset after it shifted and the reported evidence span could point at text
+that was not there. It was also looser on a long-s prefix.
+
+Attempt 2 compared equal-length slices, which fixed the offsets, and used /^\w$/iu for word
+boundaries, which fixed the long-s case -- with both i and u flags the engine case-folds, so
+exactly U+017F and U+212A count as word characters beyond ASCII. But the brand comparison
+still used toLowerCase(), and full case mapping can merge two genuinely different strings:
+brand "İi̇a" against transcript "i̇İa" both map to "i̇i̇a",
+so it matched where the old pattern did not. My property test could not catch it, because its
+"old" condition also used toLowerCase() -- it was testing the implementation against itself.
+
+The fix is to never apply a case mapping at all. Compare code unit by code unit: ASCII
+letters case-insensitively, every other code unit exactly. Length cannot change, so two
+distinct strings can never collapse together.
+
+Proof is now non-circular: an oracle harness living OUTSIDE the repository runs the real
+escaped /iu regex and compares. 100,000 deterministic fuzz cases plus explicit U+0130,
+U+017F, U+212A, sigma/final-sigma, sharp-S, combining-mark and surrogate-pair cases;
+17,139 accepted matches, zero looser results, zero offset corruption. The committed test
+mirrors the comparator rather than embedding a `new RegExp`, so it adds no Semgrep finding.
+
+Accepted stricter behaviour, documented rather than hidden: U+017F does not match brand `s`,
+and U+212A does not match brand `k`. Exact non-ASCII spelling still matches. The output was
+and remains a low-trust `candidate`, deterministic, `canonicalValue: null`, confirmation
+required before anything acts on it.
+
+The general lesson: a property test whose reference implementation shares the suspect
+operation with the code under test proves nothing. Put the oracle somewhere the code cannot
+reach, and make it the real prior implementation.
+
+---
+
+## 2026-08-16 — Dependency remediation, Sharp on Vercel Linux, and the Windows CI flake
+
+### pnpm audit 39 to 0, without weakening anything
+
+The branch was blocked by the `security` job. The interesting part was not the count but
+*why* the count was wrong: there were **two** override lists. `package.json` carried a
+`pnpm.overrides` block and `pnpm-workspace.yaml` carried `overrides:`. pnpm accepts both and
+`package.json` wins. They had drifted, so every edit to the workspace file was inert, and a
+stale `ip-address: 10.1.1` pin sat there holding a vulnerable version in place while looking
+like it had been fixed. That is now R82: one authority, enforced by a guard.
+
+Three packages were removed from the tree entirely rather than pinned — `extract-zip`
+(GHSA-jmr9-qjv8-65gv, high, and no fixed version has ever shipped), `nodemailer` and
+`basic-ftp`. Absence is strictly stronger than a floor. The rest got floors tied to their
+published advisories, and `engines.node` went to `>=22.12.0` because Puppeteer 25 requires it.
+
+Compatibility was proven, not assumed. Puppeteer 25.5.0 drives `whatsapp-web.js@1.34.7` all
+the way to QR-ready despite that package pinning `24.38.0` exactly.
+
+### Sharp 0.35.3 on Vercel Linux
+
+Sharp ships platform-specific native binaries, so a Windows-only proof is worth very little —
+a Linux load failure would break dashboard image optimization in production with no local
+signal. Getting a real proof took three attempts:
+
+1. First Preview: every request returned `302` to Vercel SSO. Deployment Protection. Bypassing
+   it needed a settings change or a manual token, both out of scope, so it was deleted.
+2. `vercel curl` (CLI 53.1.1) handled the protection itself — it mints and uses an ephemeral
+   bypass token, no manual token, no settings change. That got past Vercel and straight into
+   the *app's* own gate: `503 Dashboard auth is not configured`. The optimizer fetches its
+   source image back through the app's proxy, and `isPublicPath()` did not cover the fixtures.
+3. Third attempt added three fixtures and one `/api/sharp-proof` endpoint to `isPublicPath()`
+   by exact string equality, proved with behavioural tests that 14 neighbouring paths stayed
+   fail-closed, and got the result: `sharpVersion 0.35.3`, `platform linux`, `arch x64`, and
+   JPEG/PNG/WebP each `HTTP 200` through the real Next 16.2.11 `/_next/image`, decoded at
+   64x48 and 128x96. Preview deleted, all pre-existing Previews intact, every touched file
+   restored to its byte-exact pre-proof hash.
+
+Worth knowing for next time: `vercel curl` fails with `curl: (3) URL rejected` on a path with
+no query string — append any dummy query. And Next 16 defaults to `qualities: [75]`, so
+`q=60` or `q=90` returns `400 INVALID_IMAGE_OPTIMIZE_REQUEST`; that is the allowlist, not Sharp.
+
+### The Windows CI flake — a starved test is not a slow test
+
+Windows had failed three times on three *different* tests, each a 5000ms timeout. The obvious
+read is "these tests need longer timeouts". That would have been wrong, and it would have
+buried the actual problem under a bigger number.
+
+The failing tests are not slow. The SQLite one that failed at `c26ad2c` runs in **37ms**
+locally and **62ms** on Linux. The freeze verifier that failed at `144ac15c` runs in **26ms**.
+Windows CI inflated them 135-190x.
+
+What actually happens: `ollama-recovery.test.ts` spawns about sixteen Windows PowerShell
+processes to drive `ensure-ollama.ps1` through its scenarios. On Linux it is platform-gated
+and costs 11ms; on the four-core Windows runner it costs 29.5s and takes the cores. It has
+explicit per-test budgets of 60s to 180s so it never fails itself. Everything scheduled alongside it is running
+on the 5000ms default with no CPU. Whichever unbudgeted test happens to collide loses — hence
+a different test each run.
+
+Proven by controlled experiment on a sixteen-core Windows machine, changing only `maxWorkers`:
+
+| workers | ratio | slowest single test | tests over 4s | failures |
+|---|---|---|---|---|
+| 16 | 1.00 | 5817ms | 3 | 0 |
+| 8 | 0.50 | 4363ms | 2 | 0 |
+| 6 | 0.38 | 3896ms | 0 | 0 |
+| 4 | 0.25 | 3703ms | 0 | 0 |
+| 2 | 0.12 | 3523ms | 0 | 0 |
+
+Monotonic, and from a half downward every test still above 2500ms was an ollama test that
+already carried a budget. So the fix is one Windows-only worker cap, not a timeout anywhere.
+Linux keeps the default and its 3.91s run.
+
+Note the shape of the curve: it saturates around 3.5s. That floor is real work, not
+contention. It is why the cap is expressed as a ratio of available cores rather than a
+magic number — the guard asserts the *relationship*, and it tests both platforms explicitly
+so the Windows rule is still verified when CI runs it on Linux.
+
+### The general lesson
+
+Twice in two days the same mistake was available and avoided: treating a symptom's location
+as its cause. The Semgrep findings were repo-wide, not branch-new. The Windows timeouts were
+contention, not slow tests. In both cases the cheap fix (suppress; raise the timeout) would
+have produced a green board and a worse system. Measure the thing in isolation and on the
+other platform before you believe where the problem lives.

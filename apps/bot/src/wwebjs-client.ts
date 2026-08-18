@@ -2,16 +2,21 @@
 // This is the ONLY file that imports whatsapp-web.js (Constitution R16).
 
 import wweb from "whatsapp-web.js";
-const { Client, LocalAuth } = wweb;
+import { randomUUID } from "node:crypto";
+const { Client, LocalAuth, MessageMedia } = wweb;
 type WwebjsClientInstance = InstanceType<typeof Client>;
 type Message = wweb.Message;
 type WwebMessageWithEnvelope = Message & {
   fromMe?: boolean;
   from?: string;
   to?: string;
+  _data?: { size?: number; duration?: number };
 };
 type WwebChatWithContact = Awaited<ReturnType<Message["getChat"]>> & {
   getContact?: () => Promise<{ isMe?: boolean }>;
+};
+type WwebClientWithLidLookup = WwebjsClientInstance & {
+  getContactLidAndPhone?: (userIds: string[]) => Promise<LidPhoneRecord[]>;
 };
 
 import { readdirSync, rmSync, statSync } from "node:fs";
@@ -30,19 +35,42 @@ import {
   type WhatsAppRuntimeEvent,
   withTimeout,
 } from "./whatsapp-health.js";
-import { isOwnerSelfChat, normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
-import { WhatsAppEchoGuard, isStartupReplay } from "./whatsapp-echo-guard.js";
+import { normalizeWhatsAppOwnerId } from "./whatsapp-identity.js";
+import { WhatsAppEchoGuard } from "./whatsapp-echo-guard.js";
+import {
+  decideInboundAction,
+  type InboundChatIdentity,
+} from "./whatsapp-inbound-gate.js";
+import {
+  InboundRoutingHealth,
+  type InboundDropReason,
+  type InboundRoutingSnapshot,
+} from "./whatsapp-inbound-health.js";
+import {
+  LidPhoneResolver,
+  resolveLidSelfChat,
+  type LidPhoneRecord,
+  type LidSelfChatEnvelope,
+} from "./whatsapp-lid-identity.js";
 import {
   markPresenceUnavailable,
   parsePresenceUnavailableIntervalMs,
 } from "./whatsapp-presence.js";
 import { formatSafeLogError, logBotError } from "./safe-log.js";
+import {
+  allowSelfChatId,
+  isSelfChatCalibrationPhrase,
+  readAllowedSelfChatIds,
+} from "./whatsapp-self-chat-calibration.js";
+import {
+  WhatsAppOutboundAckCoordinator,
+  type WhatsAppOutboundAckStateStore,
+  type WhatsAppSubmissionClient,
+} from "./whatsapp-outbound-submission.js";
 
 const PUPPETEER_ARGS = process.platform === "win32"
   ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
   : ["--no-sandbox", "--disable-setuid-sandbox", "--single-process", "--no-zygote", "--disable-dev-shm-usage"];
-const WHATSAPP_HANDLER_FAILURE_REPLY =
-  "I hit a backend error before I could finish that. I logged it and WhatsApp is still running. Please try again in a moment.";
 const CHROMIUM_SINGLETON_LOCK_FILES = new Set(["SingletonLock", "SingletonSocket", "SingletonCookie"]);
 const CHROMIUM_CACHE_DIRS = new Set([
   "blob_storage",
@@ -55,6 +83,8 @@ const CHROMIUM_CACHE_DIRS = new Set([
   "ShaderCache",
 ]);
 const NON_SELF_CHAT_NOTICE_COOLDOWN_MS = 10 * 60 * 1000;
+const NON_SELF_CHAT_NOTICE_ENABLED = process.env.WHATSAPP_NON_SELF_CHAT_NOTICE === "1";
+const SELF_CHAT_LOOKUP_RETRY_DELAYS_MS = [250, 750] as const;
 const COMMAND_LIKE_NON_SELF_CHAT_PATTERNS = [
   /\bnitsyclaw\b/i,
   /\bwhat\s+can\s+you\s+do\b/i,
@@ -143,8 +173,58 @@ function safeRestartReason(label: string, error: unknown): string {
   return `${label}: ${formatSafeLogError(error)}`;
 }
 
+export function resolveWebVersionCache(): { type: "remote"; remotePath: string } | undefined {
+  const remotePath = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH?.trim();
+  if (!remotePath) return undefined;
+  return { type: "remote", remotePath };
+}
+
 export function prepareOutboundBodyForWhatsApp(body: string): string {
   return sanitizeUserFacingReply(body);
+}
+
+export function createWhatsAppCorrelationId(
+  createId: () => string = randomUUID,
+): string {
+  return `NC-${createId().replace(/[^a-f0-9]/gi, "").slice(0, 8).toUpperCase() || "ERROR"}`;
+}
+
+export function formatWhatsAppHandlerFailure(error: unknown, correlationId: string): string {
+  const value = error as { name?: unknown; code?: unknown; message?: unknown } | null;
+  const name = typeof value?.name === "string" ? value.name.toLowerCase() : "";
+  const code = typeof value?.code === "string" ? value.code.toLowerCase() : "";
+  const message = typeof value?.message === "string" ? value.message.toLowerCase() : "";
+  const isLocalProvider = name.includes("ollama") || code.startsWith("ollama_");
+  const ref = `NC-${correlationId
+    .replace(/^NC-/i, "")
+    .replace(/[^a-f0-9]/gi, "")
+    .slice(0, 8)
+    .toUpperCase() || "ERROR"}`;
+
+  if (isLocalProvider && (code === "timeout" || code === "ollama_timeout" || /timed? out|timeout/.test(message))) {
+    return `The local model timed out before I could answer. Nothing was sent to a cloud model, and I did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (
+    isLocalProvider &&
+    (code === "offline" ||
+      code === "model_missing" ||
+      /unavailable|offline|econnrefused|model.+not.+(?:found|installed)/.test(message))
+  ) {
+    return `The local model is unavailable, so I could not answer. Nothing was sent to a cloud model, and I did not retry automatically. Check local model health, then try again. Ref: ${ref}`;
+  }
+  if (code === "empty_response" || name === "emptyagentresponseerror") {
+    return `The backend returned no usable answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (code === "auth" || /\b401\b|unauthori[sz]ed|authentication|invalid api key/.test(message)) {
+    return `The configured provider rejected authentication. I logged it and did not retry automatically. Check provider setup before retrying. Ref: ${ref}`;
+  }
+  if (code === "tool_failure" || name.includes("tool")) {
+    return `A backend tool step failed before I could answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  if (code === "timeout" || /timed? out|timeout/.test(message)) {
+    return `A backend step timed out before I could answer. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
+  }
+  return `I hit a backend error before I could finish. I logged it and did not retry automatically. Try once more. Ref: ${ref}`;
 }
 
 export function shouldSendNonSelfChatDropNotice(args: {
@@ -152,8 +232,10 @@ export function shouldSendNonSelfChatDropNotice(args: {
   fromMe: boolean;
   nowMs: number;
   lastNoticeAtMs: number;
+  enabled?: boolean;
   cooldownMs?: number;
 }): boolean {
+  if (args.enabled !== true) return false;
   if (!args.fromMe) return false;
   const body = args.body.trim();
   if (!body) return false;
@@ -161,6 +243,31 @@ export function shouldSendNonSelfChatDropNotice(args: {
   const cooldownMs = args.cooldownMs ?? NON_SELF_CHAT_NOTICE_COOLDOWN_MS;
   if (args.lastNoticeAtMs > 0 && args.nowMs - args.lastNoticeAtMs < cooldownMs) return false;
   return true;
+}
+
+export function shouldLogChatLookupError(args: {
+  body: string;
+  from: string;
+  fromMe: boolean;
+  to: string;
+}): boolean {
+  if (args.from === "status@broadcast") return false;
+  if (args.from.endsWith("@newsletter") || args.to.endsWith("@newsletter")) return false;
+  if (!args.fromMe) return false;
+  return COMMAND_LIKE_NON_SELF_CHAT_PATTERNS.some((pattern) => pattern.test(args.body));
+}
+
+export function shouldRetryChatLookupForSelfChatCandidate(args: {
+  from: string;
+  fromMe: boolean;
+  to: string;
+  chatId: string;
+  ownerNumber: string;
+}): boolean {
+  if (args.fromMe !== true) return false;
+  if (args.chatId) return false;
+  if (!args.to.endsWith("@lid")) return false;
+  return normalizeWhatsAppOwnerId(args.from) === normalizeWhatsAppOwnerId(args.ownerNumber);
 }
 
 export function formatNonSelfChatDropNotice(): string {
@@ -181,6 +288,10 @@ function addressKind(value: string): string {
   return "other";
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
+}
+
 export interface WwebjsOptions {
   sessionDir: string;
   ownerNumber: string;
@@ -191,11 +302,20 @@ export interface WwebjsOptions {
   restartBackoffMs?: number;
   maxConsecutiveHealthFailures?: number;
   presenceUnavailableIntervalMs?: number;
+  sendSubmissionTimeoutMs?: number;
+  sendAckTimeoutMs?: number;
+  outboundAckStore?: WhatsAppOutboundAckStateStore;
   healthFilePath?: string;
   onStatus?: (event: WhatsAppRuntimeEvent) => void | Promise<void>;
   onQr?: (payload: string) => void | Promise<void>;
   onQrCleared?: () => void | Promise<void>;
+  onInboundHealth?: (snapshot: InboundRoutingSnapshot) => void | Promise<void>;
 }
+
+const INBOUND_HEALTH_EMIT_INTERVAL_MS = 60_000;
+const LID_LOOKUP_TIMEOUT_MS = 8_000;
+const MAX_INBOUND_VOICE_BYTES = 8 * 1024 * 1024;
+const MAX_OUTBOUND_VOICE_BYTES = 2 * 1024 * 1024;
 
 export class WwebjsClient implements WhatsAppClient {
   private echoGuard = new WhatsAppEchoGuard();
@@ -218,9 +338,27 @@ export class WwebjsClient implements WhatsAppClient {
   private readonly restartBackoffMs: number;
   private readonly maxConsecutiveHealthFailures: number;
   private readonly presenceUnavailableIntervalMs: number;
+  private readonly sendSubmissionTimeoutMs: number;
+  private readonly sendAckTimeoutMs: number;
   private readonly healthFilePath: string;
   private readonly puppeteerOpts: Record<string, unknown>;
+  private readonly outboundAckCoordinator: WhatsAppOutboundAckCoordinator;
   private lastNonSelfChatNoticeAtMs = 0;
+  private readonly inboundHealth = new InboundRoutingHealth();
+  private readonly lidResolver = new LidPhoneResolver((userIds) => {
+    const client = this.client as WwebClientWithLidLookup;
+    if (typeof client.getContactLidAndPhone !== "function") {
+      return Promise.reject(new Error("getContactLidAndPhone unavailable"));
+    }
+    // Bounded so a wedged browser page cannot stall inbound handling.
+    return withTimeout(
+      client.getContactLidAndPhone(userIds),
+      LID_LOOKUP_TIMEOUT_MS,
+      "WhatsApp LID lookup",
+    );
+  });
+  private lastInboundHealthEmitAtMs = 0;
+  private lastInboundHealthStatus = "";
 
   constructor(private opts: WwebjsOptions) {
     this.healthProbeIntervalMs = opts.healthProbeIntervalMs ?? 60_000;
@@ -231,7 +369,12 @@ export class WwebjsClient implements WhatsAppClient {
     this.presenceUnavailableIntervalMs = parsePresenceUnavailableIntervalMs(
       opts.presenceUnavailableIntervalMs,
     );
+    this.sendSubmissionTimeoutMs = opts.sendSubmissionTimeoutMs ?? 45_000;
+    this.sendAckTimeoutMs = opts.sendAckTimeoutMs ?? 45_000;
     this.healthFilePath = opts.healthFilePath ?? defaultHealthFilePath();
+    this.outboundAckCoordinator = new WhatsAppOutboundAckCoordinator({
+      store: opts.outboundAckStore,
+    });
     this.readyPromise = this.newReadyPromise();
 
     this.puppeteerOpts = {
@@ -270,14 +413,13 @@ export class WwebjsClient implements WhatsAppClient {
       console.log(`[wwebjs] pruned Chromium cache dir(s): count=${prunedCacheDirs}, freedMb=${freedMb.toFixed(1)}`);
     }
 
-    return new Client({
+    const options: ConstructorParameters<typeof Client>[0] = {
       authStrategy: new LocalAuth({ dataPath: this.opts.sessionDir }),
       puppeteer: this.puppeteerOpts as never,
-      webVersionCache: {
-        type: "remote",
-        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1023223821.html",
-      },
-    });
+    };
+    const webVersionCache = resolveWebVersionCache();
+    if (webVersionCache) options.webVersionCache = webVersionCache;
+    return new Client(options);
   }
 
   private startHealthProbe(): void {
@@ -315,16 +457,88 @@ export class WwebjsClient implements WhatsAppClient {
     });
   }
 
+  private emitInboundHealth(): void {
+    const snapshot = this.inboundHealth.snapshot();
+    const nowMs = Date.now();
+    if (
+      snapshot.status === this.lastInboundHealthStatus &&
+      nowMs - this.lastInboundHealthEmitAtMs < INBOUND_HEALTH_EMIT_INTERVAL_MS
+    ) {
+      return;
+    }
+    this.lastInboundHealthStatus = snapshot.status;
+    this.lastInboundHealthEmitAtMs = nowMs;
+    Promise.resolve(this.opts.onInboundHealth?.(snapshot)).catch((e) => {
+      logBotError("[wwebjs] inbound health callback failed", e);
+    });
+  }
+
+  // Logs address KINDS and counters only - never bodies, numbers, lids, or ids.
+  private async logInboundDrop(
+    reason: InboundDropReason,
+    ctx: { body: string; fromMe: boolean; from: string; to: string; chatId: string; chatIsMe: boolean },
+  ): Promise<void> {
+    if (reason === "startup_replay") {
+      console.log("[wwebjs] dropped: startup replay");
+      return;
+    }
+    if (reason === "duplicate_event") {
+      console.log("[wwebjs] dropped: duplicate event");
+      return;
+    }
+    if (reason === "bot_echo") {
+      console.log(`[wwebjs] dropped: bot echo ${messageMeta(ctx.body)}`);
+      return;
+    }
+    if (reason === "non_owner") {
+      console.log("[wwebjs] dropped: non-owner inbound");
+      return;
+    }
+    if (reason === "lid_identity_mismatch") {
+      console.log("[wwebjs] dropped: LID recipient is not the owner");
+      return;
+    }
+    if (reason === "lid_identity_unresolved") {
+      console.log(
+        `[wwebjs] dropped: owner self-chat LID identity unresolved to=${addressKind(ctx.to)} chat=${addressKind(ctx.chatId)}`,
+      );
+      return;
+    }
+
+    console.log(`[wwebjs] dropped: not self-chat fromMe=${ctx.fromMe} from=${addressKind(ctx.from)} to=${addressKind(ctx.to)} chat=${addressKind(ctx.chatId)} chatIsMe=${ctx.chatIsMe}`);
+    if (
+      shouldSendNonSelfChatDropNotice({
+        body: ctx.body,
+        fromMe: ctx.fromMe,
+        nowMs: Date.now(),
+        lastNoticeAtMs: this.lastNonSelfChatNoticeAtMs,
+        enabled: NON_SELF_CHAT_NOTICE_ENABLED,
+      })
+    ) {
+      this.lastNonSelfChatNoticeAtMs = Date.now();
+      await this.send({
+        to: this.opts.ownerNumber,
+        body: formatNonSelfChatDropNotice(),
+      }).catch((noticeError: unknown) => {
+        logBotError("[wwebjs] non-self chat diagnostic send failed", noticeError);
+      });
+    }
+  }
+
   private async markUnavailable(label: string): Promise<void> {
     await markPresenceUnavailable(this.client, Math.min(this.healthProbeTimeoutMs, 2_000), label);
   }
 
-  private async sendHandlerFailureReply(canSendFailureReply: boolean): Promise<void> {
+  private async sendHandlerFailureReply(
+    canSendFailureReply: boolean,
+    error: unknown,
+    correlationId: string,
+  ): Promise<void> {
     if (!canSendFailureReply) return;
     try {
       await this.send({
         to: this.opts.ownerNumber,
-        body: WHATSAPP_HANDLER_FAILURE_REPLY,
+        body: formatWhatsAppHandlerFailure(error, correlationId),
       });
     } catch (fallbackError) {
       logBotError("[wwebjs] handler failure fallback send failed", fallbackError);
@@ -450,6 +664,12 @@ export class WwebjsClient implements WhatsAppClient {
   private wireEvents(generation: number): void {
     const isCurrentGeneration = () => generation === this.generation && !this.stopped;
 
+    // Attach durable ACK and local-echo observation before this generation can
+    // become ready or accept an outbound submission.
+    this.outboundAckCoordinator.attach(
+      this.client as unknown as WhatsAppSubmissionClient,
+    );
+
     this.client.on("qr", (qr: string) => {
       if (!isCurrentGeneration()) return;
       console.log("[wwebjs] QR code received - scan with your phone");
@@ -503,87 +723,109 @@ export class WwebjsClient implements WhatsAppClient {
       try {
         const body = m.body ?? "";
         const envelope = m as WwebMessageWithEnvelope;
-        const fromMe = envelope.fromMe;
+        const fromMe = Boolean(envelope.fromMe);
         const messageId = m.id?._serialized ?? "";
-
-        if (
-          isStartupReplay(
-            typeof m.timestamp === "number" ? m.timestamp : undefined,
-            Boolean(fromMe),
-            this.acceptMessagesAfterMs,
-          )
-        ) {
-          console.log(`[wwebjs] dropped: startup replay id=${messageId}`);
-          return;
-        }
-
-        if (!this.echoGuard.firstSeenMessage(messageId)) {
-          console.log(`[wwebjs] dropped: duplicate event id=${messageId}`);
-          return;
-        }
-
-        if (fromMe && this.echoGuard.isOutgoingEcho(body)) {
-          console.log(`[wwebjs] dropped: bot echo ${messageMeta(body)}`);
-          return;
-        }
 
         // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
         // not when you're typing in conversations with other contacts.
         const fromRaw = envelope.from ?? "";
-        const from = normalizeWhatsAppOwnerId(fromRaw);
         const toRaw = envelope.to ?? "";
         let chatId = "";
         let chatIsMe = false;
-        try {
-          const chat = await m.getChat() as WwebChatWithContact;
-          chatId = chat.id?._serialized ?? "";
-          if (typeof chat.getContact === "function") {
-            const contact = await chat.getContact();
-            chatIsMe = contact?.isMe === true;
+
+        const readChatIdentity = async (): Promise<InboundChatIdentity> => {
+          let chatError: unknown;
+          const readChat = async () => {
+            const chat = await m.getChat() as WwebChatWithContact;
+            chatId = chat.id?._serialized ?? "";
+            if (typeof chat.getContact === "function") {
+              const contact = await chat.getContact();
+              chatIsMe = contact?.isMe === true;
+            }
+          };
+
+          try {
+            await readChat();
+          } catch (e) {
+            chatError = e;
           }
-        } catch (chatError) {
-          logBotError("[wwebjs] failed to read chat id", chatError);
-        }
-        if (
-          !isOwnerSelfChat({
-            from: fromRaw,
+          for (const retryDelayMs of SELF_CHAT_LOOKUP_RETRY_DELAYS_MS) {
+            if (!shouldRetryChatLookupForSelfChatCandidate({
+              from: fromRaw,
+              fromMe,
+              to: toRaw,
+              chatId,
+              ownerNumber: this.opts.ownerNumber,
+            })) {
+              break;
+            }
+            await delay(retryDelayMs);
+            try {
+              await readChat();
+              chatError = undefined;
+            } catch (e) {
+              chatError = e;
+            }
+          }
+          if (chatError) {
+            if (shouldLogChatLookupError({ body, from: fromRaw, fromMe, to: toRaw })) {
+              logBotError("[wwebjs] failed to read chat id", chatError);
+            }
+          }
+          let allowedSelfChatIds = await readAllowedSelfChatIds(this.opts.sessionDir);
+          if (
+            shouldRetryChatLookupForSelfChatCandidate({
+              from: fromRaw,
+              fromMe,
+              to: toRaw,
+              chatId,
+              ownerNumber: this.opts.ownerNumber,
+            }) &&
+            isSelfChatCalibrationPhrase(body)
+          ) {
+            allowedSelfChatIds = await allowSelfChatId(this.opts.sessionDir, toRaw);
+            console.log("[wwebjs] self-chat calibration updated");
+          }
+          return { chatId, chatIsMe, allowedSelfChatIds };
+        };
+
+        const decision = await decideInboundAction(
+          {
+            messageId,
+            body,
+            timestampSeconds: typeof m.timestamp === "number" ? m.timestamp : undefined,
             fromMe,
+            from: fromRaw,
+            to: toRaw,
+            readChatIdentity,
+          },
+          {
+            echoGuard: this.echoGuard,
+            ownerNumber: this.opts.ownerNumber,
+            acceptMessagesAfterMs: this.acceptMessagesAfterMs,
+            onlyOwner: this.opts.onlyOwner,
+            resolveLidSelfChat: (args: LidSelfChatEnvelope) =>
+              resolveLidSelfChat(this.lidResolver, args),
+          },
+        );
+
+        if (decision.action === "drop") {
+          this.inboundHealth.recordDrop(decision.reason);
+          this.emitInboundHealth();
+          await this.logInboundDrop(decision.reason, {
+            body,
+            fromMe,
+            from: fromRaw,
             to: toRaw,
             chatId,
             chatIsMe,
-            ownerNumber: this.opts.ownerNumber,
-          })
-        ) {
-          console.log(`[wwebjs] dropped: not self-chat fromMe=${fromMe} from=${addressKind(fromRaw)} to=${addressKind(toRaw)} chat=${addressKind(chatId)} chatIsMe=${chatIsMe}`);
-          if (
-            shouldSendNonSelfChatDropNotice({
-              body,
-              fromMe: Boolean(fromMe),
-              nowMs: Date.now(),
-              lastNoticeAtMs: this.lastNonSelfChatNoticeAtMs,
-            })
-          ) {
-            this.lastNonSelfChatNoticeAtMs = Date.now();
-            await this.send({
-              to: this.opts.ownerNumber,
-              body: formatNonSelfChatDropNotice(),
-            }).catch((noticeError: unknown) => {
-              logBotError("[wwebjs] non-self chat diagnostic send failed", noticeError);
-            });
-          }
+          });
           return;
         }
 
+        this.inboundHealth.recordAccepted();
+        this.emitInboundHealth();
         console.log(`[wwebjs] inbound: fromMe=${fromMe} ${messageMeta(body)} hasMedia=${m.hasMedia}`);
-
-        if (
-          this.opts.onlyOwner !== false &&
-          fromMe !== true &&
-          from !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)
-        ) {
-          console.log("[wwebjs] dropped: non-owner inbound");
-          return;
-        }
         canSendFailureReply = true;
 
         const inbound: InboundMessage = {
@@ -592,6 +834,8 @@ export class WwebjsClient implements WhatsAppClient {
           body,
           timestamp: new Date((m.timestamp ?? Date.now() / 1000) * 1000),
           hasMedia: m.hasMedia,
+          mediaSizeBytes: Number.isFinite(Number(envelope._data?.size)) ? Number(envelope._data?.size) : undefined,
+          mediaDurationSeconds: Number.isFinite(Number(envelope._data?.duration)) ? Number(envelope._data?.duration) : undefined,
           mediaType: m.hasMedia
             ? (m.type === "ptt" || m.type === "audio")
               ? "voice"
@@ -602,6 +846,12 @@ export class WwebjsClient implements WhatsAppClient {
           downloadMedia: m.hasMedia
             ? async () => {
                 const media = await m.downloadMedia();
+                if (m.type === "ptt" || m.type === "audio") {
+                  const estimatedBytes = estimatedBase64Bytes(media.data);
+                  if (estimatedBytes > MAX_INBOUND_VOICE_BYTES) {
+                    throw new Error("Inbound voice media exceeded the 8 MB decoded safety limit.");
+                  }
+                }
                 return {
                   data: Buffer.from(media.data, "base64"),
                   mimetype: media.mimetype,
@@ -612,8 +862,9 @@ export class WwebjsClient implements WhatsAppClient {
         };
         for (const h of this.handlers) await h(inbound);
       } catch (e) {
-        logBotError("[wwebjs] handler error", e);
-        await this.sendHandlerFailureReply(canSendFailureReply);
+        const correlationId = createWhatsAppCorrelationId();
+        logBotError(`[wwebjs] handler error ref=${correlationId}`, e);
+        await this.sendHandlerFailureReply(canSendFailureReply, e, correlationId);
       }
     };
 
@@ -625,22 +876,41 @@ export class WwebjsClient implements WhatsAppClient {
     return this.readyPromise;
   }
 
-  async send(msg: OutboundMessage): Promise<{ id: string }> {
-    const body = prepareOutboundBodyForWhatsApp(msg.body);
-    if (!body) return { id: "suppressed-noisy-receipt" };
+  async send(msg: OutboundMessage): Promise<{
+    id: string;
+    ack?: number;
+    delivery?: "server_submitted" | "device_acknowledged";
+  }> {
+    const body = msg.media ? "" : prepareOutboundBodyForWhatsApp(msg.body);
+    if (!body && !msg.media) return { id: "suppressed-noisy-receipt" };
     const target = msg.to.includes("@") ? msg.to : `${msg.to}@c.us`;
+    if (normalizeWhatsAppOwnerId(target) !== normalizeWhatsAppOwnerId(this.opts.ownerNumber)) {
+      throw new Error("WhatsApp outbound recipient failed the owner-only transport boundary.");
+    }
     if (this.restarting) await this.restarting;
     await this.ready();
     const client = this.client;
     try {
-      this.echoGuard.rememberOutgoing(body);
-      const sent = await client.sendMessage(target, body);
+      if (body) this.echoGuard.rememberOutgoing(body);
+      const content = msg.media ? toReviewedWwebVoiceMedia(msg.media) : body;
+      const sent = await this.outboundAckCoordinator.submit(
+        client as unknown as WhatsAppSubmissionClient,
+        {
+          target,
+          body,
+          content,
+          sendOptions: msg.media ? { sendAudioAsVoice: true } : undefined,
+          submissionTimeoutMs: this.sendSubmissionTimeoutMs,
+          ackTimeoutMs: this.sendAckTimeoutMs,
+        },
+      );
+      console.log(`[wwebjs] outbound: id=present ack=${sent.ack} delivery=${sent.delivery}`);
       void markPresenceUnavailable(
         client,
         Math.min(this.healthProbeTimeoutMs, 2_000),
         "WhatsApp presence after send",
       );
-      return { id: sent.id?._serialized ?? "" };
+      return sent;
     } catch (e) {
       void this.restart(safeRestartReason("send failed", e));
       throw e;
@@ -657,8 +927,30 @@ export class WwebjsClient implements WhatsAppClient {
     if (this.healthProbe) clearInterval(this.healthProbe);
     if (this.presenceUnavailableProbe) clearInterval(this.presenceUnavailableProbe);
     if (this.readyWatchdog) clearTimeout(this.readyWatchdog);
+    this.outboundAckCoordinator.detach();
     this.client.removeAllListeners();
     await this.markUnavailable("WhatsApp presence before destroy");
     await this.client.destroy();
   }
 }
+
+function estimatedBase64Bytes(value: string): number {
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor(value.length * 3 / 4) - padding);
+}
+
+function toReviewedWwebVoiceMedia(media: NonNullable<OutboundMessage["media"]>) {
+  if (
+    media.kind !== "voice" ||
+    media.mimetype.toLowerCase() !== "audio/ogg; codecs=opus" ||
+    media.data.byteLength === 0 ||
+    media.data.byteLength > MAX_OUTBOUND_VOICE_BYTES ||
+    media.data.toString("ascii", 0, 4) !== "OggS" ||
+    !/^[a-z0-9][a-z0-9._-]{0,80}\.ogg$/i.test(media.filename)
+  ) {
+    throw new Error("Generated voice media failed the WhatsApp transport boundary.");
+  }
+  return new MessageMedia("audio/ogg", media.data.toString("base64"), media.filename);
+}
+
+export const wwebjsVoiceMediaInternals = { estimatedBase64Bytes, toReviewedWwebVoiceMedia };

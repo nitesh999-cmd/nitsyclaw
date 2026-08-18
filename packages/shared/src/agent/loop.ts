@@ -1,6 +1,31 @@
+import { auditToolFailure, auditToolSuccess, auditUnknownTool } from "../db/audit-contract.js";
 import { logAudit, redactAuditString } from "../db/repo.js";
 import type { AgentDeps } from "./deps.js";
-import type { ToolContext, ToolRegistry } from "./tools.js";
+import { classifyToolError } from "./tool-error.js";
+import type { ToolContext, ToolDefinition, ToolRegistry } from "./tools.js";
+
+/**
+ * What this tool call may persist.
+ *
+ * Runtime data and audit data are separate by construction: the caller keeps the
+ * complete result, while only a tool's own projection reaches `audit_log`. A
+ * tool without a projection records nothing, so a new or third-party tool can
+ * never leak an arbitrary object into durable storage.
+ */
+export function projectForAudit(
+  tool: ToolDefinition | undefined,
+  input: unknown,
+  output: unknown,
+): { input: Record<string, unknown>; output: Record<string, unknown> } {
+  if (!tool?.auditProjection) return { input: {}, output: {} };
+  try {
+    const projected = tool.auditProjection({ input, output });
+    return { input: projected.input ?? {}, output: projected.output ?? {} };
+  } catch {
+    // A throwing projection must not become a leak or a failed turn.
+    return { input: {}, output: {} };
+  }
+}
 
 const MAX_TOOL_RESULT_TEXT_CHARS = 2_000;
 const MAX_TOOL_ERROR_TEXT_CHARS = 240;
@@ -65,7 +90,10 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
         const err = formatToolErrorText(`unknown tool: ${call.name}`);
         calls.push({ name: call.name, input: call.input, output: null, success: false, error: err });
         toolResultParts.push(`[tool ${call.name}] error: ${err}`);
-        await logAudit(args.deps.db, { actor: "agent", tool: call.name, input: call.input, success: false, error: err });
+        // Unknown tool: nothing is known to be safe, so nothing is persisted.
+        // `err` still reaches the model and the caller; only the audit row is
+        // reduced to a structured class.
+        await logAudit(args.deps.db, auditUnknownTool());
         continue;
       }
       try {
@@ -74,26 +102,29 @@ export async function runAgent(args: AgentRunArgs): Promise<AgentRunResult> {
         const out = await tool.handler(parsed.data, ctx);
         calls.push({ name: call.name, input: call.input, output: out, success: true });
         toolResultParts.push(`[tool ${call.name}] ${formatToolResultText(out)}`);
-        await logAudit(args.deps.db, {
-          actor: "agent",
-          tool: call.name,
-          input: call.input as Record<string, unknown>,
-          output: out as Record<string, unknown>,
-          success: true,
-          durationMs: Date.now() - started,
-        });
+        await logAudit(
+          args.deps.db,
+          auditToolSuccess({
+            tool: tool.name,
+            projected: projectForAudit(tool, call.input, out),
+            durationMs: Date.now() - started,
+          }),
+        );
       } catch (e) {
         const err = formatToolErrorText(e);
         calls.push({ name: call.name, input: call.input, output: null, success: false, error: err });
         toolResultParts.push(`[tool ${call.name}] error: ${err}`);
-        await logAudit(args.deps.db, {
-          actor: "agent",
-          tool: call.name,
-          input: call.input as Record<string, unknown>,
-          success: false,
-          error: err,
-          durationMs: Date.now() - started,
-        });
+        // `err` is sanitized free text: fine for the model and the operational
+        // log, never for durable storage. Only structured metadata persists.
+        await logAudit(
+          args.deps.db,
+          auditToolFailure({
+            tool: tool.name,
+            projectedInput: projectForAudit(tool, call.input, undefined).input,
+            errorAudit: classifyToolError(tool.errorProjection, call.input, e),
+            durationMs: Date.now() - started,
+          }),
+        );
       }
     }
     // Feed results back as a synthetic user turn so the model can react.

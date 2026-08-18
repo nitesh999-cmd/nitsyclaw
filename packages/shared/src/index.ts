@@ -2,6 +2,7 @@
 export * from "./env.js";
 export * as db from "./db/index.js";
 export * as agent from "./agent/index.js";
+export * as localBrain from "./local-brain/index.js";
 export * as whatsapp from "./whatsapp/index.js";
 export * as features from "./features/index.js";
 export * as customerInstance from "./customer-instance.js";

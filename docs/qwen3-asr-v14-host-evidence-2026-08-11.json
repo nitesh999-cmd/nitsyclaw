@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.4-HOST-EVIDENCE-1",
+  "date": "2026-08-11",
+  "timezone": "Australia/Sydney",
+  "branch": "codex/whatsapp-voice-intelligence",
+  "startingCommit": "749cd5ab680815b16283af55774c6f3490773dc8",
+  "frozenLaunchCommit": "20e75ea4599c2a74616ac20f264d5b9381b540a4",
+  "transportDiagnosticVerdict": "PASS",
+  "voiceReleaseVerdict": "NO_GO",
+  "singleChildInvocationConsumed": true,
+  "secondAttemptPerformed": false,
+  "scorerExecuted": false,
+  "transport": {
+    "childEnvironment": {
+      "PYTHONUTF8": "1",
+      "PYTHONIOENCODING": "utf-8"
+    },
+    "environmentKeysRecorded": 2,
+    "unrelatedEnvironmentValuesRecorded": false,
+    "parentDecoderEncoding": "utf-8",
+    "parentDecoderFatal": true,
+    "pythonStreamEncoding": "utf-8",
+    "pythonStreamErrors": "strict",
+    "jsonEnsureAscii": false,
+    "rawStdoutBytes": 1510,
+    "rawStdoutSha256": "79484f337ef8345cebde913047301a8cb6265139fc07badc3a5504b3b27a8fa7",
+    "rawStdoutBase64Retained": true,
+    "strictUtf8Decode": "PASS",
+    "parsedJsonSha256": "855e09ce8f5ec2867e8977a98ad8ee13f7be2bd411393fdcbad5db7e20b78f87",
+    "parsedTranscriptMatches": true
+  },
+  "process": {
+    "processId": 47112,
+    "localStart": "2026-08-11T20:11:32.218+10:00",
+    "localEnd": "2026-08-11T20:11:52.556+10:00",
+    "spawnSucceeded": true,
+    "exitCode": 0,
+    "closeCode": 0,
+    "signal": null,
+    "timedOut": false,
+    "cancelled": false,
+    "wallClockDurationMs": 20416,
+    "adapterElapsedMs": 19240,
+    "modelLoadMs": 3215,
+    "caseLatencyMs": 5589,
+    "stdoutBytes": 1510,
+    "stderrBytes": 545,
+    "stderrDecodedUtf8Sha256": "2919c0a74cf354e7eddc2e9e453fd5f697e1dc996b6a2e8cd01765e7350f59af",
+    "transcriptParse": "PARSED",
+    "outcome": "SUCCESS",
+    "cleanupPassed": true
+  },
+  "resources": {
+    "preflight": {
+      "ramTotalBytes": 67756871680,
+      "ramFreeBytes": 33291522048,
+      "parentRssBytes": 100585472,
+      "gpuName": "NVIDIA GeForce RTX 4060",
+      "gpuTotalMiB": 8188,
+      "gpuUsedMiB": 2507,
+      "gpuFreeMiB": 5450,
+      "driverVersion": "610.74",
+      "wddmPerProcessGpuMemoryAvailable": false
+    },
+    "child": {
+      "resourceSamples": 21,
+      "adapterProcessPeakRssBytes": 5233831936,
+      "ramLimitation": "adapter peak working set is retained but the external tasklist sampler remains known unreliable and did not independently corroborate it",
+      "cudaPeakAllocatedBytes": 4698449408,
+      "cudaPeakReservedBytes": 4731174912,
+      "wddmPeakGpuMemoryBytes": null,
+      "vramLimitation": "WDDM did not expose per-process VRAM; CUDA allocator counters are not a WDDM measurement",
+      "adapterCleanupCudaAllocatedBytes": 9568256,
+      "adapterCleanupCudaReservedBytes": 3456106496
+    },
+    "postflight": {
+      "ramFreeBytes": 33246236672,
+      "gpuUsedMiB": 2300,
+      "gpuFreeMiB": 5657,
+      "exactPidAlive": false,
+      "exactPidGpuRow": false,
+      "privateTempDirectories": 0,
+      "runningEvidenceFilePresent": false
+    }
+  },
+  "network": {
+    "kernelFirewallRule": false,
+    "pythonSocketAccess": "denied-before-third-party-imports",
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "nonLoopbackTcpConnectionsObservedForExactPid": 0
+  },
+  "windows": {
+    "inspectionWindowStart": "2026-08-11T20:11:15+10:00",
+    "inspectionWindowEnd": "2026-08-11T20:12:15+10:00",
+    "applicationEvents": 0,
+    "systemEvents": 0,
+    "reliabilityRecords": 0,
+    "werDirectoryItems": 0,
+    "applicationRecordIdBefore": 822925,
+    "applicationRecordIdAfter": 822925,
+    "systemRecordIdBefore": 141356,
+    "systemRecordIdAfter": 141356
+  },
+  "evidenceSha256": {
+    "v14Preflight": "48f2e72dfa4ba07292f29681141d2e550e8bcd703701ce6dd8fbf419cb9f0d05",
+    "v14Process": "4d99a62bf1d7109f6e57ca7d3e7b316f5666b75a923729222b4e32474cfec53e",
+    "v14Transport": "55bcc306efb81874e39131543e29ca5ae254307924d1535d825432e267811516",
+    "v14StaticFreeze": "1999afaf6dff7b18721cfa530ebf23c136b09d4639ed7f5ececd6d099cc282a2",
+    "v14FrozenAggregate": "5545f163e6af1ae262ea6cd522189a04d6df636dd760e48a800b7709dc976f1b",
+    "parentV13FrozenAggregate": "0f2c460dbf70b23b6193ba70ff3f3772dede0783ef78f3797d2e46fb55fedddb"
+  }
+}

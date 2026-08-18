@@ -14,13 +14,13 @@ import {
   reminders,
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { createExportProof, hashSession, sessionTokenFromRequest } from "../../../../lib/data-export-proof";
 import {
   redactAuditExportRows,
   redactConnectedAccountExportRows,
 } from "../../../../lib/data-export-redaction";
-import { logDashboardError } from "../../../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
 import { requireDashboardSession } from "../../../../lib/require-dashboard-session";
@@ -40,6 +40,7 @@ export async function GET(req: Request) {
 
   try {
     const db = getDb();
+    const { ownerHash } = getOwnerIdentity();
     const exportedAt = new Date().toISOString();
     const snapshotId = `export_${exportedAt.replace(/[-:.TZ]/g, "").slice(0, 14)}`;
     const sessionHash = hashSession(sessionTokenFromRequest(req));
@@ -58,11 +59,11 @@ export async function GET(req: Request) {
       dashboardAuthAttemptRows,
     ] = await Promise.all([
       db.select().from(messages).orderBy(desc(messages.createdAt)).limit(5001),
-      db.select().from(memories).orderBy(desc(memories.createdAt)).limit(5001),
-      db.select().from(reminders).orderBy(desc(reminders.createdAt)).limit(5001),
-      db.select().from(expenses).orderBy(desc(expenses.createdAt)).limit(5001),
-      db.select().from(briefs).orderBy(desc(briefs.createdAt)).limit(2001),
-      db.select().from(confirmations).orderBy(desc(confirmations.createdAt)).limit(5001),
+      db.select().from(memories).where(eq(memories.ownerHash, ownerHash)).orderBy(desc(memories.createdAt)).limit(5001),
+      db.select().from(reminders).where(eq(reminders.ownerHash, ownerHash)).orderBy(desc(reminders.createdAt)).limit(5001),
+      db.select().from(expenses).where(eq(expenses.ownerHash, ownerHash)).orderBy(desc(expenses.createdAt)).limit(5001),
+      db.select().from(briefs).where(eq(briefs.ownerHash, ownerHash)).orderBy(desc(briefs.createdAt)).limit(2001),
+      db.select().from(confirmations).where(eq(confirmations.ownerHash, ownerHash)).orderBy(desc(confirmations.createdAt)).limit(5001),
       db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(5001),
       db.select().from(featureRequests).orderBy(desc(featureRequests.createdAt)).limit(5001),
       db.select().from(profileContext).orderBy(desc(profileContext.updatedAt)).limit(5001),

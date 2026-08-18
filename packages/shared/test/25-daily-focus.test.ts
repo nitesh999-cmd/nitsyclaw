@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ToolRegistry } from "../src/agent/tools.js";
 import { registerDailyFocus, runFocusEveningCloseOut } from "../src/features/25-daily-focus.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
-import { makeAgentDeps, makeFakeDb, getFakeDbState } from "./helpers.js";
+import { makeAgentDeps, makeFakeDb } from "./helpers.js";
 import type { ToolContext } from "../src/agent/tools.js";
 
 const NOW = new Date("2026-06-23T07:00:00.000Z"); // 2026-06-23 17:00 Sydney
@@ -153,6 +153,7 @@ describe("Feature 25 — Evening close-out", () => {
       deps,
     };
     return {
+      propose: registry.get("propose_daily_focus")!,
       pick: registry.get("pick_daily_focus")!,
       markDone: registry.get("mark_daily_focus_done")!,
       tool: registry.get("focus_evening_close_out")!,
@@ -163,16 +164,38 @@ describe("Feature 25 — Evening close-out", () => {
     };
   }
 
-  it("returns state=no_focus_set and sends 'no ONE was set' when nothing picked", async () => {
+  it("treats a missing optional ONE as neutral and does not promise a fabricated fallback", async () => {
     const { tool, ctx, wa } = setupCloseOut();
     const out = await tool.handler({} as Record<string, never>, ctx) as {
       state: string;
       delivered: boolean;
+      required: boolean;
     };
     expect(out.state).toBe("no_focus_set");
+    expect(out.required).toBe(false);
     expect(out.delivered).toBe(true);
     expect(wa.sent).toHaveLength(1);
     expect(wa.sent[0]?.body).toMatch(/no ONE was set/i);
+    expect(wa.sent[0]?.body).toContain("No ONE was required today");
+    expect(wa.sent[0]?.body).not.toContain("brief arrives");
+    expect(wa.sent[0]?.body).not.toContain("Pick one tomorrow morning");
+  });
+
+  it("distinguishes a required ONE selection that was offered but never picked", async () => {
+    const { tool, propose, ctx, wa } = setupCloseOut();
+    await propose.handler({
+      candidates: ["Ship the quote", "Call the customer"],
+    }, ctx);
+
+    const out = await tool.handler({} as Record<string, never>, ctx) as {
+      state: string;
+      required: boolean;
+    };
+
+    expect(out.state).toBe("focus_selection_missing");
+    expect(out.required).toBe(true);
+    expect(wa.sent.at(-1)?.body).toContain("none was selected");
+    expect(wa.sent.at(-1)?.body).toContain("I didn't choose or carry one forward");
   });
 
   it("returns state=focus_open and sends 'Did you ship it?' when picked but not done", async () => {
@@ -186,6 +209,7 @@ describe("Feature 25 — Evening close-out", () => {
     expect(out.chosenText).toBe("Ship Feature 28");
     expect(wa.sent.at(-1)?.body).toMatch(/Did you ship it\?/);
     expect(wa.sent.at(-1)?.body).toContain("Ship Feature 28");
+    expect(wa.sent.at(-1)?.body).toContain("I won't roll it forward automatically");
   });
 
   it("returns state=focus_completed and sends affirmation when picked and done", async () => {

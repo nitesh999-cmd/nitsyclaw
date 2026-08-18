@@ -1,5 +1,5 @@
 import { count, sum } from "drizzle-orm/sql";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   getDb,
   messages,
@@ -10,7 +10,7 @@ import {
   confirmations,
 } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { logDashboardError } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,7 @@ interface Stats {
 async function loadStats(): Promise<Stats> {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
 
   const [
     msgTotal,
@@ -46,17 +47,17 @@ async function loadStats(): Promise<Stats> {
     db.select({ value: count() }).from(messages),
     db.select({ value: count() }).from(messages).where(eq(messages.direction, "in")),
     db.select({ value: count() }).from(messages).where(eq(messages.direction, "out")),
-    db.select({ value: count() }).from(memories),
-    db.select({ value: count() }).from(reminders),
-    db.select({ value: count() }).from(reminders).where(eq(reminders.status, "pending")),
-    db.select({ value: count() }).from(reminders).where(eq(reminders.status, "fired")),
-    db.select({ value: count() }).from(expenses),
-    db.select({ value: sum(expenses.amount) }).from(expenses),
+    db.select({ value: count() }).from(memories).where(eq(memories.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(reminders).where(eq(reminders.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "pending"))),
+    db.select({ value: count() }).from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "fired"))),
+    db.select({ value: count() }).from(expenses).where(eq(expenses.ownerHash, ownerHash)),
+    db.select({ value: sum(expenses.amount) }).from(expenses).where(eq(expenses.ownerHash, ownerHash)),
     db.select({ value: count() }).from(featureRequests),
     db.select({ value: count() }).from(featureRequests).where(eq(featureRequests.status, "pending")),
     db.select({ value: count() }).from(featureRequests).where(eq(featureRequests.status, "done")),
-    db.select({ value: count() }).from(confirmations),
-    db.select({ value: count() }).from(confirmations).where(eq(confirmations.status, "pending")),
+    db.select({ value: count() }).from(confirmations).where(eq(confirmations.ownerHash, ownerHash)),
+    db.select({ value: count() }).from(confirmations).where(and(eq(confirmations.ownerHash, ownerHash), eq(confirmations.status, "pending"))),
   ]);
 
   return {

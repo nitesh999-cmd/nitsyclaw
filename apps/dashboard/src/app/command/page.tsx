@@ -8,17 +8,18 @@ import {
   systemHeartbeats,
 } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { OperatorCommandClient } from "./operator-command-client";
 import { OPERATOR_MISSIONS } from "./operator-missions";
 import { OPERATOR_NEXT_50 } from "./operator-roadmap";
-import { logDashboardLoadError } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
 async function loadOperatorState() {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
   const [
     pendingConfirmations,
     pendingReminders,
@@ -27,8 +28,8 @@ async function loadOperatorState() {
     latestAuditRows,
     latestMessageRows,
   ] = await Promise.all([
-    db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(20),
-    db.select().from(reminders).where(eq(reminders.status, "pending")).limit(20),
+    db.select().from(confirmations).where(and(eq(confirmations.ownerHash, ownerHash), eq(confirmations.status, "pending"))).limit(20),
+    db.select().from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "pending"))).limit(20),
     db.select().from(featureRequests).limit(200),
     db.select().from(systemHeartbeats),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(3),

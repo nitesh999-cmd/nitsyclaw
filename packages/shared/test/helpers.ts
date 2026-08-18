@@ -10,6 +10,11 @@ import type {
   Transcriber,
   WebSearcher,
 } from "../src/agent/deps.js";
+import type {
+  LiveWebResearchHealth,
+  LiveWebResearchResult,
+  LiveWebResearcher,
+} from "../src/search/live-web-research.js";
 import type { DB } from "../src/db/client.js";
 import { MockWhatsAppClient } from "../src/whatsapp/mock.js";
 
@@ -40,7 +45,7 @@ export interface FakeDbState {
 
 export type FakeDbWithState = DB & { __state: FakeDbState };
 
-type FakeConflictTarget = { name?: string };
+type FakeConflictTarget = { name?: string } | Array<{ name?: string }>;
 type FakeConflictUpdate = { target: FakeConflictTarget; set: FakeDbRow };
 type FakeReturningChain = {
   returning: () => Promise<FakeDbRow[]>;
@@ -85,6 +90,7 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
         id: crypto.randomUUID(),
         createdAt: new Date(),
         ...(table === "confirmations" ? { status: "pending" } : {}),
+        ...(table === "reminders" ? { status: "pending" } : {}),
         ...(table === "feature_requests" ? { status: "pending", type: "feature" } : {}),
         ...(table === "snoozes" ? { status: "pending" } : {}),
         ...(table === "profile_context" ? { updatedAt: new Date() } : {}),
@@ -94,9 +100,11 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
       return {
         returning: async () => inserted,
         onConflictDoUpdate: ({ target, set }: FakeConflictUpdate) => {
-          const key = target.name ?? "for_date";
+          const keys = conflictTargetKeys(target);
+          const pendingRows = new Set(inserted);
+          state[table] = state[table].filter((row) => !pendingRows.has(row));
           for (const row of inserted) {
-            const idx = state[table].findIndex((x) => x[key] === row[key]);
+            const idx = state[table].findIndex((x) => keys.every((key) => x[key] === row[key]));
             if (idx >= 0) state[table][idx] = { ...state[table][idx], ...set };
             else state[table].push(row);
           }
@@ -139,6 +147,18 @@ export function makeFakeDb(): { db: FakeDbWithState; state: FakeDbState } {
         },
       }),
     }),
+    delete: (table: unknown) => ({
+      where: (cond: unknown) => {
+        const name = tableName(table);
+        const deleted = filterRows(state[name], cond);
+        state[name] = state[name].filter((row) => !deleted.includes(row));
+        return {
+          returning: async () => deleted,
+          then: (resolve: (rows: FakeDbRow[]) => unknown) => Promise.resolve(deleted).then(resolve),
+        };
+      },
+    }),
+    transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
     execute: async () => [{ source: "fake-system-claim" }],
   };
   const dbWithState = Object.assign(db, { __state: state }) as unknown as FakeDbWithState;
@@ -185,10 +205,19 @@ function filterRows(rows: FakeDbRow[], cond: unknown): FakeDbRow[] {
   return rows.filter((row) =>
     conditions.every((condition) => {
       const camelKey = snakeToCamel(condition.columnName);
-      const rowValue = row[camelKey] ?? row[condition.columnName];
+      const rowValue = row[camelKey] ?? row[condition.columnName] ?? legacyOwnerValue(condition);
       return compareFakeDbValue(rowValue, condition.operator, condition.value);
     }),
   );
+}
+
+function conflictTargetKeys(target: FakeConflictTarget): string[] {
+  const targets = Array.isArray(target) ? target : [target];
+  return targets.map((item) => item.name ?? "for_date").map(snakeToCamel);
+}
+
+function legacyOwnerValue(condition: { columnName: string; value: unknown }): unknown {
+  return condition.columnName === "owner_hash" ? condition.value : undefined;
 }
 
 function readDrizzleConditions(cond: unknown): Array<{ columnName: string; operator: string; value: unknown }> {
@@ -270,6 +299,21 @@ export function fakeLlmWithToolCall(toolName: string, input: Record<string, unkn
   };
 }
 
+/**
+ * Answers in the loop's final text rather than through a tool. Live-research
+ * turns run with reply_to_user withheld, so this is how the model replies there.
+ */
+export function fakeLlmWithFinalText(text: string): LlmClient {
+  return {
+    async complete() {
+      return { text: "ok" };
+    },
+    async toolStep() {
+      return { stopReason: "end_turn", toolCalls: [], text };
+    },
+  };
+}
+
 export const fakeTranscriber: Transcriber = {
   async transcribe(audio: Buffer) {
     if (audio.byteLength === 0) throw new Error("empty");
@@ -285,6 +329,38 @@ export const fakeWebSearch: WebSearcher = {
     ];
   },
 };
+
+/** Live-research fake. Defaults to a healthy, cited result. */
+export function makeFakeLiveResearcher(
+  overrides: Partial<LiveWebResearchResult> & { health?: Partial<LiveWebResearchHealth> } = {},
+): LiveWebResearcher {
+  const { health: healthOverride, ...resultOverride } = overrides;
+  const result: LiveWebResearchResult = {
+    status: "ok",
+    answer: "Live answer from search.",
+    sources: [{ title: "Example source", url: "https://example.com/story" }],
+    searchesUsed: 1,
+    ...resultOverride,
+  };
+  return {
+    maxUses: 5,
+    async research() {
+      return result;
+    },
+    health() {
+      return {
+        state: result.status === "unavailable" ? "unavailable" : "operational",
+        provider: "anthropic-web-search",
+        toolVersion: "web_search_20250305",
+        maxUses: 5,
+        ...(result.failureCode ? { lastFailureCode: result.failureCode } : {}),
+        ...healthOverride,
+      };
+    },
+  };
+}
+
+export const fakeLiveResearch: LiveWebResearcher = makeFakeLiveResearcher();
 
 export const fakeCalendar: CalendarClient = {
   async suggestSlots({ window }) {
@@ -322,6 +398,7 @@ export function makeAgentDeps(overrides: Partial<AgentDeps> = {}): AgentDeps {
     llm: fakeLlm,
     transcriber: fakeTranscriber,
     webSearch: fakeWebSearch,
+    liveResearch: fakeLiveResearch,
     calendar: fakeCalendar,
     imageAnalyzer: fakeImageAnalyzer,
     embedder: fakeEmbedder,

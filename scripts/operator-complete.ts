@@ -4,6 +4,7 @@ import {
   getDb,
   logAudit,
   setFeatureRequestStatus,
+  auditOperatorComplete,
 } from "@nitsyclaw/shared/db";
 import { appendAgentRunLog } from "./agent-run-log";
 
@@ -43,17 +44,17 @@ async function main() {
     throw new Error(`operator item ${id} was not updated; expected status in_progress`);
   }
 
-  await logAudit(db, {
-    actor: "operator-runner",
-    tool: "operator_runner.complete",
-    input: { jobId: id },
-    output: {
+  // `commit` and `deployment` are operator-supplied CLI strings. Their presence
+  // is recorded; their values stay in the run log.
+  await logAudit(
+    db,
+    auditOperatorComplete({
+      jobId: id,
       status,
-      ...(commit ? { commit } : {}),
-      ...(deployment ? { deployment } : {}),
-    },
-    success: true,
-  });
+      hasCommit: Boolean(commit),
+      hasDeployment: Boolean(deployment),
+    }),
+  );
   await appendAgentRunLog({
     operation: "operator_runner.complete",
     jobId: id,

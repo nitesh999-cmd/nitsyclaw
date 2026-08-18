@@ -47,18 +47,15 @@ async function addExpense(formData: FormData) {
 async function load(filters: ExpenseSearchParams) {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
-  const where = expenseWhere(normalizeExpenseFilters(filters));
+  const { ownerHash } = getOwnerIdentity();
+  const where = expenseWhere(normalizeExpenseFilters(filters), ownerHash);
 
-  if (where) {
-    return db
-      .select()
-      .from(expenses)
-      .where(where)
-      .orderBy(desc(expenses.occurredAt))
-      .limit(250);
-  }
-
-  return db.select().from(expenses).orderBy(desc(expenses.occurredAt)).limit(250);
+  return db
+    .select()
+    .from(expenses)
+    .where(where)
+    .orderBy(desc(expenses.occurredAt))
+    .limit(250);
 }
 
 function asCsvUrl(filters: ExpenseSearchParams) {

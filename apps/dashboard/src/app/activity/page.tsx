@@ -2,20 +2,21 @@ import { getDb, auditLog, messages, reminders, confirmations, expenses } from "@
 import { redactAuditString, sanitizeAuditPayload } from "@nitsyclaw/shared/db";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
 import { relativeTime } from "@nitsyclaw/shared/utils";
-import { desc } from "drizzle-orm";
-import { logDashboardLoadError } from "../../lib/dashboard-runtime";
+import { desc, eq } from "drizzle-orm";
+import { getOwnerIdentity, logDashboardLoadError } from "../../lib/dashboard-runtime";
 
 export const dynamic = "force-dynamic";
 
 async function loadActivity() {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
   const [audits, recentMessages, recentReminders, recentConfirmations, recentExpenses] = await Promise.all([
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(30),
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(20),
-    db.select().from(reminders).orderBy(desc(reminders.createdAt)).limit(10),
-    db.select().from(confirmations).orderBy(desc(confirmations.createdAt)).limit(10),
-    db.select().from(expenses).orderBy(desc(expenses.createdAt)).limit(10),
+    db.select().from(reminders).where(eq(reminders.ownerHash, ownerHash)).orderBy(desc(reminders.createdAt)).limit(10),
+    db.select().from(confirmations).where(eq(confirmations.ownerHash, ownerHash)).orderBy(desc(confirmations.createdAt)).limit(10),
+    db.select().from(expenses).where(eq(expenses.ownerHash, ownerHash)).orderBy(desc(expenses.createdAt)).limit(10),
   ]);
   return { audits, recentMessages, recentReminders, recentConfirmations, recentExpenses };
 }

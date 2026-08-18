@@ -1,6 +1,7 @@
 // Inbound message router. Owns the fast-path intent detection and dispatch
 // to the agent loop.
 
+import { createHash } from "node:crypto";
 import type { AgentDeps } from "@nitsyclaw/shared/agent";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
 import { formatDriveConnectorStatusForWhatsApp, getDriveConnectorStatus } from "@nitsyclaw/shared/integrations/drive-connector";
@@ -9,6 +10,15 @@ import { formatOneDriveConnectorStatusForWhatsApp, getOneDriveConnectorStatus } 
 import { formatOutlookConnectorStatusForWhatsApp, getOutlookConnectorStatus } from "@nitsyclaw/shared/integrations/outlook-connector";
 import type { HistoryTurn } from "@nitsyclaw/shared/agent";
 import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
+import {
+  buildTodayFocusPlan,
+  formatTodayFocusPlan,
+  loadTodayFocusEvidence,
+  localBrainModeFromEnv,
+  OllamaProvider,
+  OllamaProviderError,
+  type FocusEvidence,
+} from "@nitsyclaw/shared/local-brain";
 import { detectIntent } from "@nitsyclaw/shared/utils";
 import {
   registerAllFeatures,
@@ -60,10 +70,12 @@ import {
   trackWarranty,
   triageLifeAdminNote,
   formatFeatureQueueStatusForWhatsApp,
+  getVoicePreferences,
   resolvePromptProfileFromContext,
+  saveVoicePreference,
   summarizeFeatureQueueStatus,
 } from "@nitsyclaw/shared/features";
-import type { InboundMessage } from "@nitsyclaw/shared/whatsapp";
+import type { InboundMessage, WhatsAppClient } from "@nitsyclaw/shared/whatsapp";
 import {
   cancelReminder,
   getLatestPendingConfirmation,
@@ -72,23 +84,34 @@ import {
   insertReminder,
   insertFeatureRequest,
   getConnectedAccount,
+  getCommandJobBySourceMessageId,
+  getLatestVoiceTranscript,
+  listVerifiedVoiceContacts,
+  listVerifiedVoiceProducts,
   getSystemHeartbeat,
   listRecentCommandJobs,
   listPendingReminders,
   listPendingFeatureRequests,
   listRecentFeatureRequestsByStatus,
   markReminderFired,
+  logAudit,
+  mergeVoiceMessageMetadata,
   recentExpensesBetween,
   recentMessages,
   rescheduleReminder,
   setConfirmationStatus,
   updateMessageMetadata,
+  auditWebPresearch,
+  auditWebResearchFallback,
+  updateMessageTranscript,
+  clearVoiceTranscript,
 } from "@nitsyclaw/shared/db";
 import {
   completeCommandJob,
   createCommandJob,
   getCommandJobByDedupeKey,
   markCommandJobWorking,
+  holdCommandJobForVoiceVerification,
   refreshCommandJobIntent,
   recordCommandJobFailure,
   snoozeCommandJob,
@@ -100,6 +123,8 @@ import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { canAgentClarifySafely } from "@nitsyclaw/shared/ops/personal-pa-intent";
 import {
   encryptForStorage,
+  decryptString,
+  isEncryptedString,
   formatPrivateModeActionBlocked,
   formatPrivateModeHelp,
   hashPhone,
@@ -110,6 +135,14 @@ import {
   privateModeWouldPersist,
   sanitizeUserFacingReply,
 } from "@nitsyclaw/shared/utils";
+import {
+  parseVoicePreferenceCommand,
+  coerceTranscriptionResult,
+  voiceAuthorityNeedsClarification,
+  verifyVoiceTranscript,
+  formatVoiceVerifierBlock,
+  type TranscriptionResult,
+} from "@nitsyclaw/shared/voice";
 import { notifyAll } from "./notify-all.js";
 import { parseFeatureRequestShortcut } from "./feature-shortcut.js";
 import {
@@ -122,6 +155,8 @@ import {
   parseCapabilityStatusShortcut,
   parseCommandContractShortcut,
   parseDailyStatusShortcut,
+  parseTodayFocusShortcut,
+  parseLocalBrainStatusShortcut,
   parseDemoChecklistShortcut,
   parseDemoResultsShortcut,
   parseDemoStartShortcut,
@@ -154,6 +189,35 @@ import { runDailyBuildAgent } from "./build-agent.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { buildNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
 import { logBotError } from "./safe-log.js";
+import {
+  applyVerifiedSources,
+  buildLiveResearchPromptBlock,
+  createTurnScopedResearcher,
+  createVerifiedSourceCollector,
+  formatLiveWebResearchForWhatsApp,
+  parseRequestedItemCount,
+  formatLiveWebResearchUnavailable,
+  formatLocalDateInstruction,
+  hasUsableFindings,
+  isExplicitLiveWebResearchRequest,
+  normalizeFailureCode,
+  resolveLocalDateContext,
+  type LiveWebResearchFailureCode,
+  type LiveWebResearchClaim,
+  type LiveWebResearchResult,
+  type LiveWebResearchSource,
+  type TurnScopedResearcher,
+} from "@nitsyclaw/shared/search";
+import { EmptyAgentResponseError } from "./request-failure.js";
+import {
+  bindVoiceTurnMessage,
+  forceVoiceTurnText,
+  updateVoiceTurnTranscript,
+} from "./whatsapp-voice-reply.js";
+import {
+  classifyWhatsAppHealthSignal,
+  requiresWhatsAppAttention,
+} from "./whatsapp-health-classification.js";
 import { formatWhatsAppReplyShape } from "./whatsapp-reply-format.js";
 import {
   formatReadyCapabilitiesOneLine,
@@ -221,6 +285,28 @@ const BILL_REMINDER_CONTEXT_OPEN = "[bill-reminder-context:v1]";
 const BILL_REMINDER_CONTEXT_CLOSE = "[/bill-reminder-context:v1]";
 const pendingBillRemindersByOwner = new Map<string, PendingBillReminderContext>();
 
+/**
+ * Wraps a WhatsApp client for one turn and counts sends made through it.
+ * Used to prove nothing has already been delivered before a fallback reply.
+ */
+interface CountingWhatsAppClient extends WhatsAppClient {
+  sentCount(): number;
+}
+
+function countingWhatsAppClient(inner: WhatsAppClient): CountingWhatsAppClient {
+  let sent = 0;
+  return {
+    ready: () => inner.ready(),
+    onMessage: (handler) => inner.onMessage(handler),
+    destroy: () => inner.destroy(),
+    send: async (args) => {
+      sent += 1;
+      return inner.send(args);
+    },
+    sentCount: () => sent,
+  };
+}
+
 export class Router {
   private registry = registerAllFeatures({ surface: "whatsapp" });
   private readonly seenExternalMessageIds = new Set<string>();
@@ -258,10 +344,13 @@ export class Router {
    *  isn't relying on WhatsApp's own self-chat notifications (which often
    *  silently fail). All three are best-effort; failure of any one doesn't
    *  block the others. */
-  private async sendAndPersist(body: string): Promise<void> {
+  private async sendAndPersist(
+    body: string,
+    opts: { deliveryPreference?: "text" | "voice" | "auto"; finalResponse?: boolean } = {},
+  ): Promise<void> {
     body = sanitizeUserFacingReply(body);
     if (!body) return;
-    await this.deps.whatsapp.send({ to: this.ownerPhone, body });
+    await this.deps.whatsapp.send({ to: this.ownerPhone, body, ...opts });
     try {
       const enc = encryptForStorage(body);
       await insertMessage(this.deps.db, {
@@ -276,10 +365,13 @@ export class Router {
     notifyAll(body, { title: "NitsyClaw replied", priority: "default" }, this.deps.db).catch(() => {});
   }
 
-  private async sendWithoutPersistence(body: string): Promise<void> {
+  private async sendWithoutPersistence(
+    body: string,
+    opts: { deliveryPreference?: "text" | "voice" | "auto"; finalResponse?: boolean } = {},
+  ): Promise<void> {
     body = sanitizeUserFacingReply(body);
     if (!body) return;
-    await this.deps.whatsapp.send({ to: this.ownerPhone, body });
+    await this.deps.whatsapp.send({ to: this.ownerPhone, body, ...opts });
   }
 
   private async answerPrivateMode(text: string): Promise<string> {
@@ -309,7 +401,112 @@ export class Router {
 
   private async sendPublicFailure(label: string, userMessage: string, error: unknown): Promise<void> {
     logBotError("[router] handler failed", error, { label });
-    await this.sendAndPersist(userMessage);
+    await this.sendAndPersist(userMessage, { deliveryPreference: "text" });
+  }
+
+  private async handleVoiceControlCommand(
+    text: string,
+    commandJob: CommandJob,
+    currentMessageId: string,
+    sourceWasVoice: boolean,
+  ): Promise<boolean> {
+    const ownerHash = hashPhone(this.ownerPhone);
+    const preference = parseVoicePreferenceCommand(text);
+    if (preference) {
+      if (commandJob.status !== "working") commandJob = await markCommandJobWorking(this.deps.db, commandJob.id);
+      const saved = await saveVoicePreference(this.deps.db, {
+        ownerHash,
+        key: preference.kind,
+        value: preference.value,
+        now: this.deps.now(),
+      });
+      const reply = preference.kind === "mode"
+        ? `Reply mode set to ${saved.mode}.`
+        : preference.kind === "language"
+          ? `Voice reply language set to ${saved.language}.`
+          : "Voice replies will be more concise.";
+      await this.discardVoiceControlTranscript(sourceWasVoice, currentMessageId);
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return true;
+    }
+
+    if (/^(?:show|display|read) (?:the |my |last )?(?:voice )?transcript[.!?]*$/i.test(text.trim())) {
+      if (commandJob.status !== "working") commandJob = await markCommandJobWorking(this.deps.db, commandJob.id);
+      const latest = await getLatestVoiceTranscript(this.deps.db, ownerHash, {
+        excludeMessageId: sourceWasVoice ? currentMessageId : undefined,
+      });
+      const transcript = latest?.transcript ? decryptStoredText(latest.transcript) : "";
+      const reply = transcript
+        ? `Last voice transcript:\n${transcript}`
+        : "I do not have a retained voice transcript to show.";
+      await this.discardVoiceControlTranscript(sourceWasVoice, currentMessageId);
+      await this.sendAndPersist(reply, { deliveryPreference: "text" });
+      await this.completeWhatsAppCommandJob(commandJob, "Voice transcript review completed.");
+      return true;
+    }
+
+    if (/^(?:delete this recording|forget that transcript|delete (?:the |my |last )?(?:voice )?transcript)[.!?]*$/i.test(text.trim())) {
+      if (commandJob.status !== "working") commandJob = await markCommandJobWorking(this.deps.db, commandJob.id);
+      const latest = await getLatestVoiceTranscript(this.deps.db, ownerHash, {
+        excludeMessageId: sourceWasVoice ? currentMessageId : undefined,
+      });
+      const deleted = latest
+        ? await clearVoiceTranscript(this.deps.db, { ownerHash, messageId: latest.id })
+        : { cleared: false, deletedMemories: 0 };
+      const reply = deleted.cleared
+        ? "Deleted the retained transcript. Raw and generated voice media were already temporary and are not retained."
+        : "I could not find a retained voice transcript to delete.";
+      await this.discardVoiceControlTranscript(sourceWasVoice, currentMessageId);
+      await this.sendAndPersist(reply, { deliveryPreference: "text" });
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return true;
+    }
+
+    const correction = parseVoiceCorrection(text);
+    if (correction) {
+      if (commandJob.status !== "working") commandJob = await markCommandJobWorking(this.deps.db, commandJob.id);
+      const latest = await getLatestVoiceTranscript(this.deps.db, ownerHash, {
+        excludeMessageId: sourceWasVoice ? currentMessageId : undefined,
+      });
+      const previous = latest?.transcript ? decryptStoredText(latest.transcript) : "";
+      const corrected = previous ? replaceFirstInsensitive(previous, correction.mistaken, correction.intended) : "";
+      let reply: string;
+      if (!latest || !corrected || corrected === previous) {
+        reply = "I could not match that correction to the previous retained voice transcript. Please restate the full corrected instruction.";
+      } else {
+        await updateMessageTranscript(this.deps.db, latest.id, encryptForStorage(corrected));
+        await mergeVoiceMessageMetadata(this.deps.db, latest.id, {
+          correctedAt: this.deps.now().toISOString(),
+          correctionApplied: true,
+        });
+        const priorJob = await getCommandJobBySourceMessageId(this.deps.db, latest.id);
+        const resumable = priorJob && ["received", "needs_clarification", "needs_approval", "retrying"].includes(priorJob.status);
+        if (resumable && priorJob) {
+          await refreshCommandJobIntent(this.deps.db, priorJob.id, corrected, true, {
+            storedCommand: encryptForStorage(corrected),
+          });
+          reply = "Corrected the previous transcript and updated its pending intent. I did not bypass any approval.";
+        } else {
+          reply = "Corrected the previous transcript. I did not replay or change any action that may already have run.";
+        }
+      }
+      await this.discardVoiceControlTranscript(sourceWasVoice, currentMessageId);
+      await this.sendAndPersist(reply, { deliveryPreference: "text" });
+      await this.completeWhatsAppCommandJob(commandJob, reply);
+      return true;
+    }
+
+    return false;
+  }
+
+  private async discardVoiceControlTranscript(sourceWasVoice: boolean, messageId: string): Promise<void> {
+    if (!sourceWasVoice) return;
+    await updateMessageTranscript(this.deps.db, messageId, null);
+    await mergeVoiceMessageMetadata(this.deps.db, messageId, {
+      controlTranscriptDiscarded: true,
+      updatedAt: this.deps.now().toISOString(),
+    });
   }
 
   private async sendAndPersistBestEffort(body: string, label: string): Promise<void> {
@@ -327,15 +524,23 @@ export class Router {
     allowAgentClarification: boolean,
     opts: { maxAttempts?: number } = {},
   ): Promise<CommandJob> {
+    // WhatsApp @lid self-chat events can arrive with no serialized message id.
+    // An empty id must never become a dedupe key: every such message would
+    // collide on "whatsapp:" and replay the first job's receipt forever.
+    const externalId = whatsAppExternalId(msg);
     return createCommandJob(this.deps.db, {
       source: "whatsapp",
       ownerHash: hashPhone(this.ownerPhone),
       command,
       sourceMessageId: persistedId,
-      sourceExternalId: msg.id,
-      dedupeKey: `whatsapp:${msg.id}`,
+      sourceExternalId: externalId || undefined,
+      dedupeKey: externalId ? `whatsapp:${externalId}` : undefined,
       allowAgentClarification,
-      maxAttempts: opts.maxAttempts,
+      // A WhatsApp reply may already have reached the self-chat when the
+      // process loses its acknowledgement. Automatic replay would risk a
+      // duplicate visible action, so foreground messages fail terminally and
+      // require an explicit user retry.
+      maxAttempts: opts.maxAttempts ?? 1,
     });
   }
 
@@ -352,6 +557,138 @@ export class Router {
       await recordCommandJobFailure(this.deps.db, job.id, error);
     } catch (recordError) {
       logBotError("[router] failed to record command job failure", recordError, { commandJobId: job.id });
+    }
+  }
+
+  /**
+   * Runs live web research for a message that already asked for it, before the
+   * agent loop starts. Nitesh asking for news/weather/prices IS the instruction
+   * to search, so the search happens in this same turn and the bot never comes
+   * back with "would you like me to search?".
+   *
+   * On success the results are injected into the loop's system prompt, so the
+   * model can still combine them with other tools (saving a travel location,
+   * appending queue status). On failure the turn ends with one honest message
+   * rather than an answer reconstructed from stale model knowledge.
+   */
+  private async runLiveResearchForTurn(
+    query: string,
+    researcher: TurnScopedResearcher | undefined,
+  ): Promise<
+    | { kind: "context"; block: string; sources: LiveWebResearchSource[]; result: LiveWebResearchResult }
+    | { kind: "unavailable"; message: string }
+  > {
+    if (!researcher) {
+      await this.auditLiveResearchPresearch(null, "not_configured", 0, 0);
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable("not_configured") };
+    }
+    // "Today" is the owner's local day. Without this the model answers from the
+    // UTC date, which is the previous day for the hours after Melbourne midnight.
+    const localDate = resolveLocalDateContext(this.deps.now(), this.deps.timezone);
+    const localDateInstruction = formatLocalDateInstruction(localDate);
+    const started = Date.now();
+    let result: LiveWebResearchResult;
+    try {
+      result = await researcher.research({ query, instructions: localDateInstruction });
+    } catch (error) {
+      // The researcher maps its own failures, so reaching here means something
+      // unexpected broke. Still no stale-knowledge answer.
+      logBotError("[router] live web research threw", error);
+      await this.auditLiveResearchPresearch(null, "request_failed", Date.now() - started, researcher.remainingThisTurn());
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable("request_failed") };
+    }
+    const elapsedMs = Date.now() - started;
+    // "Usable" means a search actually ran AND produced prose with at least one
+    // source. An empty-source result must never become a confident answer.
+    if (!hasUsableFindings(result)) {
+      const failureCode = normalizeFailureCode(result.failureCode ?? "no_search_performed");
+      await this.auditLiveResearchPresearch(result, failureCode, elapsedMs, researcher.remainingThisTurn());
+      return { kind: "unavailable", message: formatLiveWebResearchUnavailable(failureCode) };
+    }
+    await this.auditLiveResearchPresearch(result, null, elapsedMs, researcher.remainingThisTurn());
+    return {
+      kind: "context",
+      block: buildLiveResearchPromptBlock(query, result, { localDateInstruction }),
+      sources: result.sources,
+      // Kept so a local composition timeout can still deliver this already
+      // successful, already cited answer without touching any provider again.
+      result,
+    };
+  }
+
+  /**
+   * One sanitized audit event for a verified-source fallback delivery.
+   * Counts, lengths and a failure code only — never the query, answer, titles,
+   * URLs, message body, identifiers, request ids, or provider payloads.
+   */
+  private async auditLiveResearchFallback(args: {
+    sourceCount: number;
+    answerLen: number;
+    searchesUsed: number;
+    elapsedMs: number;
+    timeoutCode: string;
+  }): Promise<void> {
+    try {
+      await logAudit(
+        this.deps.db,
+        auditWebResearchFallback({
+          sourceCount: args.sourceCount,
+          answerLen: args.answerLen,
+          searchesUsed: args.searchesUsed,
+          elapsedMs: args.elapsedMs,
+          timeoutCode: args.timeoutCode,
+        }),
+      );
+    } catch (error) {
+      logBotError("[router] fallback audit write failed", error);
+    }
+  }
+
+  /**
+   * Attach the verified source list to a live-research reply.
+   *
+   * Every URL the model wrote is stripped first: the pairs below come straight
+   * from the search result, so anything the model produced is either a
+   * duplicate or a title bound to the wrong link — which is exactly what the
+   * live proof showed.
+   */
+  private applyVerifiedSources(
+    text: string,
+    sources: LiveWebResearchSource[],
+    claims: LiveWebResearchClaim[] = [],
+    requestedItems?: number,
+  ): string {
+    return applyVerifiedSources(text, sources, claims, requestedItems);
+  }
+
+  /**
+   * One privacy-safe audit event per pre-search attempt. Counts, lengths and a
+   * sanitized failure category only — never the query, answer, sources, URLs,
+   * titles, provider text, identifiers, or environment values.
+   */
+  private async auditLiveResearchPresearch(
+    result: LiveWebResearchResult | null,
+    failureCode: LiveWebResearchFailureCode | null,
+    elapsedMs: number,
+    remainingBudget: number,
+  ): Promise<void> {
+    try {
+      await logAudit(
+        this.deps.db,
+        auditWebPresearch({
+          surface: "whatsapp",
+          status: result?.status ?? "unavailable",
+          available: failureCode === null,
+          searchesUsed: result?.searchesUsed ?? 0,
+          sourceCount: result?.sources.length ?? 0,
+          answerLen: result?.answer.length ?? 0,
+          failureCode,
+          elapsedMs,
+          remainingBudget,
+        }),
+      );
+    } catch (error) {
+      logBotError("[router] presearch audit write failed", error);
     }
   }
 
@@ -476,6 +813,61 @@ export class Router {
       "",
       "No external accounts used. This is from local NitsyClaw history only.",
     ].join("\n");
+  }
+
+  private async formatTodayFocusReply(): Promise<string> {
+    const now = this.deps.now();
+    const evidence = await loadTodayFocusEvidence(this.deps.db, this.tenant().ownerHash, now, this.deps.timezone);
+    const unavailableSources: string[] = [];
+
+    if (this.deps.aggregator) {
+      const [events, emails] = await Promise.allSettled([
+        this.deps.aggregator.fetchAllEventsToday(this.deps.timezone),
+        this.deps.aggregator.fetchAllUnreadEmails(10),
+      ]);
+      if (events.status === "fulfilled") {
+        evidence.push(...events.value.map((event, index): FocusEvidence => ({
+          id: `calendar-${event.source}-${index}`,
+          type: "calendar",
+          title: event.title,
+          source: `calendar:${event.source}`,
+          dueAt: event.start,
+          status: event.start < now ? "started" : "today",
+          confidence: 1,
+        })));
+      } else unavailableSources.push("connected calendars");
+      if (emails.status === "fulfilled") {
+        evidence.push(...emails.value.map((email, index): FocusEvidence => ({
+          id: `email-${email.source}-${index}`,
+          type: "email",
+          title: `${email.subject} - from ${email.from}`,
+          source: `email:${email.source}`,
+          dueAt: email.date,
+          status: "unread",
+          confidence: 0.85,
+        })));
+      } else unavailableSources.push("connected inboxes");
+    } else {
+      unavailableSources.push("connected calendars", "connected inboxes");
+    }
+
+    return formatTodayFocusPlan(buildTodayFocusPlan({ evidence, now, unavailableSources }));
+  }
+
+  private async formatLocalBrainStatusReply(): Promise<string> {
+    const health = await new OllamaProvider().health();
+    const state = health.state === "online" ? "ready" : health.state;
+    return formatWhatsAppReplyShape({
+      answer: `Local brain: ${state}`,
+      state: `Mode: ${localBrainModeFromEnv()} | Ollama: ${health.version ?? "not reachable"}`,
+      details: [
+        `Chat model: ${health.chatModel ?? "no chat model configured"}`,
+        `Memory model: ${health.embeddingModel ?? "no embedding model configured"}`,
+        "Privacy: private requests stay local unless you explicitly approve cloud reasoning.",
+        `Models detected: ${health.models.length}.`,
+      ],
+      next: health.state === "offline" ? "Start Ollama, then send: local brain status" : "Send: what should I focus on today",
+    });
   }
 
   private async formatWeeklyAdminDigestReply(userPhone: string): Promise<string> {
@@ -1268,9 +1660,7 @@ export class Router {
       getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
     ]);
     const runtime = buildBotRuntimeMetadata(process.env, now);
-    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
-      ?? heartbeatMetadataText(botRuntime, "commit")
-      ?? runtime.commitShort;
+    const deployedCommit = runtimeCommitLabel(botRuntime, runtime.commitShort);
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
@@ -1287,7 +1677,7 @@ export class Router {
       loopReason ? `reason: ${loopReason}${loopResetAt ? `, resets ${loopResetAt}` : ""}` : undefined,
     );
     const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
-      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      whatsappSendNeedsAttention(whatsappSend, now) ||
       Boolean(sendError || loopReason || whatsappClientIssue);
 
     return formatWhatsAppReplyShape({
@@ -1300,6 +1690,42 @@ export class Router {
         loopGuardLine,
       ],
       next: whatsappClientIssue ? "Open WhatsApp recovery, scan, then proof test." : needsAttention ? "what went wrong | resume whatsapp" : "status | proof test | proof details",
+    });
+  }
+
+  private async formatNotifyTestReply(): Promise<string> {
+    const result = await notifyAll(
+      "NitsyClaw notification test. If you can see this, ntfy/toast is working.",
+      { title: "NitsyClaw notify test", priority: "high", tags: ["test_tube"] },
+      this.deps.db,
+    );
+    return formatWhatsAppReplyShape({
+      answer: "Notification test sent.",
+      state: `ntfy: ${result.ntfy}, toast: ${result.toast}, mail: ${result.msMail}.`,
+      details: [
+        `All-channel failure streak: ${result.consecutiveAllChannelFailures}.`,
+      ],
+      next: "If your phone did not buzz, send: notify status",
+    });
+  }
+
+  private async formatNotifyStatusReply(): Promise<string> {
+    const now = this.deps.now();
+    const heartbeat = await getSystemHeartbeat(this.deps.db, "notify-channels");
+    const ntfy = heartbeatMetadataText(heartbeat, "ntfy") ?? "not checked";
+    const toast = heartbeatMetadataText(heartbeat, "toast") ?? "not checked";
+    const msMail = heartbeatMetadataText(heartbeat, "msMail") ?? "not checked";
+    const failures = heartbeatMetadataText(heartbeat, "consecutiveAllChannelFailures") ?? "0";
+    return formatWhatsAppReplyShape({
+      answer: heartbeat ? "Notification status loaded." : "Notification status has no heartbeat yet.",
+      state: heartbeatLine("Notify channels", heartbeat, now, 24 * 60 * 60 * 1000),
+      details: [
+        `ntfy: ${ntfy}`,
+        `toast: ${toast}`,
+        `mail: ${msMail}`,
+        `failure streak: ${failures}`,
+      ],
+      next: "notify test",
     });
   }
 
@@ -1337,9 +1763,7 @@ export class Router {
       getSystemHeartbeat(this.deps.db, "whatsapp-loop-guard"),
     ]);
     const runtime = buildBotRuntimeMetadata(process.env, now);
-    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
-      ?? heartbeatMetadataText(botRuntime, "commit")
-      ?? runtime.commitShort;
+    const deployedCommit = runtimeCommitLabel(botRuntime, runtime.commitShort);
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
@@ -1366,7 +1790,7 @@ export class Router {
     );
     const needsAttention = !persistence.ok ||
       classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
-      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      whatsappSendNeedsAttention(whatsappSend, now) ||
       Boolean(sendError || loopReason || whatsappClientIssue);
 
     if (!detail) {
@@ -1552,9 +1976,7 @@ export class Router {
     ]);
 
     const runtime = buildBotRuntimeMetadata(process.env, now);
-    const deployedCommit = heartbeatMetadataText(botRuntime, "commitShort")
-      ?? heartbeatMetadataText(botRuntime, "commit")
-      ?? runtime.commitShort;
+    const deployedCommit = runtimeCommitLabel(botRuntime, runtime.commitShort);
     const loopReason = heartbeatMetadataText(whatsappLoopGuard, "reason");
     const loopResetAt = heartbeatMetadataText(whatsappLoopGuard, "resetAt");
     const sendError = heartbeatMetadataText(whatsappSend, "error");
@@ -1564,7 +1986,7 @@ export class Router {
     const queueSummary = summarizeFeatureQueueStatus({ pending: pendingQueue, limit: 3 });
     const nextQueue = queueSummary.recommendedNext ?? queueSummary.quickWins[0] ?? queueSummary.topPending[0];
     const needsAttention = classifyHeartbeat(whatsappClient, now, 2 * 60 * 1000) !== "ok" ||
-      classifyHeartbeat(whatsappSend, now, 10 * 60 * 1000) !== "ok" ||
+      whatsappSendNeedsAttention(whatsappSend, now) ||
       Boolean(loopReason || sendError || whatsappClientIssue || recentFailures.length);
 
     return formatWhatsAppReplyShape({
@@ -2008,14 +2430,22 @@ export class Router {
 
   async handle(msg: InboundMessage): Promise<void> {
     if (msg.from !== this.ownerPhone) return; // R2 — only owner
-    const dedupeKey = `whatsapp:${msg.id}`;
-    const existingCommandJob = await getCommandJobByDedupeKey(this.deps.db, dedupeKey);
+    // Only a real WhatsApp message id can identify a previous job. Without one
+    // (seen on @lid self-chat events) every message would share the key
+    // "whatsapp:" and replay the first stored receipt instead of being routed.
+    const externalId = whatsAppExternalId(msg);
+    const existingCommandJob = externalId
+      ? await getCommandJobByDedupeKey(this.deps.db, `whatsapp:${externalId}`)
+      : null;
     if (existingCommandJob && isGateReplay(existingCommandJob.status)) {
       await this.sendAndPersistBestEffort(formatCommandReceiptForWhatsApp(existingCommandJob.receiptText), "command gate replay");
       return;
     }
     if (existingCommandJob && isTerminalReplay(existingCommandJob.status)) return;
-    if (!this.rememberExternalMessageId(msg.id)) return;
+    // Duplicate protection still applies when the id is missing: fall back to a
+    // non-identifying digest of this turn so message/message_create pairs and
+    // provider replays run exactly once.
+    if (!this.rememberExternalMessageId(externalId || inboundReplayKey(msg))) return;
 
     const initialPrivateMode = parsePrivateModeInput(msg.body);
     if (initialPrivateMode) {
@@ -2023,9 +2453,20 @@ export class Router {
       if (msg.mediaType === "voice" && msg.downloadMedia) {
         try {
           const media = await msg.downloadMedia();
-          privateText = await this.deps.transcriber.transcribe(media.data, media.mimetype);
+          const transcription = coerceTranscriptionResult(await this.deps.transcriber.transcribe(media.data, media.mimetype, {
+            filename: media.filename,
+            declaredSizeBytes: msg.mediaSizeBytes,
+            declaredDurationSeconds: msg.mediaDurationSeconds,
+            correlationId: voiceCorrelationId(msg.id || inboundReplayKey(msg)),
+          }) as unknown, { mimetype: media.mimetype, bytes: media.data.byteLength });
+          privateText = transcription.text;
+          updateVoiceTurnTranscript(transcription);
         } catch (error) {
-          await this.sendWithoutPersistence("Private mode is on, but I could not transcribe that voice note.");
+          forceVoiceTurnText();
+          await this.sendWithoutPersistence(
+            "Private mode is on, but I could not transcribe that voice note locally. The audio was not sent to a cloud service.",
+            { deliveryPreference: "text" },
+          );
           logBotError("[router] private voice transcription failed", error);
           return;
         }
@@ -2054,11 +2495,24 @@ export class Router {
       fromNumber: hashPhone(msg.from),
       body: encryptedBody,
       mediaType: msg.mediaType ?? null,
-      metadata: { masked: maskPhone(msg.from) },
+      metadata: msg.mediaType === "voice"
+        ? {
+            masked: maskPhone(msg.from),
+            voice: {
+              version: 1,
+              status: "received",
+              correlationId: voiceCorrelationId(msg.id || inboundReplayKey(msg)),
+              rawAudioPersisted: false,
+              cloudVoiceUsed: false,
+            },
+          }
+        : { masked: maskPhone(msg.from) },
     });
+    if (msg.mediaType === "voice") bindVoiceTurnMessage(persisted.id);
 
     // 1. Voice note → transcribe → continue as if it were text.
     let effectiveText = msg.body;
+    let voiceTranscription: TranscriptionResult | undefined;
     let commandJob = existingCommandJob ?? await this.createWhatsAppCommandJob(
       msg,
       persisted.id,
@@ -2069,35 +2523,171 @@ export class Router {
 
     if (msg.mediaType === "voice" && msg.downloadMedia) {
       try {
+        await mergeVoiceMessageMetadata(this.deps.db, persisted.id, {
+          status: "downloading",
+          updatedAt: this.deps.now().toISOString(),
+        });
         const media = await msg.downloadMedia();
-        const { transcript } = await transcribeAndStore({
+        const { transcript, transcription } = await transcribeAndStore({
           audio: media.data,
           mimetype: media.mimetype,
           transcriber: this.deps.transcriber,
           db: this.deps.db,
+          ownerHash: hashPhone(this.ownerPhone),
           sourceMessageId: persisted.id,
+          options: {
+            filename: media.filename,
+            declaredSizeBytes: msg.mediaSizeBytes,
+            declaredDurationSeconds: msg.mediaDurationSeconds,
+            correlationId: voiceCorrelationId(msg.id || inboundReplayKey(msg)),
+            onProgress: async (stage) => {
+              if (stage !== "validated") return;
+              forceVoiceTurnText();
+              try {
+                await this.sendAndPersist("I’m transcribing that longer voice note locally.", {
+                  deliveryPreference: "text",
+                  finalResponse: false,
+                });
+              } finally {
+                forceVoiceTurnText(false);
+              }
+            },
+          },
         });
         effectiveText = transcript;
-        commandJob = await refreshCommandJobIntent(this.deps.db, commandJob.id, effectiveText, true);
+        voiceTranscription = transcription;
+        updateVoiceTurnTranscript(transcription);
+        await mergeVoiceMessageMetadata(this.deps.db, persisted.id, {
+          status: "transcribed",
+          container: transcription.media.container,
+          codec: transcription.media.codec,
+          bytes: transcription.media.bytes,
+          durationMs: Math.round(transcription.media.durationSeconds * 1_000),
+          channels: transcription.media.channels,
+          sampleRate: transcription.media.sampleRate,
+          language: transcription.language,
+          languageConfidence: transcription.languageConfidence,
+          providerConfidenceAvailable: transcription.providerConfidence !== null,
+          quality: transcription.quality,
+          probeMs: transcription.timingsMs.probe,
+          decodeMs: transcription.timingsMs.decode,
+          transcribeMs: transcription.timingsMs.transcribe,
+          updatedAt: this.deps.now().toISOString(),
+        });
+        if (transcription.quality === "low" || voiceAuthorityNeedsClarification(effectiveText)) {
+          forceVoiceTurnText();
+          const reply = transcription.quality === "low"
+            ? "I’m not confident enough in that recording to act on it. Please repeat the key instruction in one short voice note or text."
+            : "I heard an action inside quoted or background speech. Was that your instruction, or something you were quoting?";
+          await this.completeWhatsAppCommandJob(commandJob, reply);
+          await this.sendAndPersist(reply, { deliveryPreference: "text" });
+          return;
+        }
+        const tenant = this.tenant();
+        const [contactRows, productRows] = await Promise.all([
+          listVerifiedVoiceContacts(this.deps.db, tenant).catch((error) => {
+            logBotError("[router] verified voice contacts unavailable", error);
+            return [];
+          }),
+          listVerifiedVoiceProducts(this.deps.db, tenant).catch((error) => {
+            logBotError("[router] verified voice products unavailable", error);
+            return [];
+          }),
+        ]);
+        const verification = verifyVoiceTranscript({
+          rawTranscript: effectiveText,
+          ownerHash: tenant.ownerHash,
+          language: transcription.language,
+          providerConfidence: transcription.providerConfidence,
+          locale: transcription.language === "hindi" || transcription.language === "hinglish" ? "hi-IN" : "en-AU",
+          contacts: contactRows.flatMap((row) => {
+            try {
+              const aliases = JSON.parse(decryptString(row.aliasesCiphertext)) as unknown;
+              if (!Array.isArray(aliases) || !aliases.every((alias) => typeof alias === "string")) return [];
+              return [{
+                id: row.id,
+                ownerHash: row.ownerHash,
+                displayName: decryptString(row.displayNameCiphertext),
+                channel: row.channel,
+                maskedDestination: row.maskedDestination,
+                aliases,
+                verified: row.revokedAt === null,
+              }];
+            } catch {
+              logBotError("[router] verified voice contact record rejected", new Error("invalid encrypted contact record"));
+              return [];
+            }
+          }),
+          products: productRows.map((row) => ({
+            id: row.id,
+            ownerHash: row.ownerHash,
+            canonicalKey: row.canonicalKey,
+            brand: row.brand,
+            model: row.model,
+            aliases: row.aliases,
+            verified: row.revokedAt === null,
+          })),
+        });
+        await mergeVoiceMessageMetadata(this.deps.db, persisted.id, {
+          verifier: {
+            schemaVersion: verification.schemaVersion,
+            policyVersion: verification.policyVersion,
+            tier: verification.tier,
+            disposition: verification.disposition,
+            semanticStatus: verification.semanticStatus,
+            externalActionAllowed: false,
+            reasons: verification.reasons,
+            entities: verification.entities.map((entity) => ({
+              fieldType: entity.fieldType,
+              resolution: entity.resolution,
+              source: entity.source,
+              recordId: entity.recordId,
+              canonicalHash: entity.canonicalValue
+                ? createHash("sha256").update(entity.canonicalValue, "utf8").digest("hex")
+                : undefined,
+            })),
+          },
+          updatedAt: this.deps.now().toISOString(),
+        });
+        const verifierBlock = formatVoiceVerifierBlock(verification);
+        if (verifierBlock) {
+          commandJob = await holdCommandJobForVoiceVerification(
+            this.deps.db,
+            commandJob.id,
+            encryptForStorage(effectiveText),
+            verifierBlock,
+          );
+          await this.sendAndPersistBestEffort(verifierBlock, "voice verifier gate");
+          return;
+        }
+        commandJob = await refreshCommandJobIntent(
+          this.deps.db,
+          commandJob.id,
+          effectiveText,
+          true,
+          { storedCommand: encryptForStorage(effectiveText) },
+        );
         if (commandJob.status === "needs_approval" || commandJob.status === "needs_clarification") {
           await this.sendAndPersistBestEffort(formatCommandReceiptForWhatsApp(commandJob.receiptText), "voice command gate");
           return;
         }
+        commandJob = await markCommandJobWorking(this.deps.db, commandJob.id);
       } catch (e) {
         await this.failWhatsAppCommandJob(commandJob, e);
-        // "OPENAI_API_KEY not set" is a permanent config error (adapters.ts
-        // buildAgentDeps throws this from the transcriber stub), not a
-        // transient one — "try again shortly" falsely tells the user
-        // retrying will help when every voice note will fail identically
-        // until the key is configured.
-        const isMissingKey = e instanceof Error && e.message.includes("OPENAI_API_KEY not set");
-        const userMessage = isMissingKey
-          ? "Voice transcription isn't configured yet (missing OpenAI API key) — text works fine in the meantime."
-          : "Couldn't transcribe that voice note. I logged it; try again shortly.";
+        forceVoiceTurnText();
+        const userMessage = formatVoiceTranscriptionFailure(e);
         await this.sendPublicFailure("voice transcription", userMessage, e);
         return;
       }
     }
+
+    const voiceControlHandled = await this.handleVoiceControlCommand(
+      effectiveText,
+      commandJob,
+      persisted.id,
+      msg.mediaType === "voice",
+    );
+    if (voiceControlHandled) return;
 
     // 2. Image → try receipt first; if extraction yields no amount, fall back
     //    to general image identification (feature_request fr_29956dc5).
@@ -2110,6 +2700,7 @@ export class Router {
           analyzer: this.deps.imageAnalyzer,
           db: this.deps.db,
           now: this.deps.now(),
+          ownerHash: hashPhone(this.ownerPhone),
           sourceMessageId: persisted.id,
         });
         if (out && out.amount && out.amount > 0) {
@@ -2167,6 +2758,7 @@ export class Router {
             csv: rawCsv,
             db: this.deps.db,
             now: this.deps.now(),
+            ownerHash: hashPhone(this.ownerPhone),
             defaultCurrency: process.env.DEFAULT_CURRENCY ?? "AUD",
             sourceMessageId: persisted.id,
           });
@@ -2488,6 +3080,21 @@ export class Router {
       return;
     }
 
+    const notifyCommand = parseNotifyCommand(effectiveText);
+    if (notifyCommand) {
+      try {
+        const reply = notifyCommand === "test"
+          ? await this.formatNotifyTestReply()
+          : await this.formatNotifyStatusReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (notifyError) {
+        await this.failWhatsAppCommandJob(commandJob, notifyError);
+        await this.sendPublicFailure("notification check", "Couldn't check notifications. I logged it; try again shortly.", notifyError);
+      }
+      return;
+    }
+
     const selfTest = parseWhatsAppSelfTestShortcut(effectiveText);
     if (selfTest) {
       try {
@@ -2611,6 +3218,27 @@ export class Router {
         await this.failWhatsAppCommandJob(commandJob, dailyStatusError);
         await this.sendPublicFailure("daily status", "Couldn't load daily status. I logged it; try again shortly.", dailyStatusError);
       }
+      return;
+    }
+
+    const todayFocus = parseTodayFocusShortcut(effectiveText);
+    if (todayFocus) {
+      try {
+        const reply = await this.formatTodayFocusReply();
+        await this.sendAndPersist(reply);
+        await this.completeWhatsAppCommandJob(commandJob, reply);
+      } catch (todayFocusError) {
+        await this.failWhatsAppCommandJob(commandJob, todayFocusError);
+        await this.sendPublicFailure("today focus", "Couldn't build today's focus. I logged it; try again shortly.", todayFocusError);
+      }
+      return;
+    }
+
+    const localBrainStatus = parseLocalBrainStatusShortcut(effectiveText);
+    if (localBrainStatus) {
+      const reply = await this.formatLocalBrainStatusReply();
+      await this.sendAndPersist(reply);
+      await this.completeWhatsAppCommandJob(commandJob, reply);
       return;
     }
 
@@ -2828,30 +3456,101 @@ export class Router {
 
     try {
       await markCommandJobWorking(this.deps.db, commandJob.id);
-      const promptProfile = await resolvePromptProfileFromContext(this.deps.db, {
+      let promptProfile = await resolvePromptProfileFromContext(this.deps.db, {
         userPhone: msg.from,
         now: this.deps.now(),
         fallback: this.deps.profile,
       }).catch(() => this.deps.profile);
+      // One owner turn gets ONE server-search budget. The pre-search below and
+      // the `web_research` tool the model may call inside the loop both draw
+      // from this single allowance, so a turn can never bill max_uses per
+      // provider invocation.
+      const turnResearcher = this.deps.liveResearch
+        ? createTurnScopedResearcher(this.deps.liveResearch)
+        : undefined;
+      // One collector per turn, shared by the pre-search, the web_research tool,
+      // and both delivery paths. Never module-level, so turns stay isolated.
+      const turnSources = createVerifiedSourceCollector();
+      // Counts sends made by tools during the loop, so a turn that already
+      // replied can never be followed by a fallback reply.
+      const turnWhatsApp = countingWhatsAppClient(this.deps.whatsapp);
+      if (voiceTranscription) {
+        const voicePreferences = await getVoicePreferences(
+          this.deps.db,
+          hashPhone(this.ownerPhone),
+        ).catch(() => ({ mode: "automatic" as const, language: "preserve" as const, brief: false }));
+        const requestedLanguage = voicePreferences.language === "preserve"
+          ? voiceTranscription.language
+          : voicePreferences.language;
+        promptProfile = {
+          ...promptProfile,
+          replyLanguage: displayVoiceLanguage(requestedLanguage),
+        };
+      }
       const agentDeps = {
         ...this.deps,
+        whatsapp: turnWhatsApp,
+        liveResearch: turnResearcher,
+        verifiedSources: turnSources,
         profile: promptProfile,
         timezone: promptProfile?.timezone ?? this.deps.timezone,
       };
-      const result = await runAgent({
+      // An explicit ask for live information searches in this same turn, before
+      // the model gets a chance to reply "would you like me to search?".
+      let liveResearchBlock: string | undefined;
+      let liveResearchFallback: LiveWebResearchResult | undefined;
+      if (isExplicitLiveWebResearchRequest(effectiveText)) {
+        const outcome = await this.runLiveResearchForTurn(effectiveText, turnResearcher);
+        if (outcome.kind === "unavailable") {
+          await this.sendAndPersist(outcome.message);
+          await completeCommandJob(this.deps.db, commandJob.id, outcome.message);
+          return;
+        }
+        liveResearchBlock = outcome.block;
+        turnSources.record(outcome.sources);
+        turnSources.recordClaims(outcome.result.claims);
+        // Only a pre-search that passed hasUsableFindings reaches here, so the
+        // fallback is eligible exactly when a cited answer already exists.
+        liveResearchFallback = outcome.result;
+      }
+      // reply_to_user sends from inside its own handler, so a reply delivered
+      // that way can never be post-processed. Withholding it for live-research
+      // turns forces the answer through finalText, where applyVerifiedSources
+      // replaces model-written links with verified title/URL pairs. Ordinary
+      // turns keep the tool — the shared registry is untouched.
+      const turnRegistry = liveResearchBlock ? this.registry.without("reply_to_user") : this.registry;
+      const agentStartedAt = Date.now();
+      const agentOutcome = await this.runAgentTurn({
         userPhone: msg.from,
         userMessage: effectiveText,
         history,
-        systemPrompt: buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }),
-        registry: this.registry,
+        systemPrompt: [buildSystemPrompt({ surface: "whatsapp", profile: promptProfile }), liveResearchBlock]
+          .filter(Boolean)
+          .join("\n\n"),
+        registry: turnRegistry,
         deps: agentDeps,
+        agentStartedAt,
+        liveResearchFallback,
+        turnWhatsApp,
+        commandJobId: commandJob.id,
       });
+      // `undefined` means the live-research timeout fallback already delivered a
+      // cited answer and closed the job, so this turn is finished.
+      if (!agentOutcome) return;
+      const result = agentOutcome;
       // The agent should have already replied via reply_to_user; only echo if it didn't.
       const replyToUserCall = result.toolCalls.find((c) => c.name === "reply_to_user" && c.success);
       let deliveredText = "";
       if (replyToUserCall) {
-        // The tool already sent via WhatsApp; persist the reply for cross-surface history.
-        const text = sanitizeUserFacingReply((replyToUserCall.input as { text?: string })?.text ?? "");
+        // The tool already sent via WhatsApp; persist what it actually delivered.
+        // It applies the same turn-scoped verified sources before sending, so
+        // reproducing that here keeps history and the chat in step.
+        const text = this.applyVerifiedSources(
+          sanitizeUserFacingReply((replyToUserCall.input as { text?: string })?.text ?? ""),
+          turnSources.list(),
+          turnSources.claims(),
+          parseRequestedItemCount(effectiveText),
+        );
         deliveredText = text;
         if (text.trim()) {
           try {
@@ -2868,8 +3567,19 @@ export class Router {
           notifyAll(text, { title: "NitsyClaw replied", priority: "default" }, this.deps.db).catch(() => {});
         }
       } else if (result.finalText.trim()) {
-        deliveredText = result.finalText;
-        await this.sendAndPersist(result.finalText);
+        // Live-research answers are delivered here, so this is where the verified
+        // title/URL pairs replace whatever links the model wrote.
+        const finalText = this.applyVerifiedSources(
+          result.finalText,
+          turnSources.list(),
+          turnSources.claims(),
+          parseRequestedItemCount(effectiveText),
+        );
+        deliveredText = finalText;
+        await this.sendAndPersist(finalText);
+      }
+      if (!deliveredText.trim()) {
+        throw new EmptyAgentResponseError();
       }
       if (shouldAppendFeatureQueueStatus) {
         try {
@@ -2974,6 +3684,62 @@ export class Router {
     return `People memory\n${lines.join("\n")}\nSafety: I will draft before contacting anyone.`;
   }
 
+  /**
+   * Runs the agent for one owner turn.
+   *
+   * The try wraps the agent call and nothing else, so only a failure of the run
+   * itself can reach the fallback. Returns `undefined` when local composition
+   * timed out and a cited pre-search answer was delivered instead — the caller
+   * must then stop, because the job is already completed.
+   */
+  private async runAgentTurn(args: {
+    userPhone: string;
+    userMessage: string;
+    history: Parameters<typeof runAgent>[0]["history"];
+    systemPrompt: string;
+    registry: Parameters<typeof runAgent>[0]["registry"];
+    deps: Parameters<typeof runAgent>[0]["deps"];
+    agentStartedAt: number;
+    liveResearchFallback: LiveWebResearchResult | undefined;
+    turnWhatsApp: { sentCount: () => number };
+    commandJobId: string;
+  }): Promise<Awaited<ReturnType<typeof runAgent>> | undefined> {
+    try {
+      const result = await runAgent({
+        userPhone: args.userPhone,
+        userMessage: args.userMessage,
+        history: args.history,
+        systemPrompt: args.systemPrompt,
+        registry: args.registry,
+        deps: args.deps,
+      });
+      return result;
+    } catch (error) {
+      // Local composition timed out, but the search already succeeded. Deliver
+      // that cited answer rather than a generic failure. Typed check only —
+      // database, Anthropic, tool and validation errors fall through, and no
+      // provider is called or retried here.
+      const timedOut = error instanceof OllamaProviderError && error.code === "timeout";
+      if (!timedOut || !args.liveResearchFallback || args.turnWhatsApp.sentCount() > 0) throw error;
+
+      const reply = formatLiveWebResearchForWhatsApp(
+        args.liveResearchFallback,
+        parseRequestedItemCount(args.userMessage),
+      );
+      await this.sendAndPersist(reply);
+      await this.auditLiveResearchFallback({
+        sourceCount: args.liveResearchFallback.sources.length,
+        answerLen: args.liveResearchFallback.answer.length,
+        searchesUsed: args.liveResearchFallback.searchesUsed,
+        elapsedMs: Date.now() - args.agentStartedAt,
+        timeoutCode: error.code,
+      });
+      // Completed normally, so a WhatsApp redelivery cannot run it again.
+      await completeCommandJob(this.deps.db, args.commandJobId, reply);
+      return undefined;
+    }
+  }
+
 }
 
 function dateInTimezoneToUtc(localDateIso: string, hour: number, timezone: string): Date {
@@ -3015,11 +3781,27 @@ function heartbeatLine(
   staleAfterMs: number,
   detail?: string,
 ): string {
-  const freshness = classifyHeartbeat(heartbeat, now, staleAfterMs);
-  if (!heartbeat) return `${label}: missing`;
+  const state = classifyWhatsAppHealthSignal({
+    heartbeat,
+    now,
+    staleAfterMs,
+    kind: label === "WhatsApp send" || label === "Inbound routing" || label === "Notify channels"
+      ? "event"
+      : "periodic",
+  });
+  if (!heartbeat) return `${label}: not tested`;
   const ageSeconds = Math.max(0, Math.round((now.getTime() - heartbeat.lastSeenAt.getTime()) / 1000));
   const suffix = detail ? ` - ${detail}` : "";
-  return `${label}: ${heartbeat.status} (${freshness}, ${ageSeconds}s ago)${suffix}`;
+  return `${label}: ${heartbeat.status} (${state}, ${ageSeconds}s ago)${suffix}`;
+}
+
+function whatsappSendNeedsAttention(heartbeat: SystemHeartbeat | null, now: Date): boolean {
+  return requiresWhatsAppAttention(classifyWhatsAppHealthSignal({
+    heartbeat,
+    now,
+    staleAfterMs: 10 * 60 * 1000,
+    kind: "event",
+  }));
 }
 
 function whatsappClientRecoveryHint(heartbeat: SystemHeartbeat | null): string | null {
@@ -3044,6 +3826,13 @@ function heartbeatMetadataText(heartbeat: SystemHeartbeat | null, key: string): 
   return String(value).slice(0, 160);
 }
 
+function runtimeCommitLabel(heartbeat: SystemHeartbeat | null, detectedCommit: string): string {
+  const recorded = heartbeatMetadataText(heartbeat, "commitShort")
+    ?? heartbeatMetadataText(heartbeat, "commit");
+  if (recorded && !["unknown", "unavailable"].includes(recorded.toLowerCase())) return recorded;
+  return detectedCommit;
+}
+
 function confirmationNeedsExplicitId(action: string): boolean {
   return action === "email_create_draft" ||
     action === "create_calendar_event" ||
@@ -3063,6 +3852,23 @@ function confirmationActionLabel(action: string): string {
   }
 }
 
+export function whatsAppExternalId(msg: Pick<InboundMessage, "id">): string {
+  return (msg.id ?? "").trim();
+}
+
+/**
+ * Stable, non-identifying replay key for inbound turns WhatsApp delivered
+ * without a serialized message id. In-memory duplicate protection only - it is
+ * never stored, logged, or used as a database dedupe key.
+ */
+export function inboundReplayKey(msg: Pick<InboundMessage, "body" | "timestamp" | "mediaType">): string {
+  const seconds = Math.floor((msg.timestamp?.getTime() ?? 0) / 1000);
+  return `noid:${createHash("sha256")
+    .update(`${seconds}|${msg.mediaType ?? "text"}|${msg.body ?? ""}`)
+    .digest("hex")
+    .slice(0, 32)}`;
+}
+
 function isTerminalReplay(status: CommandJob["status"]): boolean {
   return status === "done" || status === "failed";
 }
@@ -3078,6 +3884,73 @@ function shouldSendImmediateReceipt(job: CommandJob): boolean {
 
 function formatCommandReceiptForWhatsApp(receiptText: string): string {
   return receiptText.replace(/^Saved\.\s+/i, "");
+}
+
+function voiceCorrelationId(value: string): string {
+  return `voice_${createHash("sha256").update(value).digest("hex").slice(0, 16)}`;
+}
+
+function formatVoiceTranscriptionFailure(error: unknown): string {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code ?? "")
+    : "";
+  switch (code) {
+    case "media_too_large":
+      return "That voice note is over the 8 MB local safety limit. Please send a shorter recording.";
+    case "duration_too_long":
+      return "That voice note is over the 3 minute local limit. Please split it into shorter notes.";
+    case "unsupported_mime":
+    case "unsupported_codec":
+    case "mime_spoof":
+    case "invalid_container":
+    case "invalid_audio_shape":
+    case "decode_failed":
+      return "I could not safely validate that audio. Please resend it as a normal WhatsApp voice note.";
+    case "silent_audio":
+      return "That recording appears silent. Please try again closer to the microphone.";
+    case "transcription_empty":
+      return "I could not hear understandable speech. Please repeat the key instruction in a shorter note.";
+    case "queue_full":
+      return "I’m still processing earlier owner messages. Please retry after they finish.";
+    case "transcription_timeout":
+      return "Local transcription reached its deadline and stopped safely. Please send a shorter voice note.";
+    case "local_tool_unavailable":
+      return "Local voice transcription is unavailable on this machine. Text still works; no cloud voice fallback was used.";
+    default:
+      return "I could not transcribe that voice note locally. Please retry with a shorter recording or use text. No cloud voice fallback was used.";
+  }
+}
+
+function decryptStoredText(value: string): string {
+  try {
+    return isEncryptedString(value) ? decryptString(value) : value;
+  } catch {
+    return "";
+  }
+}
+
+function parseVoiceCorrection(text: string): { intended: string; mistaken: string } | null {
+  const match = text.normalize("NFKC").match(/\b(?:no[, ]+)?i said\s+(.+?)[,;]?\s+not\s+(.+?)[.!?]*$/i);
+  const intended = match?.[1]?.trim();
+  const mistaken = match?.[2]?.trim();
+  if (!intended || !mistaken || intended.length > 80 || mistaken.length > 80) return null;
+  return { intended, mistaken };
+}
+
+function replaceFirstInsensitive(text: string, search: string, replacement: string): string {
+  const index = text.toLocaleLowerCase().indexOf(search.toLocaleLowerCase());
+  if (index < 0) return text;
+  return `${text.slice(0, index)}${replacement}${text.slice(index + search.length)}`;
+}
+
+function displayVoiceLanguage(language: string): string {
+  switch (language) {
+    case "hindi": return "Hindi";
+    case "hinglish": return "natural Hinglish in Latin script";
+    case "mixed": return "the same natural Hindi-English mixture as the user";
+    case "english": return "English";
+    default: return "English";
+  }
 }
 
 function buildWhatsAppCommandSummary(msg: InboundMessage, text: string): string {
@@ -3180,6 +4053,17 @@ function normalizeForRepeat(value: string): string {
 
 function normalizeCommandForDemo(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
+}
+
+function parseNotifyCommand(value: string): "test" | "status" | null {
+  const normalized = normalizeCommandForDemo(value);
+  if (["notify test", "notification test", "ntfy test", "test notifications", "test notification"].includes(normalized)) {
+    return "test";
+  }
+  if (["notify status", "notification status", "ntfy status", "notification check", "notifications status"].includes(normalized)) {
+    return "status";
+  }
+  return null;
 }
 
 function isExactCommand(command: string, expected: string[]): boolean {

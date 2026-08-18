@@ -1,8 +1,43 @@
 packages:
   - "apps/*"
   - "packages/*"
+# SINGLE OVERRIDE AUTHORITY. `package.json > pnpm.overrides` previously held a
+# second, diverged copy of this list; it silently won, so edits here were inert
+# and an `ip-address: 10.1.1` pin held a vulnerable version in place. That
+# property is removed and this file is now the only source. Targets are exact
+# fixed versions, not open-ended ranges, so a resolution can never drift upward
+# without a visible edit here.
 overrides:
-  drizzle-orm@<0.45.2: '>=0.45.2'
-  esbuild@<=0.24.2: 0.25.0
-  postcss@<8.5.10: '>=8.5.10'
-  vite@<=6.4.1: 6.4.2
+  # Carried over unchanged from the former package.json list.
+  drizzle-orm@<0.45.2: '0.45.2'
+  esbuild@<0.28.1: '0.28.1'
+  basic-ftp@<=5.3.1: '5.3.1'
+  qs@>=6.11.1 <=6.15.1: '6.15.2'
+  # Carried over, advanced to the advisory-clearing version.
+  postcss@<8.5.23: '8.5.23'
+  vite@<=6.4.2: '6.4.3'
+  ws@>=8.0.0 <8.21.0: '8.21.0'
+  brace-expansion@>=5.0.0 <5.0.9: '5.0.9'
+  # New, clearing published advisories. Per-major so a consumer of one major is
+  # never forced onto another.
+  brace-expansion@<1.1.18: '1.1.18'
+  brace-expansion@>=2.0.0 <2.1.4: '2.1.4'
+  js-yaml@>=4.0.0 <4.3.1: '4.3.1'
+  nanoid@>=3.0.0 <3.3.18: '3.3.18'
+  form-data@>=4.0.0 <4.0.6: '4.0.6'
+  # Replaces the removed unconditional `ip-address: 10.1.1` pin, which held the
+  # exact version carrying GHSA-mwp4-54f8-5fhr, -4xrf-jv44-h6hh and -22jq-vg5j-6vgg.
+  ip-address@<10.3.1: '10.3.1'
+  # CANDIDATES UNDER TEST (Option E). Both cross a boundary the parent declares,
+  # so neither ships without the empirical proofs.
+  # whatsapp-web.js@1.34.7 pins puppeteer to exactly 24.38.0; 25.5.0 is the first
+  # release whose @puppeteer/browsers (3.1.0) drops extract-zip entirely.
+  puppeteer@<25.5.0: '25.5.0'
+  # next@16.2.11 declares sharp ^0.34.5; 0.35.3 is the advisory-clearing version.
+  sharp@<0.35.3: '0.35.3'
+# Supply-chain controls (pnpm >= 10.26). Newly published versions are not installed
+# immediately, transitive dependencies may not come from exotic sources, and a
+# resolved version may never be silently downgraded.
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade

@@ -20,7 +20,9 @@ import { privateOwnerTenantForPhone } from "@nitsyclaw/shared/tenancy";
 import { fetchAllEventsToday, fetchAllUnreadEmails } from "./adapters.js";
 import { runDailyBuildAgent } from "./build-agent.js";
 import { sendNightlyWhatsAppHealthReport } from "./nightly-health-report.js";
+import { notifyAll } from "./notify-all.js";
 import { formatSafeLogError, logBotError } from "./safe-log.js";
+import { claimScheduledRun } from "./scheduled-run-guard.js";
 
 const MORNING_BRIEF_CRON = process.env.MORNING_BRIEF_CRON ?? "0 7 * * *";
 const BUILD_AGENT_CRON = process.env.BUILD_AGENT_CRON ?? "0 12 * * *";
@@ -109,6 +111,12 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       try {
         const now = opts.deps.now();
         if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+        if (!await claimScheduledRun(opts.deps.db, {
+          name: "morning-brief",
+          now,
+          timezone: opts.deps.timezone,
+          cadence: "daily",
+        })) return;
 
         const events = await fetchAllEventsToday(opts.deps.timezone).catch(() => []);
         const unreadEmails = await fetchAllUnreadEmails(3).catch(() => []);
@@ -156,6 +164,12 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       try {
         const now = opts.deps.now();
         if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+        if (!await claimScheduledRun(opts.deps.db, {
+          name: "nightly-whatsapp-health",
+          now,
+          timezone: opts.deps.timezone,
+          cadence: "daily",
+        })) return;
         await sendNightlyWhatsAppHealthReport(opts.deps, opts.ownerPhone);
         await writeHeartbeat("whatsapp-nightly-health", { lastRun: now.toISOString() });
       } catch (e) {
@@ -175,14 +189,32 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
   tasks.push(
     cron.schedule(ENTITY_EXTRACT_CRON, async () => {
       try {
-        const result = await runAutoEntityExtraction(
+        const now = opts.deps.now();
+        if (!await claimScheduledRun(opts.deps.db, {
+          name: "entity-extract",
+          now,
+          timezone: opts.deps.timezone,
+          cadence: "five_minute",
+        })) return;
+        const runExtraction = (llm: AgentDeps["llm"]) => runAutoEntityExtraction(
           opts.deps.db,
-          opts.deps.llm,
+          llm,
           opts.ownerPhone,
-          { lookbackMs: 15 * 60 * 1000, perTickLimit: 10 },
+          { lookbackMs: 15 * 60 * 1000, perTickLimit: 1 },
         );
+        const outcome = opts.deps.runBackgroundLlmJob
+          ? await opts.deps.runBackgroundLlmJob(runExtraction)
+          : { status: "completed" as const, value: await runExtraction(opts.deps.llm) };
+        if (outcome.status === "busy") {
+          await writeHeartbeat("entity-extract", {
+            lastRun: now.toISOString(),
+            state: "skipped_interactive_model_busy",
+          });
+          return;
+        }
+        const result = outcome.value;
         await writeHeartbeat("entity-extract", {
-          lastRun: opts.deps.now().toISOString(),
+          lastRun: now.toISOString(),
           ...result,
         });
       } catch (e) {
@@ -206,6 +238,15 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
           opts.ownerPhone,
           now,
           opts.deps.timezone,
+          {
+            notify: async ({ body }) => {
+              await notifyAll(
+                body,
+                { title: "NitsyClaw calendar heads up", priority: "high", tags: ["calendar", "bell"] },
+                opts.deps.db,
+              );
+            },
+          },
         );
         if (result.briefed > 0 || result.scanned > 0) {
           await writeHeartbeat("pre-meeting-brief", {
@@ -226,6 +267,12 @@ export function startScheduler(opts: SchedulerOpts): { stop: () => void } {
       try {
         const now = opts.deps.now();
         if (isInQuietHours(now, opts.deps.timezone, opts.quietStart, opts.quietEnd)) return;
+        if (!await claimScheduledRun(opts.deps.db, {
+          name: "focus-closeout",
+          now,
+          timezone: opts.deps.timezone,
+          cadence: "daily",
+        })) return;
         const result = await runFocusEveningCloseOut(
           opts.deps.db,
           opts.deps.whatsapp,

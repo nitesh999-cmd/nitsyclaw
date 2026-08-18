@@ -1,0 +1,37 @@
+rules:
+  - id: nitsyclaw.voice-eval.shell-enabled-child-process
+    message: Offline voice evaluation must never invoke a shell-enabled child process.
+    severity: ERROR
+    languages: [typescript]
+    patterns:
+      - pattern: 'spawn($EXE, $ARGS, { ..., shell: true, ... })'
+
+  - id: nitsyclaw.voice-eval.unbounded-exec
+    message: Offline voice evaluation must use the reviewed bounded spawn wrapper.
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: 'exec(...)'
+      - pattern: 'execSync(...)'
+      - pattern: '$CP.exec(...)'
+      - pattern: '$CP.execSync(...)'
+
+  - id: nitsyclaw.voice-eval.network-client
+    message: Frozen voice scoring must not call a network client.
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: 'fetch(...)'
+      - pattern: 'axios.$METHOD(...)'
+      - pattern: '$HTTP.request(...)'
+      - pattern: '$HTTP.get(...)'
+
+  - id: nitsyclaw.voice-eval.cloud-audio-sdk
+    message: Frozen voice scoring must not import a cloud audio SDK.
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: 'import $X from "openai"'
+      - pattern: 'import $X from "@google-cloud/speech"'
+      - pattern: 'import $X from "@aws-sdk/client-transcribe"'
+      - pattern: 'import $X from "microsoft-cognitiveservices-speech-sdk"'

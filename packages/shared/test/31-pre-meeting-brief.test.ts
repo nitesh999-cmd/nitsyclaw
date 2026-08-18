@@ -99,6 +99,7 @@ describe("Feature 31 — runPreMeetingBriefTick (scheduler cron)", () => {
 
   it("briefs events starting in the [+8min, +15min) window", async () => {
     const { wa, db } = setupTick();
+    const notifyCalls: Array<{ body: string; eventTitle: string }> = [];
     const inWindow = new Date(NOW.getTime() + 10 * 60 * 1000);
     const tooSoon = new Date(NOW.getTime() + 5 * 60 * 1000);
     const tooFar = new Date(NOW.getTime() + 30 * 60 * 1000);
@@ -107,25 +108,42 @@ describe("Feature 31 — runPreMeetingBriefTick (scheduler cron)", () => {
       { source: "google", title: "Standup", start: tooSoon },
       { source: "outlook", title: "Strategy review with Sarah", start: tooFar },
     ]);
-    const out = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    const out = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne", {
+      notify: (payload) => {
+        notifyCalls.push({ body: payload.body, eventTitle: payload.eventTitle });
+      },
+    });
     expect(out.scanned).toBe(1);
     expect(out.briefed).toBe(1);
     expect(wa.sent).toHaveLength(1);
     expect(wa.sent[0]?.body).toContain("Coffee with Raj");
+    expect(notifyCalls).toHaveLength(1);
+    expect(notifyCalls[0]?.eventTitle).toBe("Coffee with Raj");
+    expect(notifyCalls[0]?.body).toContain("Coffee with Raj");
   });
 
   it("dedupes the same event across consecutive ticks", async () => {
     const { wa, db } = setupTick();
+    const notifyCalls: string[] = [];
     const inWindow = new Date(NOW.getTime() + 10 * 60 * 1000);
     const aggregator = makeAggregator([
       { source: "google", title: "Catch up with Mum", start: inWindow },
     ]);
-    const first = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    const first = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne", {
+      notify: (payload) => {
+        notifyCalls.push(payload.body);
+      },
+    });
     expect(first.briefed).toBe(1);
-    const second = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne");
+    const second = await runPreMeetingBriefTick(db, wa, aggregator, PHONE, NOW, "Australia/Melbourne", {
+      notify: (payload) => {
+        notifyCalls.push(payload.body);
+      },
+    });
     expect(second.briefed).toBe(0);
     expect(second.skippedAlreadyBriefed).toBe(1);
     expect(wa.sent).toHaveLength(1);
+    expect(notifyCalls).toHaveLength(1);
   });
 
   it("falls back gracefully on aggregator error", async () => {

@@ -76,7 +76,14 @@ describe("runAgent", () => {
     expect(auditText).not.toContain("+61430008008");
     expect(auditText).not.toContain("refresh-secret");
     expect(auditText).not.toContain("private reply body");
-    expect(auditText).toContain("[redacted");
+    // Stronger than redaction: a tool without an audit projection persists
+    // nothing at all, so there is no payload left to redact.
+    const rows = (auditState.__state?.audit_log ?? []) as Array<{ input?: unknown; output?: unknown }>;
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.input ?? {}).toEqual({});
+      expect(row.output ?? {}).toEqual({});
+    }
   });
 
   it("captures tool errors and continues", async () => {

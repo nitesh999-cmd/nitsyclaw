@@ -40,6 +40,27 @@ describe("production rollback path", () => {
     expect(doc).toContain("scripts/vercel-rollback.ps1");
     expect(doc).toContain("older rollback target predates `/api/healthz`");
     expect(doc).toContain("pnpm release:live-smoke");
-    expect(doc).toContain("No database schema rollback is required");
+    // This release DOES ship migrations, so the old "no database schema
+    // rollback is required" sentence became false and was removed. The rule it
+    // guarded still stands, and is asserted here against the truthful content:
+    // name the migrations, the artifact, the commands, the window, the policy.
+    expect(doc).not.toContain("No database schema rollback is required");
+    for (const migration of [
+      "0009_wealthy_grandmaster.sql",
+      "0010_tenant_owner_hash_scoped_domains.sql",
+      "0011_voice_verification.sql",
+      "0012_voice_proposal_binding.sql",
+    ]) {
+      expect(doc, `runbook must name ${migration}`).toContain(migration);
+    }
+    expect(doc).toContain("nitsyclaw-prod-20260816T100733Z.dump.gpg");
+    expect(doc).toContain("07dce7fc813bae4c5c5a758134c79a75c4521eddf2ee0ad2c03f798740b213fc");
+    expect(doc).toContain("packages/shared/migrate-runner.ops.mjs");
+    expect(doc).toContain("packages/shared/rollback-0011-0012.ops.sql");
+    expect(doc).toContain("pg_restore");
+    expect(doc.toLowerCase()).toContain("fix-forward");
+    expect(doc.toLowerCase()).toContain("empty");
+    // PITR is off, so the recovery floor must be stated rather than assumed.
+    expect(doc).toContain("PITR");
   });
 });

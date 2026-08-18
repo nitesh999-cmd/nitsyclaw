@@ -6,6 +6,10 @@ updates:
       interval: daily
       time: "19:00"
       timezone: Australia/Melbourne
+    # Wait seven days before proposing a newly published version. A compromised
+    # release is usually caught and yanked well inside that window.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       next-runtime:
@@ -38,6 +42,9 @@ updates:
       day: tuesday
       time: "19:30"
       timezone: Australia/Melbourne
+    # Same seven-day cooldown for action updates, which now arrive as SHA bumps.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       prefix: ci

@@ -7,7 +7,9 @@ describe("WhatsApp send failure handling", () => {
 
     expect(source).toContain("WhatsAppSendMonitor");
     expect(source).toContain("whatsapp: monitoredWhatsapp");
-    expect(source).toContain("monitoredWhatsapp.onMessage");
+    expect(source).toContain("new WhatsAppVoiceReplyClient(monitoredWhatsapp");
+    expect(source).toContain("ownerWhatsapp.onMessage");
+    expect(source).toContain("deps.whatsapp = ownerWhatsapp");
   });
 
   test("records and urgently notifies WhatsApp send failures", () => {

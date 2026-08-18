@@ -1,18 +1,112 @@
 import { describe, expect, it } from "vitest";
-import { summarizeResults } from "../src/features/08-web-research.js";
+import { registerWebResearch, runWebResearch } from "../src/features/08-web-research.js";
+import { ToolRegistry, type ToolContext } from "../src/agent/tools.js";
 import { makeSerperSearch, noopWebSearch } from "../src/search/serper.js";
-import { fakeLlm, fakeWebSearch } from "./helpers.js";
+import { makeAgentDeps, makeFakeLiveResearcher } from "./helpers.js";
+import type { AgentDeps } from "../src/agent/deps.js";
 
-describe("summarizeResults", () => {
-  it("returns LLM summary text", async () => {
-    const results = await fakeWebSearch.search("solar tariffs");
-    const out = await summarizeResults({ query: "solar tariffs", results, llm: fakeLlm });
-    expect(out).toMatch(/fake-llm reply/);
+function ctx(overrides: Partial<AgentDeps> = {}): ToolContext {
+  const deps = makeAgentDeps(overrides);
+  return { userPhone: "+61400000000", now: deps.now(), timezone: deps.timezone, deps };
+}
+
+describe("web_research tool", () => {
+  it("is registered so the model can search inside the agent loop", () => {
+    const registry = new ToolRegistry();
+    registerWebResearch(registry);
+
+    const tool = registry.get("web_research");
+    expect(tool).toBeDefined();
+    expect(tool!.description).toContain("never ask the user for permission");
   });
 
-  it("handles empty results", async () => {
-    const out = await summarizeResults({ query: "x", results: [], llm: fakeLlm });
-    expect(out).toBe("No results found.");
+  it("returns the live answer with sources", async () => {
+    const out = await runWebResearch("today's world news", ctx());
+
+    expect(out.available).toBe(true);
+    expect(out.status).toBe("ok");
+    expect(out.answer).toBe("Live answer from search.");
+    expect(out.sources).toEqual([{ title: "Example source", url: "https://example.com/story" }]);
+  });
+
+  it("reports unavailable — not a stale answer — when no researcher is wired", async () => {
+    const toolCtx = ctx();
+    delete toolCtx.deps.liveResearch;
+
+    const out = await runWebResearch("today's news", toolCtx);
+
+    expect(out.available).toBe(false);
+    expect(out.answer).toBe("");
+    expect(out.message).toContain("can't get live web results");
+  });
+
+  it("reports unavailable when the search itself failed", async () => {
+    const out = await runWebResearch(
+      "today's news",
+      ctx({
+        liveResearch: makeFakeLiveResearcher({
+          status: "unavailable",
+          answer: "",
+          sources: [],
+          failureCode: "rate_limited",
+        }),
+      }),
+    );
+
+    expect(out.available).toBe(false);
+    expect(out.status).toBe("unavailable");
+    expect(out.failureCode).toBe("rate_limited");
+    expect(out.message).toContain("rate limited");
+  });
+
+  it("collapses an unknown provider failure to the generic sanitized code", async () => {
+    const out = await runWebResearch(
+      "today's news",
+      ctx({
+        liveResearch: makeFakeLiveResearcher({
+          status: "unavailable",
+          answer: "",
+          sources: [],
+          // Simulates a code that is not one of the known internal categories.
+          failureCode: "provider said req_abc123 quota for acct 42" as never,
+        }),
+      }),
+    );
+
+    expect(out.failureCode).toBe("request_failed");
+    expect(JSON.stringify(out)).not.toContain("req_abc123");
+    expect(JSON.stringify(out)).not.toContain("acct 42");
+  });
+
+  it("records a sanitized failure code when no researcher is wired", async () => {
+    const toolCtx = ctx();
+    delete toolCtx.deps.liveResearch;
+
+    expect((await runWebResearch("today's news", toolCtx)).failureCode).toBe("not_configured");
+  });
+
+  it("tells the model to say so when a search returned nothing", async () => {
+    const out = await runWebResearch(
+      "obscure query",
+      ctx({ liveResearch: makeFakeLiveResearcher({ status: "no_results", answer: "", sources: [] }) }),
+    );
+
+    expect(out.available).toBe(true);
+    expect(out.status).toBe("no_results");
+    expect(out.message).toContain("do not answer from older knowledge");
+  });
+
+  it("caps the number of sources it hands back to the model", async () => {
+    const out = await runWebResearch(
+      "news",
+      ctx({
+        liveResearch: makeFakeLiveResearcher({
+          sources: Array.from({ length: 9 }, (_, i) => ({ title: `S${i}`, url: `https://e.example.com/${i}` })),
+        }),
+      }),
+    );
+
+    expect(out.sources).toHaveLength(4);
   });
 });
 

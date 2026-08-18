@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.4-UTF8-TRANSPORT-EVIDENCE-1",
+  "attemptId": "qwen3-asr-v14-fixed-cuda-0-hinglish-diagnostic",
+  "environmentControls": {
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8"
+  },
+  "unrelatedEnvironmentValuesRecorded": false,
+  "parentDecoder": {
+    "encoding": "utf-8",
+    "fatal": true
+  },
+  "pythonStreams": {
+    "encoding": "utf-8",
+    "errors": "strict"
+  },
+  "jsonEnsureAscii": false,
+  "stdout": {
+    "bytes": 1510,
+    "sha256": "79484f337ef8345cebde913047301a8cb6265139fc07badc3a5504b3b27a8fa7",
+    "base64": "eyJiYWNrZW5kIjogInRyYW5zZm9ybWVycyIsICJjYXNlcyI6IFt7ImNhc2VJZCI6ICJoaW5nbGlzaC1idXNpbmVzcyIsICJsYXRlbmN5TXMiOiA1NTg5LCAibW9kZWxMYW5ndWFnZSI6ICJIaW5kaSIsICJwcm92aWRlckNvbmZpZGVuY2UiOiBudWxsLCAicmF3VHJhbnNjcmlwdCI6ICLgpJXgpLIg4KS44KWB4KSs4KS5IOCksOCkteCkvyDgpJXgpYsg4KS44KS/4KSh4KSo4KWAIOCkruClh+CkgiDgpJXgpYngpLIg4KSV4KSw4KSo4KS+IOCklOCksCDgpJ/gpYfgpLjgpY3gpLLgpL4g4KSq4KS+4KS14KSw4KS14KWB4KSyIOCkpeCljeCksOClgCDgpJXgpL4g4KSV4KWN4KS14KWL4KSfIDE1IOCkquCksOCkuOClh+CkguCknyDgpKHgpL/gpLjgpY3gpJXgpL7gpIngpILgpJ8g4KSV4KWHIOCkuOCkvuCkpSDgpJrgpYfgpJUg4KSV4KSw4KSo4KS+4KWkIn1dLCAiY2xlYW51cCI6IHsiY3VkYUFsbG9jYXRlZEJ5dGVzIjogOTU2ODI1NiwgImN1ZGFSZXNlcnZlZEJ5dGVzIjogMzQ1NjEwNjQ5Nn0sICJjb25maWRlbmNlVGVsZW1ldHJ5IjogInVuYXZhaWxhYmxlIiwgImRldmljZSI6ICJjdWRhOjAiLCAiZHR5cGUiOiAidG9yY2guYmZsb2F0MTYiLCAiZWxhcHNlZE1zIjogMTkyNDAsICJsb2FkTXMiOiAzMjE1LCAibG9jYWxGaWxlc09ubHkiOiB0cnVlLCAibW9kZSI6ICJkaWFnbm9zdGljIiwgIm1vZGVsUmV2aXNpb24iOiAiNzI3OGUxZTcwZmUyMDZmMTE2NzEwOTZmZmRkMzgwNjExNzFkZDZlNSIsICJtb2RlbFdlaWdodFNoYTI1NiI6IHsibW9kZWwtMDAwMDEtb2YtMDAwMDIuc2FmZXRlbnNvcnMiOiAiYTRjZDFmMWEwNGQ5MGI3NTdkYzdmN2RkMjYyNTRlNjlhMDEzYjE5ZTgwZWZlNTkwYTgzYzZhM2JkZTg2MDhkNiIsICJtb2RlbC0wMDAwMi1vZi0wMDAwMi5zYWZldGVuc29ycyI6ICI2ZTBiOWQ5ZTA5ZTJlMDIzOGU3ZWYzY2M4YTQ4NGFiMzg3ZTkxYjkwZjE5MDBiZWRmODhiYzkyZDc5MjljY2ZjIn0sICJuZXR3b3JrUG9saWN5IjogeyJoZkh1Yk9mZmxpbmUiOiB0cnVlLCAia2VybmVsRmlyZXdhbGxSdWxlIjogZmFsc2UsICJweXRob25Tb2NrZXRBY2Nlc3MiOiAiZGVuaWVkLWJlZm9yZS10aGlyZC1wYXJ0eS1pbXBvcnRzIiwgInRyYW5zZm9ybWVyc09mZmxpbmUiOiB0cnVlfSwgInByb3ZpZGVyQ29uZmlkZW5jZSI6IG51bGwsICJyZXNvdXJjZXMiOiB7ImN1ZGFBbGxvY2F0ZWRCeXRlcyI6IDQwOTE4MzI4MzIsICJjdWRhRGV2aWNlIjogIk5WSURJQSBHZUZvcmNlIFJUWCA0MDYwIiwgImN1ZGFQZWFrQWxsb2NhdGVkQnl0ZXMiOiA0Njk4NDQ5NDA4LCAiY3VkYVBlYWtSZXNlcnZlZEJ5dGVzIjogNDczMTE3NDkxMiwgImN1ZGFSZXNlcnZlZEJ5dGVzIjogNDczMTE3NDkxMiwgInByb2Nlc3NQZWFrUnNzQnl0ZXMiOiA1MjMzODMxOTM2LCAicHJvY2Vzc1Jzc0J5dGVzIjogMjE1NjgyNjYyNH0sICJzY2hlbWFWZXJzaW9uIjogIk5JVFNZQ0xBVy1RV0VOMy1BU1ItQURBUFRFUi1WMS4xIiwgInN0YXR1cyI6ICJvayIsICJ0cnVzdFJlbW90ZUNvZGUiOiBmYWxzZX0NCg==",
+    "exactRawBytesRetained": true,
+    "strictUtf8Decode": "PASS"
+  },
+  "parsedJsonSha256": "855e09ce8f5ec2867e8977a98ad8ee13f7be2bd411393fdcbad5db7e20b78f87",
+  "parsedPayload": {
+    "backend": "transformers",
+    "cases": [
+      {
+        "caseId": "hinglish-business",
+        "latencyMs": 5589,
+        "modelLanguage": "Hindi",
+        "providerConfidence": null,
+        "rawTranscript": "कल सुबह रवि को सिडनी में कॉल करना और टेस्ला पावरवुल थ्री का क्वोट 15 परसेंट डिस्काउंट के साथ चेक करना।"
+      }
+    ],
+    "cleanup": {
+      "cudaAllocatedBytes": 9568256,
+      "cudaReservedBytes": 3456106496
+    },
+    "confidenceTelemetry": "unavailable",
+    "device": "cuda:0",
+    "dtype": "torch.bfloat16",
+    "elapsedMs": 19240,
+    "loadMs": 3215,
+    "localFilesOnly": true,
+    "mode": "diagnostic",
+    "modelRevision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+    "modelWeightSha256": {
+      "model-00001-of-00002.safetensors": "a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6",
+      "model-00002-of-00002.safetensors": "6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc"
+    },
+    "networkPolicy": {
+      "hfHubOffline": true,
+      "kernelFirewallRule": false,
+      "pythonSocketAccess": "denied-before-third-party-imports",
+      "transformersOffline": true
+    },
+    "providerConfidence": null,
+    "resources": {
+      "cudaAllocatedBytes": 4091832832,
+      "cudaDevice": "NVIDIA GeForce RTX 4060",
+      "cudaPeakAllocatedBytes": 4698449408,
+      "cudaPeakReservedBytes": 4731174912,
+      "cudaReservedBytes": 4731174912,
+      "processPeakRssBytes": 5233831936,
+      "processRssBytes": 2156826624
+    },
+    "schemaVersion": "NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1",
+    "status": "ok",
+    "trustRemoteCode": false
+  },
+  "rawTranscript": "कल सुबह रवि को सिडनी में कॉल करना और टेस्ला पावरवुल थ्री का क्वोट 15 परसेंट डिस्काउंट के साथ चेक करना।",
+  "processOutcome": "SUCCESS",
+  "exitCode": 0
+}

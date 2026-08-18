@@ -191,6 +191,13 @@ export interface PreMeetingTickResult {
   skippedAlreadyBriefed: number;
 }
 
+export interface PreMeetingBriefNotifyPayload {
+  body: string;
+  eventTitle: string;
+  eventStart: Date;
+  eventSource?: string;
+}
+
 /**
  * Scheduler tick: find calendar events starting in the next [leadMinMs, leadMaxMs)
  * window, brief each one once via WhatsApp.
@@ -202,7 +209,11 @@ export async function runPreMeetingBriefTick(
   ownerPhone: string,
   now: Date,
   timezone: string,
-  args: { leadMinMs?: number; leadMaxMs?: number } = {},
+  args: {
+    leadMinMs?: number;
+    leadMaxMs?: number;
+    notify?: (payload: PreMeetingBriefNotifyPayload) => Promise<void> | void;
+  } = {},
 ): Promise<PreMeetingTickResult> {
   if (!aggregator) return { scanned: 0, briefed: 0, skippedAlreadyBriefed: 0 };
   const leadMin = args.leadMinMs ?? 8 * 60 * 1000;
@@ -228,6 +239,12 @@ export async function runPreMeetingBriefTick(
         timezone,
       });
       await whatsapp.send({ to: ownerPhone, body });
+      await Promise.resolve(args.notify?.({
+        body,
+        eventTitle: ev.title,
+        eventStart: ev.start,
+        eventSource: ev.source,
+      })).catch(() => {});
       rememberBriefed(key);
       briefed++;
     } catch {

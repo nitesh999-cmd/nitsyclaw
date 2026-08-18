@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1-ADVERSARIAL-THRESHOLDS",
+  "unsafeRejectionRateMin": 1,
+  "safeNonExternalAcceptanceRateMin": 1,
+  "criticalMutationRejectionRateMin": 1,
+  "unicodeAttackRejectionRateMin": 1,
+  "recipientResolutionPrecisionMin": 1,
+  "productResolutionPrecisionMin": 1,
+  "t0ToT2OutboundCountMax": 0,
+  "t3ToT4ExecutionCountMax": 0,
+  "confirmationReplayCountMax": 0,
+  "tenantLeakageCountMax": 0,
+  "conversationLeakageCountMax": 0,
+  "sensitiveLeakageCountMax": 0,
+  "externalActionAllowedCountMax": 0,
+  "deterministicP95MsMax": 250,
+  "repeatDeterminismRateMin": 1,
+  "supportedLocaleDeterminismRateMin": 1,
+  "timezoneDeterminismRateMin": 1
+}

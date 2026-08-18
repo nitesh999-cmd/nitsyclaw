@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-SMOKE-V2",
+  "frozenOn": "2026-08-10",
+  "purpose": "Model-blind two-case offline ASR smoke scoring with lexical and safety channels kept independent.",
+  "thresholds": {
+    "englishWerMax": 0.2,
+    "hinglishWerMax": 0.4,
+    "criticalEntityAccuracyMin": 1,
+    "intentAccuracyMin": 1,
+    "negationAccuracyMin": 1,
+    "languageAccuracyMin": 1,
+    "clipLatencyMsMax": 45000,
+    "cleanupRequired": true,
+    "confidenceRequiredForExternalAction": true
+  },
+  "safetyPolicy": {
+    "rawTranscriptImmutable": true,
+    "werCannotOverrideSafetyFailure": true,
+    "ambiguityFailsClosed": true,
+    "missingConfidenceRequiresOwnerConfirmation": true,
+    "criticalEntitiesRequireExactTypedCanonicalValue": true,
+    "automaticTransliterationForCriticalEntities": false
+  },
+  "cases": [
+    {
+      "id": "english-solar-au",
+      "reference": "Please call Raj Sharma in Melbourne tomorrow at three thirty P M about the ten kilowatt Fronius solar inverter.",
+      "expectedLanguage": "english",
+      "lexicalEquivalences": [
+        { "canonical": "time_15_30", "forms": ["three thirty p m", "3:30 pm", "3.30pm", "15:30"] },
+        { "canonical": "power_kw_10", "forms": ["ten kilowatt", "ten kilowatts", "10 kw", "10kw"] }
+      ],
+      "criticalEntities": [
+        { "id": "recipient", "type": "name", "canonical": "raj sharma", "forms": ["Raj Sharma", "राज शर्मा"], "rejectForms": ["Raj Shama", "Raj Verma", "Rаj Sharma"] },
+        { "id": "location", "type": "location", "canonical": "melbourne", "forms": ["Melbourne"], "rejectForms": ["Melton", "Melbournee"] },
+        { "id": "date", "type": "relative_date", "canonical": "tomorrow", "forms": ["tomorrow"], "rejectForms": ["today", "day after tomorrow"] },
+        { "id": "time", "type": "time", "canonical": "15:30", "forms": ["three thirty P M", "3:30 pm", "3.30pm", "15:30"], "rejectForms": ["3:15 pm", "3:50 pm", "5:30 pm"] },
+        { "id": "power", "type": "power", "canonical": "10|kw", "forms": ["ten kilowatt", "ten kilowatts", "10 kW", "10kW"], "rejectForms": ["10 kWh", "15 kW", "50 kW"] },
+        { "id": "brand", "type": "brand", "canonical": "fronius", "forms": ["Fronius"], "rejectForms": ["Fronious", "Fronis"] }
+      ],
+      "intents": [
+        { "id": "call", "forms": ["call"], "rejectForms": ["draft", "send", "cancel"] }
+      ],
+      "expectedNegation": "absent"
+    },
+    {
+      "id": "hinglish-business",
+      "reference": "Kal subah Ravi ko Sydney mein call karna aur Tesla Powerwall three ka quote fifteen percent discount ke saath check karna.",
+      "expectedLanguage": "hinglish",
+      "lexicalEquivalences": [
+        { "canonical": "kal", "forms": ["kal", "कल"] },
+        { "canonical": "subah", "forms": ["subah", "सुबह"] },
+        { "canonical": "ravi", "forms": ["ravi", "रवि"] },
+        { "canonical": "ko", "forms": ["ko", "को"] },
+        { "canonical": "sydney", "forms": ["sydney", "सिडनी"] },
+        { "canonical": "mein", "forms": ["mein", "में"] },
+        { "canonical": "call", "forms": ["call", "कॉल"] },
+        { "canonical": "karna", "forms": ["karna", "करना"] },
+        { "canonical": "aur", "forms": ["aur", "और"] },
+        { "canonical": "tesla", "forms": ["tesla", "टेस्ला"] },
+        { "canonical": "powerwall_3", "forms": ["powerwall three", "powerwall 3", "पावरवॉल तीन", "पावरवॉल 3"] },
+        { "canonical": "ka", "forms": ["ka", "का"] },
+        { "canonical": "quote", "forms": ["quote", "कोट"] },
+        { "canonical": "percent_15", "forms": ["fifteen percent", "15 percent", "15%", "पंद्रह प्रतिशत", "15 प्रतिशत"] },
+        { "canonical": "discount", "forms": ["discount", "डिस्काउंट"] },
+        { "canonical": "ke", "forms": ["ke", "के"] },
+        { "canonical": "saath", "forms": ["saath", "साथ"] },
+        { "canonical": "check", "forms": ["check", "चेक"] }
+      ],
+      "criticalEntities": [
+        { "id": "recipient", "type": "name", "canonical": "ravi", "forms": ["Ravi", "रवि"], "rejectForms": ["Rave", "Raj", "रवे", "रवी", "Rаvi"] },
+        { "id": "location", "type": "location", "canonical": "sydney", "forms": ["Sydney", "सिडनी"], "rejectForms": ["Sidney", "Melbourne"] },
+        { "id": "brand", "type": "brand", "canonical": "tesla", "forms": ["Tesla", "टेस्ला"], "rejectForms": ["Tesler", "टेसला"] },
+        { "id": "product", "type": "model", "canonical": "POWERWALL3", "forms": ["Powerwall three", "Powerwall 3", "पावरवॉल तीन", "पावरवॉल 3"], "rejectForms": ["Powerwall 2", "Powerwall two", "पावरवॉल 2", "पववल 3"] },
+        { "id": "discount", "type": "percentage", "canonical": "15", "forms": ["fifteen percent", "15 percent", "15%", "पंद्रह प्रतिशत", "15 प्रतिशत"], "rejectForms": ["fifty percent", "50 percent", "50%", "पचास प्रतिशत"] }
+      ],
+      "intents": [
+        { "id": "call", "forms": ["call", "कॉल"], "rejectForms": ["message", "संदेश"] },
+        { "id": "check_quote", "forms": ["quote fifteen percent discount ke saath check", "check the quote with fifteen percent discount", "कोट पंद्रह प्रतिशत डिस्काउंट के साथ चेक", "कोट 15 प्रतिशत डिस्काउंट के साथ चेक"], "rejectForms": ["send the quote", "quote भेजो", "cancel the quote"] }
+      ],
+      "expectedNegation": "absent"
+    }
+  ],
+  "typedEquivalenceFixtures": [
+    { "id": "spoken-numeric-fifteen", "type": "integer", "left": "fifteen", "right": "15", "equal": true },
+    { "id": "fifteen-fifty", "type": "integer", "left": "fifteen", "right": "fifty", "equal": false },
+    { "id": "indian-number-grouping", "type": "decimal", "left": "12,50,000.50", "right": "1250000.50", "equal": true },
+    { "id": "indian-number-spoken", "type": "integer", "left": "twelve lakh fifty thousand", "right": "1250000", "equal": true },
+    { "id": "decimal-near-collision", "type": "decimal", "left": "15.05", "right": "15.50", "equal": false },
+    { "id": "time-format", "type": "time", "left": "three thirty P M", "right": "3.30pm", "equal": true },
+    { "id": "time-value-change", "type": "time", "left": "3:30 pm", "right": "3:50 pm", "equal": false },
+    { "id": "au-date-format", "type": "date", "left": "15 August 2026", "right": "15/08/2026", "equal": true },
+    { "id": "au-date-swap", "type": "date", "left": "15/08/2026", "right": "08/09/2026", "equal": false },
+    { "id": "currency-format", "type": "currency", "left": "AUD $1,250.50", "right": "1250.50 Australian dollars", "equal": true },
+    { "id": "currency-sign", "type": "currency", "left": "-$50", "right": "$50", "equal": false },
+    { "id": "phone-au-format", "type": "phone", "left": "+61 412 345 678", "right": "0412 345 678", "equal": true },
+    { "id": "phone-last-digit", "type": "phone", "left": "+61 412 345 678", "right": "+61 412 345 679", "equal": false },
+    { "id": "power-abbreviation", "type": "power", "left": "ten kilowatt", "right": "10 kW", "equal": true },
+    { "id": "power-unit-change", "type": "power", "left": "10 kW", "right": "10 kWh", "equal": false },
+    { "id": "model-spacing", "type": "model", "left": "Fronius SH8RS", "right": "Fronius SH-8RS", "equal": true },
+    { "id": "model-number-change", "type": "model", "left": "SH8RS", "right": "SH10RS", "equal": false },
+    { "id": "powerwall-version-change", "type": "model", "left": "Powerwall 3", "right": "Powerwall 2", "equal": false },
+    { "id": "name-case-punctuation", "type": "name", "left": "Raj Sharma", "right": "raj, sharma", "equal": true },
+    { "id": "unicode-confusable-name", "type": "name", "left": "Ravi", "right": "Rаvi", "equal": false },
+    { "id": "homophone-not-number", "type": "integer", "left": "four", "right": "for", "equal": false }
+  ],
+  "positiveSafetyFixtures": [
+    { "id": "english-numeric-formatting", "caseId": "english-solar-au", "transcript": "Please call Raj Sharma in Melbourne tomorrow at 3.30pm about the 10kW Fronius solar inverter." },
+    { "id": "hinglish-correct-devanagari", "caseId": "hinglish-business", "transcript": "कल सुबह रवि को सिडनी में कॉल करना और टेस्ला पावरवॉल 3 का कोट 15 प्रतिशत डिस्काउंट के साथ चेक करना।" }
+  ],
+  "adversarialSafetyFixtures": [
+    { "id": "recipient-rave", "caseId": "hinglish-business", "transcript": "Kal subah Rave ko Sydney mein call karna aur Tesla Powerwall 3 ka quote 15 percent discount ke saath check karna." },
+    { "id": "recipient-raj", "caseId": "hinglish-business", "transcript": "Kal subah Raj ko Sydney mein call karna aur Tesla Powerwall 3 ka quote 15 percent discount ke saath check karna." },
+    { "id": "mixed-script-confusable", "caseId": "hinglish-business", "transcript": "Kal subah Rаvi ko Sydney mein call karna aur Tesla Powerwall 3 ka quote 15 percent discount ke saath check karna." },
+    { "id": "percent-fifty", "caseId": "hinglish-business", "transcript": "Kal subah Ravi ko Sydney mein call karna aur Tesla Powerwall 3 ka quote 50 percent discount ke saath check karna." },
+    { "id": "powerwall-two", "caseId": "hinglish-business", "transcript": "Kal subah Ravi ko Sydney mein call karna aur Tesla Powerwall 2 ka quote 15 percent discount ke saath check karna." },
+    { "id": "missing-quote", "caseId": "hinglish-business", "transcript": "Kal subah Ravi ko Sydney mein call karna aur Tesla Powerwall 3 ka 15 percent discount ke saath check karna." },
+    { "id": "changed-location", "caseId": "hinglish-business", "transcript": "Kal subah Ravi ko Melbourne mein call karna aur Tesla Powerwall 3 ka quote 15 percent discount ke saath check karna." },
+    { "id": "added-negation", "caseId": "hinglish-business", "transcript": "Kal subah Ravi ko Sydney mein call nahin karna aur Tesla Powerwall 3 ka quote 15 percent discount ke saath check karna." },
+    { "id": "draft-versus-send", "caseId": "english-solar-au", "transcript": "Please send Raj Sharma in Melbourne tomorrow at 3:30 pm the 10 kW Fronius solar inverter quote." },
+    { "id": "time-change", "caseId": "english-solar-au", "transcript": "Please call Raj Sharma in Melbourne tomorrow at 3:50 pm about the 10 kW Fronius solar inverter." },
+    { "id": "unit-change", "caseId": "english-solar-au", "transcript": "Please call Raj Sharma in Melbourne tomorrow at 3:30 pm about the 10 kWh Fronius solar inverter." },
+    { "id": "correction-ambiguity", "caseId": "hinglish-business", "transcript": "Kal subah Ravi ko Sydney mein call karna aur Tesla Powerwall 3 ka quote 15 no 50 percent discount ke saath check karna." }
+  ]
+}

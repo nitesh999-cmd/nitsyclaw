@@ -20,7 +20,18 @@ const guardedRepoFunctions = [
   "setConfirmationStatus",
   "restorePendingConfirmation",
   "getLatestPendingConfirmation",
+  "getPendingConfirmationById",
   "pruneExpiredConfirmations",
+  "insertVerifiedVoiceContact",
+  "listVerifiedVoiceContacts",
+  "insertVerifiedVoiceProduct",
+  "listVerifiedVoiceProducts",
+  "insertVoiceVerificationProposal",
+  "getVoiceVerificationProposal",
+  "recordVoiceVerificationConfirmation",
+  "cancelVoiceVerificationProposal",
+  "expireVoiceVerificationProposal",
+  "consumeVoiceVerificationProposal",
 ];
 
 describe("repo tenant guard", () => {
@@ -41,5 +52,14 @@ describe("repo tenant guard", () => {
       expect(body, `${functionName} should guard before DB access`).toContain("guardUnscopedCustomerDataAccess(tenant);");
       expect(body, `${functionName} should require explicit tenant context`).toContain("tenant: TenantContext");
     }
+  });
+
+  it("fails closed before storing plaintext verified contact identity fields", () => {
+    expect(source).toContain("isEncryptedString(input.displayNameCiphertext)");
+    expect(source).toContain("isEncryptedString(input.aliasesCiphertext)");
+    expect(source).toContain("isEncryptedString(input.destinationCiphertext)");
+    expect(source).toContain("verified voice contact identity fields must be encrypted");
+    expect(source).toContain("assertVoiceDirectoryHash(\"aliasHash\", aliasHash)");
+    expect(source).toContain("assertVoiceDirectoryHash(\"verificationEvidenceHash\", input.verificationEvidenceHash)");
   });
 });

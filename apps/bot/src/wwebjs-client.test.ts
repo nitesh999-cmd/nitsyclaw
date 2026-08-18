@@ -3,11 +3,119 @@ import { mkdtempSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
+  SELF_CHAT_CALIBRATION_PHRASE,
+  allowSelfChatId,
+  isSelfChatCalibrationPhrase,
+  readAllowedSelfChatIds,
+} from "./whatsapp-self-chat-calibration.js";
+import {
+  createWhatsAppCorrelationId,
+  formatWhatsAppHandlerFailure,
   formatNonSelfChatDropNotice,
   prepareOutboundBodyForWhatsApp,
   pruneChromiumCacheDirs,
+  resolveWebVersionCache,
+  shouldLogChatLookupError,
+  shouldRetryChatLookupForSelfChatCandidate,
   shouldSendNonSelfChatDropNotice,
+  wwebjsVoiceMediaInternals,
 } from "./wwebjs-client.js";
+
+describe("WhatsApp native voice media boundary", () => {
+  it("accepts only reviewed Ogg Opus media and converts it to MessageMedia", () => {
+    const converted = wwebjsVoiceMediaInternals.toReviewedWwebVoiceMedia({
+      kind: "voice",
+      data: Buffer.from("OggSvalidated"),
+      mimetype: "audio/ogg; codecs=opus",
+      filename: "nitsyclaw-reply.ogg",
+    });
+    expect(converted.mimetype).toBe("audio/ogg");
+    expect(Buffer.from(converted.data, "base64").toString("ascii", 0, 4)).toBe("OggS");
+  });
+
+  it.each([
+    { kind: "voice" as const, data: Buffer.from("bad"), mimetype: "audio/ogg; codecs=opus", filename: "reply.ogg" },
+    { kind: "voice" as const, data: Buffer.from("OggSok"), mimetype: "audio/mpeg", filename: "reply.ogg" },
+    { kind: "voice" as const, data: Buffer.from("OggSok"), mimetype: "audio/ogg; codecs=opus", filename: "../reply.ogg" },
+    { kind: "voice" as const, data: Buffer.alloc(2 * 1024 * 1024 + 1, 1), mimetype: "audio/ogg; codecs=opus", filename: "reply.ogg" },
+  ])("rejects invalid generated media before submission", (media) => {
+    expect(() => wwebjsVoiceMediaInternals.toReviewedWwebVoiceMedia(media)).toThrow(/transport boundary/);
+  });
+
+  it("calculates decoded base64 size before allocating a voice buffer", () => {
+    expect(wwebjsVoiceMediaInternals.estimatedBase64Bytes("TQ==")).toBe(1);
+    expect(wwebjsVoiceMediaInternals.estimatedBase64Bytes("TWE=")).toBe(2);
+  });
+});
+
+describe("WhatsApp handler failures", () => {
+  it("returns an actionable timeout without leaking the raw error", () => {
+    const error = Object.assign(
+      new Error("Ollama request timed out for nitesh@example.com sk_live_secret123456789"),
+      { name: "OllamaProviderError", code: "timeout" },
+    );
+    const reply = formatWhatsAppHandlerFailure(error, "aabbccdd");
+
+    expect(reply).toContain("local model timed out");
+    expect(reply).toContain("Nothing was sent to a cloud model");
+    expect(reply).toContain("did not retry automatically");
+    expect(reply).toContain("Ref: NC-AABBCCDD");
+    expect(reply).not.toContain("nitesh@example.com");
+    expect(reply).not.toContain("sk_live");
+  });
+
+  it.each([
+    [Object.assign(new Error("ECONNREFUSED"), { name: "OllamaProviderError", code: "offline" }), "local model is unavailable"],
+    [Object.assign(new Error("blank"), { code: "empty_response" }), "no usable answer"],
+    [new Error("401 invalid api key secret-value"), "rejected authentication"],
+    [Object.assign(new Error("tool exploded with private-value"), { code: "tool_failure" }), "backend tool step failed"],
+    [new Error("database query timed out with private-value"), "backend step timed out"],
+    [new Error("backend exploded with private-value"), "backend error"],
+  ])("classifies failures without returning internals", (error, expected) => {
+    const reply = formatWhatsAppHandlerFailure(error, "11223344");
+    expect(reply).toContain(expected);
+    expect(reply).toContain("Ref: NC-11223344");
+    expect(reply).not.toContain("secret-value");
+    expect(reply).not.toContain("private-value");
+  });
+
+  it("creates a compact sanitized correlation id", () => {
+    expect(createWhatsAppCorrelationId(() => "aa-bb_cc!!dd")).toBe("NC-AABBCCDD");
+  });
+});
+
+describe("resolveWebVersionCache", () => {
+  it("does not hard-pin a stale WhatsApp Web version by default", () => {
+    const previous = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+    delete process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+    try {
+      expect(resolveWebVersionCache()).toBeUndefined();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+      } else {
+        process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = previous;
+      }
+    }
+  });
+
+  it("allows an operator-provided remote WhatsApp Web version cache", () => {
+    const previous = process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+    process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = "https://example.com/wa.html";
+    try {
+      expect(resolveWebVersionCache()).toEqual({
+        type: "remote",
+        remotePath: "https://example.com/wa.html",
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH;
+      } else {
+        process.env.WHATSAPP_WEB_VERSION_REMOTE_PATH = previous;
+      }
+    }
+  });
+});
 
 describe("prepareOutboundBodyForWhatsApp", () => {
   it.each([
@@ -33,24 +141,97 @@ describe("prepareOutboundBodyForWhatsApp", () => {
 });
 
 describe("non-self chat drop diagnostics", () => {
-  it("notifies only for owner-authored command-like messages outside self-chat", () => {
+  it("retries chat lookup only for owner-authored LID self-chat candidates", () => {
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: true,
+      to: "129274421981381@lid",
+      chatId: "",
+      ownerNumber: "+61430008008",
+    })).toBe(true);
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: true,
+      to: "61425046161@c.us",
+      chatId: "",
+      ownerNumber: "+61430008008",
+    })).toBe(false);
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: false,
+      to: "129274421981381@lid",
+      chatId: "",
+      ownerNumber: "+61430008008",
+    })).toBe(false);
+    expect(shouldRetryChatLookupForSelfChatCandidate({
+      from: "61430008008@c.us",
+      fromMe: true,
+      to: "129274421981381@lid",
+      chatId: "61425046161@c.us",
+      ownerNumber: "+61430008008",
+    })).toBe(false);
+  });
+
+  it("does not log expected broadcast or newsletter chat lookup failures", () => {
+    expect(shouldLogChatLookupError({
+      body: "",
+      from: "status@broadcast",
+      fromMe: false,
+      to: "123@c.us",
+    })).toBe(false);
+    expect(shouldLogChatLookupError({
+      body: "",
+      from: "123@newsletter",
+      fromMe: false,
+      to: "123@c.us",
+    })).toBe(false);
+  });
+
+  it("keeps chat lookup diagnostics for owner-authored command-like drops", () => {
+    expect(shouldLogChatLookupError({
+      body: "remind me to call Mukesh tomorrow",
+      from: "123@c.us",
+      fromMe: true,
+      to: "456@lid",
+    })).toBe(true);
+    expect(shouldLogChatLookupError({
+      body: "see you soon",
+      from: "123@c.us",
+      fromMe: true,
+      to: "456@lid",
+    })).toBe(false);
+  });
+
+  it("does not notify for owner-authored command-like messages outside self-chat by default", () => {
     expect(shouldSendNonSelfChatDropNotice({
       body: "remind me to call Mukesh tomorrow",
       fromMe: true,
       nowMs: 10_000,
       lastNoticeAtMs: 0,
+    })).toBe(false);
+  });
+
+  it("notifies only for owner-authored command-like messages outside self-chat when explicitly enabled", () => {
+    expect(shouldSendNonSelfChatDropNotice({
+      body: "remind me to call Mukesh tomorrow",
+      fromMe: true,
+      nowMs: 10_000,
+      lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(true);
     expect(shouldSendNonSelfChatDropNotice({
       body: "see you soon",
       fromMe: true,
       nowMs: 10_000,
       lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(false);
     expect(shouldSendNonSelfChatDropNotice({
       body: "what can you do?",
       fromMe: false,
       nowMs: 10_000,
       lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(false);
   });
 
@@ -60,12 +241,14 @@ describe("non-self chat drop diagnostics", () => {
       fromMe: true,
       nowMs: 30_000,
       lastNoticeAtMs: 20_000,
+      enabled: true,
     })).toBe(false);
     expect(shouldSendNonSelfChatDropNotice({
       body: "weather tomorrow",
       fromMe: true,
       nowMs: 11 * 60_000,
       lastNoticeAtMs: 0,
+      enabled: true,
     })).toBe(true);
   });
 
@@ -74,6 +257,25 @@ describe("non-self chat drop diagnostics", () => {
     expect(notice).toContain("outside your Message Yourself chat");
     expect(notice).toContain("I did not reply in that other chat");
     expect(notice).not.toContain("Mukesh");
+  });
+});
+
+describe("self-chat calibration", () => {
+  it("requires the exact calibration phrase", () => {
+    expect(isSelfChatCalibrationPhrase(SELF_CHAT_CALIBRATION_PHRASE)).toBe(true);
+    expect(isSelfChatCalibrationPhrase("hi")).toBe(false);
+    expect(isSelfChatCalibrationPhrase("nitsyclaw calibrate other chat")).toBe(false);
+  });
+
+  it("stores only LID self-chat ids in the session secret area", async () => {
+    const root = mkdtempSync(join(tmpdir(), "nitsyclaw-wa-self-chat-"));
+    try {
+      await allowSelfChatId(root, "129274421981381@lid");
+      await allowSelfChatId(root, "61425046161@c.us");
+      expect(await readAllowedSelfChatIds(root)).toEqual(["129274421981381@lid"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

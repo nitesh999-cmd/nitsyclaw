@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { deleteMemory, getDb, memories, updateMemory } from "@nitsyclaw/shared/db";
 import { mergeMemoryQualityTags } from "@nitsyclaw/shared/agent";
 import { privateOwnerTenant } from "@nitsyclaw/shared/tenancy";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
 import { requireSameOrigin } from "../../../../lib/request-origin";
@@ -60,8 +60,13 @@ export async function POST(req: Request) {
 
   try {
     const db = getDb();
-    const tenant = privateOwnerTenant(getOwnerIdentity().ownerHash);
-    const [current] = await db.select().from(memories).where(eq(memories.id, id)).limit(1);
+    const { ownerHash } = getOwnerIdentity();
+    const tenant = privateOwnerTenant(ownerHash);
+    const [current] = await db
+      .select()
+      .from(memories)
+      .where(and(eq(memories.id, id), eq(memories.ownerHash, ownerHash)))
+      .limit(1);
     if (!current) return redirectToMemory(req, { reviewError: "missing" });
 
     if (action === "delete" || action === "expire") {

@@ -28,8 +28,16 @@ const envSchema = z.object({
   CURRENT_COUNTRY: z.string().optional(),
   DEFAULT_CURRENCY: z.string().default("AUD"),
   REPLY_LANGUAGE: z.string().default("English"),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-6"),
+  NITSYCLAW_MODEL_MODE: z.enum(["local_only", "auto", "best_reasoning"]).default("auto"),
+  OLLAMA_BASE_URL: z.string().default("http://127.0.0.1:11434"),
+  OLLAMA_CHAT_MODEL: z.string().optional(),
+  OLLAMA_EMBEDDING_MODEL: z.string().optional(),
+  OLLAMA_TIMEOUT_MS: z.coerce.number().min(1_000).max(300_000).default(45_000),
+  OLLAMA_RETRIES: z.coerce.number().int().min(0).max(3).default(1),
+  OLLAMA_CONTEXT_LIMIT: z.coerce.number().int().min(1_024).max(262_144).default(16_384),
+  OLLAMA_THINK: envBoolean.default(false),
   OPENAI_API_KEY: z.string().optional(),
   TRANSCRIPTION_MODEL: z.string().default("whisper-1"),
   SERPER_API_KEY: z.string().optional(),
@@ -39,10 +47,20 @@ const envSchema = z.object({
   WHATSAPP_OWNER_NUMBER: z.string().min(1),
   NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS: z.coerce.number().min(0).max(3_600_000).default(60_000),
   NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS: z.coerce.number().min(30_000).max(900_000).default(240_000),
+  // Which machine may own the WhatsApp session. Deliberately optional with no
+  // default: the laptop launcher stays authorized by NITSYCLAW_ALLOW_LOCAL_WHATSAPP
+  // exactly as before, so nothing existing has to be reconfigured. Railway
+  // refuses to start WhatsApp unless this is exactly "railway" - enforced in
+  // apps/bot/src/whatsapp-runtime-guard.ts, which reads process.env directly so
+  // the decision lands before any client, Chromium or session access.
+  NITSYCLAW_WHATSAPP_RUNTIME_OWNER: z.enum(["laptop", "railway"]).optional(),
   ENCRYPTION_KEY: encryptionKey,
   DAILY_LLM_BUDGET_USD: z.coerce.number().default(5),
   ENABLE_HEARTBEAT: envBoolean.default(true),
   ENABLE_WEB_RESEARCH: envBoolean.default(true),
+  // Hard cap on Anthropic server-side searches per research call, so search
+  // charges stay bounded. Raise deliberately — each search is billed.
+  WEB_SEARCH_MAX_USES: z.coerce.number().int().min(1).max(10).default(5),
   QUIET_HOURS_START: z.string().default("22:00"),
   QUIET_HOURS_END: z.string().default("07:00"),
 });

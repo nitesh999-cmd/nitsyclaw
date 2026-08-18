@@ -1,0 +1,23 @@
+// Type checking for the operator scripts that write durable audit rows.
+//
+// `scripts/` is not a pnpm workspace package (the workspace is `apps/*` and
+// `packages/*`), so `pnpm -r typecheck` never reached these files and the
+// `SafeAuditEntry` brand was not compile-time enforced for the two writers that
+// run outside an app. This project restores that enforcement.
+//
+// Scope is deliberately narrow: the two audit-writing operator scripts and the
+// one local module they import. Widening it to all of `scripts/` would pull in
+// unrelated files and unrelated failures, which is a separate piece of work.
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "files": [
+    "./operator-runner.ts",
+    "./operator-complete.ts",
+    "./agent-run-log.ts"
+  ]
+}

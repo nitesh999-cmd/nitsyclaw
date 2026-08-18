@@ -12,9 +12,9 @@ import {
 } from "@nitsyclaw/shared/db";
 import { classifyHeartbeat } from "@nitsyclaw/shared/ops/heartbeat";
 import { assertPublicSaleTenantBoundaries } from "@nitsyclaw/shared/tenancy";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { evaluateSaleReadiness } from "../../lib/sale-readiness";
-import { logDashboardError } from "../../lib/dashboard-runtime";
+import { getOwnerIdentity, logDashboardError } from "../../lib/dashboard-runtime";
 import { loadDashboardProviderHealth } from "../../lib/provider-health";
 import {
   buildDashboardRuntimeMetadata,
@@ -29,6 +29,7 @@ export const dynamic = "force-dynamic";
 async function loadHealth() {
   assertPublicSaleTenantBoundaries();
   const db = getDb();
+  const { ownerHash } = getOwnerIdentity();
   const [
     lastMessageRows,
     pendingReminderRows,
@@ -49,8 +50,8 @@ async function loadHealth() {
     liveSmokeHeartbeat,
   ] = await Promise.all([
     db.select().from(messages).orderBy(desc(messages.createdAt)).limit(1),
-    db.select().from(reminders).where(eq(reminders.status, "pending")).limit(25),
-    db.select().from(confirmations).where(eq(confirmations.status, "pending")).limit(25),
+    db.select().from(reminders).where(and(eq(reminders.ownerHash, ownerHash), eq(reminders.status, "pending"))).limit(25),
+    db.select().from(confirmations).where(and(eq(confirmations.ownerHash, ownerHash), eq(confirmations.status, "pending"))).limit(25),
     db.select().from(featureRequests).limit(200),
     db.select().from(commandJobs).orderBy(desc(commandJobs.createdAt)).limit(100),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(1),

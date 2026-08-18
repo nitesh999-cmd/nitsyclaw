@@ -1,6 +1,7 @@
 // Drizzle schema — single source of truth (Constitution R5).
 // All NitsyClaw state lives here.
 
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   uuid,
@@ -11,6 +12,9 @@ import {
   boolean,
   index,
   uniqueIndex,
+  primaryKey,
+  foreignKey,
+  check,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -47,6 +51,7 @@ export const memories = pgTable(
   "memories",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
     kind: text("kind", { enum: ["fact", "note", "pin", "summary"] }).notNull(),
     content: text("content").notNull(),
     tags: text("tags").array().default([]).notNull(),
@@ -55,7 +60,8 @@ export const memories = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    kindIdx: index("memories_kind_idx").on(t.kind),
+    ownerCreatedIdx: index("memories_owner_created_idx").on(t.ownerHash, t.createdAt),
+    ownerKindIdx: index("memories_owner_kind_idx").on(t.ownerHash, t.kind),
   }),
 );
 
@@ -66,6 +72,7 @@ export const reminders = pgTable(
   "reminders",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
     text: text("text").notNull(),
     fireAt: timestamp("fire_at", { withTimezone: true }).notNull(),
     rrule: text("rrule"), // null = one-shot; iCal RRULE for recurring
@@ -75,35 +82,50 @@ export const reminders = pgTable(
   (t) => ({
     fireIdx: index("reminders_fire_idx").on(t.fireAt),
     statusIdx: index("reminders_status_idx").on(t.status),
+    ownerStatusFireIdx: index("reminders_owner_status_fire_idx").on(t.ownerHash, t.status, t.fireAt),
   }),
 );
 
 /**
  * Expenses logged from receipt photos or text.
  */
-export const expenses = pgTable("expenses", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  amount: integer("amount_cents").notNull(), // store cents to avoid float
-  currency: text("currency").notNull().default("AUD"),
-  category: text("category").notNull(),
-  merchant: text("merchant"),
-  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
-  sourceMessageId: uuid("source_message_id"),
-  receiptPath: text("receipt_path"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    amount: integer("amount_cents").notNull(), // store cents to avoid float
+    currency: text("currency").notNull().default("AUD"),
+    category: text("category").notNull(),
+    merchant: text("merchant"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    sourceMessageId: uuid("source_message_id"),
+    receiptPath: text("receipt_path"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerOccurredIdx: index("expenses_owner_occurred_idx").on(t.ownerHash, t.occurredAt),
+  }),
+);
 
 /**
  * Daily morning briefs — one row per day.
  */
-export const briefs = pgTable("briefs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  forDate: text("for_date").notNull().unique(), // 'YYYY-MM-DD'
-  body: text("body").notNull(),
-  delivered: boolean("delivered").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const briefs = pgTable(
+  "briefs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    forDate: text("for_date").notNull(), // 'YYYY-MM-DD'
+    body: text("body").notNull(),
+    delivered: boolean("delivered").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerDateUniqueIdx: uniqueIndex("briefs_owner_date_unique_idx").on(t.ownerHash, t.forDate),
+  }),
+);
 
 /**
  * Entity graph (Feature 28 substrate). Typed entities extracted from
@@ -184,14 +206,21 @@ export const dailyFocus = pgTable(
 /**
  * Pending confirmations — destructive actions wait here for y/n.
  */
-export const confirmations = pgTable("confirmations", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  action: text("action").notNull(), // e.g. 'send_email', 'create_calendar_event'
-  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-  status: text("status", { enum: ["pending", "approved", "rejected", "expired"] }).notNull().default("pending"),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const confirmations = pgTable(
+  "confirmations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull().default("owner"),
+    action: text("action").notNull(), // e.g. 'send_email', 'create_calendar_event'
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status", { enum: ["pending", "approved", "rejected", "expired"] }).notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerStatusExpiresIdx: index("confirmations_owner_status_expires_idx").on(t.ownerHash, t.status, t.expiresAt),
+  }),
+);
 
 /**
  * Audit log — every tool call the agent makes. R6 + R15 require this.
@@ -268,6 +297,175 @@ export const profileContext = pgTable(
   (t) => ({
     ownerKeyUniqueIdx: uniqueIndex("profile_context_owner_key_unique_idx").on(t.ownerHash, t.key),
     keyIdx: index("profile_context_key_idx").on(t.key),
+  }),
+);
+
+/**
+ * Owner-approved contact identities for exact voice recipient resolution.
+ * Destinations, display names, and aliases are encrypted by the caller.
+ * Alias hashes support audited equality checks without storing identity text.
+ */
+export const verifiedVoiceContacts = pgTable(
+  "verified_voice_contacts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull(),
+    displayNameCiphertext: text("display_name_ciphertext").notNull(),
+    channel: text("channel", { enum: ["whatsapp", "sms", "email", "phone"] }).notNull(),
+    destinationCiphertext: text("destination_ciphertext").notNull(),
+    destinationHash: text("destination_hash").notNull(),
+    maskedDestination: text("masked_destination").notNull(),
+    aliasesCiphertext: text("aliases_ciphertext").notNull(),
+    aliasHashes: jsonb("alias_hashes").$type<string[]>().notNull(),
+    verificationMethod: text("verification_method", { enum: ["owner_text", "owner_import_review"] }).notNull(),
+    verificationEvidenceHash: text("verification_evidence_hash").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerActiveIdx: index("verified_voice_contacts_owner_active_idx").on(t.ownerHash, t.revokedAt),
+    ownerDestinationUniqueIdx: uniqueIndex("verified_voice_contacts_owner_destination_unique_idx").on(
+      t.ownerHash,
+      t.channel,
+      t.destinationHash,
+    ),
+  }),
+);
+
+/** Owner-approved product catalogue for exact brand/model voice resolution. */
+export const verifiedVoiceProducts = pgTable(
+  "verified_voice_products",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerHash: text("owner_hash").notNull(),
+    canonicalKey: text("canonical_key").notNull(),
+    brand: text("brand").notNull(),
+    model: text("model").notNull(),
+    aliases: jsonb("aliases").$type<string[]>().notNull(),
+    verificationMethod: text("verification_method", { enum: ["owner_text", "owner_import_review"] }).notNull(),
+    verificationEvidenceHash: text("verification_evidence_hash").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerActiveIdx: index("verified_voice_products_owner_active_idx").on(t.ownerHash, t.revokedAt),
+    ownerCanonicalUniqueIdx: uniqueIndex("verified_voice_products_owner_canonical_unique_idx").on(
+      t.ownerHash,
+      t.canonicalKey,
+    ),
+  }),
+);
+
+/** Text-confirmation proposals produced by the voice verifier. Never grants external authority. */
+export const voiceVerificationProposals = pgTable(
+  "voice_verification_proposals",
+  {
+    proposalId: text("proposal_id").notNull(),
+    ownerHash: text("owner_hash").notNull(),
+    conversationHash: text("conversation_hash").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenBindingHash: text("token_binding_hash").notNull(),
+    status: text("status", { enum: ["pending", "completed", "cancelled", "expired"] })
+      .notNull()
+      .default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    identityPk: primaryKey({
+      name: "voice_verification_proposals_identity_pk",
+      columns: [t.proposalId, t.ownerHash, t.conversationHash, t.policyVersion],
+    }),
+    tokenUniqueIdx: uniqueIndex("voice_verification_proposals_token_hash_unique_idx").on(t.tokenHash),
+    bindingUniqueIdx: uniqueIndex("voice_verification_proposals_binding_hash_unique_idx").on(t.tokenBindingHash),
+    confirmationIdentityUniqueIdx: uniqueIndex("voice_verification_proposals_confirmation_identity_unique_idx").on(
+      t.proposalId,
+      t.ownerHash,
+      t.conversationHash,
+      t.policyVersion,
+      t.tokenHash,
+      t.tokenBindingHash,
+    ),
+    pendingLookupIdx: index("voice_verification_proposals_pending_lookup_idx").on(
+      t.ownerHash,
+      t.conversationHash,
+      t.status,
+      t.expiresAt,
+    ),
+    ownerHashLengthCheck: check("voice_verification_proposals_owner_hash_length_check", sql`length(${t.ownerHash}) = 64`),
+    conversationHashLengthCheck: check("voice_verification_proposals_conversation_hash_length_check", sql`length(${t.conversationHash}) = 64`),
+    tokenHashLengthCheck: check("voice_verification_proposals_token_hash_length_check", sql`length(${t.tokenHash}) = 64`),
+    tokenBindingHashLengthCheck: check("voice_verification_proposals_binding_hash_length_check", sql`length(${t.tokenBindingHash}) = 64`),
+    cancelledStateCheck: check(
+      "voice_verification_proposals_cancelled_state_check",
+      sql`(${t.status} = 'cancelled') = (${t.cancelledAt} IS NOT NULL)`,
+    ),
+    consumedStateCheck: check(
+      "voice_verification_proposals_consumed_state_check",
+      sql`(${t.status} = 'completed') = (${t.consumedAt} IS NOT NULL)`,
+    ),
+  }),
+);
+
+/** Immutable attempts to accept or reject an exactly bound voice proposal. */
+export const voiceVerificationConfirmations = pgTable(
+  "voice_verification_confirmations",
+  {
+    attemptId: uuid("attempt_id").defaultRandom().primaryKey(),
+    proposalId: text("proposal_id").notNull(),
+    ownerHash: text("owner_hash").notNull(),
+    conversationHash: text("conversation_hash").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenBindingHash: text("token_binding_hash").notNull(),
+    accepted: boolean("accepted").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    proposalBindingFk: foreignKey({
+      name: "voice_verification_confirmations_proposal_binding_fk",
+      columns: [
+        t.proposalId,
+        t.ownerHash,
+        t.conversationHash,
+        t.policyVersion,
+        t.tokenHash,
+        t.tokenBindingHash,
+      ],
+      foreignColumns: [
+        voiceVerificationProposals.proposalId,
+        voiceVerificationProposals.ownerHash,
+        voiceVerificationProposals.conversationHash,
+        voiceVerificationProposals.policyVersion,
+        voiceVerificationProposals.tokenHash,
+        voiceVerificationProposals.tokenBindingHash,
+      ],
+    }),
+    ownerConversationIdx: index("voice_verification_confirmations_owner_conversation_idx").on(
+      t.ownerHash,
+      t.conversationHash,
+      t.createdAt,
+    ),
+    acceptedOnceIdx: uniqueIndex("voice_verification_confirmations_accepted_once_idx").on(
+      t.proposalId,
+      t.ownerHash,
+      t.conversationHash,
+      t.policyVersion,
+      t.tokenHash,
+      t.tokenBindingHash,
+    ).where(sql`${t.accepted} = true`),
+    ownerHashLengthCheck: check("voice_verification_confirmations_owner_hash_length_check", sql`length(${t.ownerHash}) = 64`),
+    conversationHashLengthCheck: check("voice_verification_confirmations_conversation_hash_length_check", sql`length(${t.conversationHash}) = 64`),
+    tokenHashLengthCheck: check("voice_verification_confirmations_token_hash_length_check", sql`length(${t.tokenHash}) = 64`),
+    tokenBindingHashLengthCheck: check("voice_verification_confirmations_binding_hash_length_check", sql`length(${t.tokenBindingHash}) = 64`),
   }),
 );
 
@@ -381,6 +579,14 @@ export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
 export type ProfileContext = typeof profileContext.$inferSelect;
 export type NewProfileContext = typeof profileContext.$inferInsert;
+export type VerifiedVoiceContactRecord = typeof verifiedVoiceContacts.$inferSelect;
+export type NewVerifiedVoiceContactRecord = typeof verifiedVoiceContacts.$inferInsert;
+export type VerifiedVoiceProductRecord = typeof verifiedVoiceProducts.$inferSelect;
+export type NewVerifiedVoiceProductRecord = typeof verifiedVoiceProducts.$inferInsert;
+export type VoiceVerificationProposalRecord = typeof voiceVerificationProposals.$inferSelect;
+export type NewVoiceVerificationProposalRecord = typeof voiceVerificationProposals.$inferInsert;
+export type VoiceVerificationConfirmationRecord = typeof voiceVerificationConfirmations.$inferSelect;
+export type NewVoiceVerificationConfirmationRecord = typeof voiceVerificationConfirmations.$inferInsert;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type NewConnectedAccount = typeof connectedAccounts.$inferInsert;
 export type SystemHeartbeat = typeof systemHeartbeats.$inferSelect;

@@ -9,6 +9,7 @@ export function isOwnerSelfChat(args: {
   chatId?: string;
   chatIsMe?: boolean;
   ownerNumber: string;
+  allowedSelfChatIds?: string[];
 }): boolean {
   const owner = normalizeWhatsAppOwnerId(args.ownerNumber);
   if (!owner) return false;
@@ -18,6 +19,16 @@ export function isOwnerSelfChat(args: {
   const chatId = args.chatId ?? "";
 
   if (args.fromMe === true && args.chatIsMe === true && chatId.endsWith("@lid")) {
+    return true;
+  }
+
+  if (
+    args.fromMe === true &&
+    !args.chatId &&
+    args.to.toLowerCase().endsWith("@lid") &&
+    normalizeWhatsAppOwnerId(args.from) === owner &&
+    args.allowedSelfChatIds?.some((id) => id.trim().toLowerCase() === args.to.trim().toLowerCase())
+  ) {
     return true;
   }
 

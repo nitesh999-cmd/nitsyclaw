@@ -15,6 +15,8 @@ type LogExpenseOutput = {
   merchant?: string;
 };
 
+const OWNER_HASH = "owner-expense-test";
+
 describe("categorizeExpense", () => {
   it.each([
     ["Uber receipt", undefined, "transport"],
@@ -39,6 +41,7 @@ describe("processReceiptImage", () => {
       analyzer: fakeImageAnalyzer,
       db,
       now: new Date(),
+      ownerHash: OWNER_HASH,
     });
     expect(out.amount).toBe(250);
     expect(state.expenses).toHaveLength(1);
@@ -55,6 +58,7 @@ describe("processReceiptImage", () => {
         analyzer: noAmount,
         db,
         now: new Date(),
+        ownerHash: OWNER_HASH,
       }),
     ).rejects.toThrow(/extract amount/);
   });
@@ -145,6 +149,7 @@ describe("CSV expense import", () => {
       db,
       now: new Date("2026-05-10T00:00:00Z"),
       defaultCurrency: "AUD",
+      ownerHash: OWNER_HASH,
     });
 
     expect(result.importedCount).toBe(2);

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1",
+  "phase": "FINAL",
+  "attemptId": "qwen3-asr-v14-fixed-cuda-0-hinglish-diagnostic",
+  "invocation": {
+    "executableName": "python.exe",
+    "executableSha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14",
+    "arguments": [
+      "-I",
+      "<reviewed-qwen3-asr-adapter-v14.py>",
+      "--model-path",
+      "<pinned-model-revision:7278e1e70fe206f11671096ffdd38061171dd6e5>",
+      "--audio-root",
+      "<private-synthetic-audio-root>",
+      "--case",
+      "hinglish-business=<private-synthetic-wav>",
+      "--max-new-tokens",
+      "128",
+      "--mode",
+      "diagnostic"
+    ],
+    "shell": false,
+    "environmentPolicy": "OFFLINE_ALLOWLIST_V1"
+  },
+  "processCreationTimestamp": "2026-08-11T10:11:32.218Z",
+  "processId": 47112,
+  "spawn": {
+    "succeeded": true,
+    "timestamp": "2026-08-11T10:11:32.227Z",
+    "error": null
+  },
+  "lifecycle": {
+    "errorTimestamp": null,
+    "exitTimestamp": "2026-08-11T10:11:52.556Z",
+    "closeTimestamp": "2026-08-11T10:11:52.556Z",
+    "exitCode": 0,
+    "exitSignal": null,
+    "closeCode": 0,
+    "closeSignal": null,
+    "gracefulTerminationRequested": false,
+    "forcedKillRequired": false
+  },
+  "stdout": {
+    "bytes": 1510,
+    "storedBytes": 1510,
+    "decoded": "{\"backend\": \"transformers\", \"cases\": [{\"caseId\": \"hinglish-business\", \"latencyMs\": 5589, \"modelLanguage\": \"Hindi\", \"providerConfidence\": null, \"rawTranscript\": \"कल सुबह रवि को सिडनी में कॉल करना और टेस्ला पावरवुल थ्री का क्वोट 15 परसेंट डिस्काउंट के साथ चेक करना।\"}], \"cleanup\": {\"cudaAllocatedBytes\": 9568256, \"cudaReservedBytes\": 3456106496}, \"confidenceTelemetry\": \"unavailable\", \"device\": \"cuda:0\", \"dtype\": \"torch.bfloat16\", \"elapsedMs\": 19240, \"loadMs\": 3215, \"localFilesOnly\": true, \"mode\": \"diagnostic\", \"modelRevision\": \"7278e1e70fe206f11671096ffdd38061171dd6e5\", \"modelWeightSha256\": {\"model-00001-of-00002.safetensors\": \"a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6\", \"model-00002-of-00002.safetensors\": \"6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc\"}, \"networkPolicy\": {\"hfHubOffline\": true, \"kernelFirewallRule\": false, \"pythonSocketAccess\": \"denied-before-third-party-imports\", \"transformersOffline\": true}, \"providerConfidence\": null, \"resources\": {\"cudaAllocatedBytes\": 4091832832, \"cudaDevice\": \"NVIDIA GeForce RTX 4060\", \"cudaPeakAllocatedBytes\": 4698449408, \"cudaPeakReservedBytes\": 4731174912, \"cudaReservedBytes\": 4731174912, \"processPeakRssBytes\": 5233831936, \"processRssBytes\": 2156826624}, \"schemaVersion\": \"NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1\", \"status\": \"ok\", \"trustRemoteCode\": false}\r\n",
+    "decodeError": false,
+    "truncated": false,
+    "ended": true,
+    "closed": true,
+    "error": null
+  },
+  "stderr": {
+    "bytes": 545,
+    "storedBytes": 545,
+    "decoded": "\rLoading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]\rLoading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.08s/it]\rLoading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.00it/s]\rLoading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.16s/it]\r\nThe following generation flags are not valid and may be ignored: ['temperature']. Set `TRANSFORMERS_VERBOSITY=info` for more details.\r\nSetting `pad_token_id` to `eos_token_id`:151645 for open-end generation.\r\n",
+    "decodeError": false,
+    "truncated": false,
+    "ended": true,
+    "closed": true,
+    "error": null
+  },
+  "timedOut": false,
+  "cancelled": false,
+  "wallClockDurationMs": 20416,
+  "peakChildRamBytes": 5233831936,
+  "peakGpuMemoryBytes": 4731174912,
+  "resourceSamples": 21,
+  "nonLoopbackTcpConnectionsObserved": 0,
+  "outputTruncated": false,
+  "transcriptParse": {
+    "status": "PARSED",
+    "error": null
+  },
+  "outcome": "SUCCESS",
+  "cleanup": {
+    "passed": true,
+    "privateEvaluationDirectoryRemoved": true,
+    "tempArtifactSetRestored": true
+  }
+}

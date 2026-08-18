@@ -6,7 +6,7 @@ import { startOfDay, addDays } from "../utils/time.js";
 import type { ToolContext, ToolRegistry } from "../agent/tools.js";
 import type { AgentDeps } from "../agent/deps.js";
 import { dueReminders } from "../db/repo.js";
-import { privateOwnerTenant } from "../tenancy.js";
+import { privateOwnerTenantForPhone } from "../tenancy.js";
 
 export interface PlateSummary {
   events: Array<{ title: string; start: Date; source?: string }>;
@@ -16,6 +16,7 @@ export interface PlateSummary {
 
 export async function summarizeToday(args: {
   now: Date;
+  ownerPhone: string;
   deps: AgentDeps;
 }): Promise<PlateSummary> {
   const start = startOfDay(args.now);
@@ -34,7 +35,7 @@ export async function summarizeToday(args: {
     }
   }
 
-  const reminders = (await dueReminders(args.deps.db, privateOwnerTenant(), end)).map((r) => ({ text: r.text, fireAt: r.fireAt }));
+  const reminders = (await dueReminders(args.deps.db, privateOwnerTenantForPhone(args.ownerPhone), end)).map((r) => ({ text: r.text, fireAt: r.fireAt }));
 
   const lines: string[] = ["Today's plate:"];
   if (events.length) {
@@ -60,7 +61,7 @@ export function registerWhatsOnMyPlate(registry: ToolRegistry): void {
     description: "Summarize what the user has scheduled and what reminders fire today, across all linked calendars.",
     inputSchema: z.object({}),
     handler: async (_input: Record<string, never>, ctx: ToolContext) => {
-      return summarizeToday({ now: ctx.now, deps: ctx.deps });
+      return summarizeToday({ now: ctx.now, ownerPhone: ctx.userPhone, deps: ctx.deps });
     },
   });
 }

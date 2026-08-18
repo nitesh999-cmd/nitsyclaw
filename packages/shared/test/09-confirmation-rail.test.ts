@@ -6,6 +6,7 @@ import type { CalendarClient } from "../src/agent/deps.js";
 import type { ToolContext } from "../src/agent/tools.js";
 
 const NOW = new Date("2026-04-25T08:00:00Z");
+const OWNER_PHONE = "+61000";
 type ToolOutput = Record<string, unknown> & {
   action?: string;
   calendar?: string;
@@ -30,7 +31,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db, reply: "yes", confirmationId: "c1", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "yes", confirmationId: "c1", now: NOW });
     expect(out?.decision).toBe("approved");
   });
 
@@ -45,7 +46,7 @@ describe("resolveConfirmation", () => {
       createdAt: NOW,
     });
 
-    const out = await resolveConfirmation({ db, reply: "approved", confirmationId: "c1", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "approved", confirmationId: "c1", now: NOW });
 
     expect(out?.decision).toBe("approved");
   });
@@ -60,7 +61,7 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T09:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db, reply: "no", confirmationId: "c1", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "no", confirmationId: "c1", now: NOW });
     expect(out?.decision).toBe("rejected");
   });
 
@@ -74,19 +75,19 @@ describe("resolveConfirmation", () => {
       expiresAt: new Date("2026-04-25T07:00:00Z"),
       createdAt: NOW,
     });
-    const out = await resolveConfirmation({ db, reply: "y", confirmationId: "c1", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "y", confirmationId: "c1", now: NOW });
     expect(out?.decision).toBe("expired");
   });
 
   it("returns null on non-y/n reply", async () => {
     const { db } = makeFakeDb();
-    const out = await resolveConfirmation({ db, reply: "maybe", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "maybe", now: NOW });
     expect(out).toBeNull();
   });
 
   it("returns null when nothing pending", async () => {
     const { db } = makeFakeDb();
-    const out = await resolveConfirmation({ db, reply: "y", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "y", now: NOW });
     expect(out).toBeNull();
   });
 
@@ -101,7 +102,7 @@ describe("resolveConfirmation", () => {
       createdAt: NOW,
     });
 
-    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "yes", now: NOW });
 
     expect(out).toBeNull();
     expect(state.confirmations[0].status).toBe("pending");
@@ -118,7 +119,7 @@ describe("resolveConfirmation", () => {
       createdAt: NOW,
     });
 
-    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "yes", now: NOW });
 
     expect(out).toBeNull();
     expect(state.confirmations[0].status).toBe("pending");
@@ -135,7 +136,7 @@ describe("resolveConfirmation", () => {
       createdAt: NOW,
     });
 
-    const out = await resolveConfirmation({ db, reply: "yes", now: NOW });
+    const out = await resolveConfirmation({ db, userPhone: OWNER_PHONE, reply: "yes", now: NOW });
 
     expect(out).toBeNull();
     expect(state.confirmations[0].status).toBe("pending");
@@ -175,7 +176,7 @@ describe("resolve_confirmation tool — calendar routing", () => {
   const ctx = (deps: ReturnType<typeof makeAgentDeps>): ToolContext => ({
     deps,
     now: NOW,
-    userPhone: "+61000",
+    userPhone: OWNER_PHONE,
     timezone: "Australia/Melbourne",
   });
 
@@ -232,7 +233,7 @@ describe("resolve_confirmation tool — email draft routing", () => {
     const ctx: ToolContext = {
       deps,
       now: NOW,
-      userPhone: "+61000",
+      userPhone: OWNER_PHONE,
       timezone: "Australia/Melbourne",
     };
     return { tool, ctx, createDraft };
@@ -317,7 +318,7 @@ describe("resolve_confirmation tool — email send routing (Feature 24)", () => 
     const ctx: ToolContext = {
       deps,
       now: NOW,
-      userPhone: "+61000",
+      userPhone: OWNER_PHONE,
       timezone: "Australia/Melbourne",
     };
     return { tool, ctx, sendEmail };

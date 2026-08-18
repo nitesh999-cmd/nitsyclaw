@@ -1,11 +1,13 @@
 // Thin repository functions used by features. Keeps SQL out of feature code.
 
-import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import {
   assertPublicSaleTenantBoundaries,
   requireTenantContext,
   type TenantContext,
 } from "../tenancy.js";
+import { isEncryptedString } from "../utils/crypto.js";
+import type { SafeAuditEntry } from "./audit-contract.js";
 import type { DB } from "./client.js";
 import {
   messages,
@@ -23,6 +25,10 @@ import {
   dailyFocus,
   snoozes,
   entities,
+  verifiedVoiceContacts,
+  verifiedVoiceProducts,
+  voiceVerificationProposals,
+  voiceVerificationConfirmations,
   type NewMessage,
   type NewMemory,
   type NewReminder,
@@ -38,11 +44,18 @@ import {
   type SystemHeartbeat,
   type CommandJob,
   type EntityKind,
+  type NewVerifiedVoiceContactRecord,
+  type NewVerifiedVoiceProductRecord,
 } from "./schema.js";
 
 function guardUnscopedCustomerDataAccess(tenant: TenantContext) {
-  requireTenantContext(tenant);
+  const context = requireTenantContext(tenant);
   assertPublicSaleTenantBoundaries();
+  return context;
+}
+
+function assertVoiceDirectoryHash(label: string, value: string): void {
+  if (!/^[a-f0-9]{64}$/u.test(value)) throw new Error(`${label} must be a SHA-256 hex digest`);
 }
 
 export async function insertMessage(db: DB, m: NewMessage) {
@@ -50,7 +63,7 @@ export async function insertMessage(db: DB, m: NewMessage) {
   return row!;
 }
 
-export async function updateMessageTranscript(db: DB, id: string, transcript: string) {
+export async function updateMessageTranscript(db: DB, id: string, transcript: string | null) {
   await db.update(messages).set({ transcript }).where(eq(messages.id, id));
 }
 
@@ -78,9 +91,152 @@ export async function recentMessages(db: DB, fromNumber: string, limit = 50) {
 }
 
 export async function insertMemory(db: DB, tenant: TenantContext, m: NewMemory) {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.insert(memories).values(m).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db.insert(memories).values({ ...m, ownerHash: context.ownerHash }).returning();
   return row!;
+}
+
+export async function mergeMessageMetadata(
+  db: DB,
+  id: string,
+  patch: Record<string, unknown>,
+) {
+  const [current] = await db
+    .select({ metadata: messages.metadata })
+    .from(messages)
+    .where(eq(messages.id, id))
+    .limit(1);
+  if (!current) return false;
+  await db
+    .update(messages)
+    .set({ metadata: { ...(current.metadata ?? {}), ...patch } })
+    .where(eq(messages.id, id));
+  return true;
+}
+
+export async function mergeVoiceMessageMetadata(
+  db: DB,
+  id: string,
+  voicePatch: Record<string, unknown>,
+) {
+  const [current] = await db
+    .select({ metadata: messages.metadata })
+    .from(messages)
+    .where(eq(messages.id, id))
+    .limit(1);
+  if (!current) return false;
+  const metadata = current.metadata ?? {};
+  const currentVoice = metadata.voice && typeof metadata.voice === "object" && !Array.isArray(metadata.voice)
+    ? metadata.voice as Record<string, unknown>
+    : {};
+  await db
+    .update(messages)
+    .set({ metadata: { ...metadata, voice: { ...currentVoice, ...voicePatch } } })
+    .where(eq(messages.id, id));
+  return true;
+}
+
+export async function getLatestVoiceTranscript(
+  db: DB,
+  ownerHash: string,
+  opts: { excludeMessageId?: string } = {},
+) {
+  const [row] = await db
+    .select({
+      id: messages.id,
+      transcript: messages.transcript,
+      metadata: messages.metadata,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(and(
+      eq(messages.fromNumber, ownerHash),
+      eq(messages.mediaType, "voice"),
+      isNotNull(messages.transcript),
+      ...(opts.excludeMessageId ? [ne(messages.id, opts.excludeMessageId)] : []),
+    ))
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function getCommandJobBySourceMessageId(db: DB, sourceMessageId: string): Promise<CommandJob | null> {
+  const [row] = await db
+    .select()
+    .from(commandJobs)
+    .where(eq(commandJobs.sourceMessageId, sourceMessageId))
+    .orderBy(desc(commandJobs.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function clearVoiceTranscript(
+  db: DB,
+  args: { ownerHash: string; messageId: string },
+): Promise<{ cleared: boolean; deletedMemories: number }> {
+  const [row] = await db
+    .select({ id: messages.id, metadata: messages.metadata })
+    .from(messages)
+    .where(and(
+      eq(messages.id, args.messageId),
+      eq(messages.fromNumber, args.ownerHash),
+      eq(messages.mediaType, "voice"),
+    ))
+    .limit(1);
+  if (!row) return { cleared: false, deletedMemories: 0 };
+
+  await db
+    .update(messages)
+    .set({
+      transcript: null,
+      mediaPath: null,
+      metadata: {
+        ...(row.metadata ?? {}),
+        voice: { status: "deleted", deletedAt: new Date().toISOString() },
+      },
+    })
+    .where(eq(messages.id, row.id));
+  const deleted = await db
+    .delete(memories)
+    .where(and(eq(memories.ownerHash, args.ownerHash), eq(memories.sourceMessageId, row.id)))
+    .returning({ id: memories.id });
+  return { cleared: true, deletedMemories: deleted.length };
+}
+
+export async function recoverInterruptedVoiceCommandJobs(
+  db: DB,
+  ownerHash: string,
+): Promise<number> {
+  const voiceRows = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(and(eq(messages.fromNumber, ownerHash), eq(messages.mediaType, "voice")));
+  if (voiceRows.length === 0) return 0;
+  const voiceIds = new Set(voiceRows.map((row) => row.id));
+  const working = await db
+    .select({ id: commandJobs.id, sourceMessageId: commandJobs.sourceMessageId })
+    .from(commandJobs)
+    .where(and(eq(commandJobs.ownerHash, ownerHash), eq(commandJobs.status, "working")));
+  const interrupted = working.filter((job) => job.sourceMessageId && voiceIds.has(job.sourceMessageId));
+  let recovered = 0;
+  for (const job of interrupted) {
+    const rows = await db
+      .update(commandJobs)
+      .set({
+        status: "failed",
+        error: "Voice request interrupted by process restart; not replayed automatically.",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(commandJobs.id, job.id),
+        eq(commandJobs.ownerHash, ownerHash),
+        eq(commandJobs.status, "working"),
+      ))
+      .returning({ id: commandJobs.id });
+    recovered += rows.length;
+  }
+  return recovered;
 }
 
 /**
@@ -94,12 +250,12 @@ export async function searchMemoriesLexical(
   query: string,
   limit = 10,
 ): Promise<Memory[]> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const q = `%${query.toLowerCase()}%`;
   return db
     .select()
     .from(memories)
-    .where(sql`lower(${memories.content}) LIKE ${q}`)
+    .where(and(eq(memories.ownerHash, context.ownerHash), sql`lower(${memories.content}) LIKE ${q}`))
     .orderBy(desc(memories.createdAt))
     .limit(limit);
 }
@@ -110,29 +266,36 @@ export async function updateMemory(
   id: string,
   patch: Partial<Pick<NewMemory, "kind" | "content" | "tags">>,
 ): Promise<Memory | null> {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.update(memories).set(patch).where(eq(memories.id, id)).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .update(memories)
+    .set(patch)
+    .where(and(eq(memories.id, id), eq(memories.ownerHash, context.ownerHash)))
+    .returning();
   return row ?? null;
 }
 
 export async function deleteMemory(db: DB, tenant: TenantContext, id: string): Promise<boolean> {
-  guardUnscopedCustomerDataAccess(tenant);
-  const rows = await db.delete(memories).where(eq(memories.id, id)).returning({ id: memories.id });
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const rows = await db
+    .delete(memories)
+    .where(and(eq(memories.id, id), eq(memories.ownerHash, context.ownerHash)))
+    .returning({ id: memories.id });
   return rows.length > 0;
 }
 
 export async function insertReminder(db: DB, tenant: TenantContext, r: NewReminder) {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.insert(reminders).values(r).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db.insert(reminders).values({ ...r, ownerHash: context.ownerHash }).returning();
   return row!;
 }
 
 export async function dueReminders(db: DB, tenant: TenantContext, now: Date): Promise<Reminder[]> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   return db
     .select()
     .from(reminders)
-    .where(and(eq(reminders.status, "pending"), lte(reminders.fireAt, now)));
+    .where(and(eq(reminders.ownerHash, context.ownerHash), eq(reminders.status, "pending"), lte(reminders.fireAt, now)));
 }
 
 export async function listPendingReminders(
@@ -141,11 +304,11 @@ export async function listPendingReminders(
   now: Date,
   limit = 5,
 ): Promise<Reminder[]> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .select()
     .from(reminders)
-    .where(eq(reminders.status, "pending"))
+    .where(and(eq(reminders.ownerHash, context.ownerHash), eq(reminders.status, "pending")))
     .orderBy(asc(reminders.fireAt))
     .limit(100);
 
@@ -156,32 +319,41 @@ export async function listPendingReminders(
 }
 
 export async function markReminderFired(db: DB, tenant: TenantContext, id: string) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(reminders).set({ status: "fired" }).where(eq(reminders.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(reminders)
+    .set({ status: "fired" })
+    .where(and(eq(reminders.id, id), eq(reminders.ownerHash, context.ownerHash)));
 }
 
 export async function cancelReminder(db: DB, tenant: TenantContext, id: string) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(reminders).set({ status: "cancelled" }).where(eq(reminders.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(reminders)
+    .set({ status: "cancelled" })
+    .where(and(eq(reminders.id, id), eq(reminders.ownerHash, context.ownerHash)));
 }
 
 export async function rescheduleReminder(db: DB, tenant: TenantContext, id: string, fireAt: Date) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(reminders).set({ status: "pending", fireAt }).where(eq(reminders.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(reminders)
+    .set({ status: "pending", fireAt })
+    .where(and(eq(reminders.id, id), eq(reminders.ownerHash, context.ownerHash)));
 }
 
 export async function insertExpense(db: DB, tenant: TenantContext, e: NewExpense) {
-  guardUnscopedCustomerDataAccess(tenant);
-  const [row] = await db.insert(expenses).values(e).returning();
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db.insert(expenses).values({ ...e, ownerHash: context.ownerHash }).returning();
   return row!;
 }
 
 export async function expensesBetween(db: DB, tenant: TenantContext, from: Date, to: Date) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   return db
     .select()
     .from(expenses)
-    .where(and(gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)));
+    .where(and(eq(expenses.ownerHash, context.ownerHash), gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)));
 }
 
 export async function recentExpensesBetween(
@@ -191,22 +363,23 @@ export async function recentExpensesBetween(
   to: Date,
   limit = 200,
 ) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .select()
     .from(expenses)
+    .where(and(eq(expenses.ownerHash, context.ownerHash), gte(expenses.occurredAt, from), lte(expenses.occurredAt, to)))
     .orderBy(desc(expenses.occurredAt))
     .limit(limit);
 
-  return rows.filter((row) => row.occurredAt >= from && row.occurredAt <= to);
+  return rows;
 }
 
 export async function upsertBrief(db: DB, tenant: TenantContext, forDate: string, body: string) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   await db
     .insert(briefs)
-    .values({ forDate, body })
-    .onConflictDoUpdate({ target: briefs.forDate, set: { body } });
+    .values({ ownerHash: context.ownerHash, forDate, body })
+    .onConflictDoUpdate({ target: [briefs.ownerHash, briefs.forDate], set: { body } });
 }
 
 export async function insertConfirmation(
@@ -216,10 +389,10 @@ export async function insertConfirmation(
   payload: Record<string, unknown>,
   expiresAt: Date,
 ) {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db
     .insert(confirmations)
-    .values({ action, payload, expiresAt })
+    .values({ ownerHash: context.ownerHash, action, payload, expiresAt })
     .returning();
   return row!;
 }
@@ -230,24 +403,63 @@ export async function setConfirmationStatus(
   id: string,
   status: "approved" | "rejected" | "expired",
 ) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(confirmations).set({ status }).where(eq(confirmations.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(confirmations)
+    .set({ status })
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, context.ownerHash)));
 }
 
 export async function restorePendingConfirmation(db: DB, tenant: TenantContext, id: string) {
-  guardUnscopedCustomerDataAccess(tenant);
-  await db.update(confirmations).set({ status: "pending" }).where(eq(confirmations.id, id));
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  await db
+    .update(confirmations)
+    .set({ status: "pending" })
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, context.ownerHash)));
 }
 
-export async function getLatestPendingConfirmation(db: DB, tenant: TenantContext): Promise<{ id: string; action: string } | null> {
-  guardUnscopedCustomerDataAccess(tenant);
+export async function getLatestPendingConfirmation(
+  db: DB,
+  tenant: TenantContext,
+): Promise<{ id: string; action: string; status: string; expiresAt: Date; payload: Record<string, unknown> } | null> {
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const [row] = await db
     .select()
     .from(confirmations)
-    .where(eq(confirmations.status, "pending"))
+    .where(and(eq(confirmations.ownerHash, context.ownerHash), eq(confirmations.status, "pending")))
     .orderBy(desc(confirmations.createdAt))
     .limit(1);
-  return row ? { id: row.id, action: row.action } : null;
+  return row
+    ? {
+        id: row.id,
+        action: row.action,
+        status: row.status,
+        expiresAt: row.expiresAt,
+        payload: row.payload as Record<string, unknown>,
+      }
+    : null;
+}
+
+export async function getPendingConfirmationById(
+  db: DB,
+  tenant: TenantContext,
+  id: string,
+): Promise<{ id: string; action: string; status: string; expiresAt: Date; payload: Record<string, unknown> } | null> {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  const [row] = await db
+    .select()
+    .from(confirmations)
+    .where(and(eq(confirmations.id, id), eq(confirmations.ownerHash, context.ownerHash)))
+    .limit(1);
+  return row
+    ? {
+        id: row.id,
+        action: row.action,
+        status: row.status,
+        expiresAt: row.expiresAt,
+        payload: row.payload as Record<string, unknown>,
+      }
+    : null;
 }
 
 export async function insertFeatureRequest(
@@ -429,13 +641,279 @@ export async function deleteConnectedAccount(
  * Returns count of rows updated.
  */
 export async function pruneExpiredConfirmations(db: DB, tenant: TenantContext, now: Date = new Date()): Promise<number> {
-  guardUnscopedCustomerDataAccess(tenant);
+  const context = guardUnscopedCustomerDataAccess(tenant);
   const rows = await db
     .update(confirmations)
     .set({ status: "expired" })
-    .where(and(eq(confirmations.status, "pending"), lt(confirmations.expiresAt, now)))
+    .where(and(eq(confirmations.ownerHash, context.ownerHash), eq(confirmations.status, "pending"), lt(confirmations.expiresAt, now)))
     .returning({ id: confirmations.id });
   return rows.length;
+}
+
+export async function insertVerifiedVoiceContact(
+  db: DB,
+  tenant: TenantContext,
+  input: Omit<NewVerifiedVoiceContactRecord, "ownerHash">,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  if (!isEncryptedString(input.displayNameCiphertext)
+    || !isEncryptedString(input.aliasesCiphertext)
+    || !isEncryptedString(input.destinationCiphertext)) {
+    throw new Error("verified voice contact identity fields must be encrypted");
+  }
+  assertVoiceDirectoryHash("destinationHash", input.destinationHash);
+  assertVoiceDirectoryHash("verificationEvidenceHash", input.verificationEvidenceHash);
+  if (input.aliasHashes.length === 0) throw new Error("verified voice contact requires at least one alias hash");
+  for (const aliasHash of input.aliasHashes) assertVoiceDirectoryHash("aliasHash", aliasHash);
+  const [row] = await db
+    .insert(verifiedVoiceContacts)
+    .values({ ...input, ownerHash: context.ownerHash })
+    .returning();
+  return row!;
+}
+
+export async function listVerifiedVoiceContacts(db: DB, tenant: TenantContext) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  return db
+    .select()
+    .from(verifiedVoiceContacts)
+    .where(and(eq(verifiedVoiceContacts.ownerHash, context.ownerHash), isNull(verifiedVoiceContacts.revokedAt)))
+    .orderBy(asc(verifiedVoiceContacts.verifiedAt));
+}
+
+export async function insertVerifiedVoiceProduct(
+  db: DB,
+  tenant: TenantContext,
+  input: Omit<NewVerifiedVoiceProductRecord, "ownerHash">,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceDirectoryHash("verificationEvidenceHash", input.verificationEvidenceHash);
+  const [row] = await db
+    .insert(verifiedVoiceProducts)
+    .values({ ...input, ownerHash: context.ownerHash })
+    .returning();
+  return row!;
+}
+
+export async function listVerifiedVoiceProducts(db: DB, tenant: TenantContext) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  return db
+    .select()
+    .from(verifiedVoiceProducts)
+    .where(and(eq(verifiedVoiceProducts.ownerHash, context.ownerHash), isNull(verifiedVoiceProducts.revokedAt)))
+    .orderBy(asc(verifiedVoiceProducts.brand), asc(verifiedVoiceProducts.model));
+}
+
+export interface VoiceVerificationProposalKey {
+  proposalId: string;
+  ownerHash: string;
+  conversationHash: string;
+  policyVersion: string;
+  tokenHash: string;
+  tokenBindingHash: string;
+}
+
+export interface VoiceVerificationProposalInsert extends VoiceVerificationProposalKey {
+  expiresAt: Date;
+  createdAt?: Date;
+}
+
+export interface VoiceVerificationConfirmationInsert extends VoiceVerificationProposalKey {
+  attemptId?: string;
+  accepted: boolean;
+  createdAt?: Date;
+}
+
+function assertVoiceProposalBindingKey(context: TenantContext, key: VoiceVerificationProposalKey): void {
+  if (key.ownerHash !== context.ownerHash) throw new Error("voice proposal owner does not match tenant context");
+  if (!key.proposalId || !key.policyVersion) throw new Error("voice proposal identity is incomplete");
+  assertVoiceDirectoryHash("ownerHash", key.ownerHash);
+  assertVoiceDirectoryHash("conversationHash", key.conversationHash);
+  assertVoiceDirectoryHash("tokenHash", key.tokenHash);
+  assertVoiceDirectoryHash("tokenBindingHash", key.tokenBindingHash);
+}
+
+export async function insertVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  input: VoiceVerificationProposalInsert,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, input);
+  const [row] = await db.insert(voiceVerificationProposals).values({
+    ...input,
+    proposalId: input.proposalId,
+    ownerHash: input.ownerHash,
+    conversationHash: input.conversationHash,
+    policyVersion: input.policyVersion,
+    tokenHash: input.tokenHash,
+    tokenBindingHash: input.tokenBindingHash,
+    status: "pending",
+    cancelledAt: null,
+    consumedAt: null,
+  }).returning();
+  return row!;
+}
+
+export async function getVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  const [row] = await db.select().from(voiceVerificationProposals).where(and(
+    eq(voiceVerificationProposals.proposalId, key.proposalId),
+    eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+    eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+    eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+    eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+    eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+  )).limit(1);
+  return row ?? null;
+}
+
+export async function recordVoiceVerificationConfirmation(
+  db: DB,
+  tenant: TenantContext,
+  input: VoiceVerificationConfirmationInsert,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, input);
+  const now = input.createdAt ?? new Date();
+  return db.transaction(async (transaction) => {
+    const [proposal] = await transaction.select().from(voiceVerificationProposals).where(and(
+      eq(voiceVerificationProposals.proposalId, input.proposalId),
+      eq(voiceVerificationProposals.ownerHash, input.ownerHash),
+      eq(voiceVerificationProposals.conversationHash, input.conversationHash),
+      eq(voiceVerificationProposals.policyVersion, input.policyVersion),
+      eq(voiceVerificationProposals.tokenHash, input.tokenHash),
+      eq(voiceVerificationProposals.tokenBindingHash, input.tokenBindingHash),
+      eq(voiceVerificationProposals.status, "pending"),
+      isNull(voiceVerificationProposals.cancelledAt),
+      isNull(voiceVerificationProposals.consumedAt),
+      gt(voiceVerificationProposals.expiresAt, now),
+    )).for("update").limit(1);
+    if (!proposal) throw new Error("voice proposal binding is not usable");
+    const [row] = await transaction.insert(voiceVerificationConfirmations).values({
+      ...input,
+      proposalId: input.proposalId,
+      ownerHash: input.ownerHash,
+      conversationHash: input.conversationHash,
+      policyVersion: input.policyVersion,
+      tokenHash: input.tokenHash,
+      tokenBindingHash: input.tokenBindingHash,
+      createdAt: now,
+    }).returning();
+    return row!;
+  });
+}
+
+export async function cancelVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+  now: Date,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  const [row] = await db.update(voiceVerificationProposals).set({
+    status: "cancelled",
+    cancelledAt: now,
+    updatedAt: now,
+  }).where(and(
+    eq(voiceVerificationProposals.proposalId, key.proposalId),
+    eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+    eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+    eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+    eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+    eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+    eq(voiceVerificationProposals.status, "pending"),
+    isNull(voiceVerificationProposals.cancelledAt),
+    isNull(voiceVerificationProposals.consumedAt),
+    gt(voiceVerificationProposals.expiresAt, now),
+  )).returning();
+  return row ?? null;
+}
+
+export async function expireVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+  now: Date,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  const [row] = await db.update(voiceVerificationProposals).set({
+    status: "expired",
+    updatedAt: now,
+  }).where(and(
+    eq(voiceVerificationProposals.proposalId, key.proposalId),
+    eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+    eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+    eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+    eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+    eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+    eq(voiceVerificationProposals.status, "pending"),
+    isNull(voiceVerificationProposals.cancelledAt),
+    isNull(voiceVerificationProposals.consumedAt),
+    lte(voiceVerificationProposals.expiresAt, now),
+  )).returning();
+  return row ?? null;
+}
+
+export async function consumeVoiceVerificationProposal(
+  db: DB,
+  tenant: TenantContext,
+  key: VoiceVerificationProposalKey,
+  now: Date,
+) {
+  const context = guardUnscopedCustomerDataAccess(tenant);
+  assertVoiceProposalBindingKey(context, key);
+  return db.transaction(async (transaction) => {
+    const [proposal] = await transaction.select().from(voiceVerificationProposals).where(and(
+      eq(voiceVerificationProposals.proposalId, key.proposalId),
+      eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+      eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+      eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+      eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+      eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+      eq(voiceVerificationProposals.status, "pending"),
+      isNull(voiceVerificationProposals.cancelledAt),
+      isNull(voiceVerificationProposals.consumedAt),
+      gt(voiceVerificationProposals.expiresAt, now),
+    )).for("update").limit(1);
+    if (!proposal) return null;
+    const [accepted] = await transaction.select({ attemptId: voiceVerificationConfirmations.attemptId })
+      .from(voiceVerificationConfirmations)
+      .where(and(
+        eq(voiceVerificationConfirmations.proposalId, key.proposalId),
+        eq(voiceVerificationConfirmations.ownerHash, key.ownerHash),
+        eq(voiceVerificationConfirmations.conversationHash, key.conversationHash),
+        eq(voiceVerificationConfirmations.policyVersion, key.policyVersion),
+        eq(voiceVerificationConfirmations.tokenHash, key.tokenHash),
+        eq(voiceVerificationConfirmations.tokenBindingHash, key.tokenBindingHash),
+        eq(voiceVerificationConfirmations.accepted, true),
+      )).limit(1);
+    if (!accepted) return null;
+    const [row] = await transaction.update(voiceVerificationProposals).set({
+      status: "completed",
+      consumedAt: now,
+      updatedAt: now,
+    }).where(and(
+      eq(voiceVerificationProposals.proposalId, key.proposalId),
+      eq(voiceVerificationProposals.ownerHash, key.ownerHash),
+      eq(voiceVerificationProposals.conversationHash, key.conversationHash),
+      eq(voiceVerificationProposals.policyVersion, key.policyVersion),
+      eq(voiceVerificationProposals.tokenHash, key.tokenHash),
+      eq(voiceVerificationProposals.tokenBindingHash, key.tokenBindingHash),
+      eq(voiceVerificationProposals.status, "pending"),
+      isNull(voiceVerificationProposals.cancelledAt),
+      isNull(voiceVerificationProposals.consumedAt),
+      gt(voiceVerificationProposals.expiresAt, now),
+    )).returning();
+    return row ?? null;
+  });
 }
 
 export async function upsertSystemHeartbeat(
@@ -516,6 +994,11 @@ export async function claimSystemNotification(
   },
 ): Promise<boolean> {
   const cooldownCutoff = new Date(args.now.getTime() - args.cooldownMs);
+  // Raw drizzle sql parameters bypass the timestamp column encoder. postgres-js
+  // rejects Date objects at runtime, so bind explicit ISO strings and cast them
+  // in PostgreSQL instead.
+  const nowIso = args.now.toISOString();
+  const cooldownCutoffIso = cooldownCutoff.toISOString();
   const metadata = JSON.stringify({
     ...(args.metadata ?? {}),
     fingerprint: args.fingerprint,
@@ -525,7 +1008,7 @@ export async function claimSystemNotification(
 
   const rows = await db.execute(sql`
     INSERT INTO system_heartbeats (source, status, last_seen_at, metadata, updated_at)
-    VALUES (${args.source}, 'ok', ${args.now}, ${metadata}::jsonb, NOW())
+    VALUES (${args.source}, 'ok', ${nowIso}::timestamptz, ${metadata}::jsonb, NOW())
     ON CONFLICT (source)
     DO UPDATE SET
       status = 'ok',
@@ -534,7 +1017,7 @@ export async function claimSystemNotification(
       updated_at = NOW()
     WHERE
       COALESCE(system_heartbeats.metadata->>'fingerprint', '') <> ${args.fingerprint}
-      OR COALESCE((system_heartbeats.metadata->>'notifiedAt')::timestamptz, 'epoch'::timestamptz) <= ${cooldownCutoff}
+      OR COALESCE((system_heartbeats.metadata->>'notifiedAt')::timestamptz, 'epoch'::timestamptz) <= ${cooldownCutoffIso}::timestamptz
     RETURNING source
   `);
 
@@ -545,24 +1028,35 @@ export async function claimSystemNotification(
       : Number((rows as { rowCount?: number }).rowCount ?? 0) > 0;
 }
 
-export async function logAudit(
-  db: DB,
-  entry: {
-    actor: string;
-    tool: string;
-    input?: Record<string, unknown>;
-    output?: Record<string, unknown>;
-    success: boolean;
-    error?: string;
-    durationMs?: number;
-  },
-) {
-  await db.insert(auditLog).values({
-    ...entry,
+/**
+ * The only path to `audit_log`.
+ *
+ * The parameter type is branded, so a caller cannot pass an object literal
+ * assembled from runtime data: every row is shaped by a builder in
+ * `audit-contract.ts` that copies approved fields individually. The sanitizer
+ * below remains as a second layer of defence, not as the first one.
+ */
+export async function logAudit(db: DB, entry: SafeAuditEntry) {
+  await db.insert(auditLog).values(safeAuditValues(entry));
+}
+
+/**
+ * The insert values for a contract-built entry.
+ *
+ * Exported for the one writer that must insert inside an existing transaction
+ * rather than on its own connection — it still cannot assemble a row by hand,
+ * because it can only obtain a `SafeAuditEntry` from a contract builder.
+ */
+export function safeAuditValues(entry: SafeAuditEntry) {
+  return {
+    actor: entry.actor,
+    tool: entry.tool,
     input: sanitizeAuditPayload(entry.input),
     output: sanitizeAuditPayload(entry.output),
+    success: entry.success,
     error: entry.error ? redactAuditString(entry.error) : undefined,
-  });
+    durationMs: entry.durationMs,
+  };
 }
 
 const SENSITIVE_KEY_RE = /(token|secret|password|credential|authorization|cookie|body|content|message|email|phone|number|address|location|transcript|payload|refresh|access)/i;
@@ -913,7 +1407,10 @@ export async function contactTimeline(
 
   const memIds = byTable.get("memories")?.map((r) => r.id) ?? [];
   if (memIds.length) {
-    const rows = await db.select().from(memories).where(sql`${memories.id} = ANY(${memIds})`);
+    const rows = await db
+      .select()
+      .from(memories)
+      .where(and(eq(memories.ownerHash, args.ownerHash), sql`${memories.id} = ANY(${memIds})`));
     for (const m of rows) {
       const meta = byTable.get("memories")!.find((r) => r.id === m.id)!;
       hits.push({
@@ -928,7 +1425,10 @@ export async function contactTimeline(
 
   const expIds = byTable.get("expenses")?.map((r) => r.id) ?? [];
   if (expIds.length) {
-    const rows = await db.select().from(expenses).where(sql`${expenses.id} = ANY(${expIds})`);
+    const rows = await db
+      .select()
+      .from(expenses)
+      .where(and(eq(expenses.ownerHash, args.ownerHash), sql`${expenses.id} = ANY(${expIds})`));
     for (const e of rows) {
       const meta = byTable.get("expenses")!.find((r) => r.id === e.id)!;
       const amount = (e.amount / 100).toFixed(2);
@@ -944,7 +1444,10 @@ export async function contactTimeline(
 
   const remIds = byTable.get("reminders")?.map((r) => r.id) ?? [];
   if (remIds.length) {
-    const rows = await db.select().from(reminders).where(sql`${reminders.id} = ANY(${remIds})`);
+    const rows = await db
+      .select()
+      .from(reminders)
+      .where(and(eq(reminders.ownerHash, args.ownerHash), sql`${reminders.id} = ANY(${remIds})`));
     for (const r of rows) {
       const meta = byTable.get("reminders")!.find((row) => row.id === r.id)!;
       hits.push({
@@ -1002,21 +1505,24 @@ export async function recallAcrossSurfaces(
     db
       .select()
       .from(memories)
-      .where(sql`${memories.content} ILIKE ${pattern}`)
+      .where(and(eq(memories.ownerHash, args.ownerHash), sql`${memories.content} ILIKE ${pattern}`))
       .orderBy(desc(memories.createdAt))
       .limit(limit),
     db
       .select()
       .from(expenses)
       .where(
-        sql`(${expenses.merchant} ILIKE ${pattern} OR ${expenses.notes} ILIKE ${pattern} OR ${expenses.category} ILIKE ${pattern})`,
+        and(
+          eq(expenses.ownerHash, args.ownerHash),
+          sql`(${expenses.merchant} ILIKE ${pattern} OR ${expenses.notes} ILIKE ${pattern} OR ${expenses.category} ILIKE ${pattern})`,
+        ),
       )
       .orderBy(desc(expenses.occurredAt))
       .limit(limit),
     db
       .select()
       .from(reminders)
-      .where(sql`${reminders.text} ILIKE ${pattern}`)
+      .where(and(eq(reminders.ownerHash, args.ownerHash), sql`${reminders.text} ILIKE ${pattern}`))
       .orderBy(desc(reminders.createdAt))
       .limit(limit),
   ]);

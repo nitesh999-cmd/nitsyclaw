@@ -2,11 +2,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("dashboard stream privacy", () => {
-  it("keeps streaming chat search-capable when SERPER_API_KEY is configured", () => {
+  it("keeps streaming chat search-capable through the shared web research wiring", () => {
     const route = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
 
     expect(route).toContain('from "@nitsyclaw/shared/search"');
-    expect(route).toContain("makeSerperSearch(process.env.SERPER_API_KEY)");
+    expect(route).toContain("createWebResearch({");
+    // Anthropic server-side search is primary; a pre-existing Serper key still
+    // feeds the legacy webSearch seam.
+    expect(route).toContain("anthropicApiKey: apiKey");
+    expect(route).toContain("serperApiKey: process.env.SERPER_API_KEY");
+    expect(route).toContain("liveResearch: webResearch.researcher");
   });
 
   it("does not stream raw tool input payloads to the browser", () => {
@@ -20,8 +25,12 @@ describe("dashboard stream privacy", () => {
     const route = readFileSync("apps/dashboard/src/app/api/chat/stream/route.ts", "utf8");
 
     expect(route).toContain('throw new Error("Invalid tool input")');
-    expect(route).toContain("safeToolError");
-    expect(route).toContain("redactAuditString");
+    // Error text no longer reaches the audit row at all: the stream loop now
+    // classifies failures through the same machinery as the shared agent loop.
+    expect(route).toContain("classifyToolError(tool.errorProjection, call.input, e)");
+    expect(route).toContain("auditToolFailure({");
+    expect(route).not.toContain("safeToolError");
+    expect(route).not.toContain("redactAuditString");
     expect(route).toContain('toolResultParts.push(`[tool ${call.name}] error: Tool failed.`)');
     expect(route).toContain('toolResultParts.push(`[tool ${call.name}] error: Tool unavailable.`)');
     expect(route).not.toContain("parsed.error.message");

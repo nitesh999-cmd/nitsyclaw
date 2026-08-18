@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-PROCESS-DIAGNOSTIC-V1.1",
+  "phase": "FINAL",
+  "attemptId": "qwen3-asr-v12-fixed-cuda-0-hinglish-diagnostic",
+  "invocation": {
+    "executableName": "python.exe",
+    "executableSha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14",
+    "arguments": [
+      "-I",
+      "<reviewed-qwen3-asr-adapter.py>",
+      "--model-path",
+      "<pinned-model-revision:7278e1e70fe206f11671096ffdd38061171dd6e5>",
+      "--audio-root",
+      "<private-synthetic-audio-root>",
+      "--case",
+      "hinglish-business=<private-synthetic-wav>",
+      "--max-new-tokens",
+      "128",
+      "--mode",
+      "diagnostic"
+    ],
+    "shell": false,
+    "environmentPolicy": "OFFLINE_ALLOWLIST_V1"
+  },
+  "processCreationTimestamp": "2026-08-11T09:03:06.443Z",
+  "processId": 50280,
+  "spawn": {
+    "succeeded": true,
+    "timestamp": "2026-08-11T09:03:06.454Z",
+    "error": null
+  },
+  "lifecycle": {
+    "errorTimestamp": null,
+    "exitTimestamp": "2026-08-11T09:03:06.544Z",
+    "closeTimestamp": "2026-08-11T09:03:06.544Z",
+    "exitCode": 2,
+    "exitSignal": null,
+    "closeCode": 2,
+    "closeSignal": null,
+    "gracefulTerminationRequested": false,
+    "forcedKillRequired": false
+  },
+  "stdout": {
+    "bytes": 491,
+    "storedBytes": 491,
+    "decoded": "{\"cleanup\": {\"cudaAllocatedBytes\": 0, \"cudaReservedBytes\": 0}, \"confidenceTelemetry\": \"unavailable\", \"elapsedMs\": 6, \"error\": {\"class\": \"ValueError\", \"kind\": \"validation\", \"message\": \"the bounded smoke requires exactly two cases\"}, \"networkPolicy\": {\"hfHubOffline\": true, \"kernelFirewallRule\": false, \"pythonSocketAccess\": \"denied-before-third-party-imports\", \"transformersOffline\": true}, \"providerConfidence\": null, \"schemaVersion\": \"NITSYCLAW-QWEN3-ASR-ADAPTER-V1.1\", \"status\": \"error\"}\r\n",
+    "decodeError": false,
+    "truncated": false,
+    "ended": true,
+    "closed": true,
+    "error": null
+  },
+  "stderr": {
+    "bytes": 0,
+    "storedBytes": 0,
+    "decoded": "",
+    "decodeError": false,
+    "truncated": false,
+    "ended": true,
+    "closed": true,
+    "error": null
+  },
+  "timedOut": false,
+  "cancelled": false,
+  "wallClockDurationMs": 232,
+  "peakChildRamBytes": null,
+  "peakGpuMemoryBytes": null,
+  "resourceSamples": 1,
+  "nonLoopbackTcpConnectionsObserved": 0,
+  "outputTruncated": false,
+  "transcriptParse": {
+    "status": "NO_TRANSCRIPT",
+    "error": null
+  },
+  "outcome": "NONZERO_EXIT",
+  "cleanup": {
+    "passed": true,
+    "privateEvaluationDirectoryRemoved": true,
+    "tempArtifactSetRestored": true
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-SMOKE-V2.1-HELD-OUT-FREEZE",
+  "frozenOn": "2026-08-10",
+  "methodology": "Frozen before scorer execution; derived only from owner-approved categories and synthetic model-blind fixtures.",
+  "files": [
+    {
+      "path": "docs/voice-smoke-v2.1-held-out-spec.md",
+      "sha256": "ff15ab8cfdff3a049d4d71102b2dceef51bceec9e694b37f12eaf8feb03b9bd1"
+    },
+    {
+      "path": "scripts/voice-eval/v2.1-held-out-fixtures.json",
+      "sha256": "ccf17ac2f80a179ea11aced0873ddd4952a2967662955fd7b0a609d1669a0c3f"
+    },
+    {
+      "path": "scripts/voice-eval/scoring-v2.1.ts",
+      "sha256": "b5765268b78208ad80203916963f9671c483dfc3d17cf2ac16fdfc2c7adea3c9"
+    }
+  ],
+  "aggregateSha256": "01be6ff8e0fbb4e7eb426a053174ea16fa7ba6e07d3579278d63f66746a165ef",
+  "corrections": [
+    {
+      "date": "2026-08-14",
+      "path": "scripts/voice-eval/scoring-v2.1.ts",
+      "previousSha256": "945c1d3119d39e14514ef0d78f5b38de037c440b1dca26baccb3bf8cd5e382fb",
+      "correctedSha256": "b5765268b78208ad80203916963f9671c483dfc3d17cf2ac16fdfc2c7adea3c9",
+      "previousAggregateSha256": "fba510500f928675905d67e838caecd9b1075d708c96938d5249fc8d873820a5",
+      "correctedAggregateSha256": "01be6ff8e0fbb4e7eb426a053174ea16fa7ba6e07d3579278d63f66746a165ef",
+      "reason": "Semgrep detect-non-literal-regexp remediation",
+      "change": "Four fixed script patterns became equivalent literals. scriptCount previously constructed four dynamic RegExp values over the constant list [Latin, Devanagari, Cyrillic, Greek]; it now tests four literal regexes in the same order. Neither form uses the g flag, so there is no lastIndex state. Scoring behaviour is unchanged.",
+      "equivalenceProof": "Old and new scriptCount compared over 21 inputs (empty, single-script Latin/Devanagari/Cyrillic/Greek, multi-script combinations, digits, punctuation, zero-width and control characters, Han, combining forms, and a 5000-character input) plus five repeated calls for lastIndex stability: identical on every case.",
+      "originalBytesPreservedIn": {
+        "parentCommit": "c4d1ce5b4fd0d64d2ba336847d2a5808eef057a0",
+        "gitBlob": "c794c82fedc4d7c341bf6f6e92299e941712ec26",
+        "note": "The parent commit is pushed to origin/integrate/voice-into-audit, so the pre-correction bytes remain permanently retrievable."
+      },
+      "authorization": "Authorized historical exception, not silent regeneration. The owner explicitly approved this single recorded correction after the alternative - leaving a live freeze verifier failing - was rejected. No Semgrep rule was suppressed, no ignore entry added and no scan configuration weakened."
+    }
+  ]
+}

@@ -12,8 +12,16 @@
 
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, insertMessage, insertFeatureRequest } from "@nitsyclaw/shared/db";
+import { auditModelRoute, getDb, insertMessage, insertFeatureRequest, logAudit } from "@nitsyclaw/shared/db";
 import { runAgent, buildSystemPrompt, loadCrossSurfaceHistory } from "@nitsyclaw/shared/agent";
+import {
+  createPrivacyAwareEmbedder,
+  createRoutedLlm,
+  hasExplicitCloudApproval,
+  localBrainModeFromEnv,
+  buildModelRouteAuditPayload,
+  OllamaProvider,
+} from "@nitsyclaw/shared/local-brain";
 import { registerAllFeatures, resolvePromptProfileFromContext } from "@nitsyclaw/shared/features";
 import {
   completeCommandJob,
@@ -41,7 +49,7 @@ import {
 import { checkDashboardRateLimit, dashboardRateLimitHeaders } from "../../../lib/dashboard-rate-limit";
 import { requireSameOrigin } from "../../../lib/request-origin";
 import { requireDashboardSession } from "../../../lib/require-dashboard-session";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { createWebResearch } from "@nitsyclaw/shared/search";
 import type {
   AgentDeps,
   CalendarClient,
@@ -57,7 +65,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const NO_STORE = { "Cache-Control": "no-store" };
-const CHAT_CONFIG_ERROR = "Dashboard AI is not configured.";
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
   const parts = [city, region, country].map((part) => part?.trim()).filter(Boolean);
@@ -156,23 +163,41 @@ function makeOpenAiEmbedder(apiKey: string): Embedder {
 
 function buildDashboardDeps(): AgentDeps {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
   const openaiKey = process.env.OPENAI_API_KEY;
+  const db = getDb();
+  const local = new OllamaProvider();
+  const cloudLlm = apiKey ? makeAnthropicLlm(apiKey, model) : undefined;
+  const cloudEmbedder = openaiKey ? makeOpenAiEmbedder(openaiKey) : undefined;
+
+  const webResearch = createWebResearch({
+    anthropicApiKey: apiKey,
+    anthropicModel: model,
+    enabled: process.env.ENABLE_WEB_RESEARCH !== "false",
+    maxUses: Number(process.env.WEB_SEARCH_MAX_USES ?? 5),
+    serperApiKey: process.env.SERPER_API_KEY,
+  });
 
   return {
-    db: getDb(),
+    db,
     whatsapp: new NoopWhatsApp(),
-    llm: makeAnthropicLlm(apiKey, model),
+    llm: createRoutedLlm({
+      local,
+      cloud: cloudLlm,
+      mode: localBrainModeFromEnv(),
+      explicitCloudApproval: hasExplicitCloudApproval,
+      telemetry: async (event) => {
+        // Payload is built from the routing event alone, so no owner-linked
+        // value can reach it. Row ownership elsewhere is untouched.
+        await logAudit(db, auditModelRoute(buildModelRouteAuditPayload(event)));
+      },
+    }),
     transcriber: noopTranscriber,
-    webSearch: process.env.SERPER_API_KEY
-      ? makeSerperSearch(process.env.SERPER_API_KEY)
-      : noopWebSearch,
+    webSearch: webResearch.webSearch,
+    liveResearch: webResearch.researcher,
     calendar: noopCalendar,
     imageAnalyzer: noopImageAnalyzer,
-    embedder: openaiKey
-      ? makeOpenAiEmbedder(openaiKey)
-      : { async embed() { return []; } },
+    embedder: createPrivacyAwareEmbedder({ local, cloud: cloudEmbedder }),
     now: () => new Date(),
     timezone: process.env.TIMEZONE ?? "Australia/Melbourne",
     profile: {
@@ -207,13 +232,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { reply: CHAT_CONFIG_ERROR },
-      { status: 503, headers: NO_STORE },
-    );
-  }
-
   const rawBody = await parseLimitedJsonBody(req);
   if (!rawBody.ok) {
     return NextResponse.json({ reply: rawBody.reply }, { status: rawBody.status, headers: NO_STORE });
@@ -225,9 +243,9 @@ export async function POST(req: Request) {
   const last = parsedBody.last;
 
   try {
+    const { ownerPhone, ownerHash } = getOwnerIdentity();
     const deps = buildDashboardDeps();
     const registry = registerAllFeatures({ surface: "dashboard" });
-    const { ownerPhone, ownerHash } = getOwnerIdentity();
     const privateMode = parsePrivateModeInput(last.content, parsedBody.body.privateMode);
     if (privateMode) {
       if (isPrivateModeHelpRequest(privateMode.text)) {

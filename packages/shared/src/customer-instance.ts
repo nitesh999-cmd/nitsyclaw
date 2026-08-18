@@ -87,7 +87,7 @@ export function evaluateCustomerInstanceReadiness(
     blockers,
     nextActions: customerMode
       ? [
-          "Keep new customer instances in pilot mode until tenant storage is verified.",
+          "Keep new customer instances in pilot mode until tenant isolation, account auth, and review-only tables are verified.",
           "Create one owner/customer identity per instance before connecting providers.",
           ...tenantReadiness.nextActions,
         ]

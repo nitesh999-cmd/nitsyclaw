@@ -3,12 +3,15 @@
 
 import { loadEnv } from "@nitsyclaw/shared";
 import {
+  closeDb,
   getDb,
   insertFeatureRequest,
   listPendingFeatureRequests,
   logAudit,
+  recoverInterruptedVoiceCommandJobs,
   upsertSystemHeartbeat,
   type DB,
+  auditLoopBreaker,
 } from "@nitsyclaw/shared/db";
 import { pushNotify } from "@nitsyclaw/shared/notify";
 import { WwebjsClient } from "./wwebjs-client.js";
@@ -20,6 +23,7 @@ import {
 } from "./whatsapp-health.js";
 import { WhatsAppLoopBreaker } from "./whatsapp-loop-breaker.js";
 import { WhatsAppSendMonitor } from "./whatsapp-send-monitor.js";
+import { WhatsAppHeartbeatAckStateStore } from "./whatsapp-outbound-ack-store.js";
 import { buildAgentDeps } from "./adapters.js";
 import { Router } from "./router.js";
 import { startScheduler } from "./scheduler.js";
@@ -28,17 +32,26 @@ import { logBotError } from "./safe-log.js";
 import { buildBotRuntimeMetadata } from "./bot-runtime.js";
 import { QrRecoveryController, startQrRecoveryServer } from "./qr-recovery-server.js";
 import { assertWhatsAppRuntimeAllowed } from "./whatsapp-runtime-guard.js";
+import { WhatsAppVoiceReplyClient } from "./whatsapp-voice-reply.js";
+import { hashPhone } from "@nitsyclaw/shared/utils";
 
 loadBotDotenv();
 
 async function main() {
   const env = loadEnv();
   const runtimeMetadata = buildBotRuntimeMetadata(process.env);
-  assertWhatsAppRuntimeAllowed(process.env);
+  const runtimeMode = assertWhatsAppRuntimeAllowed(process.env);
   console.log(
     `[boot] NitsyClaw bot starting (TZ=${env.TIMEZONE}, platform=${runtimeMetadata.platform}, runtime=${runtimeMetadata.runtimeId}, commit=${runtimeMetadata.commitShort})`,
   );
   const db = getDb(env.DATABASE_URL ?? env.DATABASE_URL_DIRECT);
+  const recoveredVoiceJobs = await recoverInterruptedVoiceCommandJobs(
+    db,
+    hashPhone(env.WHATSAPP_OWNER_NUMBER),
+  );
+  if (recoveredVoiceJobs > 0) {
+    console.log(`[boot] marked ${recoveredVoiceJobs} interrupted voice job(s) failed without replay`);
+  }
   await upsertSystemHeartbeat(db, {
     source: "bot-runtime",
     status: "starting",
@@ -46,7 +59,26 @@ async function main() {
   }).catch((e) => logBotError("[boot] startup heartbeat failed; continuing", e));
 
   const qrRecovery = new QrRecoveryController(process.env);
-  const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env);
+  const qrRecoveryServer = startQrRecoveryServer(qrRecovery, process.env, {
+    whatsappEnabled: runtimeMode.mode === "client",
+  });
+
+  // Not the WhatsApp owner: serve health, construct nothing. The return happens
+  // before `whatsappSessionDir(...)` is ever evaluated, so this path cannot read
+  // or create a session directory, launch Chromium, or register a QR handler.
+  if (runtimeMode.mode === "no-client") {
+    qrRecoveryServer?.setHealthProvider(() => ({
+      service: "nitsyclaw-bot",
+      status: "ok",
+      whatsapp: { ready: false, reason: runtimeMode.reason },
+      at: new Date().toISOString(),
+    }));
+    console.log(
+      `[boot] no-client mode (${runtimeMode.reason}): health is served, WhatsApp is owned by another runtime`,
+    );
+    return;
+  }
+
   let latestWhatsAppRuntimeEvent: WhatsAppRuntimeEvent = {
     status: "initializing",
     reason: "startup",
@@ -57,6 +89,7 @@ async function main() {
     ownerNumber: env.WHATSAPP_OWNER_NUMBER,
     presenceUnavailableIntervalMs: env.NITSYCLAW_PRESENCE_UNAVAILABLE_INTERVAL_MS,
     initializeTimeoutMs: env.NITSYCLAW_WHATSAPP_INITIALIZE_TIMEOUT_MS,
+    outboundAckStore: new WhatsAppHeartbeatAckStateStore(db),
     onQr: (payload) => qrRecovery.setQr(payload),
     onQrCleared: () => qrRecovery.clearQr(),
     onStatus: (event) => {
@@ -67,6 +100,14 @@ async function main() {
         metadata: publicWhatsAppRuntimeMetadata(event),
       }).catch((e) => logBotError("[boot] whatsapp status heartbeat failed", e));
     },
+    onInboundHealth: (snapshot) => {
+      // Counters only - no bodies, numbers, lids, or message ids.
+      void upsertSystemHeartbeat(db, {
+        source: "whatsapp-inbound",
+        status: snapshot.status,
+        metadata: { ...snapshot },
+      }).catch((e) => logBotError("[boot] whatsapp inbound heartbeat failed", e));
+    },
   });
   const whatsapp = new WhatsAppLoopBreaker(rawWhatsapp, {
     onTrip: (incident) => {
@@ -76,14 +117,11 @@ async function main() {
         status: "paused",
         metadata: { ...incident },
       }).catch((e) => logBotError("[boot] loop guard heartbeat failed", e));
-      void logAudit(db, {
-        actor: "system",
-        tool: "whatsapp_loop_breaker",
-        input: { ...incident },
-        output: { action: incident.resetAt ? "cooldown_whatsapp_replies" : "paused_whatsapp_replies" },
-        success: false,
-        error: incident.reason,
-      }).catch((e) => logBotError("[boot] loop guard audit failed", e));
+      // The runtime `incident.reason` still drives cooldown, the operational log
+      // and feature-request dedupe. Only a closed code derived from it is
+      // persisted: the send-burst branch interpolates live counters into prose.
+      void logAudit(db, auditLoopBreaker(incident))
+        .catch((e) => logBotError("[boot] loop guard audit failed", e));
       void queueLoopBreakerFeatureRequest(db, incident)
         .catch((e) => logBotError("[boot] loop guard feature request failed", e));
       pushNotify(
@@ -112,9 +150,9 @@ async function main() {
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
       ANTHROPIC_MODEL: env.ANTHROPIC_MODEL,
       OPENAI_API_KEY: env.OPENAI_API_KEY,
-      TRANSCRIPTION_MODEL: env.TRANSCRIPTION_MODEL,
       SERPER_API_KEY: env.SERPER_API_KEY,
       ENABLE_WEB_RESEARCH: env.ENABLE_WEB_RESEARCH,
+      WEB_SEARCH_MAX_USES: env.WEB_SEARCH_MAX_USES,
       TIMEZONE: env.TIMEZONE,
       HOME_CITY: env.HOME_CITY,
       HOME_REGION: env.HOME_REGION,
@@ -124,15 +162,31 @@ async function main() {
       CURRENT_COUNTRY: env.CURRENT_COUNTRY,
       DEFAULT_CURRENCY: env.DEFAULT_CURRENCY,
       REPLY_LANGUAGE: env.REPLY_LANGUAGE,
+      NITSYCLAW_MODEL_MODE: env.NITSYCLAW_MODEL_MODE,
+      WHATSAPP_OWNER_NUMBER: env.WHATSAPP_OWNER_NUMBER,
+      OLLAMA_BASE_URL: env.OLLAMA_BASE_URL,
+      OLLAMA_CHAT_MODEL: env.OLLAMA_CHAT_MODEL,
+      OLLAMA_EMBEDDING_MODEL: env.OLLAMA_EMBEDDING_MODEL,
+      OLLAMA_TIMEOUT_MS: env.OLLAMA_TIMEOUT_MS,
+      OLLAMA_RETRIES: env.OLLAMA_RETRIES,
+      OLLAMA_CONTEXT_LIMIT: env.OLLAMA_CONTEXT_LIMIT,
+      OLLAMA_THINK: env.OLLAMA_THINK,
     },
     db,
     whatsapp: monitoredWhatsapp,
   });
 
-  const router = new Router(deps, env.WHATSAPP_OWNER_NUMBER);
-  monitoredWhatsapp.onMessage(async (m) => router.handle(m));
+  const ownerWhatsapp = new WhatsAppVoiceReplyClient(monitoredWhatsapp, {
+    db,
+    ownerNumber: env.WHATSAPP_OWNER_NUMBER,
+    speechSynthesizer: deps.speechSynthesizer,
+  });
+  deps.whatsapp = ownerWhatsapp;
 
-  await monitoredWhatsapp.ready();
+  const router = new Router(deps, env.WHATSAPP_OWNER_NUMBER);
+  ownerWhatsapp.onMessage(async (m) => router.handle(m));
+
+  await ownerWhatsapp.ready();
   await upsertSystemHeartbeat(db, {
     source: "bot-runtime",
     status: "ok",
@@ -181,17 +235,24 @@ async function main() {
   }
 
   let shuttingDown = false;
+  // NOTE: this path only runs on a graceful signal. A forced termination
+  // (Stop-Process -Force / SIGKILL) cannot run any cleanup, so database sockets
+  // are left for the server to reap — that is a property of forced kills, not
+  // something this handler can cover.
   const shutdown = async (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[boot] shutting down (${signal})`);
     try {
       clearInterval(loopGuardHeartbeatInterval);
-      await monitoredWhatsapp.destroy();
+      await ownerWhatsapp.destroy();
       qrRecoveryServer?.close();
+      await closeDb();
       process.exit(0);
     } catch (e) {
       logBotError("[boot] shutdown failed", e);
+      // Still try to release database sockets before leaving.
+      await closeDb().catch(() => undefined);
       process.exit(1);
     }
   };

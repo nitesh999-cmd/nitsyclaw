@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, logAudit } from "@nitsyclaw/shared/db";
+import { auditRecoveryAction, getDb, logAudit } from "@nitsyclaw/shared/db";
 import { logDashboardError } from "../../../../lib/dashboard-runtime";
 import {
   checkDashboardRateLimit,
@@ -50,14 +50,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const started = Date.now();
   try {
-    await logAudit(getDb(), {
-      actor: "user",
-      tool: "whatsapp_recovery_action",
-      input: { action },
-      output: { recorded: true, proof: "manual_operator_marker" },
-      success: true,
-      durationMs: Date.now() - started,
-    });
+    await logAudit(getDb(), auditRecoveryAction({ action, durationMs: Date.now() - started }));
   } catch (e) {
     logDashboardError("whatsapp-recovery.log-action", e);
     return new Response("Could not record recovery action", { status: 500, headers: NO_STORE });

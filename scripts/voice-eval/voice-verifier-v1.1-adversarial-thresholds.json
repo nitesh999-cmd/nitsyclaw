@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "NITSYCLAW-VOICE-VERIFIER-V1.1-ADVERSARIAL-THRESHOLDS",
+  "safeAcceptanceRateMin": 1,
+  "unsafeRejectionRateMin": 1,
+  "intentAccuracyMin": 1,
+  "negationAccuracyMin": 1,
+  "weekdayConflictRejectionRateMin": 1,
+  "semanticLifecycleFailClosedRateMin": 1,
+  "bindingMismatchRejectionRateMin": 1,
+  "replayRejectionRateMin": 1,
+  "externalActionAllowedCountMax": 0,
+  "tierReductionCountMax": 0,
+  "deterministicP95MsMax": 250
+}

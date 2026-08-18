@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { claimSystemNotification } from "../src/db/repo.js";
 
 describe("claimSystemNotification", () => {
@@ -28,5 +29,19 @@ describe("claimSystemNotification", () => {
     const db = { execute: vi.fn().mockResolvedValue(result) };
 
     await expect(claimSystemNotification(db as never, args)).resolves.toBe(false);
+  });
+
+  it("binds raw SQL timestamps as strings for postgres-js", async () => {
+    const db = { execute: vi.fn().mockResolvedValue([]) };
+
+    await claimSystemNotification(db as never, args);
+
+    const query = db.execute.mock.calls[0]?.[0];
+    const compiled = new PgDialect().sqlToQuery(query as never);
+    expect(compiled.params[1]).toBe("2026-05-09T05:00:00.000Z");
+    expect(compiled.params[4]).toBe("2026-05-08T09:00:00.000Z");
+    expect(compiled.params[1]).not.toBeInstanceOf(Date);
+    expect(compiled.params[4]).not.toBeInstanceOf(Date);
+    expect(compiled.sql.match(/::timestamptz/g)).toHaveLength(4);
   });
 });

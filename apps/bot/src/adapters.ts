@@ -7,7 +7,16 @@ import { google } from "googleapis";
 import { loadOAuthClient, hasGoogleToken } from "./google-auth.js";
 import { createMsEvent, sendMailRich } from "./microsoft-graph.js";
 import { logBotError } from "./safe-log.js";
-import { makeSerperSearch, noopWebSearch } from "@nitsyclaw/shared/search";
+import { createWebResearch, type WebResearchWiring } from "@nitsyclaw/shared/search";
+import { auditModelRoute, logAudit } from "@nitsyclaw/shared/db";
+import {
+  OllamaProvider,
+  createPrivacyAwareEmbedder,
+  createRoutedLlm,
+  hasExplicitCloudApproval,
+  buildModelRouteAuditPayload,
+  type LocalBrainMode,
+} from "@nitsyclaw/shared/local-brain";
 import type {
   AgentDeps,
   CalendarClient,
@@ -16,8 +25,10 @@ import type {
   ImageAnalyzer,
   LlmClient,
   Transcriber,
-  WebSearcher,
 } from "@nitsyclaw/shared/agent";
+import { createLlmWorkCoordinator } from "./llm-work-coordinator.js";
+import { LocalVoiceTranscriber } from "./local-voice-transcriber.js";
+import { LocalSapiSpeechSynthesizer } from "./local-speech-synthesizer.js";
 
 /** RFC 2047 encoded-word for header values containing non-ASCII (e.g. "Café invoice"). */
 function encodeHeaderValue(value: string): string {
@@ -95,6 +106,17 @@ export const realEmailSender: EmailSender = {
   },
 };
 
+/**
+ * Collapse the API's stop reasons onto the three the agent loop understands.
+ * Anything that is not a tool call or a length cut-off ends the turn, so a new
+ * stop reason can never be mistaken for "tool_use" and re-enter the loop.
+ */
+export function normalizeStopReason(stopReason: string | null | undefined): "end_turn" | "tool_use" | "max_tokens" {
+  if (stopReason === "tool_use") return "tool_use";
+  if (stopReason === "max_tokens") return "max_tokens";
+  return "end_turn";
+}
+
 export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
   const client = new Anthropic({ apiKey });
   return {
@@ -112,19 +134,16 @@ export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
       return { text };
     },
     async toolStep({ system, messages, tools }) {
-      // Append Anthropic server-side web_search so the model can fetch current
-      // info without us running our own search infra. Free local registry tools
-      // continue to be dispatched in our agent loop; web_search runs server-side
-      // and its results come back inline as part of the assistant message.
-      const allTools = [
-        ...(tools as Anthropic.Tool[]),
-        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-      ] as Anthropic.Tool[];
+      // Client tools only. Live web search is NOT injected here: this loop feeds
+      // tool results back as plain strings, which cannot carry the
+      // `encrypted_content` the API requires when a conversation contains server
+      // search results. Web search runs in its own bounded request behind the
+      // `web_research` client tool instead (deps.liveResearch).
       const resp = await client.messages.create({
         model,
         system,
         max_tokens: 1024,
-        tools: allTools,
+        tools: tools as Anthropic.Tool[],
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
       });
       const toolCalls = resp.content
@@ -138,28 +157,10 @@ export function makeAnthropicLlm(apiKey: string, model: string): LlmClient {
         .map((b) => (b as { type: "text"; text: string }).text)
         .join("");
       return {
-        stopReason: (resp.stop_reason ?? "end_turn") as "end_turn" | "tool_use" | "max_tokens",
+        stopReason: normalizeStopReason(resp.stop_reason),
         toolCalls,
         text,
       };
-    },
-  };
-}
-
-export function makeOpenAiTranscriber(apiKey: string, model: string): Transcriber {
-  const client = new OpenAI({ apiKey });
-  return {
-    async transcribe(audio: Buffer, mimetype: string) {
-      const { toFile } = await import("openai/uploads");
-      const subtype = (mimetype.split("/")[1] ?? "ogg").split(";")[0] ?? "ogg";
-      const extMap: Record<string, string> = {
-        ogg: "ogg", oga: "oga", opus: "ogg", mpeg: "mp3", mp3: "mp3",
-        wav: "wav", webm: "webm", m4a: "m4a", mp4: "mp4", flac: "flac",
-      };
-      const ext = extMap[subtype] ?? "ogg";
-      const file = await toFile(audio, "audio." + ext, { type: mimetype.split(";")[0] });
-      const out = await client.audio.transcriptions.create({ file, model });
-      return out.text ?? "";
     },
   };
 }
@@ -229,17 +230,23 @@ export function makeAnthropicImageAnalyzer(apiKey: string, model: string): Image
   };
 }
 
-export const stubWebSearch: WebSearcher = {
-  async search(query: string) {
-    return [
-      {
-        title: "Web search not configured - query: " + query,
-        url: "https://example.com",
-        snippet: "Set SERPER_API_KEY in .env.local to enable real web search.",
-      },
-    ];
-  },
-};
+/**
+ * Live web research wiring.
+ *
+ * Anthropic's server-side web search is the primary (and only new) backend — it
+ * reuses ANTHROPIC_API_KEY, so no extra search vendor or key is involved. A
+ * pre-existing SERPER_API_KEY still works as a fallback for installs that have
+ * one. With neither, research reports itself unavailable instead of guessing.
+ */
+export function buildWebResearch(env: BotConfigEnv): WebResearchWiring {
+  return createWebResearch({
+    anthropicApiKey: env.ANTHROPIC_API_KEY,
+    anthropicModel: env.ANTHROPIC_MODEL,
+    enabled: env.ENABLE_WEB_RESEARCH,
+    maxUses: env.WEB_SEARCH_MAX_USES,
+    serperApiKey: env.SERPER_API_KEY,
+  });
+}
 
 
 export const realCalendar: CalendarClient = {
@@ -357,12 +364,12 @@ export const realCalendar: CalendarClient = {
 export const stubCalendar = realCalendar;
 
 export interface BotConfigEnv {
-  ANTHROPIC_API_KEY: string;
+  ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL: string;
   OPENAI_API_KEY?: string;
-  TRANSCRIPTION_MODEL: string;
   SERPER_API_KEY?: string;
   ENABLE_WEB_RESEARCH?: boolean;
+  WEB_SEARCH_MAX_USES?: number;
   TIMEZONE: string;
   HOME_CITY?: string;
   HOME_REGION?: string;
@@ -372,6 +379,15 @@ export interface BotConfigEnv {
   CURRENT_COUNTRY?: string;
   DEFAULT_CURRENCY?: string;
   REPLY_LANGUAGE?: string;
+  NITSYCLAW_MODEL_MODE?: LocalBrainMode;
+  WHATSAPP_OWNER_NUMBER?: string;
+  OLLAMA_BASE_URL?: string;
+  OLLAMA_CHAT_MODEL?: string;
+  OLLAMA_EMBEDDING_MODEL?: string;
+  OLLAMA_TIMEOUT_MS?: number;
+  OLLAMA_RETRIES?: number;
+  OLLAMA_CONTEXT_LIMIT?: number;
+  OLLAMA_THINK?: boolean;
 }
 
 function formatLocation(city?: string, region?: string, country?: string): string | undefined {
@@ -385,26 +401,61 @@ export function buildAgentDeps(args: {
   whatsapp: AgentDeps["whatsapp"];
   now?: () => Date;
 }): AgentDeps {
-  const llm = makeAnthropicLlm(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL);
-  const transcriber = args.env.OPENAI_API_KEY
-    ? makeOpenAiTranscriber(args.env.OPENAI_API_KEY, args.env.TRANSCRIPTION_MODEL)
-    : { async transcribe() { throw new Error("OPENAI_API_KEY not set"); } };
-  const embedder = args.env.OPENAI_API_KEY
-    ? makeOpenAiEmbedder(args.env.OPENAI_API_KEY)
-    : { async embed() { return []; } };
-  const imageAnalyzer = makeAnthropicImageAnalyzer(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL);
-  const webSearch =
-    args.env.ENABLE_WEB_RESEARCH === false
-      ? noopWebSearch
-      : args.env.SERPER_API_KEY
-        ? makeSerperSearch(args.env.SERPER_API_KEY)
-        : stubWebSearch;
+  const cloudLlm = args.env.ANTHROPIC_API_KEY
+    ? makeAnthropicLlm(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL)
+    : undefined;
+  const ollama = new OllamaProvider({
+    baseUrl: args.env.OLLAMA_BASE_URL,
+    chatModel: args.env.OLLAMA_CHAT_MODEL,
+    embeddingModel: args.env.OLLAMA_EMBEDDING_MODEL,
+    requestTimeoutMs: args.env.OLLAMA_TIMEOUT_MS,
+    retries: args.env.OLLAMA_RETRIES,
+    contextWindow: args.env.OLLAMA_CONTEXT_LIMIT,
+    think: args.env.OLLAMA_THINK,
+  });
+  const routedLlm = createRoutedLlm({
+    local: ollama,
+    cloud: cloudLlm,
+    mode: args.env.NITSYCLAW_MODEL_MODE ?? "auto",
+    explicitCloudApproval: hasExplicitCloudApproval,
+    telemetry: async (event) => {
+      // Payload built from the routing event alone — no owner-linked value can
+      // reach durable storage.
+      await logAudit(args.db, auditModelRoute(buildModelRouteAuditPayload(event)));
+    },
+  });
+  const llmWork = createLlmWorkCoordinator(routedLlm);
+  const localTranscriber = new LocalVoiceTranscriber();
+  const transcriber: Transcriber = {
+    transcribe: (audio, mimetype, options) =>
+      llmWork.runInteractiveResource(() => localTranscriber.transcribe(audio, mimetype, options)),
+  };
+  const localSpeechSynthesizer = new LocalSapiSpeechSynthesizer();
+  const cloudEmbedder = args.env.OPENAI_API_KEY ? makeOpenAiEmbedder(args.env.OPENAI_API_KEY) : undefined;
+  const routedEmbedder = createPrivacyAwareEmbedder({ local: ollama, cloud: cloudEmbedder });
+  const embedder: Embedder = {
+    embed: (text) => llmWork.runInteractiveResource(() => routedEmbedder.embed(text)),
+  };
+  const imageAnalyzer = args.env.ANTHROPIC_API_KEY
+    ? makeAnthropicImageAnalyzer(args.env.ANTHROPIC_API_KEY, args.env.ANTHROPIC_MODEL)
+    : {
+        async extractReceipt() {
+          throw new Error("Receipt image analysis needs ANTHROPIC_API_KEY; local image analysis is not configured.");
+        },
+      };
+  const { researcher, webSearch } = buildWebResearch(args.env);
   return {
     db: args.db,
     whatsapp: args.whatsapp,
-    llm,
+    llm: llmWork.interactive,
+    runBackgroundLlmJob: (job) => llmWork.runBackground(job),
     transcriber,
+    speechSynthesizer: {
+      synthesize: (request) =>
+        llmWork.runInteractiveResource(() => localSpeechSynthesizer.synthesize(request)),
+    },
     webSearch,
+    liveResearch: researcher,
     calendar: realCalendar,
     aggregator: {
       fetchAllEventsToday,

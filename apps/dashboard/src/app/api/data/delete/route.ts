@@ -13,8 +13,11 @@ import {
   profileContext,
   reminders,
   systemHeartbeats,
+  auditDataDelete,
+  safeAuditValues,
 } from "@nitsyclaw/shared/db";
 import { disconnectSpotify } from "@nitsyclaw/shared/integrations/spotify";
+import { eq } from "drizzle-orm";
 import { sessionTokenFromRequest, verifyExportProof } from "../../../../lib/data-export-proof";
 import { getOwnerIdentity, logDashboardError } from "../../../../lib/dashboard-runtime";
 import { blockPublicSaleCustomerDataAccess } from "../../../../lib/public-sale-data-guard";
@@ -75,12 +78,14 @@ export async function POST(req: Request) {
     return redirectToSettings(req, { deleteError: "confirm", scope });
   }
 
+  // Hoisted so the erasure receipt can record that the export-before-delete
+  // gate was satisfied without persisting the snapshot identifier itself.
+  let verifiedExportProof = false;
   if (scope === "everything") {
     const expectedPassword = process.env.NITSYCLAW_DASHBOARD_PASSWORD ?? "";
     if (!expectedPassword || !constantTimeEqual(currentPassword, expectedPassword)) {
       return redirectToSettings(req, { deleteError: "reauth", scope });
     }
-    let verifiedExportProof = false;
     try {
       verifiedExportProof = Boolean(verifyExportProof({
         proof: exportProof,
@@ -97,8 +102,8 @@ export async function POST(req: Request) {
 
   try {
     const db = getDb();
+    const { ownerHash } = getOwnerIdentity();
     if (scope === "everything") {
-      const { ownerHash } = getOwnerIdentity();
       const spotifyDisconnect = await disconnectSpotify(db, ownerHash);
       if (spotifyDisconnect.revokeError) {
         return redirectToSettings(req, { deleteError: "provider-revoke", scope });
@@ -109,32 +114,36 @@ export async function POST(req: Request) {
       const deleted: DeleteCounts = {};
 
       if (scope === "memories") {
-        deleted.memories = (await tx.delete(memories).returning({ id: memories.id })).length;
+        deleted.memories = (await tx.delete(memories).where(eq(memories.ownerHash, ownerHash)).returning({ id: memories.id })).length;
       } else if (scope === "conversations") {
         deleted.messages = (await tx.delete(messages).returning({ id: messages.id })).length;
       } else {
-        deleted.confirmations = (await tx.delete(confirmations).returning({ id: confirmations.id })).length;
-        deleted.expenses = (await tx.delete(expenses).returning({ id: expenses.id })).length;
+        deleted.confirmations = (await tx.delete(confirmations).where(eq(confirmations.ownerHash, ownerHash)).returning({ id: confirmations.id })).length;
+        deleted.expenses = (await tx.delete(expenses).where(eq(expenses.ownerHash, ownerHash)).returning({ id: expenses.id })).length;
         deleted.featureRequests = (await tx.delete(featureRequests).returning({ id: featureRequests.id })).length;
-        deleted.memories = (await tx.delete(memories).returning({ id: memories.id })).length;
+        deleted.memories = (await tx.delete(memories).where(eq(memories.ownerHash, ownerHash)).returning({ id: memories.id })).length;
         deleted.messages = (await tx.delete(messages).returning({ id: messages.id })).length;
         deleted.profileContext = (await tx.delete(profileContext).returning({ id: profileContext.id })).length;
-        deleted.reminders = (await tx.delete(reminders).returning({ id: reminders.id })).length;
+        deleted.reminders = (await tx.delete(reminders).where(eq(reminders.ownerHash, ownerHash)).returning({ id: reminders.id })).length;
         deleted.connectedAccounts = (await tx.delete(connectedAccounts).returning({ id: connectedAccounts.id })).length;
         deleted.systemHeartbeats = (await tx.delete(systemHeartbeats).returning({ source: systemHeartbeats.source })).length;
-        deleted.briefs = (await tx.delete(briefs).returning({ id: briefs.id })).length;
+        deleted.briefs = (await tx.delete(briefs).where(eq(briefs.ownerHash, ownerHash)).returning({ id: briefs.id })).length;
         deleted.dashboardAuthAttempts = (await tx.delete(dashboardAuthAttempts).returning({ clientKey: dashboardAuthAttempts.clientKey })).length;
         deleted.auditLog = (await tx.delete(auditLog).returning({ id: auditLog.id })).length;
       }
 
-      await tx.insert(auditLog).values({
-        actor: "user",
-        tool: "data_delete",
-        input: { scope, exportSnapshotId: scope === "everything" ? exportSnapshotId : undefined },
-        output: { deleted },
-        success: true,
-        durationMs: Date.now() - started,
-      });
+      // Written inside the erasure transaction, so the receipt lands with the
+      // deletion or not at all — but still shaped by the shared audit contract.
+      await tx.insert(auditLog).values(
+        safeAuditValues(
+          auditDataDelete({
+            scope,
+            hasExportSnapshot: verifiedExportProof,
+            deleted,
+            durationMs: Date.now() - started,
+          }),
+        ),
+      );
 
       return deleted;
     });

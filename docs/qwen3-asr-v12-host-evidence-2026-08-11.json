@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.2-HOST-EVIDENCE-1",
+  "date": "2026-08-11",
+  "timezone": "Australia/Sydney",
+  "branch": "codex/whatsapp-voice-intelligence",
+  "startingCommit": "7c707fa722b8ba954f1715988e32716800c38995",
+  "diagnosticVerdict": "BLOCKED",
+  "singleChildInvocationConsumed": true,
+  "secondAttemptPerformed": false,
+  "scorerExecuted": false,
+  "windows": {
+    "priorTwoCase": {
+      "localStart": "2026-08-11T13:11:42+10:00",
+      "localEnd": "2026-08-11T13:12:13+10:00",
+      "relevantApplicationEvents": 0,
+      "relevantSystemEvents": 0,
+      "reliabilityRecords": 0,
+      "classification": "no retained native crash, resource exhaustion, Python, Node, CUDA or NVIDIA event"
+    },
+    "v11EnglishDiagnostic": {
+      "localStart": "2026-08-11T18:09:01.660+10:00",
+      "localEnd": "2026-08-11T18:09:39.815+10:00",
+      "windowsErrorReportingEventsAfterWindow": 50,
+      "windowsErrorReportingRecordIdMinimum": 822858,
+      "windowsErrorReportingRecordIdMaximum": 822907,
+      "referencesAugust11": 0,
+      "referencedWatchdogDumpDateMinimum": "2026-05-25",
+      "referencedWatchdogDumpDateMaximum": "2026-07-30",
+      "relevantSystemEvents": 0,
+      "reliabilityRecords": 0,
+      "classification": "the WER batch referenced older queued watchdog dumps and is not temporally causal to V1.1"
+    },
+    "v12HinglishDiagnostic": {
+      "localStart": "2026-08-11T19:03:06.443+10:00",
+      "localEnd": "2026-08-11T19:03:06.544+10:00",
+      "inspectionWindowStart": "2026-08-11T19:02:30+10:00",
+      "inspectionWindowEnd": "2026-08-11T19:08:30+10:00",
+      "applicationEventsTotal": 0,
+      "relevantApplicationEvents": 0,
+      "systemEventsTotal": 0,
+      "relevantSystemEvents": 0,
+      "reliabilityRecords": 0,
+      "werDirectoryItems": 0,
+      "applicationRecordIdBefore": 822913,
+      "applicationRecordIdAfter": 822913,
+      "systemRecordIdBefore": 141351,
+      "systemRecordIdAfter": 141351,
+      "classification": "no correlated Windows, WER, Reliability Monitor or NVIDIA event"
+    }
+  },
+  "resources": {
+    "preflight": {
+      "ramTotalBytes": 67756871680,
+      "ramFreeBytes": 34834124800,
+      "parentRssBytes": 126955520,
+      "gpuName": "NVIDIA GeForce RTX 4060",
+      "gpuTotalMiB": 8188,
+      "gpuUsedMiB": 5246,
+      "gpuFreeMiB": 2711,
+      "driverVersion": "610.74",
+      "perProcessGpuMemoryAvailableUnderWddm": false
+    },
+    "child": {
+      "processId": 50280,
+      "resourceSamples": 1,
+      "peakRamBytes": null,
+      "peakGpuMemoryBytes": null,
+      "adapterCudaAllocatedBytes": 0,
+      "adapterCudaReservedBytes": 0,
+      "modelLoaded": false,
+      "cudaInitialized": false,
+      "inferenceReached": false
+    },
+    "postflight": {
+      "ramTotalBytes": 67756871680,
+      "ramFreeBytes": 35361087488,
+      "gpuUsedMiB": 3618,
+      "gpuFreeMiB": 4339,
+      "exactPidAlive": false,
+      "exactPidGpuRow": false,
+      "privateTempDirectories": 0,
+      "runningEvidenceFilePresent": false
+    }
+  },
+  "network": {
+    "kernelFirewallRule": false,
+    "pythonSocketAccess": "denied-before-third-party-imports",
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "nonLoopbackTcpConnectionsObservedForExactPid": 0
+  },
+  "evidenceSha256": {
+    "v12Preflight": "5c3da39639fc8751bbcd29cca48dc119ec188f6b203f6b45c57063ca505bc06d",
+    "v12Process": "3ef10a44bcd6008123bdd3815f9e3f00cd9391de55c67a0ece546c9d3f2c2cbf",
+    "v12Runner": "7486f543c732b70c5f7a09ba1d867ef6ac49a62434cfdde89a20becf1e03a7df",
+    "v12RunnerTest": "ce6cb2cd0064f3c19c6c8c419c5026b87781c2a0ee95006fd03808fc88750923",
+    "v11Report": "a6bdd710c77a522b396839b55bdbdb4083401e2a78a3dca74402c6242adb5e0d",
+    "v11Process": "8635802fd6af0a6b4f23f4c65ff43401e8e8196edcc908a3d4dd039bddefa47e"
+  }
+}

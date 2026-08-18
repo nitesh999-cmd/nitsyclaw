@@ -60,7 +60,13 @@ describe("data controls", () => {
     const exportRoute = readFileSync("apps/dashboard/src/app/api/data/export/route.ts", "utf8");
 
     expect(route).toContain("db.transaction");
-    expect(route).toContain("tool: \"data_delete\"");
+    // The erasure receipt moved behind the shared durable-audit contract, but
+    // still lands inside the same transaction as the deletion.
+    expect(route).toContain("tx.insert(auditLog).values(");
+    expect(route).toContain("safeAuditValues(");
+    expect(route).toContain("auditDataDelete({");
+    const contract = readFileSync("packages/shared/src/db/audit-contract.ts", "utf8");
+    expect(contract).toContain("tool: \"data_delete\"");
     expect(route).toContain("verifyExportProof");
     expect(route).toContain("currentPassword");
     expect(route).toContain("disconnectSpotify");

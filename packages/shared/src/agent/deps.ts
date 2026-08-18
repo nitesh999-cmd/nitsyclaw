@@ -1,5 +1,13 @@
 import type { DB } from "../db/client.js";
+import type { LiveWebResearcher } from "../search/live-web-research.js";
+import type { VerifiedSourceCollector } from "../search/verified-sources.js";
 import type { WhatsAppClient } from "../whatsapp/client.js";
+import type {
+  SpeechSynthesisRequest,
+  SpeechSynthesisResult,
+  TranscriptionRequestOptions,
+  TranscriptionResult,
+} from "../voice/types.js";
 
 /**
  * Dependencies a feature/tool needs. Injected, never imported globally.
@@ -10,7 +18,21 @@ export interface AgentDeps {
   whatsapp: WhatsAppClient;
   llm: LlmClient;
   transcriber: Transcriber;
+  speechSynthesizer?: SpeechSynthesizer;
   webSearch: WebSearcher;
+  /**
+   * Live web research through Anthropic's server-side web search tool.
+   * Optional because some surfaces run without an Anthropic key; when absent the
+   * bot must say so rather than answer current-information questions from memory.
+   */
+  liveResearch?: LiveWebResearcher;
+  /**
+   * Verified title/URL pairs recorded during THIS turn. Created per turn and
+   * shared by every delivery path, so a reply written after a search — whether
+   * the router pre-searched or the model called web_research itself — shows
+   * only links that came from a parsed search result.
+   */
+  verifiedSources?: VerifiedSourceCollector;
   calendar: CalendarClient;
   aggregator?: AggregatorClient;
   emailDraft?: EmailDraftClient;
@@ -21,7 +43,17 @@ export interface AgentDeps {
   now: () => Date;
   timezone: string;
   profile?: UserProfile;
+  /**
+   * Runs optional background model work without competing with an active
+   * user-facing model call. Bot runtimes wire this; tests and dashboard
+   * surfaces may omit it.
+   */
+  runBackgroundLlmJob?<T>(job: (llm: LlmClient) => Promise<T>): Promise<BackgroundLlmJobResult<T>>;
 }
+
+export type BackgroundLlmJobResult<T> =
+  | { status: "completed"; value: T }
+  | { status: "busy" };
 
 export interface UserProfile {
   homeLocation?: string;
@@ -52,7 +84,15 @@ export interface LlmClient {
 }
 
 export interface Transcriber {
-  transcribe(audio: Buffer, mimetype: string): Promise<string>;
+  transcribe(
+    audio: Buffer,
+    mimetype: string,
+    options?: TranscriptionRequestOptions,
+  ): Promise<TranscriptionResult>;
+}
+
+export interface SpeechSynthesizer {
+  synthesize(request: SpeechSynthesisRequest): Promise<SpeechSynthesisResult>;
 }
 
 export interface WebSearcher {

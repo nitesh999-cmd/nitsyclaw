@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "NITSYCLAW-QWEN3-ASR-V1.3-PREFLIGHT-1",
+  "phase": "FROZEN_BEFORE_INFERENCE",
+  "capturedAt": "2026-08-11T09:37:26.344Z",
+  "startingCommit": "af2a4de10011578ff65a4b4a6ae52168fb37e554",
+  "staticFreezeSha256": "c53745abbfede49c9d4a899916a42d1f466ebba084ba5bb7e5f5cb8701d8ca0f",
+  "frozenV13AggregateSha256": "0f2c460dbf70b23b6193ba70ff3f3772dede0783ef78f3797d2e46fb55fedddb",
+  "parentV11AggregateSha256": "df1b768004fae59a3a2633deb0b311a41848ffaab9df98c95f26901d0fbe4d2a",
+  "invocation": {
+    "executableName": "python.exe",
+    "executableSha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14",
+    "arguments": [
+      "-I",
+      "<reviewed-qwen3-asr-adapter-v13.py>",
+      "--model-path",
+      "<pinned-model-revision:7278e1e70fe206f11671096ffdd38061171dd6e5>",
+      "--audio-root",
+      "<private-synthetic-audio-root>",
+      "--case",
+      "hinglish-business=<private-synthetic-wav>",
+      "--max-new-tokens",
+      "128",
+      "--mode",
+      "diagnostic"
+    ],
+    "shell": false,
+    "environmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "timeoutMs": 600000,
+    "attemptId": "qwen3-asr-v13-fixed-cuda-0-hinglish-diagnostic",
+    "diagnosticPath": "docs/qwen3-asr-v13-fixed-cuda-0-hinglish-diagnostic-process-2026-08-11.json",
+    "exactlyOneCase": true,
+    "scorerExecutionAuthorized": false,
+    "retryAuthorized": false
+  },
+  "invocationSha256": "6b62ca8cb0e589df7037a5467a58af01bc8cbfaed5416484c0d0ae7a09b0e26e",
+  "fixture": {
+    "caseId": "hinglish-business",
+    "sha256": "c46218063f37892bdec79afe09c9353cec2396bafa9ffba527ba33951949c01c",
+    "bytes": 234818,
+    "synthetic": true
+  },
+  "model": {
+    "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+    "bytes": 4703114308,
+    "weightSha256": {
+      "model-00001-of-00002.safetensors": "a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6",
+      "model-00002-of-00002.safetensors": "6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc"
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "maxNewTokens": 128
+  },
+  "baseline": {
+    "ram": {
+      "totalBytes": 67756871680,
+      "freeBytes": 34586296320,
+      "parentRssBytes": 99770368
+    },
+    "gpu": {
+      "available": true,
+      "gpu": "NVIDIA GeForce RTX 4060, 8188, 2441, 5516, 610.74",
+      "computeProcesses": [
+        "2072, [N/A]",
+        "2224, [N/A]",
+        "496, [N/A]",
+        "14508, [N/A]",
+        "14516, [N/A]",
+        "16124, [N/A]",
+        "8968, [N/A]",
+        "18104, [N/A]",
+        "18044, [N/A]",
+        "21644, [N/A]",
+        "22776, [N/A]",
+        "20448, [N/A]",
+        "11212, [N/A]",
+        "9276, [N/A]",
+        "12988, [N/A]",
+        "26440, [N/A]",
+        "29088, [N/A]",
+        "20364, [N/A]",
+        "31060, [N/A]",
+        "29592, [N/A]",
+        "32216, [N/A]",
+        "32112, [N/A]",
+        "42824, [N/A]",
+        "40820, [N/A]",
+        "37844, [N/A]",
+        "2600, [N/A]",
+        "33044, [N/A]",
+        "46852, [N/A]",
+        "41412, [N/A]",
+        "49376, [N/A]",
+        "27456, [N/A]",
+        "55836, [N/A]",
+        "52236, [N/A]",
+        "34668, [N/A]",
+        "51304, [N/A]",
+        "42768, [N/A]",
+        "38872, [N/A]",
+        "46604, [N/A]",
+        "2804, [N/A]",
+        "3688, [N/A]",
+        "30944, [N/A]",
+        "56304, [N/A]",
+        "35108, [N/A]"
+      ]
+    },
+    "eventLogs": {
+      "available": true,
+      "applicationRecordId": 822918,
+      "applicationTime": "2026-08-11T19:34:25.8085207+10:00",
+      "systemRecordId": 141356,
+      "systemTime": "2026-08-11T19:24:45.5868924+10:00"
+    },
+    "tempArtifacts": []
+  },
+  "networkIsolation": {
+    "kernelFirewallRule": false,
+    "pythonSocketAccess": "denied-before-third-party-imports",
+    "offlineEnvironmentPolicy": "OFFLINE_ALLOWLIST_V1",
+    "exactPidNonLoopbackMonitoring": true
+  }
+}

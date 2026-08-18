@@ -117,6 +117,14 @@ export interface DailyStatusShortcut {
   kind: "daily-status";
 }
 
+export interface TodayFocusShortcut {
+  kind: "today-focus";
+}
+
+export interface LocalBrainStatusShortcut {
+  kind: "local-brain-status";
+}
+
 export interface WeeklyAdminDigestShortcut {
   kind: "weekly-admin-digest";
 }
@@ -870,6 +878,28 @@ export function parseDailyStatusShortcut(text: string): DailyStatusShortcut | nu
     trimmed === "what's my day"
   ) {
     return { kind: "daily-status" };
+  }
+  return null;
+}
+
+export function parseTodayFocusShortcut(text: string): TodayFocusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ");
+  if (
+    trimmed === "what should i focus on today" ||
+    trimmed === "top priorities today" ||
+    trimmed === "what are my top priorities" ||
+    trimmed === "focus today" ||
+    trimmed === "plan my focus today"
+  ) {
+    return { kind: "today-focus" };
+  }
+  return null;
+}
+
+export function parseLocalBrainStatusShortcut(text: string): LocalBrainStatusShortcut | null {
+  const trimmed = text.trim().toLowerCase().replace(/[.!?]+$/g, "").replace(/\s+/g, " ");
+  if (trimmed === "local brain" || trimmed === "local brain status" || trimmed === "ollama status") {
+    return { kind: "local-brain-status" };
   }
   return null;
 }
