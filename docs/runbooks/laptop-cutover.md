@@ -34,6 +34,52 @@ forward cleanly.
    `/recovery/whatsapp-qr` returns **404**.
 4. `NITSYCLAW_WHATSAPP_RUNTIME_OWNER=laptop` is set on the Railway service.
 5. A fresh encrypted database backup exists and its sha256 is recorded.
+6. **Ownership is set on both sides, in this order** (see "Ordering" below):
+   Railway `NITSYCLAW_WHATSAPP_RUNTIME_OWNER=laptop` **before** the merge, and the
+   laptop's `.env.local` gains `NITSYCLAW_WHATSAPP_RUNTIME_OWNER=laptop` **before**
+   the restart in step 5.
+7. The environment checklist below is satisfied.
+
+### Environment checklist
+
+Audited at `93d17d16` against `main`: **35 environment variable names are newly
+referenced, and every one of them is optional or platform-injected. None is
+required.** The bot, the container and the dashboard all boot without any new
+variable being set. This table is a checklist, not a list of blockers.
+
+| name | required? | laptop | railway | vercel |
+|---|---|---|---|---|
+| `NITSYCLAW_WHATSAPP_RUNTIME_OWNER` | optional (`z.enum(["laptop","railway"]).optional()`) | absent → **set to `laptop`** | absent → **set to `laptop`** | n/a |
+| `NITSYCLAW_ALLOW_LOCAL_WHATSAPP` | optional, read directly | **present** — leave as is | absent (correct) | n/a |
+| `NITSYCLAW_MODEL_MODE` | optional, defaults `auto` | absent | absent | absent |
+| `OLLAMA_BASE_URL` | optional, defaults `http://127.0.0.1:11434` | absent | absent | absent |
+| `OLLAMA_CHAT_MODEL` / `_EMBEDDING_MODEL` / `_TIMEOUT_MS` / `_RETRIES` / `_CONTEXT_LIMIT` / `_KEEP_ALIVE` / `_THINK` | optional | absent | absent | absent |
+| `WEB_SEARCH_MAX_USES` | optional, defaults `5` | absent | absent | absent |
+| `NITSYCLAW_HTTP_HOST`, `NITSYCLAW_RUNTIME_OWNER` | optional, read directly | absent | absent | n/a |
+| `WHATSAPP_NON_SELF_CHAT_NOTICE`, `WHATSAPP_WEB_VERSION_REMOTE_PATH` | optional, read directly | absent | absent | n/a |
+| `NITSYCLAW_FFMPEG_PATH`, `NITSYCLAW_FFPROBE_PATH`, `NITSYCLAW_HANDY_PATH` / `_MODEL` / `_DEVICE_INDEX` | optional overrides; blank uses documented Windows defaults | absent | absent | n/a |
+| `RAILWAY_*`, `VERCEL`, `LOCALAPPDATA`, `NODE_ENV` | platform-injected | n/a | injected | injected |
+| `NITSYCLAW_REHEARSAL_*`, `NITSYCLAW_SYNTHETIC_DB_FIXTURE`, `NITSYCLAW_MIGRATION_REHEARSAL`, `NITSYCLAW_LOCAL_BRAIN_BROWSER_PROOF` | test/rehearsal only — **must never be set in production** | absent | absent | absent |
+
+The only variable this cutover changes is `NITSYCLAW_WHATSAPP_RUNTIME_OWNER`.
+
+One behavioural note, not a blocker: `apps/dashboard` reads `NITSYCLAW_MODEL_MODE`,
+`OLLAMA_BASE_URL` and `WEB_SEARCH_MAX_USES`. On Vercel these fall back to their
+defaults, and the Ollama default is a loopback address that does not exist in that
+runtime — so Local Brain features are simply unavailable on the dashboard. That is
+the existing behaviour, unchanged by this release.
+
+### Ordering — why Railway is set before the merge
+
+Railway currently has `NITSYCLAW_WHATSAPP_RUNTIME_OWNER` **absent**. If the merge
+lands with it still absent, the new build throws before the health server starts,
+the healthcheck fails, and Railway keeps the previous deployment — the older build
+whose guard has no ownership check at all. Setting the variable to `laptop` first
+(a variable change only, no redeploy) means the post-merge deployment comes up in
+no-client mode and becomes healthy, which is what actually retires that old build.
+
+The laptop's copy is set before its restart in step 5, so the laptop declares
+ownership explicitly rather than relying on the variable's absence.
 
 If Railway is *not* healthy in no-client mode, stop. A crash-looping Railway
 deployment means the previous permissive build is still live, and that build has
@@ -102,28 +148,75 @@ Note: the live session is at `~/.nitsyclaw/secrets/.wa-session` (resolved by
 files under `apps\bot\.wa-session\session\`, a legacy path. Do not delete or move
 either directory. This cutover never touches session contents.
 
-### 3. Move the checkout to merged `main`
+### 3. Clean the checkout, and prove nothing real is deleted
+
+The 27 untracked files are all **0 bytes** — shell-redirection accidents. Removing
+them makes `git status` readable, so the checkout in the next step can be judged at
+a glance instead of squinting past noise. Delete **only** empty files and the
+generated output directory, and verify emptiness before deleting rather than
+trusting the earlier audit.
 
 ```powershell
 Set-Location "C:\Users\Nitesh\projects\NitsyClaw"
+# List any untracked file that is NOT empty. This must print nothing.
+git ls-files --others --exclude-standard | ForEach-Object {
+  if ((Test-Path -LiteralPath $_ -PathType Leaf) -and ((Get-Item -LiteralPath $_).Length -gt 0)) { $_ }
+}
+```
+
+**Stop condition:** if that command prints ANY path, stop. A non-empty untracked
+file is unreviewed work, and this runbook has no authority to delete it.
+
+If it printed nothing:
+
+```powershell
+git ls-files --others --exclude-standard | ForEach-Object {
+  if ((Test-Path -LiteralPath $_ -PathType Leaf) -and ((Get-Item -LiteralPath $_).Length -eq 0)) {
+    Remove-Item -LiteralPath $_ -Force
+  }
+}
+Remove-Item -Recurse -Force "output\playwright\local-brain-browser-proof" -ErrorAction SilentlyContinue
+git status --porcelain    # must now be empty
+```
+
+**Stop condition:** if `git status --porcelain` is not empty after this, stop.
+
+### 4. Move the checkout to merged `main`
+
+```powershell
 git fetch origin
-git status --porcelain
 git checkout main
 git pull --ff-only origin main
 git rev-parse HEAD
 pnpm install --frozen-lockfile
 ```
 
-`git status` should show only the known zero-byte junk and `output/`.
 `git rev-parse HEAD` must equal the merge commit on `origin/main`.
+
+**No build step is required.** `packages/shared` has no `build` script and no
+`dist/` — its `exports` map points directly at `./src/*.ts`, and `apps/bot` runs
+under `tsx`, which compiles TypeScript on the fly. (`apps/bot`'s own `build` script
+is `tsc -p . --noEmit`, a typecheck, not an emit.) So `pnpm install` is the whole
+preparation; do not add a build and do not wait for one.
 
 **Stop conditions:** any tracked file shows as modified; `git checkout` reports it
 would overwrite local changes; `--ff-only` refuses; `pnpm install` fails.
 
-The 27 zero-byte files and `output/` are untracked and do not block a checkout.
-Deleting them is optional housekeeping and is **not** part of this cutover.
+**Chromium stop condition.** This release moves Puppeteer to 25.5.0, so
+`pnpm install` may fetch a new Chromium build. If that download fails — proxy,
+offline, disk, or a mirror error — **stop and roll back**. Do not start the bot:
+whatsapp-web.js needs a working browser, and starting without one produces a
+confusing failure at session-restore time rather than at install time. Verify
+before starting:
 
-### 4. Set ownership explicitly
+```powershell
+pnpm --filter @nitsyclaw/bot exec node -e "console.log(require('puppeteer').executablePath())"
+Test-Path (pnpm --filter @nitsyclaw/bot exec node -e "process.stdout.write(require('puppeteer').executablePath())")
+```
+
+The path must exist. If it does not, roll back rather than improvise.
+
+### 5. Set ownership explicitly
 
 In `~/.nitsyclaw/secrets/.env.local`:
 
@@ -131,13 +224,16 @@ In `~/.nitsyclaw/secrets/.env.local`:
 - **Leave `NITSYCLAW_ALLOW_LOCAL_WHATSAPP=1` exactly as it is.** The laptop still
   requires it; ownership alone does not authorize a local client.
 
+This must happen BEFORE the restart in the next step, so the process that comes
+up already declares ownership.
+
 Setting the value is not strictly required — the guard already returns `client`
 for a laptop runtime with the owner unset and `ALLOW=1`, which is today's live
 configuration. Set it anyway: it makes ownership explicit on both sides rather
 than implied by absence, and it is what makes the laptop stand down if ownership
 is ever handed to Railway.
 
-### 5. Start via the real launcher
+### 6. Start via the real launcher
 
 ```powershell
 powershell -ExecutionPolicy Bypass -NoProfile -File "C:\Users\Nitesh\projects\NitsyClaw\launch-bot.ps1"
@@ -146,7 +242,7 @@ powershell -ExecutionPolicy Bypass -NoProfile -File "C:\Users\Nitesh\projects\Ni
 Use the launcher, not a bare `pnpm` command: it produces the command line Broom
 matches on, and applies the same `Test-LocalWhatsAppAllowed` gate.
 
-### 6. Prove readiness
+### 7. Prove readiness
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:3010/health | ConvertTo-Json -Depth 4
@@ -160,7 +256,7 @@ session was not reused. Stop and follow the rollback path.
 
 Allow up to 5 minutes for `CONNECTED`. Longer is a failure, not slowness.
 
-### 7. Re-enable Broom and prove exactly one instance
+### 8. Re-enable Broom and prove exactly one instance
 
 ```powershell
 Enable-ScheduledTask -TaskName "NitsyClaw Broom"
@@ -177,14 +273,14 @@ spawn a second instance while one is running. This step verifies that in practic
 
 ## Rollback
 
-**Maximum window: 30 minutes from step 2.** If readiness is not proven by then,
+**Maximum window: 30 minutes from step 2 (the stop).** If readiness is not proven by then,
 roll back rather than keep debugging with the bot down.
 
 Same sequence, reversed target:
 
 1. `Disable-ScheduledTask -TaskName "NitsyClaw Broom"`; prove `Disabled`.
 2. Stop the bot; prove no node/Chromium process and no `/health`.
-3. `git checkout e131b52`; `pnpm install --frozen-lockfile`.
+3. `git checkout e131b52`; `pnpm install --frozen-lockfile`. No build step.
 4. Return `NITSYCLAW_WHATSAPP_RUNTIME_OWNER` to absent (the pre-cutover state).
 5. Start via `launch-bot.ps1`; prove `whatsapp.ready=true` and `CONNECTED`.
 6. Re-enable Broom; prove exactly one instance.
