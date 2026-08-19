@@ -53,6 +53,11 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: test
+    # Backstop. Without a job-level timeout a stalled step holds a runner until someone
+    # cancels by hand: the job never fails, so a PR sits on BLOCKED indefinitely. See
+    # issue #22, where the browser install hung for 125 and 91 minutes on consecutive
+    # attempts of the same commit.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -61,7 +66,21 @@ jobs:
           node-version: 22.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Cache the browser bundle so the common path does not download it at all. Keyed on
+      # the resolved Playwright version, so a version bump misses the cache and refetches
+      # rather than testing against a stale browser.
+      - id: playwright-version
+        shell: bash
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+      # A stalled download now fails fast and visibly instead of hanging. 15 minutes is
+      # well above the observed healthy range for this step (1-11m for the whole job) and
+      # far below the hangs.
       - run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 15
       - run: pnpm test:e2e
         env:
           NODE_ENV: test
