@@ -73,6 +73,19 @@ describe("Railway readiness gate — CLI scoping", () => {
     expect(script).toMatch(/@\("status",\s*"--json"\)\s*\+\s*\(Get-ScopeArgs\)/);
   });
 
+  it("does not pass --service to status, which rejects it", () => {
+    // `railway status` accepts --project and --environment only. Passing --service made it
+    // exit 2 with "unexpected argument '--service' found". A live run caught this; the
+    // source-level tests could not, because the argument list looked correct in isolation.
+    const scopeArgs = code.match(/function Get-ScopeArgs\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+    expect(scopeArgs).not.toBe("");
+    expect(scopeArgs).toContain("--project");
+    expect(scopeArgs).toContain("--environment");
+    expect(scopeArgs).not.toContain("--service");
+    // The service-scoped variant still exists for subcommands that accept it.
+    expect(code).toMatch(/function Get-ServiceScopeArgs/);
+  });
+
   it("has no CLI invocation that bypasses the scope helper", () => {
     const invocations = script.match(/-RailwayArgs\s+\(([^)]*\))*/g) ?? [];
     expect(invocations.length).toBeGreaterThan(0);

@@ -60,11 +60,18 @@ function Resolve-RailwayCli {
 }
 
 function Get-ScopeArgs {
+    # `railway status` accepts --project and --environment only; passing --service makes it
+    # exit 2 with "unexpected argument '--service' found". Service-scoped subcommands such
+    # as `logs` take --service as well, via Get-ServiceScopeArgs. The service is selected
+    # from the status payload by name, further down.
     return @(
         "--project", $ProjectId,
-        "--environment", $Environment,
-        "--service", $Service
+        "--environment", $Environment
     )
+}
+
+function Get-ServiceScopeArgs {
+    return ((Get-ScopeArgs) + @("--service", $Service))
 }
 
 function Invoke-RailwayJson {
