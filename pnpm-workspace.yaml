@@ -41,3 +41,12 @@ overrides:
 blockExoticSubdeps: true
 minimumReleaseAge: 10080
 trustPolicy: no-downgrade
+# Build-script allowlist (pnpm >= 10). pnpm blocks dependency build scripts by
+# default, so puppeteer's postinstall — the step that downloads the exact Chrome
+# build `executablePath()` resolves to — never runs, and `pnpm install` still
+# exits 0. The laptop runtime then starts with no browser and fails at
+# session-restore time instead of at install time. Allowing this one script is
+# what makes the browser actually arrive with the install. Scope is deliberately
+# puppeteer only.
+onlyBuiltDependencies:
+  - puppeteer

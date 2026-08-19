@@ -107,6 +107,65 @@ be resolved; in that case, edit `$root` in both scripts *before* starting.
 
 ## Sequence
 
+### 0. Preflight — prove the browser exists BEFORE stopping anything
+
+Read-only, and the bot stays up throughout. Everything here is a reason to
+abandon the cutover at zero cost. Discovering any of it after step 2 means the
+bot is already down and the only way out is a rollback.
+
+Two things make the naive Puppeteer check wrong, and both produce a misleading
+result rather than an obvious error:
+
+- `apps/bot` does not declare `puppeteer`. It arrives transitively through
+  `whatsapp-web.js`, and pnpm's isolated `node_modules` leaves it unresolvable
+  from that workspace, so `pnpm --filter @nitsyclaw/bot exec` cannot see it.
+- `executablePath()` is **async** in Puppeteer 25. Testing the un-awaited value
+  tests the string `[object Promise]`, which reports `False` on a perfectly
+  healthy install.
+
+```powershell
+$check = Join-Path $env:TEMP 'nitsyclaw-pptr-check.cjs'
+@'
+const fs = require('fs');
+const path = require('path');
+const cwd = process.cwd();
+const res = (n, from) => require.resolve(n, { paths: [from] });
+const wwebDir = path.dirname(res('whatsapp-web.js/package.json', cwd));
+const pptr = require(res('puppeteer', wwebDir));
+(async () => {
+  console.log('PUPPETEER=' + require(res('puppeteer/package.json', wwebDir)).version);
+  const ep = await pptr.executablePath();
+  console.log('EXEC_PATH=' + ep);
+  console.log('EXEC_EXISTS=' + fs.existsSync(ep));
+})();
+'@ | Set-Content -LiteralPath $check -Encoding UTF8
+Set-Location "C:\Users\Nitesh\projects\NitsyClaw\apps\bot"
+node $check
+```
+
+That reports the browser for the **currently checked-out** Puppeteer. Merged
+`main` pins Puppeteer to 25.5.0, which requires Chrome **151.0.7922.71**.
+Confirm that build is in the cache before stopping anything:
+
+```powershell
+Test-Path "$env:USERPROFILE\.cache\puppeteer\chrome\win64-151.0.7922.71\chrome-win64\chrome.exe"
+```
+
+**Stop condition:** if that prints `False`, do not begin the cutover. Install the
+build first, with the bot still running, then re-run the check:
+
+```powershell
+npx puppeteer browsers install chrome@151.0.7922.71
+```
+
+`onlyBuiltDependencies: [puppeteer]` in `pnpm-workspace.yaml` is what lets a
+normal `pnpm install` fetch this build itself. Without it pnpm skips puppeteer's
+postinstall, `pnpm install` still exits 0, and the missing browser only surfaces
+when the bot tries to restore its session. This preflight is the backstop.
+
+If the pinned Puppeteer version in `pnpm-workspace.yaml` changes, re-derive the
+required Chrome build rather than trusting the number above.
+
 ### 1. Disable Broom first, and prove it
 
 Broom restarts the bot within 2 minutes of it disappearing. If it is still armed
@@ -158,10 +217,16 @@ trusting the earlier audit.
 
 ```powershell
 Set-Location "C:\Users\Nitesh\projects\NitsyClaw"
-# List any untracked file that is NOT empty. This must print nothing.
-git ls-files --others --exclude-standard | ForEach-Object {
-  if ((Test-Path -LiteralPath $_ -PathType Leaf) -and ((Get-Item -LiteralPath $_).Length -gt 0)) { $_ }
-}
+# List any untracked file that is NOT empty, EXCLUDING the generated proof
+# directory that the delete block below removes. Without that exclusion this
+# scan always prints the Playwright evidence files — screenshots and
+# evidence.json are of course non-empty — and the stop condition fires on every
+# run, over generated output that is not unreviewed work.
+git ls-files --others --exclude-standard |
+  Where-Object { $_ -notlike "output/playwright/local-brain-browser-proof/*" } |
+  ForEach-Object {
+    if ((Test-Path -LiteralPath $_ -PathType Leaf) -and ((Get-Item -LiteralPath $_).Length -gt 0)) { $_ }
+  }
 ```
 
 **Stop condition:** if that command prints ANY path, stop. A non-empty untracked
@@ -202,19 +267,19 @@ preparation; do not add a build and do not wait for one.
 **Stop conditions:** any tracked file shows as modified; `git checkout` reports it
 would overwrite local changes; `--ff-only` refuses; `pnpm install` fails.
 
-**Chromium stop condition.** This release moves Puppeteer to 25.5.0, so
-`pnpm install` may fetch a new Chromium build. If that download fails — proxy,
-offline, disk, or a mirror error — **stop and roll back**. Do not start the bot:
-whatsapp-web.js needs a working browser, and starting without one produces a
-confusing failure at session-restore time rather than at install time. Verify
-before starting:
+**Chromium stop condition.** This release moves Puppeteer to 25.5.0, which needs
+a different Chrome build than 24.38.0 uses. That build must already have been
+proven present by **step 0**, before the bot was stopped. Now that the new
+Puppeteer is installed, re-run the same check to confirm it resolves:
 
 ```powershell
-pnpm --filter @nitsyclaw/bot exec node -e "console.log(require('puppeteer').executablePath())"
-Test-Path (pnpm --filter @nitsyclaw/bot exec node -e "process.stdout.write(require('puppeteer').executablePath())")
+Set-Location "C:\Users\Nitesh\projects\NitsyClaw\apps\bot"
+node $check   # $check is defined in step 0
 ```
 
-The path must exist. If it does not, roll back rather than improvise.
+`EXEC_EXISTS` must be `True`. If it is not, roll back rather than improvise:
+whatsapp-web.js needs a working browser, and starting without one produces a
+confusing failure at session-restore time rather than at install time.
 
 ### 5. Set ownership explicitly
 
