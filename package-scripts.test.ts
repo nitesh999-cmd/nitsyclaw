@@ -350,19 +350,34 @@ describe("package scripts", () => {
     expect(source).not.toMatch(/\bup\b|\brestart\b|\bredeploy\b|\bremove\b|\bdelete\b/);
   });
 
-  test("Railway WhatsApp ready gate waits for slow client readiness", () => {
+  test("Railway WhatsApp ready gate proves the no-client invariant", () => {
     const source = readFileSync("scripts/railway-whatsapp-ready.ps1", "utf8");
 
-    expect(source).toContain("ReadyTimeoutSeconds");
-    expect(source).toContain("ReadyPollSeconds");
+    // The gate's header comment quotes the retired log-wait strings in order to explain
+    // why they were removed, so the negative assertions below run against executable
+    // lines only rather than the whole file.
+    const code = source
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n");
+
+    // The laptop owns the WhatsApp session, so Railway must stay in no-client mode. A
+    // service reporting whatsapp.ready=true, or answering on the pairing surface, has
+    // taken the session away from the laptop.
+    expect(code).toContain("runtime_not_owner");
+    expect(code).toContain("/recovery/whatsapp-qr");
+    expect(code).toMatch(/\$qrCode\s+-ne\s+404/);
+    expect(code).toContain("/healthz");
+    expect(code).toContain("Get-ScopeArgs");
+
+    // Retired Railway-owns-WhatsApp log waiting. Under laptop ownership these lines are
+    // never emitted, so asserting them made the gate unpassable. Pinning them here is
+    // what kept the broken gate in place.
+    expect(code).not.toContain("[boot] WhatsApp ready");
+    expect(code).not.toContain("Test-ReadyLogs");
+    expect(code).not.toContain("WhatsApp ready logs not complete yet");
+
     expect(source).toContain("AllowServingCommit");
-    expect(source).toContain("proving currently serving Railway commit");
-    expect(source).toContain("NITSYCLAW_RAILWAY_READY_TIMEOUT_SECONDS");
-    expect(source).toContain("Get-DeploymentLogs");
-    expect(source).toContain("Test-ReadyLogs");
-    expect(source).toContain("Start-Sleep");
-    expect(source).toContain("WhatsApp ready logs not complete yet");
-    expect(source).toContain("[boot] WhatsApp ready");
     expect(source).not.toMatch(/\[Math\.[A-Za-z]+\]/);
   });
 
