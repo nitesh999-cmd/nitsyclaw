@@ -42,9 +42,10 @@ describe("GitHub Actions CI workflow", () => {
       "pnpm/action-setup": "v6",
       "actions/setup-node": "v5",
       "actions/upload-artifact": "v7",
+      "actions/cache": "v6",
     };
     const usesLines = workflow.split("\n").filter((line) => /^\s*(-\s*)?uses:/.test(line));
-    expect(usesLines).toHaveLength(23);
+    expect(usesLines).toHaveLength(24);
     for (const line of usesLines) {
       const parsed = /uses:\s*([\w.-]+\/[\w.-]+)@([^\s#]+)\s*#\s*(v\S+)\s*$/.exec(line);
       expect(parsed, `unpinned or uncommented action: ${line.trim()}`).not.toBeNull();
