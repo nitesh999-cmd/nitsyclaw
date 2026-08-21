@@ -845,7 +845,26 @@ export class WwebjsClient implements WhatsAppClient {
             : undefined,
           downloadMedia: m.hasMedia
             ? async () => {
-                const media = await m.downloadMedia();
+                // whatsapp-web.js runs downloadMedia inside the page via Puppeteer's
+                // ExecutionContext.evaluate. When WhatsApp Web's own minified code
+                // throws there, the rejection arrives with name and message both
+                // mangled to a single letter ("r: r") and the caller's catch reports
+                // nothing usable. Capture the rejection at the boundary, where the
+                // media facts that identify WHICH message failed are still in scope,
+                // then rethrow unchanged so behaviour is identical.
+                let media: Awaited<ReturnType<typeof m.downloadMedia>>;
+                try {
+                  media = await m.downloadMedia();
+                } catch (error) {
+                  logBotError("[wwebjs] downloadMedia failed", error, {
+                    mediaType: m.type,
+                    hasMedia: m.hasMedia,
+                    declaredSizeBytes: envelope._data?.size,
+                    declaredDurationSeconds: envelope._data?.duration,
+                    fromMe,
+                  });
+                  throw error;
+                }
                 if (m.type === "ptt" || m.type === "audio") {
                   const estimatedBytes = estimatedBase64Bytes(media.data);
                   if (estimatedBytes > MAX_INBOUND_VOICE_BYTES) {

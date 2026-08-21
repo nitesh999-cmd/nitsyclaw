@@ -38,15 +38,30 @@ export function formatSafeLogError(error: unknown): string {
     if (code !== undefined && code !== null && code !== "") parts.push(`code=${String(code)}`);
     if (error.stack) {
       // Frames only: the first stack line repeats name/message, already captured.
+      // Each frame is pushed as its own field so that per-field redaction gives it
+      // an independent length budget — a single deep node_modules path is long
+      // enough to consume the whole allowance on its own.
       const frames = error.stack.split("\n").slice(1, 4).map((line) => line.trim()).filter(Boolean);
-      if (frames.length > 0) parts.push(`stack=${frames.join(" | ")}`);
+      frames.forEach((frame, index) => parts.push(`stack[${index}]=${frame}`));
     }
   } else {
     parts.push(String(error));
   }
-  // Redaction runs over the assembled line, so stack frames and codes are held to
-  // exactly the same secret-scrubbing contract the message has always been.
-  const safe = redactAuditString(stripQueryAndConnectionText(parts.join(" ")));
+  // Redact each field separately rather than the joined line.
+  //
+  // redactAuditString truncates at 160 characters. That budget was written for a
+  // single message, and once stack frames are appended the whole line is cut mid
+  // path — the first real diagnosis this produced was truncated inside the very
+  // frame that named the failing call. Redacting per field gives each frame its own
+  // budget, so a long path can no longer evict the fields after it.
+  //
+  // The 160-char cap itself is deliberately NOT raised: redactAuditString is a
+  // shared audit contract used by data export, the agent loop and command jobs, and
+  // widening it there would change redaction behaviour well outside logging. Every
+  // field here still passes through exactly the same scrubbing function.
+  const safe = parts
+    .map((part) => redactAuditString(stripQueryAndConnectionText(part)))
+    .join(" ");
   return sqlState ? `[sqlstate:${sqlState}] ${safe}` : safe;
 }
 
