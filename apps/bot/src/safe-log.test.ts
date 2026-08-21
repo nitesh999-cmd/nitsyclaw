@@ -36,8 +36,27 @@ describe("formatSafeLogError", () => {
         phone: "[redacted]",
         label: "voice transcription",
       }),
-      "Error: bad",
+      // The rendered error now carries stack frames after name/message, so this
+      // asserts the prefix rather than the whole line.
+      expect.stringContaining("Error: bad"),
     );
+  });
+
+  it("stays diagnosable when the throw comes from minified code", () => {
+    // A bundled dependency mangles both name and message to the same identifier.
+    // Previously this rendered as exactly "r: r", which named nothing and left no
+    // way to locate the failing call.
+    const minified = new Error("r");
+    minified.name = "r";
+    minified.stack = "r: r\n    at r (bundle.min.js:1:2345)\n    at t (bundle.min.js:1:9876)";
+    Object.assign(minified, { code: "MEDIA_DOWNLOAD_FAILED" });
+
+    const safe = formatSafeLogError(minified);
+
+    expect(safe).toContain("r: r");
+    expect(safe).toContain("code=MEDIA_DOWNLOAD_FAILED");
+    expect(safe).toContain("bundle.min.js");
+    expect(safe).not.toBe("r: r");
   });
 });
 
