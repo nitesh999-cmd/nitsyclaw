@@ -23,8 +23,30 @@ function stripQueryAndConnectionText(message: string): string {
  */
 export function formatSafeLogError(error: unknown): string {
   const sqlState = extractSqlState(error);
-  const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-  const safe = redactAuditString(stripQueryAndConnectionText(raw));
+  const parts: string[] = [];
+  if (error instanceof Error) {
+    parts.push(`${error.name}: ${error.message}`);
+    // `name` and `message` alone are useless when the throw originates in minified
+    // code: a bundled dependency reports both as the same mangled identifier, and
+    // the line reads "r: r" with nothing to locate the failing call. The three
+    // fields below survive minification — the constructor names the error class, a
+    // `code` carries the domain taxonomy (VoicePipelineError codes, driver codes),
+    // and the first frames name the call site.
+    const ctor = (error as { constructor?: { name?: string } }).constructor?.name;
+    if (ctor && ctor !== error.name) parts.push(`ctor=${ctor}`);
+    const code = (error as { code?: unknown }).code;
+    if (code !== undefined && code !== null && code !== "") parts.push(`code=${String(code)}`);
+    if (error.stack) {
+      // Frames only: the first stack line repeats name/message, already captured.
+      const frames = error.stack.split("\n").slice(1, 4).map((line) => line.trim()).filter(Boolean);
+      if (frames.length > 0) parts.push(`stack=${frames.join(" | ")}`);
+    }
+  } else {
+    parts.push(String(error));
+  }
+  // Redaction runs over the assembled line, so stack frames and codes are held to
+  // exactly the same secret-scrubbing contract the message has always been.
+  const safe = redactAuditString(stripQueryAndConnectionText(parts.join(" ")));
   return sqlState ? `[sqlstate:${sqlState}] ${safe}` : safe;
 }
 
