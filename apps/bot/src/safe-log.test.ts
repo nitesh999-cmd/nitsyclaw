@@ -58,6 +58,39 @@ describe("formatSafeLogError", () => {
     expect(safe).toContain("bundle.min.js");
     expect(safe).not.toBe("r: r");
   });
+
+  it("does not let one long stack frame evict the frames after it", () => {
+    // A real pnpm path is long enough to spend the whole 160-character redaction
+    // budget on its own. When the line was redacted as a single string, the first
+    // genuine diagnosis this logging produced was cut mid-path, inside the very
+    // frame that named the failing call.
+    const deep = "at ExecutionContext.#evaluate (C:\\Users\\x\\projects\\app\\node_modules\\.pnpm\\puppeteer-core@25.5.0_yauzl@2.10.0\\node_modules\\puppeteer-core\\lib\\cjs\\puppeteer\\cdp\\ExecutionContext.js:391:56)";
+    const error = new Error("r");
+    error.name = "r";
+    error.stack = [`r: r`, `    ${deep}`, "    at async Message.downloadMedia (wwebjs.js:1:1)"].join("\n");
+
+    const safe = formatSafeLogError(error);
+
+    expect(safe).toContain("ExecutionContext");
+    // The frame after the long one must survive.
+    expect(safe).toContain("downloadMedia");
+  });
+
+  it("still redacts secrets inside stack frames", () => {
+    const error = new Error("boom");
+    error.stack = [
+      "Error: boom",
+      "    at handler (/srv/app.js:1:1) token=sk_live_12345678901234567890",
+      "    at next (/srv/app.js:2:2) user=nitesh@example.com",
+    ].join("\n");
+
+    const safe = formatSafeLogError(error);
+
+    expect(safe).not.toContain("sk_live_12345678901234567890");
+    expect(safe).not.toContain("nitesh@example.com");
+    expect(safe).toContain("[redacted:token]");
+    expect(safe).toContain("[redacted:email]");
+  });
 });
 
 describe("SQLSTATE extraction", () => {
