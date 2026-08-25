@@ -3650,3 +3650,18 @@ never by re-reading this table. Any entry older than 30 days reverts to a full c
 | 2026-08-20 | False "QR presented" stop, mid-cutover | asserted on HTTP 200 rather than payload → the laptop always serves the recovery shell | Assert on payload, never status code |
 | 2026-08-21 | Nearly killed the live WhatsApp client | matched process **count** (11) not identity → they were the new healthy Chromium tree, not orphans | Verify parent PID + start time before any kill |
 | 2026-08-25 | Sandbox-only command run inside the real repo | convenience during the dependency comparison | Sandbox work stays in the sandbox |
+
+### Session 2026-08-25 — contract execution outcome
+
+- Silent bot deaths are **environmental, not code**: they cluster on machine power
+  transitions. `08-24 10:16:46 Kernel-Power Id=566` (resume) → Broom respawn `10:19:27`
+  → that instance died ~86s later → `10:20:53` respawn survived. Same shape as `08-21`
+  (boot `10:13:46`). Uptime 49.9h continuous, so sleep/resume, not reboots. The improved
+  logging captured nothing at the 08-24 death, which rules out a logged JS failure. One
+  death (08-21 12:49) is unmatched to a power event — correlation strong, not universal.
+  Parked with a watch note.
+- `router.integration.test.ts > unsupported PDF-like upload...` is **flaky on the
+  Windows runner** (16.3s, timing). Passed locally 151/151 and on ubuntu at the same
+  head; passed on rerun. Re-run the failed job before investigating.
+- Media-id shape probe is live on `main` (`9b2d048`) but **not yet deployed to the
+  laptop** — that needs Broom disabled (elevated) plus one media send.
