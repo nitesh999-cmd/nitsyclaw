@@ -100,6 +100,31 @@ function messageMeta(body: string): string {
   return `chars=${body.length}`;
 }
 
+/**
+ * Shape-only description of a whatsapp-web.js message id.
+ *
+ * Upstream reports (wwebjs#201833) attribute the opaque `r: r` failure of
+ * downloadMedia() to WhatsApp's 2026-07 web update renaming the internal serialized-id
+ * getter `id._serialized` to `id.$1`. If that holds, `m.id._serialized` is undefined
+ * here and the media lookup receives an undefined id.
+ *
+ * This reports which keys exist and whether each candidate is populated. It never emits
+ * the id VALUE: a serialized WhatsApp id contains the phone number.
+ */
+export function describeMessageIdShape(id: unknown): string {
+  if (id === null || id === undefined) return "id=absent";
+  if (typeof id !== "object") return `id=non-object(${typeof id})`;
+  const record = id as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  const has = (key: string): string => {
+    const value = record[key];
+    if (value === undefined) return "undefined";
+    if (value === null) return "null";
+    return typeof value === "string" ? `string(${value.length})` : typeof value;
+  };
+  return `id.keys=[${keys.join(",")}] _serialized=${has("_serialized")} $1=${has("$1")}`;
+}
+
 function defaultHealthFilePath(): string {
   const cwd = process.cwd();
   if (cwd.replaceAll("\\", "/").endsWith("/apps/bot")) {
@@ -826,6 +851,11 @@ export class WwebjsClient implements WhatsAppClient {
         this.inboundHealth.recordAccepted();
         this.emitInboundHealth();
         console.log(`[wwebjs] inbound: fromMe=${fromMe} ${messageMeta(body)} hasMedia=${m.hasMedia}`);
+        if (m.hasMedia) {
+          // Media-only: this is the path that fails, and it keeps the line off every
+          // text message. Shape, never value — see describeMessageIdShape.
+          console.log(`[wwebjs] media inbound: ${describeMessageIdShape(m.id)}`);
+        }
         canSendFailureReply = true;
 
         const inbound: InboundMessage = {
