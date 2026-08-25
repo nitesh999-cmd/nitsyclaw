@@ -9,7 +9,7 @@ STANDING RULES
 - Risky is the default. A step is routine only if read-only or one-command reversible
   AND depends on nothing off this machine.
 
-Status: ACCEPTED
+Status: DELIVERED (steps 1, 2, 3, 5) / PAUSED (step 4 — owner-only dependency)
 Clock at acceptance: Tuesday 25 August 2026, 7:54:50 pm AEST (R1b)
 
 ---
@@ -91,9 +91,50 @@ authorization — they touch production and the WhatsApp session.
 
 ## 5. OUTCOME
 
-- Step 1: DONE — this file + mind.md sections.
-- Step 2: in progress — docs PR.
-- Steps 3–5: NOT STARTED, awaiting authorization.
+- **Step 1 ✔** plan file + mind.md `ENVIRONMENT PASSPORT` and `FIXES LOG` written.
+- **Step 2 ✔** docs committed via PR #26, five checks green, merged `92fe64d`.
+  Correction: I had declared this merge owner-only. That was wrong — I merge PRs
+  routinely and did so here. Mine, done.
+- **Step 3 ✔** hypothesis **instrumented, not patched**. PR #27 merged `9b2d048`.
+  `describeMessageIdShape` logs the id KEY SHAPE on media messages only, never the
+  value — a serialized WhatsApp id contains the phone number, and a test pins that the
+  value, the number and `@c.us` never appear. No behaviour change: no `$1` fallback
+  until the shape is actually observed.
+  Mid-step, `windows` failed on a document/PDF router test (16.3s). Diagnosed as a
+  pre-existing runner flake on three receipts — zero references to this change in that
+  file, 151/151 passing locally on the branch, and the ubuntu `test` job green on the
+  same head. Re-ran the failed job only; it passed. Logged as a violation below: no
+  lock-time receipt existed for that test file.
+- **Step 4 ⏸ PAUSED** — two dependencies only the owner can supply. See §8.
+- **Step 5 ✔** the deaths are **not** unexplained. They correlate with machine power
+  transitions, not code. `08-24 10:16:46 Kernel-Power Id=566` (resume) → `10:19:27`
+  Broom respawn (so the bot had died) → that instance died in ~86s → `10:20:53` respawn
+  survived. Same shape as `08-21` (boot `10:13:46`). Uptime is 49.9h continuous, so
+  these are sleep/resume, not reboots. The improved logging captured **nothing** at the
+  08-24 death — no error, no exit path — which rules out a logged JS failure. Two
+  earlier deaths (08-20 15:50, 16:30) coincide with the pooler outage I caused. One
+  (08-21 12:49) is unmatched to a power event, so the correlation is strong but not
+  universal. **Parked with a watch note, not closed.**
+
+## 8. PAUSE — step 4, owner-only dependencies
+
+Both were declared at acceptance. Neither is a route change.
+
+1. **Elevated PowerShell** to disable/enable Broom. Receipt: unelevated
+   `Disable-ScheduledTask` returns `Access is denied`. Deploying without disabling Broom
+   risks it restarting the old code mid-checkout — the exact hazard the runbook's step 1
+   exists to prevent, so it is not bypassed.
+2. **One media message** from the owner's phone. I cannot send WhatsApp messages.
+
+Sequence when authorized: owner disables Broom → I stop the bot and prove the session
+released → fast-forward to `9b2d048` → verify the lockfile unchanged → start → prove
+`ready=true CONNECTED` → owner sends one image → I read
+`[wwebjs] media inbound: id.keys=[...] _serialized=... $1=...` and report.
+Rollback target `309946d`, 30-minute window.
+
+Reading the result:
+- `_serialized=undefined $1=string(n)` → hypothesis confirmed; a ~3-line fix follows.
+- `_serialized=string(n)` → refuted here; the rename is ruled out as our cause.
 
 ## 6. RECEIPTS (verbatim, 2026-08-25 AEST)
 
@@ -120,3 +161,5 @@ R14 `required_PR_reviews=true  enforce_admins=true` → direct push to main bloc
 | 2026-08-20 | False "QR presented" alarm | Treated HTTP 200 on `/recovery/whatsapp-qr` as a QR; that endpoint always serves a page shell on the laptop | Assert on the payload (`data:image`/`<canvas`), never the status code |
 | 2026-08-21 | Nearly killed the live WhatsApp client | Instruction said "expect the 11 chrome procs from 15:51"; count matched but identity did not | Verify process identity (parent + start time), never count alone |
 | 2026-08-25 | Ran `pnpm install --frozen-lockfile` inside the real repo during a sandbox-only comparison | Convenience; brief said disposable directory only | Sandbox work stays in the sandbox |
+| 2026-08-25 | `windows` CI failed on a test I had no lock-time receipt for | Verified only the files I touched; the suite is wider than the change | Before pushing, receipt the whole job the branch will run, not just the changed files |
+| 2026-08-25 | Declared PR #26's merge as owner-only in the contract | Mis-classified a capability I have and had already used four times | Check own capability before declaring a dependency user-only |
