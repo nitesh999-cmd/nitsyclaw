@@ -3602,3 +3602,51 @@ as its cause. The Semgrep findings were repo-wide, not branch-new. The Windows t
 contention, not slow tests. In both cases the cheap fix (suppress; raise the timeout) would
 have produced a green board and a worse system. Measure the thing in isolation and on the
 other platform before you believe where the problem lives.
+
+## ENVIRONMENT PASSPORT
+
+Frozen facts for this machine. Re-confirm by touching the environment (`tool --version`),
+never by re-reading this table. Any entry older than 30 days reverts to a full check.
+
+| Fact | Value | Verified | Receipt |
+|---|---|---|---|
+| Node (bot runtime) | v24.18.0 | 2026-08-25 | `node --version` |
+| pnpm | 10.33.2 (`packageManager` pinned) | 2026-08-25 | `pnpm --version` |
+| OS | Windows 11 Pro 10.0.26200 | 2026-08-25 | `Win32_OperatingSystem.Caption` |
+| whatsapp-web.js | 1.34.7 (declares puppeteer **exactly** 24.38.0) | 2026-08-25 | resolved from `apps/bot` |
+| puppeteer | 25.5.0 (override; do NOT revert — see gotchas) | 2026-08-25 | resolved via whatsapp-web.js |
+| Chromium | 151.0.7922.71 | 2026-08-21 | `executablePath()` + launch |
+| Local ASR | Handy `handy.exe`, nemotron-3.5-asr-streaming-0.6b-Q8_0 | 2026-08-20 | harness transcript, 55 chars / 1.4s |
+| ffmpeg / ffprobe | 8.1.2-full_build (WinGet shim, 0-byte reparse point) | 2026-08-20 | `-version` |
+| Bot health port | `http://127.0.0.1:3010/health` | 2026-08-25 | live |
+| Laptop checkout | `C:\Users\Nitesh\projects\NitsyClaw`, branch `codex/whatsapp-voice-intelligence` | 2026-08-25 | `git rev-parse` |
+| WhatsApp session | `~/.nitsyclaw/secrets/.wa-session` (NOT `.wwebjs_auth`) | 2026-08-19 | `whatsappSessionDir()` |
+| DB pooler | `…pooler.supabase.com:6543` — **transaction** pooler | 2026-08-20 | `SHOW` / connection |
+| `DATABASE_URL_DIRECT` | DNS does not resolve | 2026-08-20 | `getaddrinfo ENOENT` |
+| Broom watchdog | scheduled task, 2-min cycle; **needs elevation to enable/disable** | 2026-08-25 | `Access is denied` unelevated |
+| Branch protection | `main`: 5 required checks, strict, enforce_admins — **direct push blocked** | 2026-08-25 | protection API |
+
+### Standing gotchas
+
+- **Never** issue `SET` / `SET SESSION CHARACTERISTICS` on the 6543 pooler. It leaks to shared
+  backends and breaks every writer with sqlstate 25006. Plain `SELECT` only.
+- `/recovery/whatsapp-qr` returns **200 with a page shell** on the laptop and **404** on
+  Railway (no-client mode). Detect a real QR by payload (`data:image`, `<canvas`), never by status code.
+- Reverting puppeteer to 24.38.0 reintroduces `extract-zip@2.0.1` → **GHSA-jmr9-qjv8-65gv**
+  (high; `patched: <0.0.0`, no fix has ever shipped). Guarded by `dependency-lock.test.ts`.
+  Proposed 2026-08-25, rejected on evidence.
+- Inbound `downloadMedia()` is broken for **all** media (ptt + image) — opaque `r: r` thrown
+  from Puppeteer's in-page evaluate. Upstream: wwebjs#201833 / #201828. Open lead: WhatsApp's
+  2026-07 web update may have renamed `id._serialized` → `id.$1`; we read `_serialized` at
+  `wwebjs-client.ts:727,740,832`. **Unconfirmed here** — we never log the message id.
+- The bot has died silently 6+ times with no logged cause. Improved logging is live since
+  `4490f03`; the next death should name itself.
+
+## FIXES LOG
+
+| Date | What broke | Root cause chain | Rule added |
+|---|---|---|---|
+| 2026-08-20 | Production DB writes failed ~40 min (sqlstate 25006) | read-only guard → issued on the 6543 **transaction** pooler → setting stuck to a shared backend → every writer failed | Plain `SELECT` only on the pooler; never session-level `SET` |
+| 2026-08-20 | False "QR presented" stop, mid-cutover | asserted on HTTP 200 rather than payload → the laptop always serves the recovery shell | Assert on payload, never status code |
+| 2026-08-21 | Nearly killed the live WhatsApp client | matched process **count** (11) not identity → they were the new healthy Chromium tree, not orphans | Verify parent PID + start time before any kill |
+| 2026-08-25 | Sandbox-only command run inside the real repo | convenience during the dependency comparison | Sandbox work stays in the sandbox |
