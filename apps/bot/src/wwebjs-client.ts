@@ -125,6 +125,77 @@ export function describeMessageIdShape(id: unknown): string {
   return `id.keys=[${keys.join(",")}] _serialized=${has("_serialized")} $1=${has("$1")}`;
 }
 
+/**
+ * A serialized MESSAGE id: `<fromMe>_<remote>_<id>` with an optional trailing
+ * `_<participant>` for group messages, e.g. `true_<jid>@c.us_<HEX>`.
+ *
+ * Deliberately narrow. Chat ids (`<jid>@c.us`), contact ids and every other
+ * WhatsApp identifier object fail this test, so a `$1` found on one of those is
+ * never mistaken for a message id.
+ */
+const SERIALIZED_MESSAGE_ID = /^(?:true|false)_[^_\s]+@[^_\s]+_[^\s]+$/;
+
+/**
+ * The serialized id for a message, tolerating an id that carries `$1` instead
+ * of `_serialized`.
+ *
+ * What the probe actually observed on an inbound image (2026-09-09):
+ * `id.keys=[$1,fromMe,id,remote,self] _serialized=undefined $1=string(61)`.
+ * That is the whole basis for this fallback — `_serialized` missing, and a
+ * string-valued `$1` present. When the rename happened upstream, and whether
+ * `$1` is a rename of the same getter rather than a separate field, are not
+ * established here.
+ *
+ * An existing `_serialized` always wins, so ids that still carry it are
+ * unaffected. `$1` is accepted only when it matches SERIALIZED_MESSAGE_ID.
+ */
+export function resolveSerializedMessageId(id: unknown): string | undefined {
+  if (id === null || typeof id !== "object") return undefined;
+  const record = id as { _serialized?: unknown; $1?: unknown };
+  if (typeof record._serialized === "string" && record._serialized.length > 0) {
+    return record._serialized;
+  }
+  if (typeof record.$1 !== "string") return undefined;
+  const candidate = record.$1.trim();
+  return SERIALIZED_MESSAGE_ID.test(candidate) ? candidate : undefined;
+}
+
+/**
+ * Backfills `message.id._serialized` before whatsapp-web.js reads it.
+ *
+ * whatsapp-web.js 1.34.7 ends downloadMedia() with
+ * `}, this.id._serialized);` (src/structures/Message.js), so the id never
+ * passes through our code on its way into the page — the library reads the
+ * property itself. An id carrying only `$1` therefore hands `undefined` to the
+ * page-side lookup. Writing the resolved value back onto the same object is the
+ * only way to change what that call receives without patching node_modules.
+ *
+ * Media downloads on such messages were observed failing with an opaque
+ * `r: r` from inside the page. Supplying the id is necessary for the lookup to
+ * have anything to find; that it is sufficient to make the download succeed is
+ * not established until a real download returns media.
+ *
+ * Never overwrites an existing value, and returns false rather than throwing if
+ * the id object refuses the write.
+ */
+export function ensureSerializedMessageId(message: unknown): boolean {
+  if (message === null || typeof message !== "object") return false;
+  const id = (message as { id?: unknown }).id;
+  if (id === null || typeof id !== "object") return false;
+  const record = id as { _serialized?: unknown };
+  if (typeof record._serialized === "string" && record._serialized.length > 0) {
+    return false;
+  }
+  const resolved = resolveSerializedMessageId(id);
+  if (!resolved) return false;
+  try {
+    (record as { _serialized?: string })._serialized = resolved;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function defaultHealthFilePath(): string {
   const cwd = process.cwd();
   if (cwd.replaceAll("\\", "/").endsWith("/apps/bot")) {
@@ -749,7 +820,7 @@ export class WwebjsClient implements WhatsAppClient {
         const body = m.body ?? "";
         const envelope = m as WwebMessageWithEnvelope;
         const fromMe = Boolean(envelope.fromMe);
-        const messageId = m.id?._serialized ?? "";
+        const messageId = resolveSerializedMessageId(m.id) ?? "";
 
         // SELF-CHAT ONLY: NitsyClaw must only respond to messages in YOUR self-chat,
         // not when you're typing in conversations with other contacts.
@@ -859,7 +930,7 @@ export class WwebjsClient implements WhatsAppClient {
         canSendFailureReply = true;
 
         const inbound: InboundMessage = {
-          id: m.id?._serialized ?? "",
+          id: resolveSerializedMessageId(m.id) ?? "",
           from: this.opts.ownerNumber,
           body,
           timestamp: new Date((m.timestamp ?? Date.now() / 1000) * 1000),
@@ -882,6 +953,13 @@ export class WwebjsClient implements WhatsAppClient {
                 // nothing usable. Capture the rejection at the boundary, where the
                 // media facts that identify WHICH message failed are still in scope,
                 // then rethrow unchanged so behaviour is identical.
+                //
+                // whatsapp-web.js 1.34.7 ends downloadMedia() with
+                // `}, this.id._serialized);`, reading the property off the
+                // message itself, so the id must be repaired on the object
+                // before the call — a value passed from here cannot reach it.
+                // No-op for ids that already carry `_serialized`.
+                const repairedId = ensureSerializedMessageId(m);
                 let media: Awaited<ReturnType<typeof m.downloadMedia>>;
                 try {
                   media = await m.downloadMedia();
@@ -892,9 +970,26 @@ export class WwebjsClient implements WhatsAppClient {
                     declaredSizeBytes: envelope._data?.size,
                     declaredDurationSeconds: envelope._data?.duration,
                     fromMe,
+                    repairedId,
                   });
                   throw error;
                 }
+                // downloadMedia() resolves with undefined when the page found no
+                // media (expired, REUPLOADING, or a 404). That is a failure, not
+                // a success, and it must not be reported as one.
+                if (!media) {
+                  logBotError(
+                    "[wwebjs] downloadMedia resolved without media",
+                    new Error("downloadMedia resolved without media"),
+                    { mediaType: m.type, repairedId, fromMe },
+                  );
+                  throw new Error("WhatsApp returned no media for this message.");
+                }
+                // Success evidence for the live verification. Shape and size
+                // only: never the media bytes, filename, id, key or URL.
+                console.log(
+                  `[wwebjs] media download ok: repairedId=${repairedId} mimetype=${media.mimetype} decodedBytes=${estimatedBase64Bytes(media.data)}`,
+                );
                 if (m.type === "ptt" || m.type === "audio") {
                   const estimatedBytes = estimatedBase64Bytes(media.data);
                   if (estimatedBytes > MAX_INBOUND_VOICE_BYTES) {
