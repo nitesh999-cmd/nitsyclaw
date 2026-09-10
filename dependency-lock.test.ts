@@ -223,13 +223,23 @@ const ADVISORY_POLICY: Array<{
 }> = [
   { name: "ip-address", floors: { 10: "10.3.1" }, rejects: ["10.3.0", "10.1.1", "10.3.1-rc.0", "9.9.9"], why: "GHSA-mwp4-54f8-5fhr" },
   { name: "puppeteer", floors: { 25: "25.5.0" }, rejects: ["25.4.9", "24.38.0", "25.5.0-rc.0"], why: "drops @puppeteer/browsers 2.x and extract-zip" },
-  { name: "sharp", floors: { 0: "0.35.3" }, rejects: ["0.35.2", "0.34.5", "0.35.3-rc.0", "1.0.0"], why: "GHSA-f88m-g3jw-g9cj" },
+  // 2026-09-10: floor raised 0.35.3 -> 0.35.4 for GHSA-rgj7-g3m4-5g8c. The
+  // original GHSA-f88m-g3jw-g9cj citation is kept, not replaced -- this is a
+  // second, later advisory on the same package, not a correction of the first.
+  { name: "sharp", floors: { 0: "0.35.4" }, rejects: ["0.35.3", "0.35.2", "0.34.5", "0.35.4-rc.0", "1.0.0"], why: "GHSA-f88m-g3jw-g9cj; floor raised again for GHSA-rgj7-g3m4-5g8c" },
   { name: "form-data", floors: { 4: "4.0.6" }, rejects: ["4.0.5", "4.0.6-rc.0", "4.0.7-rc.0+build.1", "3.0.4"], why: "GHSA-hmw2-7cc7-3qxx" },
   { name: "vite", floors: { 6: "6.4.3" }, rejects: ["6.4.2", "6.3.99", "7.0.0", "6.4.3-rc.0"], why: "GHSA-fx2h-pf6j-xcff" },
-  { name: "vitest", floors: { 4: "4.1.0" }, rejects: ["4.0.9", "3.9.9", "5.0.0"], why: "pairs with the pinned vite line" },
+  // 2026-09-10: floor raised 4.1.0 -> 4.1.11 for GHSA-82fw-gwwq-j7x9. A version
+  // between the old and new floor (4.1.10) is rejected explicitly so the guard
+  // proves it closes the actual vulnerable window, not just the boundary
+  // already covered by the old floor.
+  { name: "vitest", floors: { 4: "4.1.11" }, rejects: ["4.1.10", "4.0.9", "3.9.9", "5.0.0"], why: "GHSA-82fw-gwwq-j7x9; pairs with the pinned vite line" },
   { name: "drizzle-orm", floors: { 0: "0.45.2" }, rejects: ["0.45.1", "0.44.9", "1.0.0"], why: "override drizzle-orm@<0.45.2" },
   { name: "esbuild", floors: { 0: "0.28.1" }, rejects: ["0.28.0", "0.27.9", "1.0.0"], why: "override esbuild@<0.28.1" },
-  { name: "qs", floors: { 6: "6.15.2" }, rejects: ["6.15.1", "6.11.1", "7.0.0"], why: "override qs@>=6.11.1 <=6.15.1" },
+  // 2026-09-10: floor raised 6.15.2 -> 6.16.0. The prior target was itself
+  // GHSA-x5fp-wj9c-mxmx / GHSA-4mjr-xmp4-gh2g; "6.15.2" moves from floor to
+  // an explicit reject to prove the guard now refuses its own old target.
+  { name: "qs", floors: { 6: "6.16.0" }, rejects: ["6.15.2", "6.15.1", "6.11.1", "7.0.0"], why: "GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g" },
   { name: "postcss", floors: { 8: "8.5.23" }, rejects: ["8.5.22", "8.4.99", "9.0.0"], why: "override postcss@<8.5.23" },
   { name: "ws", floors: { 8: "8.21.0" }, rejects: ["8.20.1", "8.20.9", "7.5.10"], why: "override ws@>=8.0.0 <8.21.0" },
   {
@@ -239,8 +249,15 @@ const ADVISORY_POLICY: Array<{
     rejects: ["1.1.17", "2.1.3", "5.0.8", "3.0.0", "4.0.0"],
     why: "overrides on the 1.x, 2.x and 5.x lines",
   },
-  { name: "js-yaml", floors: { 4: "4.3.1" }, rejects: ["4.3.0", "4.0.0", "3.14.1"], why: "override js-yaml@>=4.0.0 <4.3.1" },
+  // 2026-09-10: floor raised 4.3.1 -> 4.3.2 for GHSA-2883-xcg3-v3hh; "4.3.1"
+  // moves from floor to an explicit reject for the same reason as qs above.
+  { name: "js-yaml", floors: { 4: "4.3.2" }, rejects: ["4.3.1", "4.3.0", "4.0.0", "3.14.1"], why: "GHSA-2883-xcg3-v3hh" },
   { name: "nanoid", floors: { 3: "3.3.18" }, rejects: ["3.3.11", "3.3.17", "4.0.0"], why: "override nanoid@>=3.0.0 <3.3.18" },
+  // 2026-09-10: new overrides, added with the resolved-version policy the
+  // structural coverage test below requires.
+  { name: "browserslist", floors: { 4: "4.28.7" }, rejects: ["4.28.6", "4.28.2", "5.0.0"], why: "GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g" },
+  { name: "baseline-browser-mapping", floors: { 2: "2.11.0" }, rejects: ["2.10.29", "2.10.44", "3.0.0"], why: "GHSA-w5vr-8v7q-w6rv" },
+  { name: "postcss-selector-parser", floors: { 6: "6.1.3" }, rejects: ["6.1.2", "6.1.0", "7.0.0"], why: "GHSA-w9m9-85wc-3x92" },
 ];
 
 /**
@@ -267,19 +284,22 @@ const EXPECTED_OVERRIDES: Record<string, string> = {
   "drizzle-orm@<0.45.2": "0.45.2",
   "esbuild@<0.28.1": "0.28.1",
   "basic-ftp@<=5.3.1": "5.3.1",
-  "qs@>=6.11.1 <=6.15.1": "6.15.2",
+  "qs@>=6.11.1 <6.16.0": "6.16.0",
   "postcss@<8.5.23": "8.5.23",
   "vite@<=6.4.2": "6.4.3",
   "ws@>=8.0.0 <8.21.0": "8.21.0",
   "brace-expansion@>=5.0.0 <5.0.9": "5.0.9",
   "brace-expansion@<1.1.18": "1.1.18",
   "brace-expansion@>=2.0.0 <2.1.4": "2.1.4",
-  "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
+  "js-yaml@>=4.0.0 <4.3.2": "4.3.2",
   "nanoid@>=3.0.0 <3.3.18": "3.3.18",
   "form-data@>=4.0.0 <4.0.6": "4.0.6",
   "ip-address@<10.3.1": "10.3.1",
   "puppeteer@<25.5.0": "25.5.0",
-  "sharp@<0.35.3": "0.35.3",
+  "sharp@<0.35.4": "0.35.4",
+  "browserslist@<4.28.7": "4.28.8",
+  "baseline-browser-mapping@<2.11.0": "2.11.20",
+  "postcss-selector-parser@<6.1.3": "6.1.4",
 };
 
 /** The declared override map, parsed structurally from direct children only. */
@@ -374,7 +394,8 @@ describe("dependency lock guard", () => {
   });
 
   test("checks every resolved Vite context, not just the first", () => {
-    const contexts = [...lockfile.matchAll(/@vitest\/mocker@4\.1\.0\(vite@(\d+\.\d+\.\d+[^)(]*)/gu)];
+    // 2026-09-10: vitest/mocker raised 4.1.0 -> 4.1.11 for GHSA-82fw-gwwq-j7x9.
+    const contexts = [...lockfile.matchAll(/@vitest\/mocker@4\.1\.11\(vite@(\d+\.\d+\.\d+[^)(]*)/gu)];
     expect(contexts.length, "vitest mocker must resolve against a pinned vite").toBeGreaterThan(0);
     for (const context of contexts) {
       expect(atLeastWithinMajor(context[1]!, "6.4.3"), `mocker vite context ${context[1]} must be >=6.4.3 <7`).toBe(true);

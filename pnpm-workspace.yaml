@@ -12,7 +12,11 @@ overrides:
   drizzle-orm@<0.45.2: '0.45.2'
   esbuild@<0.28.1: '0.28.1'
   basic-ftp@<=5.3.1: '5.3.1'
-  qs@>=6.11.1 <=6.15.1: '6.15.2'
+  # 2026-09-10: widened and re-targeted. The prior '6.15.2' target is itself
+  # GHSA-x5fp-wj9c-mxmx / GHSA-4mjr-xmp4-gh2g (resolved via
+  # apps__bot>googleapis>googleapis-common>qs); the old upper bound
+  # (<=6.15.1) never covered it. '6.16.0' is the advisory-clearing release.
+  qs@>=6.11.1 <6.16.0: '6.16.0'
   # Carried over, advanced to the advisory-clearing version.
   postcss@<8.5.23: '8.5.23'
   vite@<=6.4.2: '6.4.3'
@@ -22,7 +26,9 @@ overrides:
   # never forced onto another.
   brace-expansion@<1.1.18: '1.1.18'
   brace-expansion@>=2.0.0 <2.1.4: '2.1.4'
-  js-yaml@>=4.0.0 <4.3.1: '4.3.1'
+  # 2026-09-10: prior target '4.3.1' is itself GHSA-2883-xcg3-v3hh (resolved
+  # via .>eslint>@eslint/eslintrc>js-yaml). '4.3.2' clears it.
+  js-yaml@>=4.0.0 <4.3.2: '4.3.2'
   nanoid@>=3.0.0 <3.3.18: '3.3.18'
   form-data@>=4.0.0 <4.0.6: '4.0.6'
   # Replaces the removed unconditional `ip-address: 10.1.1` pin, which held the
@@ -33,8 +39,31 @@ overrides:
   # whatsapp-web.js@1.34.7 pins puppeteer to exactly 24.38.0; 25.5.0 is the first
   # release whose @puppeteer/browsers (3.1.0) drops extract-zip entirely.
   puppeteer@<25.5.0: '25.5.0'
-  # next@16.2.11 declares sharp ^0.34.5; 0.35.3 is the advisory-clearing version.
-  sharp@<0.35.3: '0.35.3'
+  # 2026-09-10: prior target '0.35.3' is itself GHSA-rgj7-g3m4-5g8c (resolved
+  # via apps__dashboard>next>sharp). next@16.3.4 now declares sharp ^0.35.4
+  # itself (verified against its published package.json), so this override
+  # would become redundant if next never regresses that range -- kept in
+  # place anyway, target advanced to '0.35.4', so a future next downgrade
+  # cannot silently reintroduce the vulnerable version without a visible edit
+  # here.
+  sharp@<0.35.4: '0.35.4'
+  # 2026-09-10: GHSA-c83g-rgw3-j3cx / GHSA-73wf-gq98-2v4g (resolved via
+  # apps__dashboard>autoprefixer>browserslist), patched >=4.28.7. Target is
+  # 4.28.8, not the newer 4.28.9 -- 4.28.9 was published inside this file's
+  # own minimumReleaseAge (10080 min / 7 days) window at pin time and pnpm
+  # would refuse it; 4.28.8 clears the advisory with margin and is old enough.
+  browserslist@<4.28.7: '4.28.8'
+  # GHSA-w5vr-8v7q-w6rv (patched >=2.11.0). browserslist@4.28.8's own
+  # package.json declares baseline-browser-mapping ^2.11.12, which alone would
+  # clear this -- but next@16.3.4 carries a SEPARATE, direct dependency on
+  # baseline-browser-mapping@2.10.29 that has nothing to do with browserslist
+  # (apps__dashboard>next>baseline-browser-mapping). Bumping browserslist left
+  # that second path vulnerable; a post-install audit is what caught it, not
+  # inspection of next's declared range. This override catches both paths.
+  baseline-browser-mapping@<2.11.0: '2.11.20'
+  # GHSA-w9m9-85wc-3x92 (resolved via apps__dashboard>tailwindcss>postcss-selector-parser),
+  # patched >=6.1.3 on the 6.x line tailwindcss@^6.0.11 already accepts.
+  postcss-selector-parser@<6.1.3: '6.1.4'
 # Supply-chain controls (pnpm >= 10.26). Newly published versions are not installed
 # immediately, transitive dependencies may not come from exotic sources, and a
 # resolved version may never be silently downgraded.
